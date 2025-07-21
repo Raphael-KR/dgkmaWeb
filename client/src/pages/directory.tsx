@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AppHeader } from "@/components/layout/app-header";
-import { BottomNavigation } from "@/components/layout/bottom-navigation";
+import SimpleNavigation from "@/components/simple-navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ export default function Directory() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
+      <SimpleNavigation />
       <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
