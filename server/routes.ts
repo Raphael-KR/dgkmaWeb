@@ -241,6 +241,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google Sheets 동기화 API (관리자 전용)
+  app.post("/api/admin/sync-alumni", async (req, res) => {
+    try {
+      // TODO: 관리자 권한 확인 추가
+      const syncedCount = await storage.syncAlumniFromGoogleSheets();
+      res.json({ 
+        message: `Google Sheets 동기화 완료: ${syncedCount}건 업데이트`,
+        syncedCount 
+      });
+    } catch (error) {
+      console.error("Alumni sync error:", error);
+      res.status(500).json({ message: "동기화 실패" });
+    }
+  });
+
+  // Google Sheets 연결 테스트 API
+  app.get("/api/admin/test-google-sheets", async (req, res) => {
+    try {
+      const { googleSheetsService } = await import("./google-sheets");
+      const isConnected = await googleSheetsService.testConnection();
+      
+      if (isConnected) {
+        const sampleData = await googleSheetsService.fetchAlumniData();
+        res.json({ 
+          connected: true, 
+          message: "Google Sheets 연결 성공",
+          sampleCount: sampleData.length
+        });
+      } else {
+        res.json({ 
+          connected: false, 
+          message: "Google Sheets 설정이 필요합니다" 
+        });
+      }
+    } catch (error) {
+      console.error("Google Sheets test error:", error);
+      res.status(500).json({ 
+        connected: false, 
+        message: "Google Sheets 연결 실패",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
