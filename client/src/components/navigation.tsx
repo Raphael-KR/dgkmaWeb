@@ -73,19 +73,19 @@ export default function Navigation({ isOpen, setIsOpen }: NavigationProps) {
       )}
 
       {/* Side Menu */}
-      <div className={`fixed top-0 left-0 h-full w-80 bg-white shadow-lg z-50 transform transition-transform duration-300 ${
+      <div className={`fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
           {/* Close Button */}
-          <div className="flex justify-end p-4">
+          <div className="flex justify-end p-4 safe-area-top">
             <Button
               variant="ghost"
-              size="icon"
+              className="h-11 w-11 p-0 hover:bg-gray-100 rounded-full transition-colors"
               onClick={() => setIsOpen(false)}
-              className="text-gray-500 hover:text-gray-700"
+              aria-label="메뉴 닫기"
             >
-              <X size={20} />
+              <X size={20} className="text-gray-500" />
             </Button>
           </div>
 

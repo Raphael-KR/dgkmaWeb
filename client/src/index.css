@@ -3,6 +3,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Apple-style safe area support */
+@layer utilities {
+  .safe-area-inset {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .pt-safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+}
+
+/* Improved focus states for accessibility */
+@layer base {
+  * {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-kakao-brown/50 focus-visible:ring-offset-2;
+  }
+  
+  /* Better tap highlights for mobile */
+  * {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Better font rendering */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
 :root {
   --background: hsl(0, 0%, 100%);
   --foreground: hsl(20, 14.3%, 4.1%);
