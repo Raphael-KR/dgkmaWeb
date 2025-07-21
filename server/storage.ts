@@ -285,16 +285,23 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('Starting Google Sheets sync...');
       
+      // 동기화 시작 알림
+      googleSheetsService.startSync();
+      
       // Google Sheets 연결 테스트
+      googleSheetsService.updateSyncProgress('Google Sheets 연결 테스트 중...');
       const isConnected = await googleSheetsService.testConnection();
       if (!isConnected) {
         console.log('Google Sheets not configured, skipping sync');
+        googleSheetsService.finishSync();
         return stats;
       }
       
       // Google Sheets에서 모든 동문 데이터 가져오기
+      googleSheetsService.updateSyncProgress('Google Sheets 데이터 로딩 중...');
       const googleAlumni = await googleSheetsService.fetchAlumniData();
       stats.total = googleAlumni.length;
+      googleSheetsService.updateSyncProgress('데이터 동기화 시작', 0, stats.total);
       
       if (googleAlumni.length === 0) {
         console.log('No alumni data found in Google Sheets');
@@ -304,6 +311,15 @@ export class DatabaseStorage implements IStorage {
       // 각 동문 데이터를 로컬 DB와 비교하여 업데이트
       for (let i = 0; i < googleAlumni.length; i++) {
         const alumniData = googleAlumni[i];
+        
+        // 진행상황 업데이트 (10명마다)
+        if (i % 10 === 0 || i === googleAlumni.length - 1) {
+          googleSheetsService.updateSyncProgress(
+            `동문 데이터 처리 중... (${i + 1}/${googleAlumni.length})`,
+            i + 1,
+            googleAlumni.length
+          );
+        }
         
         try {
           // 필수 데이터 검증 (휴대전화번호 포함)
@@ -315,6 +331,7 @@ export class DatabaseStorage implements IStorage {
               mobile: alumniData.mobile
             });
             stats.errors++;
+            googleSheetsService.updateSyncProgress(undefined, undefined, undefined, stats.errors);
             continue;
           }
           
@@ -360,6 +377,10 @@ export class DatabaseStorage implements IStorage {
       const finalCountResult = await db.select().from(alumniDatabase);
       const totalInDB = finalCountResult.length;
       
+      // 동기화 완료
+      googleSheetsService.updateSyncProgress('동기화 완료', stats.total, stats.total);
+      googleSheetsService.finishSync();
+      
       console.log(`Google Sheets sync completed:`);
       console.log(`- Google Sheets total: ${stats.total}`);
       console.log(`- New records synced: ${stats.synced}`);
@@ -370,6 +391,8 @@ export class DatabaseStorage implements IStorage {
       return stats;
     } catch (error) {
       console.error('Google Sheets sync failed:', error);
+      // 에러 시에도 동기화 상태 정리
+      googleSheetsService.finishSync();
       return stats;
     }
   }

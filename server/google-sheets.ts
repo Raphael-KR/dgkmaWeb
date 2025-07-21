@@ -20,6 +20,16 @@ export class GoogleSheetsService {
   private spreadsheetId: string | undefined;
   private cachedAlumniData: AlumniRecord[] | null = null;
   private headersLogged = false;
+  
+  // 동기화 진행상황 추적
+  private syncProgress = {
+    isRunning: false,
+    currentStep: '',
+    processed: 0,
+    total: 0,
+    startTime: 0,
+    errors: 0
+  };
 
   constructor() {
     this.spreadsheetId = process.env.ALUMNI_SPREADSHEET_ID;
@@ -242,6 +252,39 @@ export class GoogleSheetsService {
     }
     
     return exactMatch || null;
+  }
+
+  // 동기화 진행상황 조회
+  getSyncProgress() {
+    return { ...this.syncProgress };
+  }
+
+  // 동기화 진행상황 업데이트
+  updateSyncProgress(step: string, processed?: number, total?: number, errors?: number) {
+    this.syncProgress.currentStep = step;
+    if (processed !== undefined) this.syncProgress.processed = processed;
+    if (total !== undefined) this.syncProgress.total = total;
+    if (errors !== undefined) this.syncProgress.errors = errors;
+    
+    console.log(`Sync Progress: ${step} (${this.syncProgress.processed}/${this.syncProgress.total})`);
+  }
+
+  // 동기화 시작
+  startSync() {
+    this.syncProgress = {
+      isRunning: true,
+      currentStep: '동기화 준비 중...',
+      processed: 0,
+      total: 0,
+      startTime: Date.now(),
+      errors: 0
+    };
+  }
+
+  // 동기화 완료
+  finishSync() {
+    this.syncProgress.isRunning = false;
+    this.syncProgress.currentStep = '동기화 완료';
   }
 
   // 연결 테스트

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, RefreshCw, FileSpreadsheet, Users, AlertCircle } from "lucide-react";
@@ -14,12 +15,40 @@ export default function Admin() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
+  const [syncProgress, setSyncProgress] = useState<any>(null);
+  const [isPolling, setIsPolling] = useState(false);
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // 동기화 진행상황 폴링
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (isPolling) {
+      intervalId = setInterval(async () => {
+        try {
+          const response = await fetch("/api/admin/sync-progress", { credentials: "include" });
+          const progress = await response.json();
+          setSyncProgress(progress);
+          
+          // 동기화가 완료되면 폴링 중지
+          if (!progress.isRunning) {
+            setIsPolling(false);
+            setSyncProgress(null);
+          }
+        } catch (error) {
+          console.error('Progress polling error:', error);
+        }
+      }, 1000); // 1초마다 폴링
+    }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isPolling]);
 
   const { data: pendingRegistrations, isLoading } = useQuery({
     queryKey: ["/api/admin/pending-registrations"],
@@ -71,9 +100,12 @@ export default function Admin() {
     mutationFn: async () => {
       console.log('Starting alumni sync...');
       
+      // 동기화 시작 시 폴링 시작
+      setIsPolling(true);
+      
       // AbortController로 타임아웃 처리
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2분 타임아웃
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5분 타임아웃
       
       try {
         const response = await fetch("/api/admin/sync-alumni", {
@@ -97,6 +129,8 @@ export default function Admin() {
         return data;
       } catch (error) {
         clearTimeout(timeoutId);
+        setIsPolling(false); // 에러 시 폴링 중지
+        setSyncProgress(null);
         if (error instanceof Error && error.name === 'AbortError') {
           throw new Error('동기화 시간이 초과되었습니다.');
         }
@@ -105,6 +139,8 @@ export default function Admin() {
     },
     onSuccess: (data) => {
       console.log('Sync success:', data);
+      setIsPolling(false); // 성공 시 폴링 중지
+      setSyncProgress(null);
       toast({
         title: "동기화 완료",
         description: data.message || "동문 데이터가 성공적으로 동기화되었습니다.",
@@ -113,6 +149,8 @@ export default function Admin() {
     },
     onError: (error) => {
       console.error('Sync error:', error);
+      setIsPolling(false); // 에러 시 폴링 중지
+      setSyncProgress(null);
       toast({
         title: "동기화 실패",
         description: error instanceof Error ? error.message : "Google Sheets 동기화 중 오류가 발생했습니다.",
@@ -255,12 +293,47 @@ export default function Admin() {
                       Google Sheets의 동문 명단을 로컬 데이터베이스와 동기화합니다. 
                       새로운 동문 데이터가 추가되고 기존 정보가 업데이트됩니다.
                     </p>
+                    
+                    {/* 진행율 표시기 */}
+                    {syncProgress && syncProgress.isRunning && (
+                      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-blue-800">
+                            {syncProgress.currentStep}
+                          </span>
+                          <span className="text-xs text-blue-600">
+                            {syncProgress.processed}/{syncProgress.total}
+                            {syncProgress.total > 0 && ` (${Math.round((syncProgress.processed / syncProgress.total) * 100)}%)`}
+                          </span>
+                        </div>
+                        
+                        {syncProgress.total > 0 && (
+                          <Progress 
+                            value={(syncProgress.processed / syncProgress.total) * 100} 
+                            className="h-2 mb-2"
+                          />
+                        )}
+                        
+                        {syncProgress.errors > 0 && (
+                          <div className="text-xs text-red-600">
+                            오류: {syncProgress.errors}건
+                          </div>
+                        )}
+                        
+                        {syncProgress.startTime > 0 && (
+                          <div className="text-xs text-gray-500">
+                            경과 시간: {Math.round((Date.now() - syncProgress.startTime) / 1000)}초
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <Button
                       onClick={() => syncAlumniMutation.mutate()}
-                      disabled={syncAlumniMutation.isPending || !googleSheetsStatus?.connected}
+                      disabled={syncAlumniMutation.isPending || !googleSheetsStatus?.connected || isPolling}
                       className="w-full"
                     >
-                      {syncAlumniMutation.isPending ? (
+                      {syncAlumniMutation.isPending || isPolling ? (
                         <>
                           <LoadingSpinner className="mr-2" />
                           동기화 중...
