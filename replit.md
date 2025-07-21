@@ -163,6 +163,15 @@ The application is designed to replace fragmented communication channels with a 
 - 네비게이션 단순화: 하단 네비게이션을 5개 메뉴로 최종 정리 (홈, 정보, 게시판, 동문록, 내정보)
 - 사용자 피드백: "좋아요. 많이 깔끔해 졌습니다" - UI 단순화 및 모바일 최적화 완성
 
+### 2025-07-21: 데드 코드 제거 및 최적화
+- 사용되지 않는 import 정리: 각 페이지에서 실제 사용되지 않는 lucide-react 아이콘들 제거
+- 불필요한 변수 삭제: isMenuOpen, activeSection, setActiveSection 등 선언만 되고 사용되지 않는 상태 변수들 정리
+- 상수 정리: sidebar.tsx의 SIDEBAR_KEYBOARD_SHORTCUT 등 사용되지 않는 상수 제거
+- navigation.tsx 업데이트: 통합된 페이지 구조에 맞게 navigationItems 배열 수정
+- 주석 코드 제거: 주석처리된 import문 및 불필요한 코드 블록 삭제
+- LSP 진단 통과: 모든 코드 정리 후 타입스크립트 오류 없음 확인
+- 코드베이스 최적화: 번들 크기 감소 및 개발자 경험 향상을 위한 클린 코드 달성
+
 ### 2025-07-21: 검색 기능 구현
 - 우상단 알림 아이콘을 검색 아이콘으로 변경: 카카오톡 알림 방식에 맞춰 불필요한 알림 기능 제거
 - 전용 검색 페이지 구현 (/search): 게시글, 동문 정보 통합 검색 제공

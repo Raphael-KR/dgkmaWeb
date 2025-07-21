@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, X, Users, AlertCircle, RefreshCw, FileSpreadsheet } from "lucide-react";
+import { Check, X, RefreshCw, FileSpreadsheet } from "lucide-react";
 
 export default function Admin() {
   const { user } = useAuth();

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { LogOut, Edit, Settings, Shield, Download, CreditCard } from "lucide-react";
+import { LogOut, Download, CreditCard } from "lucide-react";
 
 export default function Profile() {
   const { user, logout } = useAuth();

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { CreditCard, BellRing, Users, Calendar, Heart, Download, Settings } from "lucide-react";
+import { CreditCard, BellRing, Heart } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -19,7 +19,6 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [obituaryUrl, setObituaryUrl] = useState("");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const { data: recentPosts, isLoading: postsLoading } = useQuery({
     queryKey: ["/api/posts"],
