@@ -69,23 +69,53 @@ export default function Admin() {
   // Google Sheets 동기화
   const syncAlumniMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/admin/sync-alumni", {
-        method: "POST",
-        credentials: "include",
-      });
-      return response.json();
+      console.log('Starting alumni sync...');
+      
+      // AbortController로 타임아웃 처리
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2분 타임아웃
+      
+      try {
+        const response = await fetch("/api/admin/sync-alumni", {
+          method: "POST",
+          credentials: "include",
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Sync response:', data);
+        return data;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error('동기화 시간이 초과되었습니다.');
+        }
+        throw error;
+      }
     },
     onSuccess: (data) => {
+      console.log('Sync success:', data);
       toast({
         title: "동기화 완료",
-        description: data.message,
+        description: data.message || "동문 데이터가 성공적으로 동기화되었습니다.",
       });
       refetchGoogleSheetsStatus();
     },
     onError: (error) => {
+      console.error('Sync error:', error);
       toast({
         title: "동기화 실패",
-        description: "Google Sheets 동기화 중 오류가 발생했습니다.",
+        description: error instanceof Error ? error.message : "Google Sheets 동기화 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     },

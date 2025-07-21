@@ -254,15 +254,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google Sheets 동기화 API (관리자 전용)
   app.post("/api/admin/sync-alumni", async (req, res) => {
     try {
+      console.log('Alumni sync API called');
+      
       // TODO: 관리자 권한 확인 추가
       const syncStats = await storage.syncAlumniFromGoogleSheets();
-      res.json({ 
+      
+      const response = { 
         message: `Google Sheets 동기화 완료: ${syncStats.synced}/${syncStats.total}건 업데이트`,
         stats: syncStats
-      });
+      };
+      
+      console.log('Sending response:', response);
+      res.json(response);
     } catch (error) {
       console.error("Alumni sync error:", error);
-      res.status(500).json({ message: "동기화 실패" });
+      res.status(500).json({ message: "동기화 실패", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
