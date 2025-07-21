@@ -332,8 +332,8 @@ export class DatabaseStorage implements IStorage {
             });
             stats.synced++;
             
-            if (stats.synced % 100 === 0) {
-              console.log(`Synced ${stats.synced}/${stats.total} alumni...`);
+            if (stats.synced % 50 === 0) {
+              console.log(`Progress: ${stats.synced}/${stats.total} new records synced (${Math.round((stats.synced/stats.total)*100)}%)`);
             }
           } else {
             // 기존 데이터가 있으면 스킵 (중복 방지)
@@ -347,7 +347,17 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
-      console.log(`Google Sheets sync completed: ${stats.synced}/${stats.total} synced, ${stats.errors} errors`);
+      // 최종 통계 확인
+      const finalCount = await db.select({ count: db.count() }).from(alumniDatabase);
+      const totalInDB = finalCount[0]?.count || 0;
+      
+      console.log(`Google Sheets sync completed:`);
+      console.log(`- Google Sheets total: ${stats.total}`);
+      console.log(`- New records synced: ${stats.synced}`);
+      console.log(`- Errors: ${stats.errors}`);
+      console.log(`- Total records in DB: ${totalInDB}`);
+      console.log(`- Remaining to sync: ${stats.total - totalInDB}`);
+      
       return stats;
     } catch (error) {
       console.error('Google Sheets sync failed:', error);
