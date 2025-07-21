@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,6 +17,9 @@ import About from "@/pages/about";
 import Executives from "@/pages/executives";
 import Bylaws from "@/pages/bylaws";
 import History from "@/pages/history";
+import { AppHeader } from "@/components/layout/app-header";
+import Navigation from "@/components/navigation";
+import BottomNavigation from "@/components/layout/bottom-navigation";
 
 function Router() {
   return (
@@ -37,12 +41,21 @@ function Router() {
 }
 
 function App() {
+  const [isNavOpen, setIsNavOpen] = useState(false);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <Toaster />
-          <Router />
+          <div className="min-h-screen bg-gray-50">
+            <AppHeader onMenuClick={() => setIsNavOpen(true)} />
+            <Navigation isOpen={isNavOpen} setIsOpen={setIsNavOpen} />
+            <Router>
+              <Switch>
+              </Switch>
+            </Router>
+            <BottomNavigation />
+          </div>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
