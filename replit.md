@@ -182,3 +182,13 @@ The application is designed to replace fragmented communication channels with a 
 - 데이터베이스 기존 게시글 카테고리 일괄 업데이트 완료
 - 카테고리 배지 스타일링 및 관련 코드 전면 수정
 - 사용자 피드백: "네. 좋아요" - 카테고리 용어 정리 승인
+
+### 2025-07-21: 동적 카테고리 시스템 구현
+- 새로운 categories 테이블 생성: 카테고리 관리를 데이터베이스 기반으로 전환
+- posts 테이블 스키마 수정: category 컬럼을 categoryId 외래키로 변경
+- 카테고리 속성 추가: displayName, color, badgeVariant, isActive, sortOrder 필드 구성
+- 기존 게시글 마이그레이션: 하드코딩된 카테고리명을 새 시스템으로 자동 변환
+- 백엔드 API 확장: categories CRUD 엔드포인트 추가 (/api/categories)
+- 프론트엔드 업데이트: boards, search, home 페이지에서 동적 카테고리 정보 활용
+- 카테고리별 배지 스타일: 데이터베이스에서 관리되는 badgeVariant로 동적 스타일 적용
+- 사용자 피드백: "잘 됩니다 :)" - 동적 카테고리 시스템 구현 완료
