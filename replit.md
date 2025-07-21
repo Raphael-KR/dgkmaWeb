@@ -226,3 +226,6 @@ The application is designed to replace fragmented communication channels with a 
 - 모든 페이지 적용: App.tsx를 통해 전역적으로 헤더가 렌더링되어 모든 페이지에서 동일한 알림 기능 제공
 - 중복 파일 정리: client/src/components/app-header.tsx 삭제 및 관련 import 4개 페이지에서 제거
 - 코드베이스 정리: 헤더 컴포넌트 단일화로 유지보수성 향상
+- 불필요한 페이지 파일 제거: about.tsx, executives.tsx, bylaws.tsx, history.tsx, payments.tsx 삭제
+- 리다이렉트 라우트 추가: 기존 정적 페이지 URL들을 /info로 자동 리다이렉트 처리
+- App.tsx 라우팅 정리: 통합된 페이지 구조에 맞게 import 및 라우트 정리

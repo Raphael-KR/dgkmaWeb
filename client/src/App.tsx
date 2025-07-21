@@ -9,18 +9,13 @@ import { AuthProvider } from "@/hooks/use-auth";
 
 import Home from "@/pages/home";
 import Login from "@/pages/login";
-import About from "@/pages/about";
 import NotFound from "@/pages/not-found";
 import Admin from "@/pages/admin";
 import Boards from "@/pages/boards";
 import Directory from "@/pages/directory";
-
 import Profile from "@/pages/profile";
 import Info from "@/pages/info";
 import Search from "@/pages/search";
-import Executives from "@/pages/executives";
-import Bylaws from "@/pages/bylaws";
-import History from "@/pages/history";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -31,17 +26,17 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
-      <Route path="/about" component={About} />
       <Route path="/admin" component={Admin} />
       <Route path="/boards" component={Boards} />
       <Route path="/directory" component={Directory} />
-
       <Route path="/profile" component={Profile} />
       <Route path="/info" component={Info} />
       <Route path="/search" component={Search} />
-      <Route path="/executives" component={Executives} />
-      <Route path="/bylaws" component={Bylaws} />
-      <Route path="/history" component={History} />
+      {/* Redirect old routes to /info */}
+      <Route path="/about" component={() => { window.location.href = '/info'; return null; }} />
+      <Route path="/executives" component={() => { window.location.href = '/info'; return null; }} />
+      <Route path="/bylaws" component={() => { window.location.href = '/info'; return null; }} />
+      <Route path="/history" component={() => { window.location.href = '/info'; return null; }} />
       <Route component={NotFound} />
     </Switch>
   );
