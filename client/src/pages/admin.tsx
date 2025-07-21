@@ -79,7 +79,7 @@ export default function Admin() {
     <div className="min-h-screen bg-kakao-gray">
       <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
       
-      <div className="max-w-md mx-auto px-4 pb-20 pt-4">
+      <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
           <h1 className="text-xl font-bold kakao-brown mb-6">관리자 패널</h1>
           
