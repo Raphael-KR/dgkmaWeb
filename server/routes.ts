@@ -272,6 +272,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 동기화 진행상황 조회 API
+  app.get("/api/admin/sync-progress", async (req, res) => {
+    try {
+      const { googleSheetsService } = await import("./google-sheets");
+      const progress = googleSheetsService.getSyncProgress();
+      res.json(progress);
+    } catch (error) {
+      console.error("Sync progress error:", error);
+      res.status(500).json({ error: "진행상황 조회 실패" });
+    }
+  });
+
   // Google Sheets 연결 테스트 API
   app.get("/api/admin/test-google-sheets", async (req, res) => {
     try {
