@@ -1,0 +1,73 @@
+**Project Name:** 동국한의동문회홈페이지
+
+**Project Description:**
+A responsive web-based system for automating the core operations of the Dongguk University Korean Medicine Alumni Association. The platform will replace fragmented communication (e.g., KakaoTalk, Naver Band) and manual administrative tasks (like obituary posting and membership approval) with an integrated online portal.
+
+**Target Platform:** Responsive Web (supports both desktop and mobile browsers)
+
+**Operating Environment:** Online only
+
+**Hosting Plan:**
+- Initial development and MVP: Replit hosting
+- Production deployment: AWS
+
+**Interface Style:**
+- Mobile-first design, optimized for KakaoTalk in-app browser
+- Clean, card-based layout with Kakao-inspired colors
+- Large buttons, legible Korean fonts (e.g., Noto Sans KR)
+- Minimal animations; content-focused UI
+
+**Example Applications for Inspiration:** None provided
+
+**Expected Outputs:**
+1. 게시글 (공지, 부고, 경조사 등)
+2. 회비 납부 내역 및 자동 영수증
+3. 사용자 가입 결과 (카카오 메시지 자동 알림)
+4. 관리자 알림 (회원 불일치, 회비 처리 등)
+5. 정적 콘텐츠 페이지 (동문회 소개, 연혁, 회칙 등)
+
+**Key Features:**
+1. 카카오싱크 기반 로그인 및 본인인증
+2. 졸업생 DB (stored in Google Spreadsheet)와 사용자 정보 자동 매칭
+   - If matched → auto registration
+   - If unmatched → alert sent to admin via KakaoTalk message
+3. 부고 자동 등록 시스템
+   - User submits a URL → obituary content is crawled and parsed
+   - If data is missing → user prompted to complete fields manually
+4. 회비 자동 수납 시스템
+   - Records transactions
+   - Generates downloadable/printable receipts
+5. 관리자 전용 기능
+   - Google SSO login
+   - Approve/reject pending registrations
+   - Manage Markdown-based 게시판 (unified DB table for all boards)
+   - Mass migration and post transfer between boards
+6. KakaoTalk group invite after registration (via API or open chat link)
+7. User-friendly 게시판 UI
+
+**Differentiation Points:**
+- Seamless integration with KakaoTalk
+- Automatic alumni identity verification via KakaoSync + graduation DB
+- Automated 경조사 posting (including obituary crawler)
+- One DB table for all 게시판 content (for easier migration & transfer)
+
+**Business Model:**
+- Operated by membership fees from alumni
+
+**Marketing Strategy:**
+- Initial SMS-based outreach using phone numbers from graduation DB
+
+**Success Metric:**
+- Number of registered members relative to total alumni
+
+**Execution Plan:**
+1. Build core features (auth, 게시판, 부고 시스템)
+2. Internal testing with leadership
+3. Closed beta testing
+4. Data migration from Naver Band and Daum Cafe
+5. Official launch
+
+**Language Preferences:**
+- Input language to Replit Agent: English
+- Output responses from Replit Agent: Korean
+- Application UI: Korean only
