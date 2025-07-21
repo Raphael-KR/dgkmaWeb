@@ -20,6 +20,11 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [obituaryUrl, setObituaryUrl] = useState("");
 
+  // 페이지 로드 시 최상단으로 스크롤
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const { data: recentPosts, isLoading: postsLoading } = useQuery({
     queryKey: ["/api/posts"],
     queryFn: async () => {
