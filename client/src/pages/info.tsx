@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,11 @@ import {
 
 export default function InfoPage() {
   const [activeSection, setActiveSection] = useState("about");
+
+  // 페이지 로드 시 최상단으로 스크롤
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
 
 

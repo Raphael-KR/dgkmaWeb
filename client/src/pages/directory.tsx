@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,11 @@ import { Search, Users } from "lucide-react";
 
 export default function Directory() {
   const [searchTerm, setSearchTerm] = useState("");
+
+  // 페이지 로드 시 최상단으로 스크롤
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
 
   // Mock alumni data

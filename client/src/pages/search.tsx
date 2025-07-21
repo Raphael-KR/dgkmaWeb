@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -16,6 +16,11 @@ export default function SearchPage() {
   const [location, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+
+  // 페이지 로드 시 최상단으로 스크롤
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // 게시글 검색
   const { data: posts, isLoading: postsLoading } = useQuery({

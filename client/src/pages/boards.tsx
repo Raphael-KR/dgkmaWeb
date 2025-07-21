@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,11 @@ import { type Category } from "@shared/schema";
 export default function Boards() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("all");
+
+  // 페이지 로드 시 최상단으로 스크롤
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/categories"],

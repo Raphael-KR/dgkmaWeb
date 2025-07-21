@@ -24,10 +24,11 @@ export default function Profile() {
     enabled: !!user?.id,
   });
 
-  // Scroll to payment section if coming from home page
+  // 페이지 로드 시 스크롤 처리
   useEffect(() => {
     const hash = window.location.hash;
     if (hash === '#payment-section') {
+      // 회비 관리 섹션으로 스크롤
       setTimeout(() => {
         const element = document.getElementById('payment-section');
         if (element) {
@@ -41,6 +42,9 @@ export default function Profile() {
           });
         }
       }, 100);
+    } else {
+      // 일반 페이지 진입 시 최상단으로 스크롤
+      window.scrollTo(0, 0);
     }
   }, [location]);
 
