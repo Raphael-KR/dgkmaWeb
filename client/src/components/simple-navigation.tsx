@@ -21,10 +21,7 @@ import {
 
 const navigationItems = [
   { path: "/", label: "홈", icon: <Home size={20} />, requiresAuth: true },
-  { path: "/about", label: "동문회 소개", icon: <Info size={20} /> },
-  { path: "/executives", label: "임원진", icon: <UserCheck size={20} /> },
-  { path: "/history", label: "연혁", icon: <Calendar size={20} /> },
-  { path: "/bylaws", label: "회칙", icon: <FileText size={20} /> },
+  { path: "/info", label: "동문회 정보", icon: <Info size={20} /> },
   { path: "/boards", label: "게시판", icon: <MessageSquare size={20} />, requiresAuth: true },
   { path: "/payments", label: "회비 납부", icon: <CreditCard size={20} />, requiresAuth: true },
   { path: "/directory", label: "동문 명부", icon: <Users size={20} />, requiresAuth: true },

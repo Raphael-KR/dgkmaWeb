@@ -17,6 +17,7 @@ import About from "@/pages/about";
 import Executives from "@/pages/executives";
 import Bylaws from "@/pages/bylaws";
 import History from "@/pages/history";
+import InfoPage from "@/pages/info";
 
 
 
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/directory" component={Directory} />
       <Route path="/profile" component={Profile} />
       <Route path="/admin" component={Admin} />
+      <Route path="/info" component={InfoPage} />
       <Route path="/about" component={About} />
       <Route path="/executives" component={Executives} />
       <Route path="/bylaws" component={Bylaws} />
