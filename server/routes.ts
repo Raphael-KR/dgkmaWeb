@@ -16,26 +16,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let user = await storage.getUserByKakaoId(kakaoId);
       
       if (!user) {
-        // For KakaoSync, we'll implement simplified registration
-        // Check if alumni exists in database first
-        const alumni = await storage.findAlumniByName(name);
+        // Check if alumni exists in Google Sheets first
+        const { googleSheetsService } = await import("./google-sheets");
+        const alumniMatches = await googleSheetsService.findAlumniByName(name);
         
-        if (alumni.length > 0) {
-          // Auto-register verified alumni with KakaoSync
+        if (alumniMatches.length > 0) {
+          console.log(`Auto-registering verified alumni: ${name}`);
+          
+          // Check if user already exists with this email or kakaoId
+          const existingUserByEmail = await storage.getUserByEmail?.(email);
+          const existingUserByKakao = await storage.getUserByKakaoId?.(kakaoId);
+          
+          if (existingUserByEmail) {
+            console.log("User already exists with this email, logging in");
+            res.json({ user: existingUserByEmail, token: "kakao-jwt-token" });
+            return;
+          }
+          
+          if (existingUserByKakao) {
+            console.log("User already exists with this KakaoId, logging in");
+            res.json({ user: existingUserByKakao, token: "kakao-jwt-token" });
+            return;
+          }
+          
           user = await storage.createUser({
             kakaoId,
             email,
             name,
             isVerified: true,
-            kakaoSyncEnabled: true, // Mark as KakaoSync user
+            kakaoSyncEnabled: true,
           });
-          
-          // Match with alumni record
-          const exactMatch = alumni.find(a => a.name === name);
-          if (exactMatch) {
-            await storage.updateAlumniMatch(exactMatch.id, user.id);
-          }
-          
           console.log("Auto-registered verified alumni:", user);
         } else {
           // For non-alumni, still create pending registration but indicate KakaoSync
