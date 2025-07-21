@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 
-import SimpleNavigation from "@/components/simple-navigation";
-import AppHeader from "@/components/app-header";
+
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function Boards() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("전체");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["/api/posts", selectedCategory === "전체" ? undefined : selectedCategory],
@@ -41,8 +40,7 @@ export default function Boards() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
-      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
