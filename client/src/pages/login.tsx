@@ -1,0 +1,79 @@
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { GraduationCap } from "lucide-react";
+
+export default function Login() {
+  const [, setLocation] = useLocation();
+  const { user, login, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  const handleKakaoLogin = async () => {
+    try {
+      // Mock Kakao login - implement with Kakao SDK in production
+      const mockKakaoData = {
+        kakaoId: "mock-kakao-id",
+        email: "user@example.com",
+        name: "김동문"
+      };
+      
+      await login(mockKakaoData);
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-kakao-gray">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-kakao-gray p-4">
+      <div className="max-w-md mx-auto pt-20">
+        <Card className="shadow-sm">
+          <CardContent className="p-6">
+            <div className="text-center">
+              <div className="w-20 h-20 kakao rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                <GraduationCap className="text-kakao-brown text-2xl" size={32} />
+              </div>
+              <h2 className="text-xl font-bold kakao-brown mb-2">
+                동국대학교 한의과대학 동문회에 오신 것을 환영합니다
+              </h2>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                동문 여러분과의 소통과 네트워킹을 위한 통합 플랫폼입니다.
+              </p>
+              
+              <Button 
+                className="w-full kakao font-bold py-4 px-6 rounded-xl mb-3 flex items-center justify-center space-x-3 transition-all hover:bg-yellow-400"
+                onClick={handleKakaoLogin}
+                disabled={isLoading}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z"/>
+                </svg>
+                <span>카카오로 로그인</span>
+              </Button>
+              
+              <p className="text-sm text-gray-500 leading-relaxed">
+                카카오싱크를 통한 본인인증으로<br />
+                졸업생 정보와 자동 매칭됩니다.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
