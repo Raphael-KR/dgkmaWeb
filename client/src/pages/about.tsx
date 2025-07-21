@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Navigation from "@/components/navigation";
+import SimpleNavigation from "@/components/simple-navigation";
 
 export default function About() {
   return (
     <div className="min-h-screen bg-kakao-gray p-4">
-      <Navigation />
+      <SimpleNavigation />
       <div className="max-w-4xl mx-auto space-y-6">
         <Card className="border-2 border-kakao-yellow">
           <CardHeader className="bg-kakao-yellow">

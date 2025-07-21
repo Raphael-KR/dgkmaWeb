@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import Navigation from "@/components/navigation";
+import SimpleNavigation from "@/components/simple-navigation";
 import { Mail, Phone, MapPin } from "lucide-react";
 
 export default function Executives() {
@@ -63,7 +63,7 @@ export default function Executives() {
 
   return (
     <div className="min-h-screen bg-kakao-gray p-4">
-      <Navigation />
+      <SimpleNavigation />
       <div className="max-w-6xl mx-auto space-y-6">
         <Card className="border-2 border-kakao-yellow">
           <CardHeader className="bg-kakao-yellow">

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Navigation from "@/components/navigation";
+import SimpleNavigation from "@/components/simple-navigation";
 import { Calendar, Users, Award, Building } from "lucide-react";
 
 export default function History() {
@@ -103,7 +103,7 @@ export default function History() {
 
   return (
     <div className="min-h-screen bg-kakao-gray p-4">
-      <Navigation />
+      <SimpleNavigation />
       <div className="max-w-4xl mx-auto space-y-6">
         <Card className="border-2 border-kakao-yellow">
           <CardHeader className="bg-kakao-yellow">

@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
-import Navigation from "@/components/navigation";
+import SimpleNavigation from "@/components/simple-navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [obituaryUrl, setObituaryUrl] = useState("");
+
 
   const { data: recentPosts, isLoading: postsLoading } = useQuery({
     queryKey: ["/api/posts"],
@@ -113,7 +114,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <Navigation />
+      <SimpleNavigation />
       <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
