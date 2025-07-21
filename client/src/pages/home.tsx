@@ -231,7 +231,11 @@ export default function Home() {
           ) : (
             <>
               {recentPosts?.map((post: any, index: number) => (
-                <div key={post.id} className="p-4 border-b border-gray-50 last:border-b-0">
+                <div 
+                  key={post.id} 
+                  className="p-4 border-b border-gray-50 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => setLocation(`/post/${post.id}`)}
+                >
                   <div className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
