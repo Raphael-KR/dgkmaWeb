@@ -1,12 +1,28 @@
 import { Bell, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface AppHeaderProps {
   onMenuClick: () => void;
 }
 
 export default function AppHeader({ onMenuClick }: AppHeaderProps) {
+  const [, setLocation] = useLocation();
+
+  const handleNotificationClick = () => {
+    // 홈으로 이동하고 최근게시글 섹션으로 스크롤
+    setLocation("/");
+    setTimeout(() => {
+      const recentPostsSection = document.getElementById("recent-posts-section");
+      if (recentPostsSection) {
+        recentPostsSection.scrollIntoView({ 
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+    }, 100);
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
       <div className="flex items-center justify-between px-4 h-14">
@@ -38,6 +54,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
             variant="ghost"
             size="icon"
             className="relative"
+            onClick={handleNotificationClick}
           >
             <Bell size={20} className="text-gray-600" />
             {/* Notification dot */}

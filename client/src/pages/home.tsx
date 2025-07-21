@@ -204,7 +204,7 @@ export default function Home() {
         </div>
 
         {/* Recent Posts Section */}
-        <Card className="shadow-sm mb-6">
+        <Card className="shadow-sm mb-6" id="recent-posts-section">
           <div className="p-6 border-b border-gray-100">
             <h3 className="text-lg font-bold text-gray-800">최근 게시글</h3>
           </div>
