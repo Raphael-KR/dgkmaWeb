@@ -17,6 +17,7 @@ import Directory from "@/pages/directory";
 
 import Profile from "@/pages/profile";
 import Info from "@/pages/info";
+import Search from "@/pages/search";
 import Executives from "@/pages/executives";
 import Bylaws from "@/pages/bylaws";
 import History from "@/pages/history";
@@ -37,6 +38,7 @@ function Router() {
 
       <Route path="/profile" component={Profile} />
       <Route path="/info" component={Info} />
+      <Route path="/search" component={Search} />
       <Route path="/executives" component={Executives} />
       <Route path="/bylaws" component={Bylaws} />
       <Route path="/history" component={History} />

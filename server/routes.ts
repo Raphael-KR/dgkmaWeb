@@ -104,6 +104,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search posts
+  app.get("/api/posts/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim() === "") {
+        return res.json([]);
+      }
+
+      const posts = await storage.searchPosts(query);
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to search posts" });
+    }
+  });
+
   // Obituary URL parsing route
   app.post("/api/obituary/parse", async (req, res) => {
     try {
