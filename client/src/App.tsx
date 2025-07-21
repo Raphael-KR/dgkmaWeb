@@ -53,12 +53,12 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <div className="min-h-screen bg-gray-50 pb-16">
-            <AppHeader onMenuClick={() => setIsNavOpen(true)} />
+            <AppHeader />
             <Navigation isOpen={isNavOpen} setIsOpen={setIsNavOpen} />
             <main>
               <Router />
             </main>
-            <BottomNavigation />
+            <BottomNavigation onMenuClick={() => setIsNavOpen(true)} />
           </div>
           <Toaster />
         </AuthProvider>
