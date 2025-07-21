@@ -18,9 +18,27 @@ export default function Admin() {
   const [syncProgress, setSyncProgress] = useState<any>(null);
   const [isPolling, setIsPolling] = useState(false);
 
-  // Scroll to top when component mounts
+  // 페이지 로드 시 스크롤을 맨 위로 + 진행중인 동기화 체크
   useEffect(() => {
     window.scrollTo(0, 0);
+    
+    // 페이지 로드 시 현재 동기화 상태 확인
+    const checkInitialSyncStatus = async () => {
+      try {
+        const response = await fetch("/api/admin/sync-progress", { credentials: "include" });
+        const progress = await response.json();
+        
+        if (progress.isRunning) {
+          console.log('Detected ongoing sync, resuming polling...');
+          setSyncProgress(progress);
+          setIsPolling(true);
+        }
+      } catch (error) {
+        console.error('Failed to check initial sync status:', error);
+      }
+    };
+    
+    checkInitialSyncStatus();
   }, []);
 
   // 동기화 진행상황 폴링
