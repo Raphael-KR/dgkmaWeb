@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Home, List, Users, User, Menu } from "lucide-react";
+import { Home, List, Users, User, Menu, Info } from "lucide-react";
 
 interface BottomNavigationProps {
   onMenuClick?: () => void;
@@ -11,6 +11,7 @@ export function BottomNavigation({ onMenuClick }: BottomNavigationProps = {}) {
 
   const navItems = [
     { path: "/", icon: Home, label: "홈" },
+    { path: "/info", icon: Info, label: "정보" },
     { path: "/boards", icon: List, label: "게시판" },
     { path: "/directory", icon: Users, label: "동문록" },
     { path: "/profile", icon: User, label: "내정보" },
