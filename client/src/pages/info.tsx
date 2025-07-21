@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import AppHeader from "@/components/app-header";
 import { 
   Mail, Phone, MapPin, Calendar, Users, Award, Building,
   Info, UserCheck, History, FileText, ChevronRight 
