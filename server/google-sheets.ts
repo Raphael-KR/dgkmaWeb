@@ -63,10 +63,9 @@ export class GoogleSheetsService {
       return [];
     }
 
-    // 캐시된 데이터가 있으면 반환
-    if (this.cachedAlumniData) {
-      return this.cachedAlumniData;
-    }
+    // 캐시 초기화 (정확한 분석을 위해)
+    this.cachedAlumniData = null;
+    this.headersLogged = false;
 
     try {
       const response = await this.sheets.spreadsheets.values.get({
@@ -79,20 +78,26 @@ export class GoogleSheetsService {
 
       // 헤더와 첫 몇 행 데이터 구조 확인 (한 번만 로그)
       if (!this.headersLogged && rows.length > 0) {
-        console.log('Spreadsheet headers:', rows[0]);
+        console.log(`Google Sheets raw data analysis:`);
+        console.log(`- Total rows from API: ${rows.length}`);
+        console.log('- Spreadsheet headers:', rows[0]);
         for (let i = 1; i < Math.min(6, rows.length); i++) {
-          console.log(`Row ${i}:`, rows[i]);
+          console.log(`- Row ${i}:`, rows[i]);
         }
         this.headersLogged = true;
       }
 
       // 첫 번째 행은 헤더로 건너뛰기
       // 스프레드시트 구조: [학과, 기수, 성명, 입학일자, 졸업일자, 주소, 핸드폰번호, 전화번호, 그룹, 상태, 동문회직책, 메모]
+      let skippedRows = 0;
+      let validRows = 0;
+      
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         
         // 헤더 행인지 확인
         if (row[0] === '학과' || row[2] === '성명') {
+          skippedRows++;
           continue;
         }
         
@@ -112,8 +117,26 @@ export class GoogleSheetsService {
             alumniPosition: row[10]?.toString().trim() || undefined,
             memo: row[11]?.toString().trim() || undefined,
           });
+          validRows++;
+        } else {
+          // 누락된 데이터 로그
+          if (i <= 10 || (row[0] || row[1] || row[2])) { // 첫 10개 또는 부분 데이터가 있는 경우만 로그
+            console.log(`Skipped row ${i} (missing required data):`, {
+              department: row[0],
+              generation: row[1], 
+              name: row[2]
+            });
+          }
+          skippedRows++;
         }
       }
+      
+      console.log(`Data processing summary:`);
+      console.log(`- Total raw rows: ${rows.length}`);
+      console.log(`- Valid alumni records: ${validRows}`);
+      console.log(`- Skipped rows: ${skippedRows}`);
+      console.log(`- Expected count: ${rows.length - 1} (excluding header)`);
+      console.log(`- Actual processed: ${alumniData.length}`);
 
       console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);
       
