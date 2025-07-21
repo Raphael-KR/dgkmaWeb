@@ -27,13 +27,13 @@ export default function Boards() {
     enabled: !!user,
   });
 
-  const categories = ["전체", "공지", "부고", "경조사", "일반"];
+  const categories = ["전체", "공지", "부고", "경사", "일반"];
 
   const getCategoryBadgeVariant = (category: string) => {
     switch (category) {
       case "부고": return "destructive";
       case "공지": return "default";
-      case "경조사": return "secondary";
+      case "경사": return "secondary";
       default: return "outline";
     }
   };
