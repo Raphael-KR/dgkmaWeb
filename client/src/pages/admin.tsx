@@ -27,26 +27,49 @@ export default function Admin() {
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
     
-    if (isPolling) {
-      intervalId = setInterval(async () => {
-        try {
-          const response = await fetch("/api/admin/sync-progress", { credentials: "include" });
-          const progress = await response.json();
-          setSyncProgress(progress);
-          
-          // 동기화가 완료되면 폴링 중지
-          if (!progress.isRunning) {
-            setIsPolling(false);
-            setSyncProgress(null);
-          }
-        } catch (error) {
-          console.error('Progress polling error:', error);
+    const checkProgress = async () => {
+      try {
+        const response = await fetch("/api/admin/sync-progress", { credentials: "include" });
+        const progress = await response.json();
+        console.log('Progress polling:', progress);
+        setSyncProgress(progress);
+        
+        // 동기화가 완료되면 폴링 중지
+        if (!progress.isRunning) {
+          console.log('Sync finished, stopping polling');
+          setIsPolling(false);
+          setSyncProgress(null);
+          return false; // 폴링 중지 신호
         }
-      }, 1000); // 1초마다 폴링
+        return true; // 폴링 계속
+      } catch (error) {
+        console.error('Progress polling error:', error);
+        // 에러 발생 시에도 폴링 중지
+        setIsPolling(false);
+        setSyncProgress(null);
+        return false;
+      }
+    };
+    
+    if (isPolling) {
+      // 즉시 첫 번째 체크 실행
+      checkProgress().then(shouldContinue => {
+        if (shouldContinue) {
+          intervalId = setInterval(() => {
+            checkProgress().then(shouldContinue => {
+              if (!shouldContinue && intervalId) {
+                clearInterval(intervalId);
+              }
+            });
+          }, 1000);
+        }
+      });
     }
     
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [isPolling]);
 
@@ -141,9 +164,21 @@ export default function Admin() {
       console.log('Sync success:', data);
       setIsPolling(false); // 성공 시 폴링 중지
       setSyncProgress(null);
+      
+      // 메시지 개선 - 새로 추가된 건수와 전체 건수 구분
+      const newRecords = data.stats?.synced || 0;
+      const totalRecords = data.stats?.total || 0;
+      
+      let description;
+      if (newRecords === 0) {
+        description = `모든 동문 데이터가 이미 최신 상태입니다. (총 ${totalRecords}건 확인완료)`;
+      } else {
+        description = `${newRecords}건의 새로운 동문 데이터가 추가되었습니다. (총 ${totalRecords}건)`;
+      }
+      
       toast({
         title: "동기화 완료",
-        description: data.message || "동문 데이터가 성공적으로 동기화되었습니다.",
+        description: description,
       });
       refetchGoogleSheetsStatus();
     },
