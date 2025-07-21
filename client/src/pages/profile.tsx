@@ -27,13 +27,6 @@ export default function Profile() {
     enabled: !!user?.id,
   });
 
-  if (!user) {
-    return null;
-  }
-
-  const currentYear = new Date().getFullYear();
-  const currentYearPayment = payments?.find((p: any) => p.year === currentYear);
-
   // Scroll to payment section if coming from home page
   useEffect(() => {
     const hash = window.location.hash;
@@ -46,6 +39,13 @@ export default function Profile() {
       }, 100);
     }
   }, [location]);
+
+  if (!user) {
+    return null;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const currentYearPayment = payments?.find((p: any) => p.year === currentYear);
 
   return (
     <div className="min-h-screen bg-kakao-gray">
