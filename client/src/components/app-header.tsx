@@ -1,5 +1,6 @@
 import { Bell, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 
 interface AppHeaderProps {
   onMenuClick: () => void;
@@ -19,14 +20,16 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
             <Menu size={20} className="text-gray-600" />
           </Button>
           
-          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white">
-            <img 
-              src="/attached_assets/dgkmalogo_1753111820390.png" 
-              alt="동국대학교 한의과대학 동문회 로고"
-              className="w-8 h-8 object-contain"
-            />
-          </div>
-          <h1 className="text-lg font-bold text-gray-900">동국한의동문회</h1>
+          <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white">
+              <img 
+                src="/attached_assets/dgkmalogo_1753111820390.png" 
+                alt="동국대학교 한의과대학 동문회 로고"
+                className="w-8 h-8 object-contain"
+              />
+            </div>
+            <h1 className="text-lg font-bold text-gray-900">동국한의동문회</h1>
+          </Link>
         </div>
 
         {/* Right side - Notification */}

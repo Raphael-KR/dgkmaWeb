@@ -127,3 +127,11 @@ The application is designed to replace fragmented communication channels with a 
 - Added static file serving for attached assets via Express server
 - Applied consistent header across all pages including static content pages
 - Header now features: hamburger menu (left) + logo + title (center-left) + notification bell (right)
+
+### 2025-07-21: Static Pages Consolidation
+- Consolidated four static pages (About, Executives, Bylaws, History) into single unified info page
+- Created tabbed navigation system for easy section switching within the info page
+- Each section maintains distinct visual separation while being part of unified experience
+- Updated navigation menu to show "동문회 정보" instead of individual page links
+- Implemented automatic redirection from old individual page URLs to new consolidated page
+- User feedback: "좋네. 마음에 들어" - confirmed satisfaction with consolidated design
