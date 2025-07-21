@@ -173,3 +173,6 @@ The application is designed to replace fragmented communication channels with a 
 - 모바일 최적화: 뒤로가기 버튼, 자동포커스, 터치 친화적 UI 구성
 - 검색어 하이라이팅 및 미리보기: 게시글 내용 100자 미리보기로 관련성 확인 지원
 - 검색 상태 관리: 검색어 없음/로딩중/결과 없음/결과 표시 상태별 적절한 UI 제공
+- 검색 페이지 헤더 제거: 사용자 요청에 따라 개별 헤더 삭제하여 UI 단순화 완료
+- API 라우트 충돌 해결: /api/posts/search와 /api/posts/:id 라우트 순서 수정으로 검색 기능 정상화
+- 사용자 피드백: "깔끔합니다" - 검색 기능 및 UI 개선 완료 확인
