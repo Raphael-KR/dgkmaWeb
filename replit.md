@@ -217,3 +217,10 @@ The application is designed to replace fragmented communication channels with a 
 - 3,390건 동문 데이터 연동 성공: 실시간 검색 및 자동 가입 승인 시스템 완료
 - 캐시 시스템 구현: 반복 API 호출 방지 및 성능 최적화
 - 동문 정확 매칭 성공: "강호권" 동문 실시간 검증 및 즉시 가입 처리 확인
+
+### 2025-07-21: 헤더 알림 아이콘 기능 구현
+- 공통 헤더 파일 확인: client/src/components/layout/app-header.tsx가 실제 전역 헤더
+- 알림 아이콘 추가: 헤더 우측에 Bell 아이콘 및 빨간 알림 점 표시
+- 클릭 이벤트 구현: 알림 아이콘 클릭 시 홈 페이지 '최근게시글' 섹션으로 자동 스크롤
+- 부드러운 스크롤 애니메이션: scrollIntoView를 통한 사용자 친화적 네비게이션
+- 모든 페이지 적용: App.tsx를 통해 전역적으로 헤더가 렌더링되어 모든 페이지에서 동일한 알림 기능 제공
