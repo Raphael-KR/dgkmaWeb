@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { CreditCard, BellRing, Heart } from "lucide-react";
+import { CreditCard, BellRing, Heart, Users } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
