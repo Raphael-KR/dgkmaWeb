@@ -1,5 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { AppHeader } from "@/components/layout/app-header";
+
 import SimpleNavigation from "@/components/simple-navigation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,6 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-kakao-gray">
       <SimpleNavigation />
-      <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
