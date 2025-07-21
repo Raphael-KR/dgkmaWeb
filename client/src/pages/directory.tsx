@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import SimpleNavigation from "@/components/simple-navigation";
+import AppHeader from "@/components/app-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Search, Users } from "lucide-react";
 
 export default function Directory() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Mock alumni data
   const alumni = [
@@ -42,7 +44,8 @@ export default function Directory() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <SimpleNavigation />
+      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">

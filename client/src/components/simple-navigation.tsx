@@ -32,10 +32,14 @@ const navigationItems = [
   { path: "/admin", label: "관리자", icon: <Shield size={20} />, requiresAuth: true, adminOnly: true }
 ];
 
-export default function SimpleNavigation() {
+interface SimpleNavigationProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+}
+
+export default function SimpleNavigation({ isOpen, setIsOpen }: SimpleNavigationProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
 
   const filteredItems = navigationItems.filter(item => {
     if (item.requiresAuth && !user) return false;
@@ -50,16 +54,6 @@ export default function SimpleNavigation() {
 
   return (
     <>
-      {/* Menu Button - Top Right */}
-      <div className="fixed top-4 right-4 z-50">
-        <Button 
-          size="icon"
-          className="bg-kakao-yellow border-kakao-brown text-kakao-brown hover:bg-yellow-400 shadow-lg"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <Menu size={20} />
-        </Button>
-      </div>
 
       {/* Overlay */}
       {isOpen && (
