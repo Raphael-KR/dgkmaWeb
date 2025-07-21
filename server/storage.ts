@@ -1,8 +1,8 @@
 import { 
-  users, posts, payments, alumniDatabase, pendingRegistrations,
+  users, posts, payments, alumniDatabase, pendingRegistrations, categories,
   type User, type InsertUser, type Post, type InsertPost, 
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
-  type PendingRegistration, type InsertPendingRegistration
+  type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or } from "drizzle-orm";
@@ -15,13 +15,21 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
   
+  // Category methods
+  getCategories(): Promise<Category[]>;
+  getCategory(id: number): Promise<Category | undefined>;
+  getCategoryByName(name: string): Promise<Category | undefined>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: number): Promise<boolean>;
+  
   // Post methods
-  getPosts(category?: string, limit?: number): Promise<Post[]>;
-  getPost(id: number): Promise<Post | undefined>;
+  getPosts(categoryName?: string, limit?: number): Promise<(Post & { category: Category })[]>;
+  getPost(id: number): Promise<(Post & { category: Category }) | undefined>;
   createPost(post: InsertPost): Promise<Post>;
   updatePost(id: number, post: Partial<InsertPost>): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
-  searchPosts(query: string): Promise<Post[]>;
+  searchPosts(query: string): Promise<(Post & { category: Category })[]>;
   
   // Payment methods
   getPaymentsByUser(userId: number): Promise<Payment[]>;
@@ -68,23 +76,85 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getPosts(category?: string, limit = 50): Promise<Post[]> {
-    if (category) {
-      return await db.select().from(posts)
-        .where(and(eq(posts.isPublished, true), eq(posts.category, category)))
-        .orderBy(desc(posts.createdAt))
-        .limit(limit);
-    } else {
-      return await db.select().from(posts)
-        .where(eq(posts.isPublished, true))
+  async getCategories(): Promise<Category[]> {
+    return await db.select().from(categories)
+      .where(eq(categories.isActive, true))
+      .orderBy(categories.sortOrder);
+  }
+
+  async getCategory(id: number): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category || undefined;
+  }
+
+  async getCategoryByName(name: string): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.name, name));
+    return category || undefined;
+  }
+
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const [category] = await db.insert(categories).values(insertCategory).returning();
+    return category;
+  }
+
+  async updateCategory(id: number, updateData: Partial<InsertCategory>): Promise<Category | undefined> {
+    const [category] = await db.update(categories)
+      .set({ ...updateData, updatedAt: new Date() })
+      .where(eq(categories.id, id))
+      .returning();
+    return category || undefined;
+  }
+
+  async deleteCategory(id: number): Promise<boolean> {
+    const result = await db.delete(categories).where(eq(categories.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getPosts(categoryName?: string, limit = 50): Promise<(Post & { category: Category })[]> {
+    const baseQuery = db.select({
+      id: posts.id,
+      title: posts.title,
+      content: posts.content,
+      categoryId: posts.categoryId,
+      authorId: posts.authorId,
+      isPublished: posts.isPublished,
+      createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      category: categories
+    })
+    .from(posts)
+    .innerJoin(categories, eq(posts.categoryId, categories.id))
+    .where(eq(posts.isPublished, true));
+
+    if (categoryName && categoryName !== 'all') {
+      return await baseQuery
+        .where(and(eq(posts.isPublished, true), eq(categories.name, categoryName)))
         .orderBy(desc(posts.createdAt))
         .limit(limit);
     }
+    
+    return await baseQuery
+      .orderBy(desc(posts.createdAt))
+      .limit(limit);
   }
 
-  async getPost(id: number): Promise<Post | undefined> {
-    const [post] = await db.select().from(posts).where(eq(posts.id, id));
-    return post || undefined;
+  async getPost(id: number): Promise<(Post & { category: Category }) | undefined> {
+    const [result] = await db.select({
+      id: posts.id,
+      title: posts.title,
+      content: posts.content,
+      categoryId: posts.categoryId,
+      authorId: posts.authorId,
+      isPublished: posts.isPublished,
+      createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      category: categories
+    })
+    .from(posts)
+    .innerJoin(categories, eq(posts.categoryId, categories.id))
+    .where(eq(posts.id, id));
+    
+    return result || undefined;
   }
 
   async createPost(insertPost: InsertPost): Promise<Post> {
@@ -158,20 +228,32 @@ export class DatabaseStorage implements IStorage {
     return registration || undefined;
   }
 
-  async searchPosts(query: string): Promise<Post[]> {
+  async searchPosts(query: string): Promise<(Post & { category: Category })[]> {
     const searchTerm = `%${query}%`;
-    return await db.select().from(posts)
-      .where(
-        and(
-          eq(posts.isPublished, true),
-          or(
-            like(posts.title, searchTerm),
-            like(posts.content, searchTerm)
-          )
+    return await db.select({
+      id: posts.id,
+      title: posts.title,
+      content: posts.content,
+      categoryId: posts.categoryId,
+      authorId: posts.authorId,
+      isPublished: posts.isPublished,
+      createdAt: posts.createdAt,
+      updatedAt: posts.updatedAt,
+      category: categories
+    })
+    .from(posts)
+    .innerJoin(categories, eq(posts.categoryId, categories.id))
+    .where(
+      and(
+        eq(posts.isPublished, true),
+        or(
+          like(posts.title, searchTerm),
+          like(posts.content, searchTerm)
         )
       )
-      .orderBy(desc(posts.createdAt))
-      .limit(20);
+    )
+    .orderBy(desc(posts.createdAt))
+    .limit(20);
   }
 }
 

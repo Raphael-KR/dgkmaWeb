@@ -152,15 +152,15 @@ export default function SearchPage() {
                 <Card 
                   key={`post-${post.id}`} 
                   className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => setLocation(`/boards?category=${post.category}`)}
+                  onClick={() => setLocation(`/boards?category=${post.category.name}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start space-x-3">
                       <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-2">
-                          <Badge variant={post.category === "부고" ? "destructive" : post.category === "공지" ? "default" : "secondary"}>
-                            {post.category}
+                          <Badge variant={post.category.badgeVariant as any}>
+                            {post.category.displayName}
                           </Badge>
                           <span className="text-xs text-gray-500">
                             {new Date(post.createdAt).toLocaleDateString()}

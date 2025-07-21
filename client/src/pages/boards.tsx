@@ -1,24 +1,26 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-
-
-
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type Category } from "@shared/schema";
 
 export default function Boards() {
   const { user } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState("전체");
+  const [selectedCategory, setSelectedCategory] = useState("all");
 
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ["/api/categories"],
+    enabled: !!user,
+  });
 
-  const { data: posts, isLoading } = useQuery({
-    queryKey: ["/api/posts", selectedCategory === "전체" ? undefined : selectedCategory],
+  const { data: posts, isLoading: postsLoading } = useQuery({
+    queryKey: ["/api/posts", selectedCategory === "all" ? undefined : selectedCategory],
     queryFn: async () => {
-      const url = selectedCategory === "전체" 
+      const url = selectedCategory === "all" 
         ? "/api/posts" 
         : `/api/posts?category=${encodeURIComponent(selectedCategory)}`;
       const response = await fetch(url, { credentials: "include" });
@@ -27,16 +29,7 @@ export default function Boards() {
     enabled: !!user,
   });
 
-  const categories = ["전체", "공지", "부고", "경사", "일반"];
-
-  const getCategoryBadgeVariant = (category: string) => {
-    switch (category) {
-      case "부고": return "destructive";
-      case "공지": return "default";
-      case "경사": return "secondary";
-      default: return "outline";
-    }
-  };
+  const isLoading = categoriesLoading || postsLoading;
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -48,9 +41,9 @@ export default function Boards() {
           
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-6">
-              {categories.map((category) => (
-                <TabsTrigger key={category} value={category} className="text-xs">
-                  {category}
+              {categories.map((category: Category) => (
+                <TabsTrigger key={category.name} value={category.name} className="text-xs">
+                  {category.displayName}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -74,8 +67,8 @@ export default function Boards() {
                         <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-2">
-                            <Badge variant={getCategoryBadgeVariant(post.category)}>
-                              {post.category}
+                            <Badge variant={post.category.badgeVariant as any}>
+                              {post.category.displayName}
                             </Badge>
                             <span className="text-xs text-gray-500">
                               {new Date(post.createdAt).toLocaleDateString()}
