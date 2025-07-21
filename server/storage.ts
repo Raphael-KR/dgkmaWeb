@@ -189,21 +189,13 @@ export class DatabaseStorage implements IStorage {
     return payment;
   }
 
-  async findAlumniByName(name: string): Promise<AlumniRecord[]> {
+  async findAlumniByName(name: string): Promise<any[]> {
     // Google Sheets에서 먼저 검색
     try {
       const googleResults = await googleSheetsService.findAlumniByName(name);
       if (googleResults.length > 0) {
-        // Google Sheets 결과를 로컬 DB 형식으로 변환
-        return googleResults.map(alumni => ({
-          id: 0, // 임시 ID
-          name: alumni.name,
-          graduationYear: alumni.graduationYear,
-          phoneNumber: alumni.phoneNumber || null,
-          email: alumni.email || null,
-          isMatched: false,
-          matchedUserId: null,
-        }));
+        console.log(`Found ${googleResults.length} matches in Google Sheets for ${name}`);
+        return googleResults;
       }
     } catch (error) {
       console.error('Error searching Google Sheets, falling back to local database:', error);
@@ -213,9 +205,21 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
   }
 
-  async findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined> {
+  async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {
+    // Google Sheets에서 먼저 검색
+    try {
+      const googleResult = await googleSheetsService.findExactMatch(name, generation);
+      if (googleResult) {
+        console.log(`Found exact match in Google Sheets: ${name} (${generation}기)`);
+        return googleResult;
+      }
+    } catch (error) {
+      console.error('Error searching Google Sheets:', error);
+    }
+    
+    // 로컬 데이터베이스에서 검색
     const [alumni] = await db.select().from(alumniDatabase)
-      .where(and(eq(alumniDatabase.name, name), eq(alumniDatabase.graduationYear, year)));
+      .where(and(eq(alumniDatabase.name, name), eq(alumniDatabase.generation, generation)));
     return alumni || undefined;
   }
 
@@ -275,7 +279,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Google Sheets에서 동문 데이터 동기화
-  async syncAlumniFromGoogleSheets(): Promise<number> {
+  async syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }> {
+    const stats = { total: 0, synced: 0, errors: 0 };
+    
     try {
       console.log('Starting Google Sheets sync...');
       
@@ -283,59 +289,58 @@ export class DatabaseStorage implements IStorage {
       const isConnected = await googleSheetsService.testConnection();
       if (!isConnected) {
         console.log('Google Sheets not configured, skipping sync');
-        return 0;
+        return stats;
       }
       
       // Google Sheets에서 모든 동문 데이터 가져오기
       const googleAlumni = await googleSheetsService.fetchAlumniData();
+      stats.total = googleAlumni.length;
+      
       if (googleAlumni.length === 0) {
         console.log('No alumni data found in Google Sheets');
-        return 0;
+        return stats;
       }
-      
-      let syncedCount = 0;
       
       // 각 동문 데이터를 로컬 DB와 비교하여 업데이트
       for (const alumniData of googleAlumni) {
         try {
-          // 기존 데이터 확인 (이름과 졸업년도로)
-          const existing = await this.findAlumniByNameAndYear(
+          // 기존 데이터 확인 (이름과 기수로)
+          const existing = await this.findAlumniByNameAndGeneration(
             alumniData.name, 
-            alumniData.graduationYear
+            alumniData.generation
           );
           
           if (!existing) {
             // 새로운 동문 데이터 추가
             await db.insert(alumniDatabase).values({
+              department: alumniData.department,
+              generation: alumniData.generation,
               name: alumniData.name,
-              graduationYear: alumniData.graduationYear,
-              phoneNumber: alumniData.phoneNumber || null,
-              email: alumniData.email || null,
+              admissionDate: alumniData.admissionDate || null,
+              graduationDate: alumniData.graduationDate || null,
+              address: alumniData.address || null,
+              mobile: alumniData.mobile || null,
+              phone: alumniData.phone || null,
+              group: alumniData.group || null,
+              status: alumniData.status || null,
+              alumniPosition: alumniData.alumniPosition || null,
+              memo: alumniData.memo || null,
               isMatched: false,
               matchedUserId: null,
             });
-            syncedCount++;
-          } else if (existing.phoneNumber !== alumniData.phoneNumber || 
-                     existing.email !== alumniData.email) {
-            // 기존 데이터 업데이트 (연락처 정보가 변경된 경우)
-            await db.update(alumniDatabase)
-              .set({
-                phoneNumber: alumniData.phoneNumber || null,
-                email: alumniData.email || null,
-              })
-              .where(eq(alumniDatabase.id, existing.id));
-            syncedCount++;
+            stats.synced++;
           }
         } catch (error) {
           console.error(`Error syncing alumni ${alumniData.name}:`, error);
+          stats.errors++;
         }
       }
       
-      console.log(`Google Sheets sync completed: ${syncedCount} records updated`);
-      return syncedCount;
+      console.log(`Google Sheets sync completed: ${stats.synced}/${stats.total} synced, ${stats.errors} errors`);
+      return stats;
     } catch (error) {
       console.error('Google Sheets sync failed:', error);
-      return 0;
+      return stats;
     }
   }
 }
