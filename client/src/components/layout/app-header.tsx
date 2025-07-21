@@ -1,8 +1,10 @@
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function AppHeader() {
+  const [location, setLocation] = useLocation();
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-md mx-auto px-4 py-3">
@@ -18,10 +20,7 @@ export function AppHeader() {
               variant="ghost" 
               size="sm" 
               className="p-2 text-gray-600 hover:text-kakao-brown"
-              onClick={() => {
-                // TODO: 검색 기능 구현
-                alert("검색 기능 구현 예정");
-              }}
+              onClick={() => setLocation("/search")}
             >
               <Search size={20} />
             </Button>

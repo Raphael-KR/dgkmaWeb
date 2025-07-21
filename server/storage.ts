@@ -5,7 +5,7 @@ import {
   type PendingRegistration, type InsertPendingRegistration
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, like, or } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -21,6 +21,7 @@ export interface IStorage {
   createPost(post: InsertPost): Promise<Post>;
   updatePost(id: number, post: Partial<InsertPost>): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
+  searchPosts(query: string): Promise<Post[]>;
   
   // Payment methods
   getPaymentsByUser(userId: number): Promise<Payment[]>;
@@ -155,6 +156,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pendingRegistrations.id, id))
       .returning();
     return registration || undefined;
+  }
+
+  async searchPosts(query: string): Promise<Post[]> {
+    const searchTerm = `%${query}%`;
+    return await db.select().from(posts)
+      .where(
+        and(
+          eq(posts.isPublished, true),
+          or(
+            like(posts.title, searchTerm),
+            like(posts.content, searchTerm)
+          )
+        )
+      )
+      .orderBy(desc(posts.createdAt))
+      .limit(20);
   }
 }
 
