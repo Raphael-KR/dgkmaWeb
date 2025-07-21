@@ -35,16 +35,23 @@ export interface KakaoUserInfo {
 // Initialize Kakao SDK
 export const initKakao = () => {
   if (typeof window !== "undefined" && window.Kakao) {
-    // Use a demo key for development - in production, this should be set via environment variable
-    const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY || "demo-kakao-key";
+    // Get JavaScript Key from environment variable
+    const kakaoKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY;
+    if (!kakaoKey) {
+      console.error("VITE_KAKAO_JAVASCRIPT_KEY is not set");
+      return;
+    }
+    
     if (!window.Kakao.isInitialized()) {
       try {
         window.Kakao.init(kakaoKey);
-        console.log("Kakao SDK initialized");
+        console.log("Kakao SDK initialized successfully");
       } catch (error) {
-        console.warn("Kakao SDK initialization failed:", error);
+        console.error("Kakao SDK initialization failed:", error);
       }
     }
+  } else {
+    console.warn("Kakao SDK not available");
   }
 };
 
@@ -56,24 +63,36 @@ export const kakaoLogin = (): Promise<{ kakaoId: string; email: string; name: st
       return;
     }
 
+    if (!window.Kakao.isInitialized()) {
+      reject(new Error("Kakao SDK not initialized"));
+      return;
+    }
+
     window.Kakao.Auth.login({
       success: (authObj: KakaoAuthResponse) => {
+        console.log("Kakao auth success:", authObj);
+        
+        // Request user information
         window.Kakao.API.request({
           url: "/v2/user/me",
           success: (userInfo: KakaoUserInfo) => {
+            console.log("Kakao user info:", userInfo);
+            
             resolve({
               kakaoId: userInfo.id.toString(),
-              email: userInfo.kakao_account.email,
-              name: userInfo.properties.nickname,
+              email: userInfo.kakao_account?.email || `user${userInfo.id}@example.com`,
+              name: userInfo.properties?.nickname || userInfo.kakao_account?.profile?.nickname || "카카오 사용자",
             });
           },
           fail: (error: any) => {
-            reject(new Error("Failed to get user info"));
+            console.error("Failed to get user info:", error);
+            reject(new Error("Failed to get user info: " + JSON.stringify(error)));
           },
         });
       },
       fail: (error: any) => {
-        reject(new Error("Kakao login failed"));
+        console.error("Kakao login failed:", error);
+        reject(new Error("Kakao login failed: " + JSON.stringify(error)));
       },
     });
   });
