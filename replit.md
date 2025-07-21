@@ -145,3 +145,11 @@ The application is designed to replace fragmented communication channels with a 
 - CSS 파일에 적절한 bg-kakao-yellow, text-kakao-brown 클래스 추가
 - 데이터베이스 연결 확인 및 정상 작동 검증
 - 사용자 선호도 추가: 모든 응답과 로그를 한국어로 작성
+
+### 2025-07-21: UI 개선 및 통합
+- /admin 페이지의 헤더-제목 간 간격 문제 해결: 다른 페이지와 일치하도록 pt-4 클래스 제거
+- /profile 페이지에 /payments 기능 통합: 회비 관리를 별도 페이지가 아닌 프로필 내 섹션으로 이동
+- 네비게이션 구조 개편: 기존 payments 라우트 제거, 모든 결제 관련 기능을 profile로 통합
+- 햄버거 메뉴 위치 변경: 헤더에서 제거하고 하단 네비게이션 맨 오른쪽에 '전체' 메뉴로 배치
+- 하단 네비게이션 최적화: 5개 균등 배치 (홈, 게시판, 동문록, 내정보, 전체)
+- 사용자 피드백: "잘 되었네요" - 모든 변경사항에 대한 만족도 확인
