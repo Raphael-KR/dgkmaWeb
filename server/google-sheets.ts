@@ -132,14 +132,26 @@ export class GoogleSheetsService {
         }
       }
       
-      // 중복 이름 분석
+      // 휴대전화번호 중복 분석 (새로운 고유키 기준)
+      const mobileGroups = new Map<string, number>();
       const nameGroups = new Map<string, number>();
+      
       alumniData.forEach(alumni => {
-        const key = `${alumni.name}_${alumni.generation}`;
-        nameGroups.set(key, (nameGroups.get(key) || 0) + 1);
+        // 휴대전화번호 중복 체크
+        if (alumni.mobile) {
+          const mobile = alumni.mobile.trim();
+          mobileGroups.set(mobile, (mobileGroups.get(mobile) || 0) + 1);
+        }
+        
+        // 동명이인 분석 (참고용)
+        const nameKey = `${alumni.name}_${alumni.generation}`;
+        nameGroups.set(nameKey, (nameGroups.get(nameKey) || 0) + 1);
       });
       
-      const duplicates = Array.from(nameGroups.entries())
+      const mobileDuplicates = Array.from(mobileGroups.entries())
+        .filter(([mobile, count]) => count > 1);
+        
+      const nameDuplicates = Array.from(nameGroups.entries())
         .filter(([key, count]) => count > 1)
         .map(([key, count]) => {
           const [name, generation] = key.split('_');
@@ -152,16 +164,26 @@ export class GoogleSheetsService {
       console.log(`- Skipped rows: ${skippedRows}`);
       console.log(`- Expected count: ${rows.length - 1} (excluding header)`);
       console.log(`- Actual processed: ${alumniData.length}`);
-      console.log(`- Duplicate name/generation combinations: ${duplicates.length}`);
+      console.log(`- Mobile number duplicates: ${mobileDuplicates.length}`);
+      console.log(`- Same name/generation combinations: ${nameDuplicates.length} (동명이인)`);
       
-      if (duplicates.length > 0) {
-        console.log('==== FOUND DUPLICATES IN GOOGLE SHEETS ====');
-        duplicates.forEach(dup => {
-          console.log(`DUPLICATE: ${dup.name} (${dup.generation}기) appears ${dup.count} times`);
+      if (mobileDuplicates.length > 0) {
+        console.log('==== MOBILE NUMBER DUPLICATES (문제) ====');
+        mobileDuplicates.forEach(([mobile, count]) => {
+          console.log(`DUPLICATE MOBILE: ${mobile} appears ${count} times`);
         });
-        console.log('==== END DUPLICATES ====');
-      } else {
-        console.log('NO DUPLICATES FOUND in Google Sheets data');
+        console.log('==== END MOBILE DUPLICATES ====');
+      }
+      
+      if (nameDuplicates.length > 0) {
+        console.log('==== SAME NAME/GENERATION (동명이인, 정상) ====');
+        nameDuplicates.slice(0, 5).forEach(dup => {
+          console.log(`동명이인: ${dup.name} (${dup.generation}기) ${dup.count}명`);
+        });
+        if (nameDuplicates.length > 5) {
+          console.log(`... 및 ${nameDuplicates.length - 5}개 더`);
+        }
+        console.log('==== END SAME NAME ====');
       }
 
       console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);

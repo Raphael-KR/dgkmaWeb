@@ -60,7 +60,7 @@ export const alumniDatabase = pgTable("alumni_database", {
   admissionDate: text("admission_date"), // 입학일자
   graduationDate: text("graduation_date"), // 졸업일자
   address: text("address"), // 주소
-  mobile: text("mobile"), // 핸드폰번호
+  mobile: text("mobile").unique(), // 핸드폰번호 (고유키)
   phone: text("phone"), // 전화번호
   group: text("group"), // 그룹
   status: text("status"), // 상태

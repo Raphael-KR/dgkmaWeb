@@ -212,6 +212,17 @@ export class DatabaseStorage implements IStorage {
     return alumni || undefined;
   }
 
+  // 휴대전화번호로 동문 찾기 (고유키)
+  async findAlumniByMobile(mobile: string): Promise<any | undefined> {
+    if (!mobile || mobile.trim() === '') {
+      return undefined;
+    }
+    
+    const [alumni] = await db.select().from(alumniDatabase)
+      .where(eq(alumniDatabase.mobile, mobile.trim()));
+    return alumni || undefined;
+  }
+
   async updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined> {
     const [alumni] = await db.update(alumniDatabase)
       .set({ isMatched: true, matchedUserId: userId })
@@ -295,22 +306,20 @@ export class DatabaseStorage implements IStorage {
         const alumniData = googleAlumni[i];
         
         try {
-          // 필수 데이터 검증
-          if (!alumniData.name || !alumniData.generation || !alumniData.department) {
+          // 필수 데이터 검증 (휴대전화번호 포함)
+          if (!alumniData.name || !alumniData.generation || !alumniData.department || !alumniData.mobile) {
             console.log(`Skipping invalid alumni data at index ${i}:`, {
               name: alumniData.name,
               generation: alumniData.generation,
-              department: alumniData.department
+              department: alumniData.department,
+              mobile: alumniData.mobile
             });
             stats.errors++;
             continue;
           }
           
-          // 기존 데이터 확인 (이름과 기수로)
-          const existing = await this.findAlumniByNameAndGeneration(
-            alumniData.name, 
-            alumniData.generation
-          );
+          // 기존 데이터 확인 (휴대전화번호로)
+          const existing = await this.findAlumniByMobile(alumniData.mobile);
           
           if (!existing) {
             // 새로운 동문 데이터 추가
@@ -336,9 +345,9 @@ export class DatabaseStorage implements IStorage {
               console.log(`Progress: ${stats.synced}/${stats.total} new records synced (${Math.round((stats.synced/stats.total)*100)}%)`);
             }
           } else {
-            // 기존 데이터가 있으면 스킵 (중복 방지)
-            if (stats.synced % 500 === 0) {
-              console.log(`Skipped existing alumni: ${alumniData.name} (${alumniData.generation}기)`);
+            // 기존 데이터가 있으면 스킵 (휴대전화번호 중복 방지)
+            if (stats.synced < 50) { // 처음 50건만 상세 로그
+              console.log(`Skipped existing alumni (mobile exists): ${alumniData.name} (${alumniData.generation}기) - ${alumniData.mobile}`);
             }
           }
         } catch (error) {
