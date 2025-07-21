@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
@@ -19,9 +18,8 @@ import Executives from "@/pages/executives";
 import Bylaws from "@/pages/bylaws";
 import History from "@/pages/history";
 import InfoPage from "@/pages/info";
-import { AppHeader } from "@/components/layout/app-header";
-import Navigation from "@/components/navigation";
-import BottomNavigation from "@/components/layout/bottom-navigation";
+
+
 
 function Router() {
   return (
@@ -44,23 +42,12 @@ function Router() {
 }
 
 function App() {
-  const [isNavOpen, setIsNavOpen] = useState(false);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50 safe-area-inset">
-            <AppHeader onMenuClick={() => setIsNavOpen(true)} />
-            <Navigation isOpen={isNavOpen} setIsOpen={setIsNavOpen} />
-            
-            {/* Main Content with proper spacing */}
-            <main className="pb-20 pt-safe-top">
-              <Router />
-            </main>
-            
-            <BottomNavigation />
-            <Toaster />
+          <div className="min-h-screen bg-gray-50">
+            <Router />
           </div>
         </AuthProvider>
       </TooltipProvider>
