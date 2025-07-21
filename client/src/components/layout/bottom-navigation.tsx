@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Home, List, CreditCard, Users, User } from "lucide-react";
+import { Home, List, Users, User } from "lucide-react";
 
 export function BottomNavigation() {
   const [location, setLocation] = useLocation();
@@ -8,7 +8,6 @@ export function BottomNavigation() {
   const navItems = [
     { path: "/", icon: Home, label: "홈" },
     { path: "/boards", icon: List, label: "게시판" },
-    { path: "/payments", icon: CreditCard, label: "회비" },
     { path: "/directory", icon: Users, label: "동문록" },
     { path: "/profile", icon: User, label: "내정보" },
   ];

@@ -135,14 +135,14 @@ export default function Home() {
           <Button 
             variant="outline"
             className="bg-white rounded-xl shadow-sm p-6 h-auto flex-col space-y-3 hover:shadow-md"
-            onClick={() => setLocation("/payments")}
+            onClick={() => setLocation("/profile")}
           >
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <CreditCard className="text-blue-600" size={24} />
             </div>
             <div>
-              <h4 className="font-bold text-gray-800">회비 납부</h4>
-              <p className="text-sm text-gray-600">온라인 결제</p>
+              <h4 className="font-bold text-gray-800">회비 관리</h4>
+              <p className="text-sm text-gray-600">내 정보에서 확인</p>
             </div>
           </Button>
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 
 import SimpleNavigation from "@/components/simple-navigation";
@@ -8,15 +9,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { LogOut, Edit, Settings, Shield } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { LogOut, Edit, Settings, Shield, Download, CreditCard } from "lucide-react";
 
 export default function Profile() {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const { data: payments, isLoading: paymentsLoading } = useQuery({
+    queryKey: ["/api/payments/user", user?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/payments/user/${user?.id}`, { credentials: "include" });
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
   if (!user) {
     return null;
   }
+
+  const currentYear = new Date().getFullYear();
+  const currentYearPayment = payments?.find((p: any) => p.year === currentYear);
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -65,6 +79,99 @@ export default function Profile() {
                 <p className="font-medium">
                   {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"}
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Status */}
+          <Card className="shadow-sm mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">회비 관리</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Current Year Payment Status */}
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-3">{currentYear}년 연회비</p>
+                {currentYearPayment ? (
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div>
+                      <p className="font-bold text-green-800">납부완료</p>
+                      <p className="text-xs text-green-600">
+                        {new Date(currentYearPayment.createdAt).toLocaleDateString()} 납부
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-green-600">
+                        {currentYearPayment.amount.toLocaleString()}원
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-yellow-50 rounded-lg">
+                      <p className="font-bold text-yellow-800 text-sm">미납</p>
+                      <p className="text-xs text-yellow-600">
+                        {currentYear}년 연회비를 납부해 주세요.
+                      </p>
+                    </div>
+                    <Button 
+                      className="w-full kakao kakao-brown"
+                      size="sm"
+                      onClick={() => {
+                        // Mock payment processing
+                        alert("결제 시스템 연동 예정입니다. (토스페이, 카카오페이 등)");
+                      }}
+                    >
+                      <CreditCard className="mr-2" size={14} />
+                      50,000원 납부하기
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* Payment History Summary */}
+              <div>
+                <p className="text-sm text-gray-600 mb-3">납부 내역</p>
+                {paymentsLoading ? (
+                  <div className="flex justify-center py-3">
+                    <LoadingSpinner />
+                  </div>
+                ) : payments?.length === 0 ? (
+                  <p className="text-center text-gray-500 py-3 text-sm">
+                    납부 내역이 없습니다.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {payments?.slice(0, 3).map((payment: any) => (
+                      <div key={payment.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                        <div>
+                          <p className="font-medium">{payment.year}년 {payment.type}</p>
+                          <p className="text-xs text-gray-600">
+                            {new Date(payment.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">
+                            {payment.amount.toLocaleString()}원
+                          </p>
+                          <Badge 
+                            variant={payment.status === "completed" ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {payment.status === "completed" ? "완료" : "대기"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {payments?.length > 3 && (
+                      <p className="text-center text-xs text-gray-500 pt-2">
+                        총 {payments.length}건의 납부 내역
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

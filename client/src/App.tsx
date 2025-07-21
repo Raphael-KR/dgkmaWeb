@@ -14,7 +14,7 @@ import NotFound from "@/pages/not-found";
 import Admin from "@/pages/admin";
 import Boards from "@/pages/boards";
 import Directory from "@/pages/directory";
-import Payments from "@/pages/payments";
+
 import Profile from "@/pages/profile";
 import Info from "@/pages/info";
 import Executives from "@/pages/executives";
@@ -34,7 +34,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/boards" component={Boards} />
       <Route path="/directory" component={Directory} />
-      <Route path="/payments" component={Payments} />
+
       <Route path="/profile" component={Profile} />
       <Route path="/info" component={Info} />
       <Route path="/executives" component={Executives} />

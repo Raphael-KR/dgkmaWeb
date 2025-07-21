@@ -23,7 +23,7 @@ const navigationItems = [
   { path: "/", label: "홈", icon: <Home size={20} />, requiresAuth: true },
   { path: "/info", label: "동문회 정보", icon: <Info size={20} /> },
   { path: "/boards", label: "게시판", icon: <MessageSquare size={20} />, requiresAuth: true },
-  { path: "/payments", label: "회비 납부", icon: <CreditCard size={20} />, requiresAuth: true },
+
   { path: "/directory", label: "동문 명부", icon: <Users size={20} />, requiresAuth: true },
   { path: "/profile", label: "내 정보", icon: <User size={20} />, requiresAuth: true },
   { path: "/admin", label: "관리자", icon: <Shield size={20} />, requiresAuth: true, adminOnly: true }
