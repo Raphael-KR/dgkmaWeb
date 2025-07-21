@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
-import SimpleNavigation from "@/components/simple-navigation";
 import AppHeader from "@/components/app-header";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,7 @@ import { LogOut, Edit, Settings, Shield, Download, CreditCard } from "lucide-rea
 
 export default function Profile() {
   const { user, logout } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const [location, setLocation] = useLocation();
 
   const { data: payments, isLoading: paymentsLoading } = useQuery({

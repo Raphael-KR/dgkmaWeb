@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 
-import SimpleNavigation from "@/components/simple-navigation";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +14,7 @@ export default function Admin() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -82,8 +80,6 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
-      
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
           <h1 className="text-xl font-bold kakao-brown mb-6">관리자 패널</h1>
