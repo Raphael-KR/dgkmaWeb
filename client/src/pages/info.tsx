@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import SimpleNavigation from "@/components/simple-navigation";
 import AppHeader from "@/components/app-header";
 import { 
   Mail, Phone, MapPin, Calendar, Users, Award, Building,
@@ -12,7 +11,7 @@ import {
 } from "lucide-react";
 
 export default function InfoPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const [activeSection, setActiveSection] = useState("about");
 
   const sections = [
