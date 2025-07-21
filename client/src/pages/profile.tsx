@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
 import SimpleNavigation from "@/components/simple-navigation";
+import AppHeader from "@/components/app-header";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +12,7 @@ import { LogOut, Edit, Settings, Shield } from "lucide-react";
 
 export default function Profile() {
   const { user, logout } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   if (!user) {
     return null;
@@ -17,7 +20,8 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <SimpleNavigation />
+      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">

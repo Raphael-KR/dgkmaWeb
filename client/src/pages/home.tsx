@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 
 
 import SimpleNavigation from "@/components/simple-navigation";
+import AppHeader from "@/components/app-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [obituaryUrl, setObituaryUrl] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 
   const { data: recentPosts, isLoading: postsLoading } = useQuery({
@@ -114,7 +116,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <SimpleNavigation />
+      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         {/* User Welcome Section */}

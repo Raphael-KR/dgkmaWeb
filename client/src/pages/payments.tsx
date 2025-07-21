@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 
 import SimpleNavigation from "@/components/simple-navigation";
+import AppHeader from "@/components/app-header";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { Download, CreditCard } from "lucide-react";
 
 export default function Payments() {
   const { user } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ["/api/payments/user", user?.id],
@@ -26,7 +29,8 @@ export default function Payments() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <SimpleNavigation />
+      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
