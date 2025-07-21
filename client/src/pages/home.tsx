@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +20,6 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [obituaryUrl, setObituaryUrl] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
 
   const { data: recentPosts, isLoading: postsLoading } = useQuery({
     queryKey: ["/api/posts"],
@@ -98,6 +97,7 @@ export default function Home() {
     parseObituaryMutation.mutate(obituaryUrl);
   };
 
+  // Handle loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-kakao-gray">
@@ -106,6 +106,7 @@ export default function Home() {
     );
   }
 
+  // Handle unauthenticated state
   if (!user) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -150,8 +151,8 @@ export default function Home() {
             className="bg-white rounded-xl shadow-sm p-6 h-auto flex-col space-y-3 hover:shadow-md"
             onClick={() => setLocation("/boards")}
           >
-            <div className="w-12 h-12 kakao rounded-xl flex items-center justify-center">
-              <BellRing className="kakao-brown" size={24} />
+            <div className="w-12 h-12 bg-kakao-yellow rounded-xl flex items-center justify-center">
+              <BellRing className="text-kakao-brown" size={24} />
             </div>
             <div>
               <h4 className="font-bold text-gray-800">공지사항</h4>
@@ -226,7 +227,7 @@ export default function Home() {
                 onChange={(e) => setObituaryUrl(e.target.value)}
               />
               <Button 
-                className="kakao kakao-brown font-bold px-6 hover:bg-yellow-400"
+                className="bg-kakao-yellow text-kakao-brown font-bold px-6 hover:bg-yellow-400"
                 onClick={handleObituarySubmit}
                 disabled={parseObituaryMutation.isPending}
               >
@@ -292,8 +293,8 @@ export default function Home() {
               </Button>
 
               <Button variant="ghost" className="flex-col p-3 h-auto space-y-2">
-                <div className="w-10 h-10 kakao rounded-lg flex items-center justify-center">
-                  <svg className="kakao-brown" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <div className="w-10 h-10 bg-kakao-yellow rounded-lg flex items-center justify-center">
+                  <svg className="text-kakao-brown" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z"/>
                   </svg>
                 </div>
