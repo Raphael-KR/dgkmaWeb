@@ -171,6 +171,8 @@ The application is designed to replace fragmented communication channels with a 
 - 주석 코드 제거: 주석처리된 import문 및 불필요한 코드 블록 삭제
 - LSP 진단 통과: 모든 코드 정리 후 타입스크립트 오류 없음 확인
 - 코드베이스 최적화: 번들 크기 감소 및 개발자 경험 향상을 위한 클린 코드 달성
+- 누락된 import 복구: 코드 정리 중 제거된 실제 사용 중인 컴포넌트들(Tabs, 아이콘들, 상태변수) 모두 복원
+- 모든 페이지 에러 해결: home, profile, admin, search, info, boards 페이지의 runtime 에러 완전 제거
 
 ### 2025-07-21: 검색 기능 구현
 - 우상단 알림 아이콘을 검색 아이콘으로 변경: 카카오톡 알림 방식에 맞춰 불필요한 알림 기능 제거
