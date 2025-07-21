@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { AppHeader } from "@/components/layout/app-header";
+
 
 import SimpleNavigation from "@/components/simple-navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,7 +115,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-kakao-gray">
       <SimpleNavigation />
-      <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         {/* User Welcome Section */}

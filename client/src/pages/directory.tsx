@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AppHeader } from "@/components/layout/app-header";
+
 import SimpleNavigation from "@/components/simple-navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,6 @@ export default function Directory() {
   return (
     <div className="min-h-screen bg-kakao-gray">
       <SimpleNavigation />
-      <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
@@ -136,7 +135,7 @@ export default function Directory() {
         </div>
       </div>
 
-      <BottomNavigation />
+
     </div>
   );
 }
