@@ -66,9 +66,21 @@ export class GoogleSheetsService {
   // 특정 이름으로 동문 검색
   async findAlumniByName(name: string): Promise<AlumniRecord[]> {
     const allAlumni = await this.fetchAlumniData();
-    return allAlumni.filter(alumni => 
+    
+    // 정확한 이름 매칭 우선
+    const exactMatches = allAlumni.filter(alumni => alumni.name === name);
+    if (exactMatches.length > 0) {
+      console.log(`Found exact match for ${name}: ${exactMatches.length} records`);
+      return exactMatches;
+    }
+    
+    // 부분 매칭
+    const partialMatches = allAlumni.filter(alumni => 
       alumni.name.includes(name) || name.includes(alumni.name)
     );
+    
+    console.log(`Found ${partialMatches.length} partial matches for ${name}`);
+    return partialMatches;
   }
 
   // 정확한 이름과 졸업년도로 매칭
