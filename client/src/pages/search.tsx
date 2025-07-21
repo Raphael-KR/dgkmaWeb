@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-import { Search } from "lucide-react";
+import { Search, ArrowLeft, FileText, Users } from "lucide-react";
 
 export default function SearchPage() {
   const { user } = useAuth();
