@@ -28,7 +28,7 @@ export function AppHeader() {
             <div className="w-8 h-8 kakao rounded-full flex items-center justify-center">
               <GraduationCap className="kakao-brown" size={16} />
             </div>
-            <h1 className="text-lg font-bold kakao-brown">동국한의동문회</h1>
+            <h1 className="text-lg font-bold kakao-brown">동국대학교한의과대학동문회</h1>
           </div>
           <div className="flex items-center space-x-2">
             <Button 

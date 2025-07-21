@@ -1,16 +1,29 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Category } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertPostSchema, type Category, type InsertPost } from "@shared/schema";
+import { Plus } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Boards() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
 
   // 페이지 로드 시 최상단으로 스크롤
   useEffect(() => {
@@ -34,6 +47,55 @@ export default function Boards() {
     enabled: !!user,
   });
 
+  // 글쓰기 폼 설정
+  const writeForm = useForm<InsertPost>({
+    resolver: zodResolver(insertPostSchema.extend({
+      title: insertPostSchema.shape.title,
+      content: insertPostSchema.shape.content,
+      categoryId: insertPostSchema.shape.categoryId,
+    })),
+    defaultValues: {
+      title: "",
+      content: "",
+      categoryId: undefined,
+      authorId: user?.id,
+    },
+  });
+
+  // 게시글 작성 mutation
+  const createPostMutation = useMutation({
+    mutationFn: async (data: InsertPost) => {
+      return apiRequest("/api/posts", {
+        method: "POST",
+        body: data,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "게시글 작성 완료",
+        description: "게시글이 성공적으로 작성되었습니다.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      setIsWriteDialogOpen(false);
+      writeForm.reset();
+    },
+    onError: (error) => {
+      toast({
+        title: "게시글 작성 실패",
+        description: "게시글 작성 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+      console.error("Create post error:", error);
+    },
+  });
+
+  const onSubmitPost = (data: InsertPost) => {
+    createPostMutation.mutate({
+      ...data,
+      authorId: user?.id!,
+    });
+  };
+
   const isLoading = categoriesLoading || postsLoading;
 
   return (
@@ -42,7 +104,107 @@ export default function Boards() {
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
-          <h1 className="text-xl font-bold kakao-brown mb-4">게시판</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-kakao-brown">게시판</h1>
+            
+            {/* 글쓰기 버튼 */}
+            <Dialog open={isWriteDialogOpen} onOpenChange={setIsWriteDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
+                  <Plus size={16} className="mr-1" />
+                  글쓰기
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-sm mx-4">
+                <DialogHeader>
+                  <DialogTitle>새 게시글 작성</DialogTitle>
+                </DialogHeader>
+                
+                <Form {...writeForm}>
+                  <form onSubmit={writeForm.handleSubmit(onSubmitPost)} className="space-y-4">
+                    <FormField
+                      control={writeForm.control}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>카테고리</FormLabel>
+                          <Select
+                            onValueChange={(value) => field.onChange(parseInt(value))}
+                            value={field.value?.toString()}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="카테고리 선택" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {categories
+                                .filter((cat: Category) => cat.name !== "all")
+                                .map((category: Category) => (
+                                <SelectItem key={category.id} value={category.id.toString()}>
+                                  {category.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={writeForm.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>제목</FormLabel>
+                          <FormControl>
+                            <Input placeholder="게시글 제목을 입력하세요" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={writeForm.control}
+                      name="content"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>내용</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="게시글 내용을 입력하세요"
+                              className="min-h-[120px]"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setIsWriteDialogOpen(false)}
+                      >
+                        취소
+                      </Button>
+                      <Button 
+                        type="submit"
+                        disabled={createPostMutation.isPending}
+                        className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400"
+                      >
+                        {createPostMutation.isPending ? "작성중..." : "작성완료"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
           
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-6">
