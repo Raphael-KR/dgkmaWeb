@@ -348,8 +348,8 @@ export class DatabaseStorage implements IStorage {
       }
       
       // 최종 통계 확인
-      const finalCount = await db.select({ count: db.count() }).from(alumniDatabase);
-      const totalInDB = finalCount[0]?.count || 0;
+      const finalCountResult = await db.select().from(alumniDatabase);
+      const totalInDB = finalCountResult.length;
       
       console.log(`Google Sheets sync completed:`);
       console.log(`- Google Sheets total: ${stats.total}`);
