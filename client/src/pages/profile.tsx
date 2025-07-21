@@ -36,7 +36,8 @@ export default function Profile() {
 
   // Scroll to payment section if coming from home page
   useEffect(() => {
-    if (location.includes('#payment-section')) {
+    const hash = window.location.hash;
+    if (hash === '#payment-section') {
       setTimeout(() => {
         const element = document.getElementById('payment-section');
         if (element) {
