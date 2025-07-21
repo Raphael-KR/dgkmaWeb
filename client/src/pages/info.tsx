@@ -11,7 +11,7 @@ import {
 
 export default function InfoPage() {
 
-  const [activeSection, setActiveSection] = useState("about");
+
 
   const sections = [
     { id: "about", label: "동문회소개", icon: <Info size={20} /> },

@@ -1,21 +1,16 @@
-import { useState } from "react";
+
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { 
-  Menu, 
   Home, 
   MessageSquare, 
-  CreditCard, 
   Users, 
   User, 
   Shield, 
   Info,
-  UserCheck,
-  FileText,
-  Calendar,
   LogOut,
   X
 } from "lucide-react";
@@ -30,12 +25,8 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
   { path: "/", label: "홈", icon: <Home size={20} />, requiresAuth: true },
-  { path: "/about", label: "동문회 소개", icon: <Info size={20} /> },
-  { path: "/executives", label: "임원진", icon: <UserCheck size={20} /> },
-  { path: "/history", label: "연혁", icon: <Calendar size={20} /> },
-  { path: "/bylaws", label: "회칙", icon: <FileText size={20} /> },
+  { path: "/info", label: "동문회 정보", icon: <Info size={20} /> },
   { path: "/boards", label: "게시판", icon: <MessageSquare size={20} />, requiresAuth: true },
-  { path: "/payments", label: "회비 납부", icon: <CreditCard size={20} />, requiresAuth: true },
   { path: "/directory", label: "동문 명부", icon: <Users size={20} />, requiresAuth: true },
   { path: "/profile", label: "내 정보", icon: <User size={20} />, requiresAuth: true },
   { path: "/admin", label: "관리자", icon: <Shield size={20} />, requiresAuth: true, adminOnly: true }

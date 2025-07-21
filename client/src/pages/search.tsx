@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-// import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Search, FileText, Users, Calendar, ArrowLeft } from "lucide-react";
+
+import { Search } from "lucide-react";
 
 export default function SearchPage() {
   const { user } = useAuth();
