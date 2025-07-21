@@ -35,9 +35,15 @@ export interface KakaoUserInfo {
 // Initialize Kakao SDK
 export const initKakao = () => {
   if (typeof window !== "undefined" && window.Kakao) {
-    const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY || process.env.VITE_KAKAO_JS_KEY || "your-kakao-js-key";
+    // Use a demo key for development - in production, this should be set via environment variable
+    const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY || "demo-kakao-key";
     if (!window.Kakao.isInitialized()) {
-      window.Kakao.init(kakaoKey);
+      try {
+        window.Kakao.init(kakaoKey);
+        console.log("Kakao SDK initialized");
+      } catch (error) {
+        console.warn("Kakao SDK initialization failed:", error);
+      }
     }
   }
 };

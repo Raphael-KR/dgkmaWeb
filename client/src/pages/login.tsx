@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { GraduationCap } from "lucide-react";
+import { initKakao, kakaoLogin } from "@/lib/auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -16,16 +17,29 @@ export default function Login() {
     }
   }, [user, setLocation]);
 
+  useEffect(() => {
+    // Initialize Kakao SDK when component mounts
+    initKakao();
+  }, []);
+
   const handleKakaoLogin = async () => {
     try {
-      // Mock Kakao login - implement with Kakao SDK in production
-      const mockKakaoData = {
-        kakaoId: "mock-kakao-id",
-        email: "user@example.com",
-        name: "김동문"
-      };
+      // Check if running in development mode
+      const isDevelopment = import.meta.env.DEV || window.location.hostname.includes('localhost') || window.location.hostname.includes('replit');
       
-      await login(mockKakaoData);
+      if (isDevelopment) {
+        // Use mock data for development
+        const mockKakaoData = {
+          kakaoId: "mock-kakao-id-" + Date.now(),
+          email: "user@example.com",
+          name: "김동문"
+        };
+        await login(mockKakaoData);
+      } else {
+        // Use real Kakao login for production
+        const kakaoData = await kakaoLogin();
+        await login(kakaoData);
+      }
     } catch (error) {
       console.error("Login failed:", error);
     }
@@ -68,7 +82,8 @@ export default function Login() {
               
               <p className="text-sm text-gray-500 leading-relaxed">
                 카카오싱크를 통한 본인인증으로<br />
-                졸업생 정보와 자동 매칭됩니다.
+                졸업생 정보와 자동 매칭됩니다.<br />
+                <span className="text-xs text-blue-600">개발 모드: 자동 로그인</span>
               </p>
             </div>
           </CardContent>

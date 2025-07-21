@@ -68,13 +68,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPosts(category?: string, limit = 50): Promise<Post[]> {
-    let query = db.select().from(posts).where(eq(posts.isPublished, true));
-    
     if (category) {
-      query = query.where(and(eq(posts.isPublished, true), eq(posts.category, category)));
+      return await db.select().from(posts)
+        .where(and(eq(posts.isPublished, true), eq(posts.category, category)))
+        .orderBy(desc(posts.createdAt))
+        .limit(limit);
+    } else {
+      return await db.select().from(posts)
+        .where(eq(posts.isPublished, true))
+        .orderBy(desc(posts.createdAt))
+        .limit(limit);
     }
-    
-    return await query.orderBy(desc(posts.createdAt)).limit(limit);
   }
 
   async getPost(id: number): Promise<Post | undefined> {
@@ -97,7 +101,7 @@ export class DatabaseStorage implements IStorage {
 
   async deletePost(id: number): Promise<boolean> {
     const result = await db.delete(posts).where(eq(posts.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getPaymentsByUser(userId: number): Promise<Payment[]> {
