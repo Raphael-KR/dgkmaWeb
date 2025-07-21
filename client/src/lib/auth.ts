@@ -55,7 +55,7 @@ export const initKakao = () => {
   }
 };
 
-// Kakao Login
+// Kakao Login with KakaoSync support
 export const kakaoLogin = (): Promise<{ kakaoId: string; email: string; name: string }> => {
   return new Promise((resolve, reject) => {
     if (!window.Kakao) {
@@ -68,11 +68,14 @@ export const kakaoLogin = (): Promise<{ kakaoId: string; email: string; name: st
       return;
     }
 
+    // Use KakaoSync simplified registration with service terms
     window.Kakao.Auth.login({
+      // Request additional user information for KakaoSync
+      scope: 'profile_nickname,profile_image,account_email',
       success: (authObj: KakaoAuthResponse) => {
         console.log("Kakao auth success:", authObj);
         
-        // Request user information
+        // Request user information including terms agreement
         window.Kakao.API.request({
           url: "/v2/user/me",
           success: (userInfo: KakaoUserInfo) => {
@@ -93,6 +96,28 @@ export const kakaoLogin = (): Promise<{ kakaoId: string; email: string; name: st
       fail: (error: any) => {
         console.error("Kakao login failed:", error);
         reject(new Error("Kakao login failed: " + JSON.stringify(error)));
+      },
+    });
+  });
+};
+
+// Check service terms agreement status
+export const checkServiceTerms = (): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    if (!window.Kakao || !window.Kakao.isInitialized()) {
+      reject(new Error("Kakao SDK not available"));
+      return;
+    }
+
+    window.Kakao.API.request({
+      url: "/v1/user/service/terms",
+      success: (result: any) => {
+        console.log("Service terms status:", result);
+        resolve(result);
+      },
+      fail: (error: any) => {
+        console.error("Failed to check service terms:", error);
+        reject(error);
       },
     });
   });

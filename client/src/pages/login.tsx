@@ -78,12 +78,13 @@ export default function Login() {
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z"/>
                 </svg>
-                <span>카카오로 로그인</span>
+                <span>카카오로 시작하기</span>
               </Button>
 
               <p className="text-sm text-gray-500 leading-relaxed">
-                카카오싱크를 통한 본인인증으로<br />
-                졸업생 정보와 자동 매칭됩니다.
+                카카오싱크 간편가입으로<br />
+                졸업생 정보와 자동 매칭하여<br />
+                빠르고 안전하게 시작하세요.
               </p>
             </div>
           </CardContent>

@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   graduationYear: integer("graduation_year"),
   isVerified: boolean("is_verified").default(false),
   isAdmin: boolean("is_admin").default(false),
+  kakaoSyncEnabled: boolean("kakao_sync_enabled").default(false),
   profileImage: text("profile_image"),
   phoneNumber: text("phone_number"),
   createdAt: timestamp("created_at").defaultNow(),
