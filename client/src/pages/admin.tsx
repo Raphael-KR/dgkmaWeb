@@ -299,7 +299,7 @@ export default function Admin() {
                       <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-blue-800">
-                            {syncProgress.currentStep}
+                            동기화 진행 중...
                           </span>
                           <span className="text-xs text-blue-600">
                             {syncProgress.processed}/{syncProgress.total}
