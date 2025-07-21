@@ -21,7 +21,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
           
           <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white">
             <img 
-              src="/attached_assets/동국대학교한의과대학동문회%20로고_1753111575904.webp" 
+              src="/attached_assets/dgkmalogo_1753111820390.png" 
               alt="동국대학교 한의과대학 동문회 로고"
               className="w-8 h-8 object-contain"
             />
