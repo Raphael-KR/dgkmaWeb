@@ -206,18 +206,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {
-    // Google Sheets에서 먼저 검색
-    try {
-      const googleResult = await googleSheetsService.findExactMatch(name, generation);
-      if (googleResult) {
-        console.log(`Found exact match in Google Sheets: ${name} (${generation}기)`);
-        return googleResult;
-      }
-    } catch (error) {
-      console.error('Error searching Google Sheets:', error);
-    }
-    
-    // 로컬 데이터베이스에서 검색
+    // 로컬 데이터베이스에서만 검색 (Google Sheets 중복 체크는 여기서 하지 않음)
     const [alumni] = await db.select().from(alumniDatabase)
       .where(and(eq(alumniDatabase.name, name), eq(alumniDatabase.generation, generation)));
     return alumni || undefined;
