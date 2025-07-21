@@ -19,10 +19,12 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
             <Menu size={20} className="text-gray-600" />
           </Button>
           
-          <div className="w-8 h-8 bg-kakao-yellow rounded-full flex items-center justify-center">
-            <svg className="w-5 h-5 text-kakao-brown" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white">
+            <img 
+              src="/attached_assets/동국대학교한의과대학동문회%20로고_1753111575904.webp" 
+              alt="동국대학교 한의과대학 동문회 로고"
+              className="w-8 h-8 object-contain"
+            />
           </div>
           <h1 className="text-lg font-bold text-gray-900">동국한의동문회</h1>
         </div>
