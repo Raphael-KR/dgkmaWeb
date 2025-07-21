@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -33,6 +33,18 @@ export default function Profile() {
 
   const currentYear = new Date().getFullYear();
   const currentYearPayment = payments?.find((p: any) => p.year === currentYear);
+
+  // Scroll to payment section if coming from home page
+  useEffect(() => {
+    if (location.includes('#payment-section')) {
+      setTimeout(() => {
+        const element = document.getElementById('payment-section');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [location]);
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -86,7 +98,7 @@ export default function Profile() {
           </Card>
 
           {/* Payment Status */}
-          <Card className="shadow-sm mb-6">
+          <Card className="shadow-sm mb-6" id="payment-section">
             <CardHeader>
               <CardTitle className="text-lg">회비 관리</CardTitle>
             </CardHeader>

@@ -177,7 +177,7 @@ export default function Home() {
           <Button 
             variant="outline"
             className="bg-white rounded-xl shadow-sm p-6 h-auto flex-col space-y-3 hover:shadow-md"
-            onClick={() => setLocation("/profile")}
+            onClick={() => setLocation("/profile#payment-section")}
           >
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <CreditCard className="text-blue-600" size={24} />
