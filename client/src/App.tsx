@@ -55,7 +55,7 @@ function App() {
           <div className="min-h-screen bg-gray-50 pb-16">
             <AppHeader onMenuClick={() => setIsNavOpen(true)} />
             <Navigation isOpen={isNavOpen} setIsOpen={setIsNavOpen} />
-            <main className="pt-16">
+            <main>
               <Router />
             </main>
             <BottomNavigation />
