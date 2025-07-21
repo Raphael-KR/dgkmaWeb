@@ -130,6 +130,27 @@ export default function Home() {
 
       <div className="max-w-md mx-auto px-4 pb-20 pt-4">
 
+        {/* User Info Section */}
+        <div className="bg-kakao-yellow rounded-lg p-4 mb-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-kakao-brown font-medium mb-1">
+                {user.name}님
+              </p>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs bg-white text-kakao-brown border-kakao-brown">
+                  {user.graduationYear}년 졸업
+                </Badge>
+                {user.isAdmin && (
+                  <Badge className="text-xs bg-red-100 text-red-800">
+                    관리자
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <Button 
