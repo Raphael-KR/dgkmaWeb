@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { CreditCard, BellRing, Heart, Users, Calendar } from "lucide-react";
+import { Heart, Users, Calendar } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -176,36 +176,47 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Button 
-            variant="outline"
-            className="bg-white rounded-xl shadow-sm p-6 h-auto flex-col space-y-3 hover:shadow-md"
-            onClick={() => setLocation("/profile#payment-section")}
-          >
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <CreditCard className="text-blue-600" size={24} />
+        {/* Membership Status */}
+        <Card className="shadow-sm mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-800">회비 납부 현황</h3>
+              <Button variant="ghost" size="sm" onClick={() => setLocation("/profile#payment-section")}>
+                내역보기
+              </Button>
             </div>
-            <div>
-              <h4 className="font-bold text-gray-800">회비 관리</h4>
-              <p className="text-sm text-gray-600">내 정보에서 확인</p>
-            </div>
-          </Button>
-
-          <Button 
-            variant="outline"
-            className="bg-white rounded-xl shadow-sm p-6 h-auto flex-col space-y-3 hover:shadow-md"
-            onClick={() => setLocation("/boards")}
-          >
-            <div className="w-12 h-12 bg-kakao-yellow rounded-xl flex items-center justify-center">
-              <BellRing className="text-kakao-brown" size={24} />
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-800">공지사항</h4>
-              <p className="text-sm text-gray-600">최신 소식</p>
-            </div>
-          </Button>
-        </div>
+            {currentYearPayment ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-800">{currentYear}년 연회비</p>
+                    <p className="text-sm text-gray-600">납부완료</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">
+                      {currentYearPayment.amount.toLocaleString()}원
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(currentYearPayment.paymentDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-800">{currentYear}년 연회비 미납</p>
+                    <p className="text-sm text-gray-600">회비를 납부해 주세요.</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-yellow-600">50,000원</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Recent Posts Section */}
         <Card className="shadow-sm mb-6" id="recent-posts-section">
@@ -283,44 +294,7 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Membership Status */}
-        <Card className="shadow-sm mb-6">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">회비 납부 현황</h3>
-              <Button variant="ghost" size="sm" onClick={() => setLocation("/payments")}>
-                내역보기
-              </Button>
-            </div>
-            {currentYearPayment ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-800">{currentYear}년 연회비</p>
-                    <p className="text-sm text-gray-600">납부완료</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-green-600">
-                      {currentYearPayment.amount.toLocaleString()}원
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(currentYearPayment.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" className="w-full">
-                  <Download className="mr-2" size={16} />
-                  영수증 다운로드
-                </Button>
-              </div>
-            ) : (
-              <div className="p-3 bg-yellow-50 rounded-lg">
-                <p className="text-yellow-800 font-medium">{currentYear}년 연회비 미납</p>
-                <p className="text-sm text-yellow-600">회비를 납부해 주세요.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
 
         {/* Alumni Directory Quick Access */}
         <Card className="shadow-sm">
