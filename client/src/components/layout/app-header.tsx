@@ -1,4 +1,4 @@
-import { Bell } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 
@@ -14,11 +14,16 @@ export function AppHeader() {
             <h1 className="text-lg font-bold kakao-brown">동국한의동문회</h1>
           </div>
           <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm" className="p-2">
-              <div className="relative">
-                <Bell size={20} />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-kakao-orange rounded-full"></span>
-              </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-2 text-gray-600 hover:text-kakao-brown"
+              onClick={() => {
+                // TODO: 검색 기능 구현
+                alert("검색 기능 구현 예정");
+              }}
+            >
+              <Search size={20} />
             </Button>
           </div>
         </div>
