@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import Navigation from "@/components/navigation";
+import SimpleNavigation from "@/components/simple-navigation";
 
 export default function Bylaws() {
   const bylawSections = [
@@ -129,7 +129,7 @@ export default function Bylaws() {
 
   return (
     <div className="min-h-screen bg-kakao-gray p-4">
-      <Navigation />
+      <SimpleNavigation />
       <div className="max-w-4xl mx-auto space-y-6">
         <Card className="border-2 border-kakao-yellow">
           <CardHeader className="bg-kakao-yellow">

@@ -41,10 +41,14 @@ const navigationItems: NavigationItem[] = [
   { path: "/admin", label: "관리자", icon: <Shield size={20} />, requiresAuth: true, adminOnly: true }
 ];
 
-export default function Navigation() {
+interface NavigationProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+}
+
+export default function Navigation({ isOpen, setIsOpen }: NavigationProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
 
   const filteredItems = navigationItems.filter(item => {
     if (item.requiresAuth && !user) return false;
@@ -59,17 +63,6 @@ export default function Navigation() {
 
   return (
     <>
-      {/* Menu Button */}
-      <div className="fixed top-4 left-4 z-50">
-        <Button 
-          variant="outline" 
-          size="icon"
-          className="bg-kakao-yellow border-kakao-brown text-kakao-brown hover:bg-yellow-400 shadow-lg"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <Menu size={20} />
-        </Button>
-      </div>
 
       {/* Overlay */}
       {isOpen && (
