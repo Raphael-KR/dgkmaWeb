@@ -44,8 +44,7 @@ export default function Directory() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
-      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+
       
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">

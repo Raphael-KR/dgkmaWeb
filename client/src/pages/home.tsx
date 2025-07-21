@@ -5,8 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 
-import SimpleNavigation from "@/components/simple-navigation";
-import AppHeader from "@/components/app-header";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -126,8 +125,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
-      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+
 
       <div className="max-w-md mx-auto px-4 pb-20 pt-4">
 
