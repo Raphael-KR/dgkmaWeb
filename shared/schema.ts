@@ -17,11 +17,23 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const categories = pgTable("categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  color: text("color").default("#6b7280"), // 배지 색상 (CSS color)
+  badgeVariant: text("badge_variant").default("secondary"), // default, secondary, destructive, outline
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  category: text("category").notNull(), // 공지, 부고, 경조사, 일반
+  categoryId: integer("category_id").references(() => categories.id),
   authorId: integer("author_id").references(() => users.id),
   isPublished: boolean("is_published").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -74,6 +86,14 @@ export const postsRelations = relations(posts, ({ one }) => ({
     fields: [posts.authorId],
     references: [users.id],
   }),
+  category: one(categories, {
+    fields: [posts.categoryId],
+    references: [categories.id],
+  }),
+}));
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  posts: many(posts),
 }));
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
@@ -92,6 +112,12 @@ export const alumniDatabaseRelations = relations(alumniDatabase, ({ one }) => ({
 
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -120,6 +146,8 @@ export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistr
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Post = typeof posts.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Payment = typeof payments.$inferSelect;

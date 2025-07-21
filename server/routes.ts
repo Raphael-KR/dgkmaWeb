@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema } from "@shared/schema";
+import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -63,6 +63,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     res.json({ user });
+  });
+
+  // Categories routes
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getCategories();
+      res.json(categories);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  app.post("/api/categories", async (req, res) => {
+    try {
+      const validatedData = insertCategorySchema.parse(req.body);
+      const category = await storage.createCategory(validatedData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create category" });
+    }
   });
 
   // Posts routes
@@ -129,10 +152,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { url } = req.body;
       
       // Mock obituary parsing - implement with cheerio in production
+      const category = await storage.getCategoryByName("obituary");
       const mockParsedData = {
         title: "故 이○○ 동문 부친상",
         content: "1998년 졸업생 이○○ 동문의 부친께서 향년 78세로 별세하셨습니다.",
-        category: "부고"
+        categoryId: category?.id || 3
       };
       
       res.json(mockParsedData);
