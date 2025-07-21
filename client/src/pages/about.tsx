@@ -1,10 +1,16 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SimpleNavigation from "@/components/simple-navigation";
+import AppHeader from "@/components/app-header";
 
 export default function About() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-kakao-gray p-4">
-      <SimpleNavigation />
+    <div className="min-h-screen bg-kakao-gray">
+      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+      <div className="p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         <Card className="border-2 border-kakao-yellow">
           <CardHeader className="bg-kakao-yellow">
@@ -73,6 +79,7 @@ export default function About() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

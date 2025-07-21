@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import SimpleNavigation from "@/components/simple-navigation";
+import AppHeader from "@/components/app-header";
 import { Mail, Phone, MapPin } from "lucide-react";
 
 export default function Executives() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const executives = [
     {
       position: "회장",
@@ -62,9 +65,11 @@ export default function Executives() {
   ];
 
   return (
-    <div className="min-h-screen bg-kakao-gray p-4">
-      <SimpleNavigation />
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-kakao-gray">
+      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
+      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+      <div className="p-4">
+        <div className="max-w-6xl mx-auto space-y-6">
         <Card className="border-2 border-kakao-yellow">
           <CardHeader className="bg-kakao-yellow">
             <CardTitle className="text-2xl font-bold text-kakao-brown text-center">
@@ -128,6 +133,7 @@ export default function Executives() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );
