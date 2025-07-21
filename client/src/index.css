@@ -72,15 +72,23 @@
     color: hsl(24, 9.8%, 10%);
   }
   
-  .kakao-brown {
+  .bg-kakao-yellow {
+    background-color: hsl(48, 100%, 50%);
+  }
+  
+  .text-kakao-brown {
     color: hsl(24, 9.8%, 10%);
   }
   
-  .kakao-orange {
+  .text-kakao-orange {
     color: hsl(16, 100%, 60%);
   }
   
-  .kakao-gray {
+  .bg-kakao-orange {
+    background-color: hsl(16, 100%, 60%);
+  }
+  
+  .bg-kakao-gray {
     background-color: hsl(0, 0%, 97%);
   }
   
