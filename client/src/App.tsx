@@ -16,6 +16,7 @@ import Directory from "@/pages/directory";
 import Profile from "@/pages/profile";
 import Info from "@/pages/info";
 import Search from "@/pages/search";
+import PostDetail from "@/pages/post-detail";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/info" component={Info} />
       <Route path="/search" component={Search} />
+      <Route path="/post/:id" component={PostDetail} />
       {/* Redirect old routes to /info */}
       <Route path="/about" component={() => { window.location.href = '/info'; return null; }} />
       <Route path="/executives" component={() => { window.location.href = '/info'; return null; }} />

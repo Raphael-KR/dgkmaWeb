@@ -17,11 +17,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/schema";
 import { Plus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 export default function Boards() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
 
@@ -251,7 +253,11 @@ export default function Boards() {
                             <span className="text-xs text-gray-500">
                               작성자: 관리자
                             </span>
-                            <Button variant="ghost" size="sm">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setLocation(`/post/${post.id}`)}
+                            >
                               자세히 보기
                             </Button>
                           </div>
