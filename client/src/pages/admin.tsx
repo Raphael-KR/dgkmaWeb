@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, X, Users, AlertCircle } from "lucide-react";
+import { Check, X, Users, AlertCircle, RefreshCw, FileSpreadsheet } from "lucide-react";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -56,6 +56,41 @@ export default function Admin() {
     },
   });
 
+  // Google Sheets 연결 테스트
+  const { data: googleSheetsStatus, refetch: refetchGoogleSheetsStatus } = useQuery({
+    queryKey: ["/api/admin/test-google-sheets"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin/test-google-sheets", { credentials: "include" });
+      return response.json();
+    },
+    enabled: !!user?.isAdmin,
+  });
+
+  // Google Sheets 동기화
+  const syncAlumniMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/admin/sync-alumni", {
+        method: "POST",
+        credentials: "include",
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "동기화 완료",
+        description: data.message,
+      });
+      refetchGoogleSheetsStatus();
+    },
+    onError: (error) => {
+      toast({
+        title: "동기화 실패",
+        description: "Google Sheets 동기화 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!user?.isAdmin) {
     return (
       <div className="min-h-screen bg-kakao-gray flex items-center justify-center">
@@ -85,9 +120,10 @@ export default function Admin() {
           <h1 className="text-xl font-bold kakao-brown mb-6">관리자 패널</h1>
           
           <Tabs defaultValue="pending" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="pending">가입 승인</TabsTrigger>
-              <TabsTrigger value="posts">게시글 관리</TabsTrigger>
+              <TabsTrigger value="alumni">동문 데이터</TabsTrigger>
+              <TabsTrigger value="posts">게시글</TabsTrigger>
               <TabsTrigger value="stats">통계</TabsTrigger>
             </TabsList>
 
@@ -148,6 +184,76 @@ export default function Admin() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="alumni" className="space-y-4 mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileSpreadsheet size={20} />
+                    <span>Google Sheets 동문 데이터베이스</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* 연결 상태 */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-2">연결 상태</h3>
+                    {googleSheetsStatus ? (
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-3 h-3 rounded-full ${googleSheetsStatus.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-sm">
+                          {googleSheetsStatus.message}
+                          {googleSheetsStatus.sampleCount && ` (${googleSheetsStatus.sampleCount}건 확인)`}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <LoadingSpinner />
+                        <span className="text-sm">연결 상태 확인 중...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 동기화 기능 */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-2">데이터 동기화</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Google Sheets의 동문 명단을 로컬 데이터베이스와 동기화합니다. 
+                      새로운 동문 데이터가 추가되고 기존 정보가 업데이트됩니다.
+                    </p>
+                    <Button
+                      onClick={() => syncAlumniMutation.mutate()}
+                      disabled={syncAlumniMutation.isPending || !googleSheetsStatus?.connected}
+                      className="w-full"
+                    >
+                      {syncAlumniMutation.isPending ? (
+                        <>
+                          <LoadingSpinner className="mr-2" />
+                          동기화 중...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2" size={16} />
+                          동문 데이터 동기화
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* 설정 안내 */}
+                  {!googleSheetsStatus?.connected && (
+                    <div className="border rounded-lg p-4 bg-yellow-50">
+                      <h3 className="font-semibold mb-2 text-yellow-800">설정 필요</h3>
+                      <div className="text-sm text-yellow-700 space-y-1">
+                        <p>• Google Cloud Console에서 서비스 계정 생성</p>
+                        <p>• Google Sheets API 활성화</p>
+                        <p>• 동문 명단 스프레드시트에 뷰어 권한 부여</p>
+                        <p>• 환경 변수 설정 완료 후 연결 가능</p>
+                      </div>
                     </div>
                   )}
                 </CardContent>

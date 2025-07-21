@@ -6,6 +6,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or } from "drizzle-orm";
+import { googleSheetsService } from "./google-sheets";
 
 export interface IStorage {
   // User methods
@@ -40,6 +41,7 @@ export interface IStorage {
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
+  syncAlumniFromGoogleSheets(): Promise<number>;
   
   // Pending registration methods
   getPendingRegistrations(): Promise<PendingRegistration[]>;
@@ -188,6 +190,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findAlumniByName(name: string): Promise<AlumniRecord[]> {
+    // Google Sheets에서 먼저 검색
+    try {
+      const googleResults = await googleSheetsService.findAlumniByName(name);
+      if (googleResults.length > 0) {
+        // Google Sheets 결과를 로컬 DB 형식으로 변환
+        return googleResults.map(alumni => ({
+          id: 0, // 임시 ID
+          name: alumni.name,
+          graduationYear: alumni.graduationYear,
+          phoneNumber: alumni.phoneNumber || null,
+          email: alumni.email || null,
+          isMatched: false,
+          matchedUserId: null,
+        }));
+      }
+    } catch (error) {
+      console.error('Error searching Google Sheets, falling back to local database:', error);
+    }
+    
+    // 로컬 데이터베이스에서 검색
     return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
   }
 
@@ -250,6 +272,71 @@ export class DatabaseStorage implements IStorage {
     )
     .orderBy(desc(posts.createdAt))
     .limit(20);
+  }
+
+  // Google Sheets에서 동문 데이터 동기화
+  async syncAlumniFromGoogleSheets(): Promise<number> {
+    try {
+      console.log('Starting Google Sheets sync...');
+      
+      // Google Sheets 연결 테스트
+      const isConnected = await googleSheetsService.testConnection();
+      if (!isConnected) {
+        console.log('Google Sheets not configured, skipping sync');
+        return 0;
+      }
+      
+      // Google Sheets에서 모든 동문 데이터 가져오기
+      const googleAlumni = await googleSheetsService.fetchAlumniData();
+      if (googleAlumni.length === 0) {
+        console.log('No alumni data found in Google Sheets');
+        return 0;
+      }
+      
+      let syncedCount = 0;
+      
+      // 각 동문 데이터를 로컬 DB와 비교하여 업데이트
+      for (const alumniData of googleAlumni) {
+        try {
+          // 기존 데이터 확인 (이름과 졸업년도로)
+          const existing = await this.findAlumniByNameAndYear(
+            alumniData.name, 
+            alumniData.graduationYear
+          );
+          
+          if (!existing) {
+            // 새로운 동문 데이터 추가
+            await db.insert(alumniDatabase).values({
+              name: alumniData.name,
+              graduationYear: alumniData.graduationYear,
+              phoneNumber: alumniData.phoneNumber || null,
+              email: alumniData.email || null,
+              isMatched: false,
+              matchedUserId: null,
+            });
+            syncedCount++;
+          } else if (existing.phoneNumber !== alumniData.phoneNumber || 
+                     existing.email !== alumniData.email) {
+            // 기존 데이터 업데이트 (연락처 정보가 변경된 경우)
+            await db.update(alumniDatabase)
+              .set({
+                phoneNumber: alumniData.phoneNumber || null,
+                email: alumniData.email || null,
+              })
+              .where(eq(alumniDatabase.id, existing.id));
+            syncedCount++;
+          }
+        } catch (error) {
+          console.error(`Error syncing alumni ${alumniData.name}:`, error);
+        }
+      }
+      
+      console.log(`Google Sheets sync completed: ${syncedCount} records updated`);
+      return syncedCount;
+    } catch (error) {
+      console.error('Google Sheets sync failed:', error);
+      return 0;
+    }
   }
 }
 
