@@ -129,28 +129,7 @@ export default function Home() {
       <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
       <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
 
-      <div className="max-w-md mx-auto px-4 pb-20">
-        {/* User Welcome Section */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 kakao rounded-full flex items-center justify-center">
-              <span className="kakao-brown font-bold text-lg">
-                {user?.name?.charAt(0) || "?"}
-              </span>
-            </div>
-            <div>
-              <h3 className="font-bold text-lg">{user?.name || "사용자"}</h3>
-              <p className="text-gray-600 text-sm">
-                {user?.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
-              </p>
-            </div>
-            <div className="ml-auto">
-              <Badge className={user?.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                {user?.isVerified ? "인증완료" : "인증대기"}
-              </Badge>
-            </div>
-          </div>
-        </div>
+      <div className="max-w-md mx-auto px-4 pb-20 pt-4">
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mb-6">
