@@ -67,10 +67,21 @@ export default function Boards() {
   // 게시글 작성 mutation
   const createPostMutation = useMutation({
     mutationFn: async (data: InsertPost) => {
-      return apiRequest("/api/posts", {
+      const response = await fetch("/api/posts", {
         method: "POST",
-        body: data,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(data),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -92,10 +103,14 @@ export default function Boards() {
   });
 
   const onSubmitPost = (data: InsertPost) => {
-    createPostMutation.mutate({
+    console.log("Form submitted with data:", data);
+    console.log("User:", user);
+    const finalData = {
       ...data,
       authorId: user?.id!,
-    });
+    };
+    console.log("Final data to send:", finalData);
+    createPostMutation.mutate(finalData);
   };
 
   const isLoading = categoriesLoading || postsLoading;
@@ -140,7 +155,7 @@ export default function Boards() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {categories
+                              {(categories as Category[])
                                 .filter((cat: Category) => cat.name !== "all")
                                 .map((category: Category) => (
                                 <SelectItem key={category.id} value={category.id.toString()}>
@@ -210,7 +225,7 @@ export default function Boards() {
           
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-6">
-              {categories.map((category: Category) => (
+              {(categories as Category[]).map((category: Category) => (
                 <TabsTrigger key={category.name} value={category.name} className="text-xs">
                   {category.displayName}
                 </TabsTrigger>
