@@ -291,8 +291,21 @@ export class DatabaseStorage implements IStorage {
       }
       
       // 각 동문 데이터를 로컬 DB와 비교하여 업데이트
-      for (const alumniData of googleAlumni) {
+      for (let i = 0; i < googleAlumni.length; i++) {
+        const alumniData = googleAlumni[i];
+        
         try {
+          // 필수 데이터 검증
+          if (!alumniData.name || !alumniData.generation || !alumniData.department) {
+            console.log(`Skipping invalid alumni data at index ${i}:`, {
+              name: alumniData.name,
+              generation: alumniData.generation,
+              department: alumniData.department
+            });
+            stats.errors++;
+            continue;
+          }
+          
           // 기존 데이터 확인 (이름과 기수로)
           const existing = await this.findAlumniByNameAndGeneration(
             alumniData.name, 
@@ -318,9 +331,18 @@ export class DatabaseStorage implements IStorage {
               matchedUserId: null,
             });
             stats.synced++;
+            
+            if (stats.synced % 100 === 0) {
+              console.log(`Synced ${stats.synced}/${stats.total} alumni...`);
+            }
+          } else {
+            // 기존 데이터가 있으면 스킵 (중복 방지)
+            if (stats.synced % 500 === 0) {
+              console.log(`Skipped existing alumni: ${alumniData.name} (${alumniData.generation}기)`);
+            }
           }
         } catch (error) {
-          console.error(`Error syncing alumni ${alumniData.name}:`, error);
+          console.error(`Error syncing alumni ${alumniData.name} (${alumniData.generation}기):`, error);
           stats.errors++;
         }
       }
