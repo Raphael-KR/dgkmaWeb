@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
 import SimpleNavigation from "@/components/simple-navigation";
@@ -15,6 +16,7 @@ import { LogOut, Edit, Settings, Shield, Download, CreditCard } from "lucide-rea
 export default function Profile() {
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [location, setLocation] = useLocation();
 
   const { data: payments, isLoading: paymentsLoading } = useQuery({
     queryKey: ["/api/payments/user", user?.id],
@@ -190,7 +192,11 @@ export default function Profile() {
               {user.isAdmin && (
                 <>
                   <Separator />
-                  <Button variant="ghost" className="w-full justify-start text-blue-600">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start text-blue-600"
+                    onClick={() => setLocation("/admin")}
+                  >
                     <Shield className="mr-3" size={20} />
                     관리자 패널
                   </Button>
