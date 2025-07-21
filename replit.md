@@ -43,6 +43,8 @@ Preferred communication style: Simple, everyday language.
 - Markdown-based content creation and editing
 - Category-based content organization
 - Administrative content moderation
+- Static content pages (About, Executives, Bylaws, History) with Korean placeholder content
+- Mobile-optimized navigation drawer with contextual menu items
 
 ### Payment System
 - Membership fee tracking and management
