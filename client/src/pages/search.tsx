@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 
-import { AppHeader } from "@/components/layout/app-header";
+// import { AppHeader } from "@/components/layout/app-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -55,9 +55,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <AppHeader />
-      
-      <div className="max-w-md mx-auto px-4 pb-20">
+      <div className="max-w-md mx-auto px-4 pb-20 pt-6">
         {/* 뒤로가기 버튼 */}
         <div className="py-4">
           <Button 

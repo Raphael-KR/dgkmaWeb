@@ -79,6 +79,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search posts (must be before the /:id route)
+  app.get("/api/posts/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      if (!query || query.trim() === "") {
+        return res.json([]);
+      }
+
+      const posts = await storage.searchPosts(query);
+      res.json(posts);
+    } catch (error) {
+      console.error("Search error:", error);
+      res.status(500).json({ 
+        message: "Failed to search posts", 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   app.get("/api/posts/:id", async (req, res) => {
     try {
       const post = await storage.getPost(parseInt(req.params.id));
@@ -101,21 +120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create post" });
-    }
-  });
-
-  // Search posts
-  app.get("/api/posts/search", async (req, res) => {
-    try {
-      const query = req.query.q as string;
-      if (!query || query.trim() === "") {
-        return res.json([]);
-      }
-
-      const posts = await storage.searchPosts(query);
-      res.json(posts);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to search posts" });
     }
   });
 
