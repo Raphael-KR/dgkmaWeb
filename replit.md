@@ -116,3 +116,14 @@ Preferred communication style: Simple, everyday language.
 - **Color Scheme**: Kakao-inspired yellow and brown branding
 
 The application is designed to replace fragmented communication channels with a centralized, mobile-optimized platform that integrates seamlessly with KakaoTalk workflows commonly used by Korean organizations.
+
+## Recent Changes
+
+### 2025-07-21: Header Redesign and Logo Integration
+- Completely redesigned application header to match user's screenshot requirements
+- Moved hamburger menu from right to left side of header per user request
+- Integrated actual Dongguk University Korean Medicine Alumni Association logo
+- Replaced star icon with authentic organizational logo (dgkmalogo_1753111820390.png)
+- Added static file serving for attached assets via Express server
+- Applied consistent header across all pages including static content pages
+- Header now features: hamburger menu (left) + logo + title (center-left) + notification bell (right)
