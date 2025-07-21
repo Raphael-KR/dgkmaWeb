@@ -354,15 +354,7 @@ export default function Home() {
         </Card>
       </div>
 
-      {/* Admin Floating Button */}
-      {user?.isAdmin && (
-        <Button
-          className="fixed bottom-24 right-4 w-14 h-14 bg-kakao-orange text-white rounded-full shadow-lg hover:bg-orange-600"
-          onClick={() => setLocation("/admin")}
-        >
-          <Settings size={20} />
-        </Button>
-      )}
+
 
 
     </div>
