@@ -34,7 +34,14 @@ export default function Profile() {
       setTimeout(() => {
         const element = document.getElementById('payment-section');
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
+          const elementPosition = element.offsetTop;
+          const headerHeight = 80; // 헤더 높이 (대략)
+          const offsetPosition = elementPosition - headerHeight;
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
         }
       }, 100);
     }
