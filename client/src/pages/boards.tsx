@@ -103,14 +103,10 @@ export default function Boards() {
   });
 
   const onSubmitPost = (data: InsertPost) => {
-    console.log("Form submitted with data:", data);
-    console.log("User:", user);
-    const finalData = {
+    createPostMutation.mutate({
       ...data,
       authorId: user?.id!,
-    };
-    console.log("Final data to send:", finalData);
-    createPostMutation.mutate(finalData);
+    });
   };
 
   const isLoading = categoriesLoading || postsLoading;
