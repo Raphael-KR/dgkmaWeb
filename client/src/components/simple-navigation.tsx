@@ -50,8 +50,8 @@ export default function SimpleNavigation() {
 
   return (
     <>
-      {/* Menu Button - Top Left */}
-      <div className="fixed top-4 left-4 z-50">
+      {/* Menu Button - Top Right */}
+      <div className="fixed top-4 right-4 z-50">
         <Button 
           size="icon"
           className="bg-kakao-yellow border-kakao-brown text-kakao-brown hover:bg-yellow-400 shadow-lg"
