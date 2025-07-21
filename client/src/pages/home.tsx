@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +15,9 @@ import { CreditCard, BellRing, Users, Calendar, Heart, Download, Settings } from
 export default function Home() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [obituaryUrl, setObituaryUrl] = useState("");
 
   const { data: recentPosts, isLoading: postsLoading } = useQuery({
     queryKey: ["/api/posts"],
@@ -33,11 +37,63 @@ export default function Home() {
     enabled: !!user?.id,
   });
 
+  const parseObituaryMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await fetch("/api/obituary/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ url }),
+      });
+      return response.json();
+    },
+    onSuccess: async (parsedData) => {
+      // Create post with parsed data
+      const response = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          ...parsedData,
+          authorId: user?.id,
+        }),
+      });
+      
+      if (response.ok) {
+        queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+        toast({
+          title: "부고가 등록되었습니다",
+          description: "게시판에서 확인하실 수 있습니다.",
+        });
+        setObituaryUrl("");
+      }
+    },
+    onError: () => {
+      toast({
+        title: "부고 등록 실패",
+        description: "URL을 다시 확인해주세요.",
+        variant: "destructive",
+      });
+    },
+  });
+
   useEffect(() => {
     if (!isLoading && !user) {
       setLocation("/login");
     }
   }, [user, isLoading, setLocation]);
+
+  const handleObituarySubmit = () => {
+    if (!obituaryUrl.trim()) {
+      toast({
+        title: "URL을 입력해주세요",
+        description: "부고 사이트 URL을 입력하세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+    parseObituaryMutation.mutate(obituaryUrl);
+  };
 
   if (isLoading) {
     return (
@@ -174,9 +230,15 @@ export default function Home() {
                 type="url" 
                 placeholder="부고 사이트 URL 입력" 
                 className="flex-1"
+                value={obituaryUrl}
+                onChange={(e) => setObituaryUrl(e.target.value)}
               />
-              <Button className="kakao kakao-brown font-bold px-6 hover:bg-yellow-400">
-                등록
+              <Button 
+                className="kakao kakao-brown font-bold px-6 hover:bg-yellow-400"
+                onClick={handleObituarySubmit}
+                disabled={parseObituaryMutation.isPending}
+              >
+                {parseObituaryMutation.isPending ? "처리중..." : "등록"}
               </Button>
             </div>
           </CardContent>

@@ -65,7 +65,13 @@ export default function Payments() {
                       {currentYear}년 연회비를 납부해 주세요.
                     </p>
                   </div>
-                  <Button className="w-full kakao kakao-brown">
+                  <Button 
+                    className="w-full kakao kakao-brown"
+                    onClick={() => {
+                      // Mock payment processing
+                      alert("결제 시스템 연동 예정입니다. (토스페이, 카카오페이 등)");
+                    }}
+                  >
                     <CreditCard className="mr-2" size={16} />
                     50,000원 납부하기
                   </Button>
