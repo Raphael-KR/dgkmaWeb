@@ -6,7 +6,9 @@ This is a full-stack web application for the Dongguk University Korean Medicine 
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- **언어**: 영어 프롬프트를 받아도 항상 한국어로 응답
+- **로그 작성**: 모든 로그와 피드백을 한국어로 작성
+- **커뮤니케이션 스타일**: 간단하고 일상적인 언어 사용
 
 ## System Architecture
 
@@ -135,3 +137,11 @@ The application is designed to replace fragmented communication channels with a 
 - Updated navigation menu to show "동문회 정보" instead of individual page links
 - Implemented automatic redirection from old individual page URLs to new consolidated page
 - User feedback: "좋네. 마음에 들어" - confirmed satisfaction with consolidated design
+
+### 2025-07-21: 앱 오류 수정 및 안정화
+- React Hook 순서 위반 문제 해결: Home 컴포넌트 리팩터링으로 모든 Hook을 조건문 이전에 배치
+- 누락된 Link 컴포넌트 import 추가 (wouter에서)
+- Kakao 색상 유틸리티 CSS 클래스 문제 수정
+- CSS 파일에 적절한 bg-kakao-yellow, text-kakao-brown 클래스 추가
+- 데이터베이스 연결 확인 및 정상 작동 검증
+- 사용자 선호도 추가: 모든 응답과 로그를 한국어로 작성
