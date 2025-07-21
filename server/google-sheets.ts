@@ -63,9 +63,10 @@ export class GoogleSheetsService {
       return [];
     }
 
-    // 캐시 초기화 (정확한 분석을 위해)
+    // 캐시 강제 초기화
     this.cachedAlumniData = null;
     this.headersLogged = false;
+    console.log('Cache cleared for fresh duplicate analysis');
 
     try {
       const response = await this.sheets.spreadsheets.values.get({
@@ -131,12 +132,37 @@ export class GoogleSheetsService {
         }
       }
       
+      // 중복 이름 분석
+      const nameGroups = new Map<string, number>();
+      alumniData.forEach(alumni => {
+        const key = `${alumni.name}_${alumni.generation}`;
+        nameGroups.set(key, (nameGroups.get(key) || 0) + 1);
+      });
+      
+      const duplicates = Array.from(nameGroups.entries())
+        .filter(([key, count]) => count > 1)
+        .map(([key, count]) => {
+          const [name, generation] = key.split('_');
+          return { name, generation, count };
+        });
+      
       console.log(`Data processing summary:`);
       console.log(`- Total raw rows: ${rows.length}`);
       console.log(`- Valid alumni records: ${validRows}`);
       console.log(`- Skipped rows: ${skippedRows}`);
       console.log(`- Expected count: ${rows.length - 1} (excluding header)`);
       console.log(`- Actual processed: ${alumniData.length}`);
+      console.log(`- Duplicate name/generation combinations: ${duplicates.length}`);
+      
+      if (duplicates.length > 0) {
+        console.log('==== FOUND DUPLICATES IN GOOGLE SHEETS ====');
+        duplicates.forEach(dup => {
+          console.log(`DUPLICATE: ${dup.name} (${dup.generation}기) appears ${dup.count} times`);
+        });
+        console.log('==== END DUPLICATES ====');
+      } else {
+        console.log('NO DUPLICATES FOUND in Google Sheets data');
+      }
 
       console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);
       
