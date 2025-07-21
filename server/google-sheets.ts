@@ -1,59 +1,85 @@
 import { google } from 'googleapis';
 
-interface AlumniRecord {
-  name: string;
-  graduationYear: number;
-  phoneNumber?: string;
-  email?: string;
+export interface AlumniRecord {
+  department: string; // 학과
+  generation: string; // 기수
+  name: string; // 성명
+  admissionDate?: string; // 입학일자
+  graduationDate?: string; // 졸업일자
+  address?: string; // 주소
+  mobile?: string; // 핸드폰번호
+  phone?: string; // 전화번호
+  group?: string; // 그룹
+  status?: string; // 상태
+  alumniPosition?: string; // 동문회직책
+  memo?: string; // 메모
 }
 
 export class GoogleSheetsService {
   private sheets: any;
-  private spreadsheetId: string;
-  private headersLogged: boolean = false;
+  private spreadsheetId: string | undefined;
   private cachedAlumniData: AlumniRecord[] | null = null;
+  private headersLogged = false;
 
   constructor() {
-    this.spreadsheetId = process.env.ALUMNI_SPREADSHEET_ID || '';
+    this.spreadsheetId = process.env.ALUMNI_SPREADSHEET_ID;
     
-    // 서비스 계정 인증 설정 (뷰어 권한만 필요)
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'], // 읽기 전용
-    });
+    if (!this.spreadsheetId) {
+      console.log('Google Sheets not configured - ALUMNI_SPREADSHEET_ID not found');
+      return;
+    }
 
-    this.sheets = google.sheets({ version: 'v4', auth });
+    // Google Sheets API 인증 설정
+    try {
+      const credentials = {
+        type: "service_account",
+        project_id: "dynamic-waters-446615-e5",
+        private_key_id: "5f36c0c4a2ad8b5673a97d72cead8833ed6e4f30",
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        client_id: "105977463169766845056",
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '')}`
+      };
+
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      });
+
+      this.sheets = google.sheets({ version: 'v4', auth });
+      console.log('Google Sheets service initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Google Sheets service:', error);
+    }
   }
 
   // 스프레드시트에서 동문 데이터 가져오기
   async fetchAlumniData(): Promise<AlumniRecord[]> {
+    if (!this.sheets || !this.spreadsheetId) {
+      console.log('Google Sheets not available, returning empty array');
+      return [];
+    }
+
     // 캐시된 데이터가 있으면 반환
     if (this.cachedAlumniData) {
       return this.cachedAlumniData;
     }
-    
-    try {
-      if (!this.spreadsheetId) {
-        console.warn('ALUMNI_SPREADSHEET_ID not configured');
-        return [];
-      }
 
+    try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'A:F', // A열부터 F열까지 더 넓은 범위로 데이터 확인
+        range: 'A:L', // A부터 L까지 (12개 컬럼: 학과~메모)
       });
 
       const rows = response.data.values || [];
       const alumniData: AlumniRecord[] = [];
 
-      // 첫 번째 행 확인 (헤더 정보 로깅) - 1회만 실행
-      if (rows.length > 0 && !this.headersLogged) {
+      // 헤더와 첫 몇 행 데이터 구조 확인 (한 번만 로그)
+      if (!this.headersLogged && rows.length > 0) {
         console.log('Spreadsheet headers:', rows[0]);
-        
-        // 첫 5개 행 데이터 구조 확인
         for (let i = 1; i < Math.min(6, rows.length); i++) {
           console.log(`Row ${i}:`, rows[i]);
         }
@@ -61,51 +87,41 @@ export class GoogleSheetsService {
       }
 
       // 첫 번째 행은 헤더로 건너뛰기
-      // 스프레드시트 구조: [학과, 기수, 성명, 입학일자, 졸업일자, 주소]
+      // 스프레드시트 구조: [학과, 기수, 성명, 입학일자, 졸업일자, 주소, 핸드폰번호, 전화번호, 그룹, 상태, 동문회직책, 메모]
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         
-        // 헤더 행인지 확인 (학과 컬럼에 '학과'라는 텍스트가 있으면 헤더)
+        // 헤더 행인지 확인
         if (row[0] === '학과' || row[2] === '성명') {
-          continue; // 헤더 행 건너뛰기
+          continue;
         }
         
-        if (row[2] && row[1]) { // 성명(3번째 컬럼)과 기수(2번째 컬럼)가 있는 경우만
-          const cleanName = row[2]?.toString().trim() || ''; // 성명은 3번째 컬럼
-          const gradeString = row[1]?.toString().trim() || '0'; // 기수는 2번째 컬럼
-          const graduationDateString = row[4]?.toString().trim() || ''; // 졸업일자는 5번째 컬럼
-          
-          // 졸업년도 추출 (졸업일자에서 년도만 추출)
-          let graduationYear = 0;
-          if (graduationDateString) {
-            const yearMatch = graduationDateString.match(/(\d{4})/);
-            if (yearMatch) {
-              graduationYear = parseInt(yearMatch[1]);
-            }
-          }
-          
-          // 기수 정보도 활용 (1기 = 1985년 졸업 기준으로 계산)
-          if (!graduationYear && gradeString) {
-            const grade = parseInt(gradeString);
-            if (grade > 0) {
-              graduationYear = 1984 + grade; // 1기가 1985년 졸업
-            }
-          }
-          
+        // 필수 데이터(학과, 기수, 성명)가 있는 경우만 처리
+        if (row[0] && row[1] && row[2]) {
           alumniData.push({
-            name: cleanName,
-            graduationYear: graduationYear || 0,
-            phoneNumber: undefined, // 전화번호는 스프레드시트에 없음
-            email: undefined, // 이메일도 스프레드시트에 없음
+            department: row[0]?.toString().trim() || '',
+            generation: row[1]?.toString().trim() || '',
+            name: row[2]?.toString().trim() || '',
+            admissionDate: row[3]?.toString().trim() || undefined,
+            graduationDate: row[4]?.toString().trim() || undefined,
+            address: row[5]?.toString().trim() || undefined,
+            mobile: row[6]?.toString().trim() || undefined,
+            phone: row[7]?.toString().trim() || undefined,
+            group: row[8]?.toString().trim() || undefined,
+            status: row[9]?.toString().trim() || undefined,
+            alumniPosition: row[10]?.toString().trim() || undefined,
+            memo: row[11]?.toString().trim() || undefined,
           });
         }
       }
 
       console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);
       
-      // 첫 몇 개 동문 이름 출력으로 데이터 확인
+      // 첫 몇 개 동문 정보 출력
       if (alumniData.length > 0) {
-        console.log('Sample alumni names:', alumniData.slice(0, 5).map(a => `${a.name} (${a.graduationYear})`));
+        console.log('Sample alumni data:', alumniData.slice(0, 3).map(a => 
+          `${a.name} (${a.generation}기, ${a.department})`
+        ));
       }
       
       // 캐시에 저장
@@ -137,21 +153,20 @@ export class GoogleSheetsService {
     return partialMatches;
   }
 
-  // 정확한 이름과 졸업년도로 매칭
-  async findExactMatch(name: string, graduationYear?: number): Promise<AlumniRecord | null> {
+  // 정확한 이름과 기수로 매칭
+  async findExactMatch(name: string, generation?: string): Promise<AlumniRecord | null> {
     const allAlumni = await this.fetchAlumniData();
     
     // 이름이 정확히 일치하는 경우 우선
     let exactMatch = allAlumni.find(alumni => alumni.name === name);
     
-    // 졸업년도도 일치하는지 확인
-    if (exactMatch && graduationYear && exactMatch.graduationYear !== graduationYear) {
-      // 이름은 같지만 졸업년도가 다른 경우, 졸업년도도 맞는 것을 찾기
-      const yearMatch = allAlumni.find(alumni => 
-        alumni.name === name && alumni.graduationYear === graduationYear
+    // 기수 정보가 있으면 더 정확한 매칭
+    if (generation && exactMatch) {
+      const generationMatch = allAlumni.find(alumni => 
+        alumni.name === name && alumni.generation === generation
       );
-      if (yearMatch) {
-        exactMatch = yearMatch;
+      if (generationMatch) {
+        exactMatch = generationMatch;
       }
     }
     

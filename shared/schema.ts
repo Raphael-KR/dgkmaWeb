@@ -54,10 +54,18 @@ export const payments = pgTable("payments", {
 
 export const alumniDatabase = pgTable("alumni_database", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  graduationYear: integer("graduation_year").notNull(),
-  phoneNumber: text("phone_number"),
-  email: text("email"),
+  department: text("department").notNull(), // 학과
+  generation: text("generation").notNull(), // 기수
+  name: text("name").notNull(), // 성명
+  admissionDate: text("admission_date"), // 입학일자
+  graduationDate: text("graduation_date"), // 졸업일자
+  address: text("address"), // 주소
+  mobile: text("mobile"), // 핸드폰번호
+  phone: text("phone"), // 전화번호
+  group: text("group"), // 그룹
+  status: text("status"), // 상태
+  alumniPosition: text("alumni_position"), // 동문회직책
+  memo: text("memo"), // 메모
   isMatched: boolean("is_matched").default(false),
   matchedUserId: integer("matched_user_id").references(() => users.id),
 });
