@@ -111,7 +111,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPosts(categoryName?: string, limit = 50): Promise<(Post & { category: Category })[]> {
-    const baseQuery = db.select({
+    const baseCondition = eq(posts.isPublished, true);
+    const whereCondition = categoryName && categoryName !== 'all' 
+      ? and(baseCondition, eq(categories.name, categoryName))
+      : baseCondition;
+
+    return await db.select({
       id: posts.id,
       title: posts.title,
       content: posts.content,
@@ -124,18 +129,9 @@ export class DatabaseStorage implements IStorage {
     })
     .from(posts)
     .innerJoin(categories, eq(posts.categoryId, categories.id))
-    .where(eq(posts.isPublished, true));
-
-    if (categoryName && categoryName !== 'all') {
-      return await baseQuery
-        .where(and(eq(posts.isPublished, true), eq(categories.name, categoryName)))
-        .orderBy(desc(posts.createdAt))
-        .limit(limit);
-    }
-    
-    return await baseQuery
-      .orderBy(desc(posts.createdAt))
-      .limit(limit);
+    .where(whereCondition)
+    .orderBy(desc(posts.createdAt))
+    .limit(limit);
   }
 
   async getPost(id: number): Promise<(Post & { category: Category }) | undefined> {

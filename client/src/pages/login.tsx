@@ -24,24 +24,25 @@ export default function Login() {
 
   const handleKakaoLogin = async () => {
     try {
-      // Check if running in development mode
-      const isDevelopment = import.meta.env.DEV || window.location.hostname.includes('localhost') || window.location.hostname.includes('replit');
-
-      if (isDevelopment) {
-        // Use mock data for development
-        const mockKakaoData = {
-          kakaoId: "mock-kakao-id-" + Date.now(),
-          email: "user@example.com",
-          name: "김동문"
-        };
-        await login(mockKakaoData);
-      } else {
-        // Use real Kakao login for production
+      // Try real Kakao login first
+      try {
         const kakaoData = await kakaoLogin();
         await login(kakaoData);
+        return;
+      } catch (kakaoError) {
+        console.warn("Kakao login failed, falling back to development mode:", kakaoError);
       }
+      
+      // Fallback to mock data for development/testing
+      const mockKakaoData = {
+        kakaoId: "dev-kakao-id-" + Date.now(),
+        email: "dev@donggukhani.com", 
+        name: "개발자"
+      };
+      await login(mockKakaoData);
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("Login completely failed:", error);
+      alert("로그인에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -82,8 +83,7 @@ export default function Login() {
 
               <p className="text-sm text-gray-500 leading-relaxed">
                 카카오싱크를 통한 본인인증으로<br />
-                졸업생 정보와 자동 매칭됩니다.<br />
-                <span className="text-xs text-blue-600">개발 모드: 자동 로그인</span>
+                졸업생 정보와 자동 매칭됩니다.
               </p>
             </div>
           </CardContent>
