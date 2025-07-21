@@ -131,22 +131,43 @@ export default function Home() {
       <div className="max-w-md mx-auto px-4 pb-20 pt-4">
 
         {/* User Info Section */}
-        <div className="bg-kakao-yellow rounded-lg p-4 mb-6 shadow-sm">
+        <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-kakao-brown font-medium mb-1">
-                {user.name}님
-              </p>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs bg-white text-kakao-brown border-kakao-brown">
-                  {user.graduationYear}년 졸업
-                </Badge>
-                {user.isAdmin && (
-                  <Badge className="text-xs bg-red-100 text-red-800">
-                    관리자
-                  </Badge>
-                )}
+            <div className="flex items-center space-x-3">
+              {/* Avatar */}
+              <div className="w-12 h-12 bg-kakao-yellow rounded-full flex items-center justify-center">
+                <span className="text-kakao-brown font-bold text-lg">
+                  {user.name?.charAt(0) || "?"}
+                </span>
               </div>
+              
+              {/* User Details */}
+              <div>
+                <p className="font-bold text-gray-800 text-base">
+                  {user.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {user.graduationYear}년 졸업
+                </p>
+              </div>
+            </div>
+            
+            {/* Status Badge */}
+            <div className="flex items-center gap-2">
+              {user.isVerified ? (
+                <Badge className="bg-green-100 text-green-700 text-xs px-3 py-1">
+                  인증완료
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-xs px-3 py-1">
+                  인증대기
+                </Badge>
+              )}
+              {user.isAdmin && (
+                <Badge className="bg-red-100 text-red-800 text-xs px-3 py-1">
+                  관리자
+                </Badge>
+              )}
             </div>
           </div>
         </div>
