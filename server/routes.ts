@@ -255,10 +255,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/sync-alumni", async (req, res) => {
     try {
       // TODO: 관리자 권한 확인 추가
-      const syncedCount = await storage.syncAlumniFromGoogleSheets();
+      const syncStats = await storage.syncAlumniFromGoogleSheets();
       res.json({ 
-        message: `Google Sheets 동기화 완료: ${syncedCount}건 업데이트`,
-        syncedCount 
+        message: `Google Sheets 동기화 완료: ${syncStats.synced}/${syncStats.total}건 업데이트`,
+        stats: syncStats
       });
     } catch (error) {
       console.error("Alumni sync error:", error);
