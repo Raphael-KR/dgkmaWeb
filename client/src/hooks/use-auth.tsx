@@ -50,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.status === 202 && data.requiresApproval) {
         toast({
-          title: "가입 신청 완료",
-          description: "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
+          title: data.message || "가입 신청 완료",
+          description: data.description || "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
         });
         return;
       }
@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
         setLocation("/");
         toast({
-          title: "로그인 성공",
-          description: `${data.user.name}님, 환영합니다!`,
+          title: "카카오싱크 로그인 성공",
+          description: `${data.user.name}님, 환영합니다! 카카오싱크가 연결되었습니다.`,
         });
       } else {
         throw new Error(data.message || "로그인에 실패했습니다.");

@@ -8,22 +8,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/kakao", async (req, res) => {
     try {
-      const { kakaoId, email, name } = req.body;
+      const { kakaoId, email, name, accessToken } = req.body;
+      
+      console.log("Kakao auth request:", { kakaoId, email, name });
       
       // Check if user exists
       let user = await storage.getUserByKakaoId(kakaoId);
       
       if (!user) {
-        // Check if alumni exists in database
+        // For KakaoSync, we'll implement simplified registration
+        // Check if alumni exists in database first
         const alumni = await storage.findAlumniByName(name);
         
         if (alumni.length > 0) {
-          // Auto-register if alumni found
+          // Auto-register verified alumni with KakaoSync
           user = await storage.createUser({
             kakaoId,
             email,
             name,
             isVerified: true,
+            kakaoSyncEnabled: true, // Mark as KakaoSync user
           });
           
           // Match with alumni record
@@ -31,25 +35,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (exactMatch) {
             await storage.updateAlumniMatch(exactMatch.id, user.id);
           }
+          
+          console.log("Auto-registered verified alumni:", user);
         } else {
-          // Create pending registration
+          // For non-alumni, still create pending registration but indicate KakaoSync
           await storage.createPendingRegistration({
             kakaoId,
             email,
             name,
-            userData: { kakaoId, email, name },
+            userData: { kakaoId, email, name, kakaoSync: true },
           });
           
           return res.status(202).json({ 
-            message: "Registration pending approval",
+            message: "가입 신청이 접수되었습니다",
+            description: "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
             requiresApproval: true 
           });
         }
+      } else {
+        // Enable KakaoSync for existing users
+        if (!user.kakaoSyncEnabled) {
+          user = await storage.updateUser(user.id, { kakaoSyncEnabled: true });
+        }
+        console.log("Existing user login:", user);
       }
       
-      res.json({ user, token: "mock-jwt-token" });
+      res.json({ user, token: "kakao-jwt-token" });
     } catch (error) {
-      res.status(500).json({ message: "Authentication failed" });
+      console.error("Kakao auth error:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: "Authentication failed", error: errorMessage });
     }
   });
 
