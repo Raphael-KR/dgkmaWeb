@@ -20,6 +20,9 @@ import Info from "@/pages/info";
 import Executives from "@/pages/executives";
 import Bylaws from "@/pages/bylaws";
 import History from "@/pages/history";
+import { AppHeader } from "@/components/layout/app-header";
+import Navigation from "@/components/navigation";
+import { BottomNavigation } from "@/components/layout/bottom-navigation";
 
 
 function Router() {
@@ -43,12 +46,19 @@ function Router() {
 }
 
 function App() {
+  const [isNavOpen, setIsNavOpen] = useState(false);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50">
-            <Router />
+          <div className="min-h-screen bg-gray-50 pb-16">
+            <AppHeader onMenuClick={() => setIsNavOpen(true)} />
+            <Navigation isOpen={isNavOpen} setIsOpen={setIsNavOpen} />
+            <main className="pt-16">
+              <Router />
+            </main>
+            <BottomNavigation />
           </div>
           <Toaster />
         </AuthProvider>

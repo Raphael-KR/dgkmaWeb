@@ -579,8 +579,7 @@ export default function InfoPage() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
-      <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
+
       
       <div className="p-4">
         {/* 섹션 네비게이션 */}
