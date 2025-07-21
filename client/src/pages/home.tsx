@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/app-header";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
+import Navigation from "@/components/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +113,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
+      <Navigation />
       <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
@@ -120,18 +122,18 @@ export default function Home() {
           <div className="flex items-center space-x-4">
             <div className="w-12 h-12 kakao rounded-full flex items-center justify-center">
               <span className="kakao-brown font-bold text-lg">
-                {user.name?.charAt(0) || "?"}
+                {user?.name?.charAt(0) || "?"}
               </span>
             </div>
             <div>
-              <h3 className="font-bold text-lg">{user.name}</h3>
+              <h3 className="font-bold text-lg">{user?.name || "사용자"}</h3>
               <p className="text-gray-600 text-sm">
-                {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
+                {user?.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
               </p>
             </div>
             <div className="ml-auto">
-              <Badge className={user.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                {user.isVerified ? "인증완료" : "인증대기"}
+              <Badge className={user?.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                {user?.isVerified ? "인증완료" : "인증대기"}
               </Badge>
             </div>
           </div>
@@ -320,7 +322,7 @@ export default function Home() {
       </div>
 
       {/* Admin Floating Button */}
-      {user.isAdmin && (
+      {user?.isAdmin && (
         <Button
           className="fixed bottom-24 right-4 w-14 h-14 bg-kakao-orange text-white rounded-full shadow-lg hover:bg-orange-600"
           onClick={() => setLocation("/admin")}

@@ -12,6 +12,10 @@ import Payments from "@/pages/payments";
 import Directory from "@/pages/directory";
 import Profile from "@/pages/profile";
 import Admin from "@/pages/admin";
+import About from "@/pages/about";
+import Executives from "@/pages/executives";
+import Bylaws from "@/pages/bylaws";
+import History from "@/pages/history";
 
 function Router() {
   return (
@@ -23,6 +27,10 @@ function Router() {
       <Route path="/directory" component={Directory} />
       <Route path="/profile" component={Profile} />
       <Route path="/admin" component={Admin} />
+      <Route path="/about" component={About} />
+      <Route path="/executives" component={Executives} />
+      <Route path="/bylaws" component={Bylaws} />
+      <Route path="/history" component={History} />
       <Route component={NotFound} />
     </Switch>
   );
