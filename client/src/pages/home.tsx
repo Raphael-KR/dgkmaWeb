@@ -62,7 +62,7 @@ export default function Home() {
           authorId: user?.id,
         }),
       });
-      
+
       if (response.ok) {
         queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
         toast({
@@ -108,7 +108,17 @@ export default function Home() {
   }
 
   if (!user) {
-    return null;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
+          <p className="text-gray-600 mb-6">동문회 서비스를 이용하려면 로그인해주세요.</p>
+          <Link href="/login" className="bg-kakao-yellow text-kakao-brown px-6 py-3 rounded-lg font-medium hover:bg-yellow-400 transition-colors">
+            카카오 로그인
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const currentYear = new Date().getFullYear();
@@ -118,7 +128,7 @@ export default function Home() {
     <div className="min-h-screen bg-kakao-gray">
       <AppHeader onMenuClick={() => setIsMenuOpen(true)} />
       <SimpleNavigation isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} />
-      
+
       <div className="max-w-md mx-auto px-4 pb-20">
         {/* User Welcome Section */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
@@ -157,7 +167,7 @@ export default function Home() {
               <p className="text-sm text-gray-600">온라인 결제</p>
             </div>
           </Button>
-          
+
           <Button 
             variant="outline"
             className="bg-white rounded-xl shadow-sm p-6 h-auto flex-col space-y-3 hover:shadow-md"
@@ -178,7 +188,7 @@ export default function Home() {
           <div className="p-6 border-b border-gray-100">
             <h3 className="text-lg font-bold text-gray-800">최근 게시글</h3>
           </div>
-          
+
           {postsLoading ? (
             <div className="p-6">
               <LoadingSpinner />
@@ -208,7 +218,7 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-              
+
               <div className="p-4 text-center">
                 <Button variant="ghost" onClick={() => setLocation("/boards")}>
                   전체 게시글 보기 →
@@ -303,7 +313,7 @@ export default function Home() {
                 </div>
                 <p className="text-xs text-gray-600 font-medium">동문 찾기</p>
               </Button>
-              
+
               <Button variant="ghost" className="flex-col p-3 h-auto space-y-2">
                 <div className="w-10 h-10 kakao rounded-lg flex items-center justify-center">
                   <svg className="kakao-brown" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -312,7 +322,7 @@ export default function Home() {
                 </div>
                 <p className="text-xs text-gray-600 font-medium">카톡방 참여</p>
               </Button>
-              
+
               <Button variant="ghost" className="flex-col p-3 h-auto space-y-2">
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                   <Calendar className="text-purple-600" size={20} />

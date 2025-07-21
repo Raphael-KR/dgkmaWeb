@@ -26,7 +26,7 @@ export default function Login() {
     try {
       // Check if running in development mode
       const isDevelopment = import.meta.env.DEV || window.location.hostname.includes('localhost') || window.location.hostname.includes('replit');
-      
+
       if (isDevelopment) {
         // Use mock data for development
         const mockKakaoData = {
@@ -68,7 +68,7 @@ export default function Login() {
               <p className="text-gray-600 mb-6 leading-relaxed">
                 동문 여러분과의 소통과 네트워킹을 위한 통합 플랫폼입니다.
               </p>
-              
+
               <Button 
                 className="w-full kakao font-bold py-4 px-6 rounded-xl mb-3 flex items-center justify-center space-x-3 transition-all hover:bg-yellow-400"
                 onClick={handleKakaoLogin}
@@ -79,7 +79,7 @@ export default function Login() {
                 </svg>
                 <span>카카오로 로그인</span>
               </Button>
-              
+
               <p className="text-sm text-gray-500 leading-relaxed">
                 카카오싱크를 통한 본인인증으로<br />
                 졸업생 정보와 자동 매칭됩니다.<br />
