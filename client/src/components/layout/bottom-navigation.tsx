@@ -1,8 +1,12 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Home, List, Users, User } from "lucide-react";
+import { Home, List, Users, User, Menu } from "lucide-react";
 
-export function BottomNavigation() {
+interface BottomNavigationProps {
+  onMenuClick?: () => void;
+}
+
+export function BottomNavigation({ onMenuClick }: BottomNavigationProps = {}) {
   const [location, setLocation] = useLocation();
 
   const navItems = [
@@ -36,6 +40,16 @@ export function BottomNavigation() {
               </Button>
             );
           })}
+          
+          {/* Menu Button */}
+          <Button
+            variant="ghost"
+            className="flex-1 py-3 px-2 flex-col space-y-1 h-auto text-gray-400 hover:text-gray-600"
+            onClick={onMenuClick}
+          >
+            <Menu size={20} />
+            <span className="text-xs font-medium">전체</span>
+          </Button>
         </div>
       </div>
     </nav>

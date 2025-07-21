@@ -1,12 +1,8 @@
-import { Bell, Menu } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
 
-interface AppHeaderProps {
-  onMenuClick?: () => void;
-}
-
-export function AppHeader({ onMenuClick }: AppHeaderProps = {}) {
+export function AppHeader() {
   return (
     <header className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-md mx-auto px-4 py-3">
@@ -23,9 +19,6 @@ export function AppHeader({ onMenuClick }: AppHeaderProps = {}) {
                 <Bell size={20} />
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-kakao-orange rounded-full"></span>
               </div>
-            </Button>
-            <Button variant="ghost" size="sm" className="p-2" onClick={onMenuClick}>
-              <Menu size={20} />
             </Button>
           </div>
         </div>
