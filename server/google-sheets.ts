@@ -285,6 +285,18 @@ export class GoogleSheetsService {
   finishSync() {
     this.syncProgress.isRunning = false;
     this.syncProgress.currentStep = '동기화 완료';
+    
+    // 3초 후 상태 초기화 (다음 동기화를 위해)
+    setTimeout(() => {
+      this.syncProgress = {
+        isRunning: false,
+        currentStep: '',
+        processed: 0,
+        total: 0,
+        startTime: 0,
+        errors: 0
+      };
+    }, 3000);
   }
 
   // 연결 테스트
