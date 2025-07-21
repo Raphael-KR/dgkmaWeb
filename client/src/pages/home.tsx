@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { AppHeader } from "@/components/layout/app-header";
-import { BottomNavigation } from "@/components/layout/bottom-navigation";
+
 import SimpleNavigation from "@/components/simple-navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -332,7 +332,7 @@ export default function Home() {
         </Button>
       )}
 
-      <BottomNavigation />
+
     </div>
   );
 }

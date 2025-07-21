@@ -19,7 +19,7 @@ import Bylaws from "@/pages/bylaws";
 import History from "@/pages/history";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
-import BottomNavigation from "@/components/layout/bottom-navigation";
+
 
 function Router() {
   return (
@@ -54,7 +54,7 @@ function App() {
               <Switch>
               </Switch>
             </Router>
-            <BottomNavigation />
+
           </div>
         </AuthProvider>
       </TooltipProvider>

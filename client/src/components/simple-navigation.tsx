@@ -149,7 +149,7 @@ export default function SimpleNavigation() {
             </Button>
           ) : (
             <Link href="/login" onClick={() => setIsOpen(false)}>
-              <Button className="w-full kakao kakao-brown">
+              <Button className="w-full bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
                 카카오 로그인
               </Button>
             </Link>

@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { AppHeader } from "@/components/layout/app-header";
-import { BottomNavigation } from "@/components/layout/bottom-navigation";
+import SimpleNavigation from "@/components/simple-navigation";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ export default function Payments() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
+      <SimpleNavigation />
       <AppHeader />
       
       <div className="max-w-md mx-auto px-4 pb-20">
@@ -121,7 +123,7 @@ export default function Payments() {
         </div>
       </div>
 
-      <BottomNavigation />
+
     </div>
   );
 }
