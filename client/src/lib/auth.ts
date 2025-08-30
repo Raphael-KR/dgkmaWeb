@@ -147,7 +147,7 @@ export const signInWithKakao = async () => {
 };
 
 // Sign out function
-export const signOut = async () => {
+export const supabaseSignOut = async () => {
   try {
     const { error } = await supabase.auth.signOut();
     if (error) {
