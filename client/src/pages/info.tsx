@@ -335,6 +335,26 @@ export default function InfoPage() {
               <p>전화: 02-2260-8900</p>
               <p>이메일: alumni@dongguk.edu</p>
             </div>
+            
+            <div className="mt-4 pt-3 border-t border-yellow-300">
+              <h4 className="font-medium text-kakao-brown text-sm mb-2">이용 안내</h4>
+              <div className="flex flex-wrap gap-3 text-xs">
+                <button
+                  onClick={() => window.open("/terms", "_blank")}
+                  className="text-kakao-brown underline hover:text-yellow-600"
+                  data-testid="link-terms-info"
+                >
+                  서비스 이용약관
+                </button>
+                <button
+                  onClick={() => window.open("/privacy", "_blank")}
+                  className="text-kakao-brown underline hover:text-yellow-600"
+                  data-testid="link-privacy-info"
+                >
+                  개인정보 처리방침
+                </button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

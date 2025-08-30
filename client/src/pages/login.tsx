@@ -118,11 +118,33 @@ export default function Login() {
                 <span>카카오로 시작하기</span>
               </Button>
 
-              <p className="text-sm text-gray-500 leading-relaxed">
+              <p className="text-sm text-gray-500 leading-relaxed mb-4">
                 카카오싱크 간편가입으로<br />
                 졸업생 정보와 자동 매칭하여<br />
                 빠르고 안전하게 시작하세요.
               </p>
+
+              <div className="text-xs text-gray-400 space-y-1">
+                <p>
+                  로그인 시{" "}
+                  <button 
+                    onClick={() => window.open("/terms", "_blank")}
+                    className="text-kakao-brown underline hover:text-yellow-600"
+                    data-testid="link-terms"
+                  >
+                    서비스 이용약관
+                  </button>
+                  {" "}및{" "}
+                  <button 
+                    onClick={() => window.open("/privacy", "_blank")}
+                    className="text-kakao-brown underline hover:text-yellow-600"
+                    data-testid="link-privacy"
+                  >
+                    개인정보 처리방침
+                  </button>
+                  에 동의한 것으로 간주됩니다.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
