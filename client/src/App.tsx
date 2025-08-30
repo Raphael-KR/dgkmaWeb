@@ -16,6 +16,8 @@ import Profile from "@/pages/profile";
 import Info from "@/pages/info";
 import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 import AuthCallback from "@/pages/auth-callback";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
@@ -35,6 +37,8 @@ function Router() {
       <Route path="/info" component={Info} />
       <Route path="/search" component={Search} />
       <Route path="/post/:id" component={PostDetail} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
       {/* Redirect old routes to /info */}
       <Route path="/about" component={() => { window.location.href = '/info'; return null; }} />
       <Route path="/executives" component={() => { window.location.href = '/info'; return null; }} />
