@@ -4,18 +4,15 @@ import * as schema from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
-    "DATABASE_URL must be set. Please provide your Supabase database URL.",
+    "DATABASE_URL must be set. Please ensure the database is provisioned.",
   );
 }
 
-console.log("Connecting to Supabase database...");
+console.log("Connecting to PostgreSQL database...");
 
-// Supabase PostgreSQL 연결 설정
+// PostgreSQL 연결 설정
 export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  connectionString: process.env.DATABASE_URL
 });
 
 export const db = drizzle(pool, { schema });
