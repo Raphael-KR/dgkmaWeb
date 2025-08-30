@@ -2,6 +2,26 @@
 
 This is a full-stack web application for the Dongguk University Korean Medicine Alumni Association (동국한의동문회). It serves as a centralized, mobile-optimized platform to replace fragmented communication channels, integrating seamlessly with KakaoTalk workflows common in Korean organizations. The system provides core functionality for alumni management, a unified bulletin board system, membership fee management, and robust KakaoTalk integration, aiming to connect and support alumni effectively.
 
+## Recent Changes (2025-08-30)
+
+### Authentication System
+- **Database Migration**: Successfully migrated from Neon to Supabase PostgreSQL 17.4
+- **Kakao Login Integration**: Configured custom Kakao login system with fallback development mode
+- **Environment Variables**: Set up VITE_KAKAO_JAVASCRIPT_KEY for client-side Kakao SDK
+- **Domain Configuration**: Configured for Replit domain `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`
+
+### Legal Compliance
+- **Service Terms**: Created comprehensive service terms page (`/terms`)
+- **Privacy Policy**: Implemented detailed privacy policy page (`/privacy`)
+- **User Consent**: Added terms agreement notification on login page
+- **Legal Links**: Integrated terms and privacy policy access from info page
+
+### System Status
+- **Database**: Fully operational with Supabase backend
+- **Google Sheets Integration**: Working with 3390+ alumni records
+- **Payment System**: Functional with fee tracking
+- **Search System**: Integrated across posts and alumni records
+
 ## User Preferences
 
 - **언어**: 영어 프롬프트를 받아도 항상 한국어로 응답
