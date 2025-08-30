@@ -205,13 +205,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
   }
 
-  async findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined> {
-    // year를 string으로 변환하여 generation과 비교
-    const [alumni] = await db.select().from(alumniDatabase)
-      .where(and(eq(alumniDatabase.name, name), eq(alumniDatabase.generation, year.toString())));
-    return alumni || undefined;
-  }
-
   async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {
     // 로컬 데이터베이스에서만 검색 (Google Sheets 중복 체크는 여기서 하지 않음)
     const [alumni] = await db.select().from(alumniDatabase)
@@ -286,7 +279,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Google Sheets에서 동문 데이터 동기화
-  async syncAlumniFromGoogleSheets(): Promise<number> {
+  async syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }> {
     const stats = { total: 0, synced: 0, errors: 0 };
     
     try {
@@ -301,7 +294,7 @@ export class DatabaseStorage implements IStorage {
       if (!isConnected) {
         console.log('Google Sheets not configured, skipping sync');
         googleSheetsService.finishSync();
-        return 0;
+        return stats;
       }
       
       // Google Sheets에서 모든 동문 데이터 가져오기
@@ -312,7 +305,7 @@ export class DatabaseStorage implements IStorage {
       
       if (googleAlumni.length === 0) {
         console.log('No alumni data found in Google Sheets');
-        return 0;
+        return stats;
       }
       
       // 각 동문 데이터를 로컬 DB와 비교하여 업데이트
@@ -338,7 +331,7 @@ export class DatabaseStorage implements IStorage {
               mobile: alumniData.mobile
             });
             stats.errors++;
-            googleSheetsService.updateSyncProgress('데이터 검증 오류', undefined, undefined, stats.errors);
+            googleSheetsService.updateSyncProgress(undefined, undefined, undefined, stats.errors);
             continue;
           }
           
@@ -395,12 +388,12 @@ export class DatabaseStorage implements IStorage {
       console.log(`- Total records in DB: ${totalInDB}`);
       console.log(`- Remaining to sync: ${stats.total - totalInDB}`);
       
-      return stats.synced;
+      return stats;
     } catch (error) {
       console.error('Google Sheets sync failed:', error);
       // 에러 시에도 동기화 상태 정리
       googleSheetsService.finishSync();
-      return stats.synced;
+      return stats;
     }
   }
 }
