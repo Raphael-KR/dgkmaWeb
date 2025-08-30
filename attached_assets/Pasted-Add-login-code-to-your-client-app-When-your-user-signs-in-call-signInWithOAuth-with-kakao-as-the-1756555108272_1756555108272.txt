@@ -1,0 +1,93 @@
+Add login code to your client app
+
+When your user signs in, call signInWithOAuth() with kakao as the provider:
+
+async function signInWithKakao() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'kakao',
+  })
+}
+For a PKCE flow, for example in Server-Side Auth, you need an extra step to handle the code exchange. When calling signInWithOAuth, provide a redirectTo URL which points to a callback route. This redirect URL should be added to your redirect allow list.
+
+Client
+In the browser, signInWithOAuth automatically redirects to the OAuth provider's authentication endpoint, which then redirects to your endpoint.
+
+await supabase.auth.signInWithOAuth({
+  provider,
+  options: {
+    redirectTo: `http://example.com/auth/callback`,
+  },
+})
+At the callback endpoint, handle the code exchange to save the user session.
+
+Next.js
+Create a new file at app/auth/callback/route.ts and populate with the following:
+
+import { NextResponse } from 'next/server'
+// The client you created from the Server-Side Auth instructions
+import { createClient } from '@/utils/supabase/server'
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
+  // if "next" is in param, use it as the redirect URL
+  let next = searchParams.get('next') ?? '/'
+  if (!next.startsWith('/')) {
+    // if "next" is not a relative URL, use the default
+    next = '/'
+  }
+  if (code) {
+    const supabase = await createClient()
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error) {
+      const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
+      const isLocalEnv = process.env.NODE_ENV === 'development'
+      if (isLocalEnv) {
+        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
+        return NextResponse.redirect(`${origin}${next}`)
+      } else if (forwardedHost) {
+        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+      } else {
+        return NextResponse.redirect(`${origin}${next}`)
+      }
+    }
+  }
+  // return the user to an error page with instructions
+  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+}
+When your user signs out, call signOut() to remove them from the browser session and any objects from localStorage:
+
+async function signOut() {
+const { error } = await supabase.auth.signOut()
+}
+
+Using Kakao Login JS SDK#
+Kakao Login JS SDK is an official Kakao SDK for authenticating Kakao users on websites.
+
+Exchange the authorization code returned by Kakao API for an ID Token.
+
+For example, this code shows a how to get ID Token:
+
+const requestUrl = new URL(request.url);
+const code = requestUrl.searchParams.get('code');
+if (code) {
+  const res = await fetch('https://kauth.kakao.com/oauth/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+    },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: '<CLIENT_ID>',
+      redirect_uri: '<url>/api/auth/kakao/oidc',
+      code,
+      client_secret: '<CLIENT_SECRET>',
+    }),
+  });
+  const {id_token} = await res.json();
+}
+Use the ID Token to sign in:
+
+const res = await auth.signInWithIdToken({
+  provider: 'kakao',
+  token: id_token,
+});

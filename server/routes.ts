@@ -3,74 +3,29 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize Supabase client
-  const supabaseUrl = process.env.SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   // Auth routes
-  // Supabase OAuth callback handler
+  // Simple auth callback for development (Supabase OAuth 사용 안함)
   app.get("/api/auth/callback", async (req, res) => {
     try {
-      const { code, next } = req.query;
-      let redirectTo = (next as string) || '/';
-      
-      if (!redirectTo.startsWith('/')) {
-        redirectTo = '/';
-      }
-
-      if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code as string);
-        
-        if (!error && data.session) {
-          // Get user info from Supabase
-          const { data: userData, error: userError } = await supabase.auth.getUser(data.session.access_token);
-          
-          if (!userError && userData.user) {
-            // Try to find or create user in local database
-            const kakaoId = userData.user.user_metadata.sub || userData.user.id;
-            const email = userData.user.email || '';
-            const name = userData.user.user_metadata.full_name || userData.user.user_metadata.name || '카카오 사용자';
-            
-            let localUser = await storage.getUserByKakaoId(kakaoId);
-            
-            if (!localUser) {
-              // Check if alumni exists in Google Sheets
-              const { googleSheetsService } = await import("./google-sheets");
-              const alumniMatches = await googleSheetsService.findAlumniByName(name);
-              
-              if (alumniMatches.length > 0) {
-                localUser = await storage.createUser({
-                  kakaoId,
-                  email,
-                  name,
-                  isVerified: true,
-                  kakaoSyncEnabled: true,
-                });
-              } else {
-                await storage.createPendingRegistration({
-                  kakaoId,
-                  email,
-                  name,
-                  userData: { kakaoId, email, name, kakaoSync: true },
-                });
-                
-                return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/?status=pending`);
-              }
-            }
-          }
-          
-          return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}${redirectTo}`);
-        }
-      }
-      
-      return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/login?error=auth_failed`);
+      console.log("Auth callback - redirecting to home");
+      return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/`);
     } catch (error) {
       console.error("Auth callback error:", error);
       return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/login?error=server_error`);
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      // Clear session data if any
+      console.log("User logged out");
+      res.json({ success: true, message: "Logged out successfully" });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
     }
   });
 
