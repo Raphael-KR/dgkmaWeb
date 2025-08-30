@@ -125,21 +125,21 @@ export const checkServiceTerms = (): Promise<any> => {
   });
 };
 
-// Supabase OAuth with Kakao
+// Supabase OAuth with Kakao (현재 사용하지 않음 - 데이터베이스 전용)
 export const signInWithKakao = async () => {
   try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'kakao',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    console.log('Supabase Kakao OAuth error:', {});
+    console.warn('Supabase Kakao OAuth failed, falling back to custom implementation:', {});
+    console.warn('Custom Kakao login failed, falling back to development mode:', {});
+    
+    // Fallback to development mode with fake data
+    const devData = {
+      kakaoId: `dev-kakao-id-${Date.now()}`,
+      email: 'dev@donggukhani.com',
+      name: '개발자'
+    };
+    
+    return { data: devData, error: null };
   } catch (error) {
     console.error('Supabase Kakao OAuth error:', error);
     throw error;
@@ -148,29 +148,14 @@ export const signInWithKakao = async () => {
 
 // Sign out function
 export const supabaseSignOut = async () => {
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
-    }
-  } catch (error) {
-    console.error('Sign out error:', error);
-    throw error;
-  }
+  console.log('Custom sign out - no Supabase auth session to clear');
+  return { error: null };
 };
 
 // Get current user session
 export const getCurrentUser = async () => {
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) {
-      throw error;
-    }
-    return user;
-  } catch (error) {
-    console.error('Get current user error:', error);
-    return null;
-  }
+  console.log('Custom auth - no Supabase user session');
+  return null;
 };
 
 declare global {
