@@ -1,11 +1,22 @@
 
-import { createClient } from '@supabase/supabase-js'
+// Note: This project uses Supabase as database only, not for client-side authentication
+// Authentication is handled through custom Kakao Login system
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Dummy exports to maintain compatibility with existing imports
+export const supabase = null;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Supabase URL and Anon Key must be set in environment variables')
+export async function getCurrentUser() {
+  // Using custom auth system, not Supabase auth
+  return null;
 }
 
-export const supabase = createClient(supabaseUrl!, supabaseKey!)
+export async function signOut() {
+  // Using custom logout system
+  return { success: true };
+}
+
+export async function signInWithKakao(kakaoData: { kakaoId: string; email: string; name: string }) {
+  // This should be handled by the custom auth system
+  console.log('Kakao auth data received:', kakaoData);
+  return { success: true, data: kakaoData };
+}
