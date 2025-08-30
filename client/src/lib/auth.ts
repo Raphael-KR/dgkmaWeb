@@ -84,6 +84,16 @@ export const kakaoLogin = (): Promise<{ kakaoId: string; email: string; name: st
     }
 
     console.log("Calling Kakao.Auth.login...");
+    console.log("Current domain:", window.location.hostname);
+    console.log("Current protocol:", window.location.protocol);
+    console.log("Full URL:", window.location.href);
+    
+    // Check if Auth.login is actually callable
+    if (typeof window.Kakao.Auth.login !== 'function') {
+      console.error("Kakao.Auth.login is not a function, type:", typeof window.Kakao.Auth.login);
+      reject(new Error("Kakao.Auth.login is not available"));
+      return;
+    }
     
     try {
       // Use KakaoSync simplified registration with service terms
