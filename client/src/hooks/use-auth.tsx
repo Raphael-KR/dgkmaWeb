@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+// Note: Using Supabase for database only, not for authentication
 import type { User } from "@shared/schema";
 
 interface AuthContextType {
@@ -77,7 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", { 
+        method: "POST", 
+        credentials: "include" 
+      });
+      
+      if (!response.ok) {
+        console.warn("Server logout failed, continuing with client-side logout");
+      }
+    } catch (error) {
+      console.warn("Logout request failed:", error);
+    }
+    
     setUser(null);
     setLocation("/login");
     toast({
