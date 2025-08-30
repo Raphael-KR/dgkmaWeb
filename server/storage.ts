@@ -41,7 +41,7 @@ export interface IStorage {
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
-  syncAlumniFromGoogleSheets(): Promise<number>;
+  syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }>;
   
   // Pending registration methods
   getPendingRegistrations(): Promise<PendingRegistration[]>;
@@ -212,6 +212,12 @@ export class DatabaseStorage implements IStorage {
     return alumni || undefined;
   }
 
+  async findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined> {
+    // 졸업년도를 기수로 변환하여 검색 (동국대 한의대는 보통 6년제)
+    const generation = (year - 1994).toString(); // 대략적인 기수 계산
+    return await this.findAlumniByNameAndGeneration(name, generation);
+  }
+
   // 휴대전화번호로 동문 찾기 (고유키)
   async findAlumniByMobile(mobile: string): Promise<any | undefined> {
     if (!mobile || mobile.trim() === '') {
@@ -331,7 +337,7 @@ export class DatabaseStorage implements IStorage {
               mobile: alumniData.mobile
             });
             stats.errors++;
-            googleSheetsService.updateSyncProgress(undefined, undefined, undefined, stats.errors);
+            googleSheetsService.updateSyncProgress('데이터 검증 오류 발생', undefined, undefined, stats.errors);
             continue;
           }
           
