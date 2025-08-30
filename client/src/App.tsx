@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
@@ -17,6 +16,7 @@ import Profile from "@/pages/profile";
 import Info from "@/pages/info";
 import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
+import AuthCallback from "@/pages/auth-callback";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -27,6 +27,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
+      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/admin" component={Admin} />
       <Route path="/boards" component={Boards} />
       <Route path="/directory" component={Directory} />

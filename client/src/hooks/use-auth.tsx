@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { supabase, getCurrentUser, signOut as supabaseSignOut } from "@/lib/supabase";
 import type { User } from "@shared/schema";
 
 interface AuthContextType {
@@ -20,6 +21,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     checkAuth();
+    
+    // Listen to Supabase auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          console.log('Supabase user signed in:', session.user);
+          // You can create/update user in your database here
+          // For now, we'll still use the existing auth flow
+        } else if (event === 'SIGNED_OUT') {
+          console.log('Supabase user signed out');
+          setUser(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkAuth = async () => {
@@ -77,7 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Try Supabase sign out first
+      await supabaseSignOut();
+    } catch (error) {
+      console.warn("Supabase sign out failed:", error);
+    }
+    
     setUser(null);
     setLocation("/login");
     toast({

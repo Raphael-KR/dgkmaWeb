@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { GraduationCap } from "lucide-react";
-import { initKakao, kakaoLogin } from "@/lib/auth";
+import { signInWithKakao, initKakao, kakaoLogin } from "@/lib/auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -24,16 +24,24 @@ export default function Login() {
 
   const handleKakaoLogin = async () => {
     try {
-      // Try real Kakao login first
+      // Try Supabase OAuth with Kakao first
+      try {
+        await signInWithKakao();
+        return;
+      } catch (supabaseError) {
+        console.warn("Supabase Kakao OAuth failed, falling back to custom implementation:", supabaseError);
+      }
+
+      // Fallback to custom Kakao login
       try {
         const kakaoData = await kakaoLogin();
         await login(kakaoData);
         return;
       } catch (kakaoError) {
-        console.warn("Kakao login failed, falling back to development mode:", kakaoError);
+        console.warn("Custom Kakao login failed, falling back to development mode:", kakaoError);
       }
       
-      // Fallback to mock data for development/testing
+      // Final fallback to mock data for development/testing
       const mockKakaoData = {
         kakaoId: "dev-kakao-id-" + Date.now(),
         email: "dev@donggukhani.com", 

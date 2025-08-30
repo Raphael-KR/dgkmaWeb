@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export interface KakaoAuthResponse {
   access_token: string;
   token_type: string;
@@ -121,6 +123,54 @@ export const checkServiceTerms = (): Promise<any> => {
       },
     });
   });
+};
+
+// Supabase OAuth with Kakao
+export const signInWithKakao = async () => {
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Supabase Kakao OAuth error:', error);
+    throw error;
+  }
+};
+
+// Sign out function
+export const signOut = async () => {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error('Sign out error:', error);
+    throw error;
+  }
+};
+
+// Get current user session
+export const getCurrentUser = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      throw error;
+    }
+    return user;
+  } catch (error) {
+    console.error('Get current user error:', error);
+    return null;
+  }
 };
 
 declare global {
