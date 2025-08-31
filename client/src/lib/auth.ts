@@ -38,7 +38,7 @@ export interface KakaoUserInfo {
 export const initKakao = () => {
   if (typeof window !== "undefined" && window.Kakao) {
     // Get JavaScript Key from environment variable
-    const kakaoKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY;
+    const kakaoKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY || import.meta.env.VITE_KAKAO_JS_KEY;
     console.log("Kakao key available:", !!kakaoKey, "Key length:", kakaoKey?.length);
     
     if (!kakaoKey) {
