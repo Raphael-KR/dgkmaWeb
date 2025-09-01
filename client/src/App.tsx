@@ -19,6 +19,7 @@ import PostDetail from "@/pages/post-detail";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import AuthCallback from "@/pages/auth-callback";
+import KakaoCallback from "@/pages/kakao-callback";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/auth/callback" component={AuthCallback} />
+      <Route path="/kakao-callback" component={KakaoCallback} />
       <Route path="/admin" component={Admin} />
       <Route path="/boards" component={Boards} />
       <Route path="/directory" component={Directory} />
