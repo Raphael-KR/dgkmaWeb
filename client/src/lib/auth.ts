@@ -63,73 +63,22 @@ export const initKakao = () => {
   }
 };
 
-// Kakao Login with KakaoSync support
-export const kakaoLogin = (): Promise<{ kakaoId: string; email: string; name: string }> => {
-  return new Promise((resolve, reject) => {
-    console.log("Starting kakaoLogin function");
-    console.log("window.Kakao available:", !!window.Kakao);
-    console.log("window.Kakao.Auth available:", !!window.Kakao?.Auth);
-    console.log("window.Kakao.Auth.login available:", !!window.Kakao?.Auth?.login);
-    
-    if (!window.Kakao) {
-      console.error("Kakao SDK not loaded");
-      reject(new Error("Kakao SDK not loaded"));
-      return;
-    }
+// Kakao Login using OAuth authorize redirect flow
+export const kakaoLogin = () => {
+  if (!window.Kakao || !window.Kakao.Auth) {
+    console.error("Kakao SDK not loaded");
+    return;
+  }
 
-    if (!window.Kakao.isInitialized()) {
-      console.error("Kakao SDK not initialized");
-      reject(new Error("Kakao SDK not initialized"));
-      return;
-    }
+  if (!window.Kakao.isInitialized()) {
+    console.error("Kakao SDK not initialized");
+    return;
+  }
 
-    console.log("Calling Kakao.Auth.login...");
-    console.log("Current domain:", window.location.hostname);
-    console.log("Current protocol:", window.location.protocol);
-    console.log("Full URL:", window.location.href);
-    
-    // Check if Auth.login is actually callable
-    if (typeof window.Kakao.Auth.login !== 'function') {
-      console.error("Kakao.Auth.login is not a function, type:", typeof window.Kakao.Auth.login);
-      reject(new Error("Kakao.Auth.login is not available"));
-      return;
-    }
-    
-    try {
-      // Use KakaoSync simplified registration with service terms
-      window.Kakao.Auth.login({
-        // Request additional user information for KakaoSync
-        scope: 'profile_nickname,profile_image,account_email',
-        success: (authObj: KakaoAuthResponse) => {
-          console.log("Kakao auth success:", authObj);
-          
-          // Request user information including terms agreement
-          window.Kakao.API.request({
-            url: "/v2/user/me",
-            success: (userInfo: KakaoUserInfo) => {
-              console.log("Kakao user info:", userInfo);
-              
-              resolve({
-                kakaoId: userInfo.id.toString(),
-                email: userInfo.kakao_account?.email || `user${userInfo.id}@example.com`,
-                name: userInfo.properties?.nickname || userInfo.kakao_account?.profile?.nickname || "카카오 사용자",
-              });
-            },
-            fail: (error: any) => {
-              console.error("Failed to get user info:", error);
-              reject(new Error("Failed to get user info: " + JSON.stringify(error)));
-            },
-          });
-        },
-        fail: (error: any) => {
-          console.error("Kakao login failed:", error);
-          reject(new Error("Kakao login failed: " + JSON.stringify(error)));
-        },
-      });
-    } catch (error) {
-      console.error("Exception during Kakao.Auth.login call:", error);
-      reject(new Error("Exception during Kakao login: " + String(error)));
-    }
+  window.Kakao.Auth.authorize({
+    redirectUri: `${window.location.origin}/kakao-callback`,
+    scope: 'profile_nickname,profile_image,account_email',
+    state: 'kakao_login',
   });
 };
 
