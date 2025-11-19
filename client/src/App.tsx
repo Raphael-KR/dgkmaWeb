@@ -13,7 +13,9 @@ import Admin from "@/pages/admin";
 import Boards from "@/pages/boards";
 import Directory from "@/pages/directory";
 import Profile from "@/pages/profile";
-import Info from "@/pages/info";
+import HeritagePage from "@/pages/heritage";
+import ObituaryList from "@/pages/obituary/list";
+import ObituaryCreate from "@/pages/obituary/create";
 import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
 import Terms from "@/pages/terms";
@@ -33,19 +35,22 @@ function Router() {
       <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/kakao-callback" component={KakaoCallback} />
       <Route path="/admin" component={Admin} />
-      <Route path="/boards" component={Boards} />
+      <Route path="/b" component={Boards} />
       <Route path="/directory" component={Directory} />
       <Route path="/profile" component={Profile} />
-      <Route path="/info" component={Info} />
+      <Route path="/heritage" component={HeritagePage} />
       <Route path="/search" component={Search} />
-      <Route path="/post/:id" component={PostDetail} />
+      <Route path="/p/:id" component={PostDetail} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
-      {/* Redirect old routes to /info */}
-      <Route path="/about" component={() => { window.location.href = '/info'; return null; }} />
-      <Route path="/executives" component={() => { window.location.href = '/info'; return null; }} />
-      <Route path="/bylaws" component={() => { window.location.href = '/info'; return null; }} />
-      <Route path="/history" component={() => { window.location.href = '/info'; return null; }} />
+      <Route path="/o" component={ObituaryList} />
+      <Route path="/o/new" component={ObituaryCreate} />
+      {/* Redirect old routes to /heritage */}
+      <Route path="/about" component={() => { window.location.href = '/heritage'; return null; }} />
+      <Route path="/info" component={() => { window.location.href = '/heritage'; return null; }} />
+      <Route path="/executives" component={() => { window.location.href = '/heritage'; return null; }} />
+      <Route path="/bylaws" component={() => { window.location.href = '/heritage'; return null; }} />
+      <Route path="/history" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route component={NotFound} />
     </Switch>
   );

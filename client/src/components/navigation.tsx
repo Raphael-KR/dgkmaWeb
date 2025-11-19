@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
-import { 
-  Home, 
-  MessageSquare, 
-  Users, 
-  User, 
-  Shield, 
+import {
+  Home,
+  MessageSquare,
+  Users,
+  User,
+  Shield,
   Info,
   LogOut,
   X
@@ -25,9 +25,10 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
   { path: "/", label: "홈", icon: <Home size={20} />, requiresAuth: true },
-  { path: "/info", label: "동문회 정보", icon: <Info size={20} /> },
-  { path: "/boards", label: "게시판", icon: <MessageSquare size={20} />, requiresAuth: true },
+  { path: "/heritage", label: "동문회 헤리티지", icon: <Info size={20} /> },
+  { path: "/b", label: "게시판", icon: <MessageSquare size={20} />, requiresAuth: true },
   { path: "/directory", label: "동문 명부", icon: <Users size={20} />, requiresAuth: true },
+  { path: "/o", label: "부고 알림", icon: <MessageSquare size={20} />, requiresAuth: true },
   { path: "/profile", label: "내 정보", icon: <User size={20} />, requiresAuth: true },
   { path: "/admin", label: "관리자", icon: <Shield size={20} />, requiresAuth: true, adminOnly: true }
 ];
@@ -57,16 +58,15 @@ export default function Navigation({ isOpen, setIsOpen }: NavigationProps) {
 
       {/* Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Side Menu */}
-      <div className={`fixed top-0 left-0 h-full w-80 bg-white shadow-lg z-50 transform transition-transform duration-300 ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <div className={`fixed top-0 left-0 h-full w-80 bg-white shadow-lg z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
         <div className="flex flex-col h-full">
           {/* Close Button */}
           <div className="flex justify-end p-4">
@@ -113,11 +113,10 @@ export default function Navigation({ isOpen, setIsOpen }: NavigationProps) {
                   <Link
                     key={item.path}
                     href={item.path}
-                    className={`flex items-center space-x-3 px-6 py-3 text-sm font-medium transition-colors hover:bg-gray-100 ${
-                      isActive
+                    className={`flex items-center space-x-3 px-6 py-3 text-sm font-medium transition-colors hover:bg-gray-100 ${isActive
                         ? "bg-kakao-yellow text-kakao-brown border-r-2 border-kakao-brown"
                         : "text-gray-700"
-                    }`}
+                      }`}
                     onClick={() => setIsOpen(false)}
                   >
                     <span className={isActive ? "text-kakao-brown" : "text-gray-500"}>
