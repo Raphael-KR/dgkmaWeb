@@ -1,0 +1,90 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.alumni_database (
+  id integer NOT NULL DEFAULT nextval('alumni_database_id_seq'::regclass),
+  department text NOT NULL,
+  generation text NOT NULL,
+  name text NOT NULL,
+  admission_date text,
+  graduation_date text,
+  address text,
+  mobile text UNIQUE,
+  phone text,
+  group text,
+  status text,
+  alumni_position text,
+  memo text,
+  is_matched boolean DEFAULT false,
+  matched_user_id integer,
+  CONSTRAINT alumni_database_pkey PRIMARY KEY (id),
+  CONSTRAINT alumni_database_matched_user_id_fkey FOREIGN KEY (matched_user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.categories (
+  id integer NOT NULL DEFAULT nextval('categories_id_seq'::regclass),
+  name text NOT NULL UNIQUE,
+  display_name text NOT NULL,
+  color text DEFAULT '#6b7280'::text,
+  badge_variant text DEFAULT 'secondary'::text,
+  is_active boolean DEFAULT true,
+  sort_order integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT categories_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.payments (
+  id integer NOT NULL DEFAULT nextval('payments_id_seq'::regclass),
+  user_id integer,
+  amount integer NOT NULL,
+  year integer NOT NULL,
+  type text NOT NULL,
+  status text NOT NULL DEFAULT 'completed'::text,
+  receipt_url text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.pending_registrations (
+  id integer NOT NULL DEFAULT nextval('pending_registrations_id_seq'::regclass),
+  kakao_id text NOT NULL,
+  email text NOT NULL,
+  name text NOT NULL,
+  user_data jsonb,
+  status text DEFAULT 'pending'::text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT pending_registrations_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.posts (
+  id integer NOT NULL DEFAULT nextval('posts_id_seq'::regclass),
+  title text NOT NULL,
+  content text NOT NULL,
+  category_id integer,
+  author_id integer,
+  is_published boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT posts_pkey PRIMARY KEY (id),
+  CONSTRAINT posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id),
+  CONSTRAINT posts_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
+);
+CREATE TABLE public.test (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  name json,
+  CONSTRAINT test_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.users (
+  id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
+  kakao_id text UNIQUE,
+  email text NOT NULL UNIQUE,
+  name text NOT NULL,
+  graduation_year integer,
+  is_verified boolean DEFAULT false,
+  is_admin boolean DEFAULT false,
+  kakao_sync_enabled boolean DEFAULT false,
+  profile_image text,
+  phone_number text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);

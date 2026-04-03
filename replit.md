@@ -7,7 +7,7 @@ This is a full-stack web application for the Dongguk University Korean Medicine 
 ### Authentication System
 - **Database Migration**: Successfully migrated from Neon to Supabase PostgreSQL 17.4
 - **Kakao Login Integration**: Configured custom Kakao login system with fallback development mode
-- **Environment Variables**: Set up VITE_KAKAO_JAVASCRIPT_KEY for client-side Kakao SDK
+- **Environment Variables**: Set up KAKAO_JAVASCRIPT_KEY for client-side Kakao SDK
 - **Domain Configuration**: Configured for Replit domain `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`
 
 ### Legal Compliance

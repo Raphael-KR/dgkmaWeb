@@ -5,11 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { GraduationCap } from "lucide-react";
-import { signInWithKakao, initKakao, kakaoLogin } from "@/lib/auth";
+import { initKakao, kakaoLogin } from "@/lib/auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const { user, login, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     if (user) {
@@ -22,65 +22,18 @@ export default function Login() {
     initKakao();
   }, []);
 
-  const handleKakaoLogin = async () => {
-    try {
-      console.log("Starting Kakao login process...");
-      
-      // Check if Kakao SDK is available and initialized
-      if (!window.Kakao) {
-        console.error("Kakao SDK not loaded");
-        alert("카카오 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.");
-        return;
-      }
-
-      if (!window.Kakao.isInitialized()) {
-        console.error("Kakao SDK not initialized");
-        alert("카카오 SDK 초기화에 실패했습니다. 페이지를 새로고침해주세요.");
-        return;
-      }
-
-      console.log("Kakao SDK is ready, attempting login...");
-      
-      // Try custom Kakao login first
-      try {
-        const kakaoData = await kakaoLogin();
-        console.log("Kakao login successful:", kakaoData);
-        await login(kakaoData);
-        return;
-      } catch (kakaoError) {
-        console.warn("Custom Kakao login failed:", kakaoError);
-        
-        // Show user-friendly error message
-        if (kakaoError.message?.includes("user_denied")) {
-          alert("카카오 로그인이 취소되었습니다.");
-          return;
-        }
-        
-        // Ask user if they want to continue with development mode
-        const useDevMode = confirm(
-          "카카오 로그인에 실패했습니다.\n" +
-          "개발용 계정으로 로그인하시겠습니까?\n\n" +
-          "개발용 로그인은 테스트 목적으로만 사용됩니다."
-        );
-        
-        if (!useDevMode) {
-          return;
-        }
-      }
-      
-      // Development mode login with user consent
-      console.log("Using development mode login");
-      const mockKakaoData = {
-        kakaoId: "dev-kakao-id-" + Date.now(),
-        email: "dev@donggukhani.com", 
-        name: "개발자"
-      };
-      await login(mockKakaoData);
-      
-    } catch (error) {
-      console.error("Login completely failed:", error);
-      alert("로그인에 실패했습니다. 잠시 후 다시 시도해주세요.");
+  const handleKakaoLogin = () => {
+    if (!window.Kakao) {
+      alert("카카오 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.");
+      return;
     }
+
+    if (!window.Kakao.isInitialized()) {
+      alert("카카오 SDK 초기화에 실패했습니다. 페이지를 새로고침해주세요.");
+      return;
+    }
+
+    kakaoLogin();
   };
 
   if (isLoading) {

@@ -29,6 +29,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/kakao/authorize", async (req, res) => {
+    try {
+      const { code } = req.body;
+      const redirectUri = `${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/kakao-callback`;
+
+      const params = new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: process.env.KAKAO_REST_API_KEY || '',
+        redirect_uri: redirectUri,
+        code,
+      });
+      if (process.env.KAKAO_CLIENT_SECRET) {
+        params.append('client_secret', process.env.KAKAO_CLIENT_SECRET);
+      }
+
+      const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenRes.ok) {
+        return res.status(400).json(tokenData);
+      }
+
+      const userRes = await fetch('https://kapi.kakao.com/v2/user/me', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const userInfo = await userRes.json();
+      if (!userRes.ok) {
+        return res.status(400).json(userInfo);
+      }
+
+      res.json({
+        kakaoId: userInfo.id.toString(),
+        email: userInfo.kakao_account?.email || `user${userInfo.id}@example.com`,
+        name: userInfo.properties?.nickname || userInfo.kakao_account?.profile?.nickname || '카카오 사용자',
+        accessToken: tokenData.access_token,
+      });
+    } catch (error) {
+      console.error('Kakao OAuth authorize error:', error);
+      res.status(500).json({ message: 'Kakao authorization failed' });
+    }
+  });
+
   app.post("/api/auth/kakao", async (req, res) => {
     try {
       const { kakaoId, email, name, accessToken } = req.body;
