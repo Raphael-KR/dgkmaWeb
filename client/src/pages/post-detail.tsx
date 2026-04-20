@@ -47,7 +47,7 @@ export default function PostDetail() {
             <CardContent className="p-6 text-center">
               <h2 className="text-lg font-bold text-gray-800 mb-2">게시글을 찾을 수 없습니다</h2>
               <p className="text-gray-600 mb-4">요청하신 게시글이 존재하지 않거나 삭제되었습니다.</p>
-              <Link href="/boards">
+              <Link href="/b">
                 <Button className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
                   <ArrowLeft size={16} className="mr-2" />
                   게시판으로 돌아가기
@@ -92,12 +92,12 @@ export default function PostDetail() {
                   })}
                 </span>
               </div>
-              
+
               {/* 제목 */}
               <h1 className="text-xl font-bold text-gray-800 mb-2">
                 {post.title}
               </h1>
-              
+
               {/* 작성자 정보 */}
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <span>작성자: {post.author?.name || "관리자"}</span>
@@ -116,13 +116,13 @@ export default function PostDetail() {
             {/* 하단 액션 버튼들 */}
             <div className="mt-8 pt-6 border-t border-gray-100">
               <div className="flex justify-between items-center">
-                <Link href="/boards">
+                <Link href="/b">
                   <Button variant="outline">
                     <ArrowLeft size={16} className="mr-2" />
                     목록으로
                   </Button>
                 </Link>
-                
+
                 {/* 관리자나 작성자만 수정/삭제 가능 (추후 구현) */}
                 {(user?.isAdmin || user?.id === post.authorId) && (
                   <div className="space-x-2">

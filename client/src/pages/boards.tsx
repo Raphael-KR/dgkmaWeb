@@ -40,8 +40,8 @@ export default function Boards() {
   const { data: posts, isLoading: postsLoading } = useQuery({
     queryKey: ["/api/posts", selectedCategory === "all" ? undefined : selectedCategory],
     queryFn: async () => {
-      const url = selectedCategory === "all" 
-        ? "/api/posts" 
+      const url = selectedCategory === "all"
+        ? "/api/posts"
         : `/api/posts?category=${encodeURIComponent(selectedCategory)}`;
       const response = await fetch(url, { credentials: "include" });
       return response.json();
@@ -75,12 +75,12 @@ export default function Boards() {
         credentials: "include",
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `HTTP ${response.status}`);
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -114,12 +114,12 @@ export default function Boards() {
   return (
     <div className="min-h-screen bg-kakao-gray">
 
-      
+
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-kakao-brown">게시판</h1>
-            
+
             {/* 글쓰기 버튼 */}
             <Dialog open={isWriteDialogOpen} onOpenChange={setIsWriteDialogOpen}>
               <DialogTrigger asChild>
@@ -132,7 +132,7 @@ export default function Boards() {
                 <DialogHeader>
                   <DialogTitle>새 게시글 작성</DialogTitle>
                 </DialogHeader>
-                
+
                 <Form {...writeForm}>
                   <form onSubmit={writeForm.handleSubmit(onSubmitPost)} className="space-y-4">
                     <FormField
@@ -154,17 +154,17 @@ export default function Boards() {
                               {(categories as Category[])
                                 .filter((cat: Category) => cat.name !== "all")
                                 .map((category: Category) => (
-                                <SelectItem key={category.id} value={category.id.toString()}>
-                                  {category.displayName}
-                                </SelectItem>
-                              ))}
+                                  <SelectItem key={category.id} value={category.id.toString()}>
+                                    {category.displayName}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={writeForm.control}
                       name="title"
@@ -178,7 +178,7 @@ export default function Boards() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={writeForm.control}
                       name="content"
@@ -186,7 +186,7 @@ export default function Boards() {
                         <FormItem>
                           <FormLabel>내용</FormLabel>
                           <FormControl>
-                            <Textarea 
+                            <Textarea
                               placeholder="게시글 내용을 입력하세요"
                               className="min-h-[120px]"
                               {...field}
@@ -196,16 +196,16 @@ export default function Boards() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <div className="flex justify-end space-x-2 pt-4">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
+                      <Button
+                        type="button"
+                        variant="outline"
                         onClick={() => setIsWriteDialogOpen(false)}
                       >
                         취소
                       </Button>
-                      <Button 
+                      <Button
                         type="submit"
                         disabled={createPostMutation.isPending}
                         className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400"
@@ -218,7 +218,7 @@ export default function Boards() {
               </DialogContent>
             </Dialog>
           </div>
-          
+
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
             <TabsList className="grid w-full grid-cols-5 mb-6">
               {(categories as Category[]).map((category: Category) => (
@@ -264,10 +264,10 @@ export default function Boards() {
                             <span className="text-xs text-gray-500">
                               작성자: 관리자
                             </span>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
-                              onClick={() => setLocation(`/post/${post.id}`)}
+                              onClick={() => setLocation(`/p/${post.id}`)}
                             >
                               자세히 보기
                             </Button>

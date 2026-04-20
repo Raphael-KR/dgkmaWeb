@@ -144,7 +144,7 @@ export default function Home() {
                   {user.name?.charAt(0) || "?"}
                 </span>
               </div>
-              
+
               {/* User Details */}
               <div>
                 <p className="font-bold text-gray-800 text-base">
@@ -155,7 +155,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            
+
             {/* Status Badge */}
             <div className="flex items-center gap-2">
               {user.isVerified ? (
@@ -231,10 +231,10 @@ export default function Home() {
           ) : (
             <>
               {recentPosts?.map((post: any, index: number) => (
-                <div 
-                  key={post.id} 
+                <div
+                  key={post.id}
                   className="p-4 border-b border-gray-50 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => setLocation(`/post/${post.id}`)}
+                  onClick={() => setLocation(`/p/${post.id}`)}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
@@ -259,7 +259,7 @@ export default function Home() {
               ))}
 
               <div className="p-4 text-center">
-                <Button variant="ghost" onClick={() => setLocation("/boards")}>
+                <Button variant="ghost" onClick={() => setLocation("/b")}>
                   전체 게시글 보기 →
                 </Button>
               </div>
@@ -280,14 +280,14 @@ export default function Home() {
               부고 사이트 URL을 입력하시면 자동으로 내용을 파싱하여 등록됩니다.
             </p>
             <div className="flex space-x-2">
-              <Input 
-                type="url" 
-                placeholder="부고 사이트 URL 입력" 
+              <Input
+                type="url"
+                placeholder="부고 사이트 URL 입력"
                 className="flex-1"
                 value={obituaryUrl}
                 onChange={(e) => setObituaryUrl(e.target.value)}
               />
-              <Button 
+              <Button
                 className="bg-kakao-yellow text-kakao-brown font-bold px-6 hover:bg-yellow-400"
                 onClick={handleObituarySubmit}
                 disabled={parseObituaryMutation.isPending}
@@ -305,7 +305,7 @@ export default function Home() {
           <CardContent className="p-6">
             <h3 className="font-bold text-gray-800 mb-4">동문 연결</h3>
             <div className="grid grid-cols-3 gap-4">
-              <Button 
+              <Button
                 variant="ghost"
                 className="flex-col p-3 h-auto space-y-2"
                 onClick={() => setLocation("/directory")}
@@ -319,7 +319,7 @@ export default function Home() {
               <Button variant="ghost" className="flex-col p-3 h-auto space-y-2">
                 <div className="w-10 h-10 bg-kakao-yellow rounded-lg flex items-center justify-center">
                   <svg className="text-kakao-brown" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z"/>
+                    <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z" />
                   </svg>
                 </div>
                 <p className="text-xs text-gray-600 font-medium">카톡방 참여</p>
