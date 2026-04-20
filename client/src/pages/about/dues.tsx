@@ -54,15 +54,15 @@ export default function AboutDues() {
                 <tbody className="divide-y divide-gray-100">
                   <tr>
                     <td className="py-3 px-2 font-medium tp-text-green-dark w-32">은행</td>
-                    <td className="py-3 px-2 text-gray-700">토스뱅크 (모임통장)</td>
+                    <td className="py-3 px-2 text-gray-700">기업은행</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium tp-text-green-dark">계좌번호</td>
-                    <td className="py-3 px-2 text-gray-700 font-mono">1000-9085-9464</td>
+                    <td className="py-3 px-2 text-gray-700 font-mono">085-110653-04-017</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium tp-text-green-dark">예금주</td>
-                    <td className="py-3 px-2 text-gray-700">최유행</td>
+                    <td className="py-3 px-2 text-gray-700">동국대학교한의과대학동문회</td>
                   </tr>
                 </tbody>
               </table>
