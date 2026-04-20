@@ -97,14 +97,6 @@ export function PublicHome() {
           <Card className="border-2 tp-border-gold/30">
             <CardContent className="p-6 sm:p-10">
               <div className="flex flex-col sm:flex-row gap-6 items-start">
-                <div className="flex-shrink-0 mx-auto sm:mx-0 text-center">
-                  <img
-                    src="/images/executives/choi-yun-yong-president.avif"
-                    alt="최윤용 회장"
-                    className="w-28 sm:w-36 h-auto rounded-xl object-contain shadow-md"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5 font-medium">제22대 동문회장</p>
-                </div>
                 <div className="flex-1">
                   <p className="leading-relaxed text-gray-700 mb-4">
                     존경하는 동국대학교 한의과대학 동문 여러분, 안녕하십니까.
@@ -121,6 +113,13 @@ export function PublicHome() {
                   <p className="text-right font-semibold tp-text-green-dark mt-6">
                     제22대 동문회장 <span className="text-lg">최윤용</span> 드림
                   </p>
+                </div>
+                <div className="flex-shrink-0 mx-auto sm:mx-0">
+                  <img
+                    src="/images/executives/choi-yun-yong-president.avif"
+                    alt="최윤용 회장"
+                    className="w-28 sm:w-36 h-auto rounded-xl object-contain shadow-md"
+                  />
                 </div>
               </div>
             </CardContent>
