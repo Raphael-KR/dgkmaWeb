@@ -23,7 +23,15 @@ export default function AuthCallback() {
             title: "로그인 성공",
             description: "Supabase 카카오 로그인이 완료되었습니다.",
           });
-          setLocation("/");
+          let dest = "/";
+          try {
+            const stored = sessionStorage.getItem("auth:returnTo");
+            if (stored && stored.startsWith("/") && !stored.startsWith("//")) {
+              dest = stored;
+            }
+            sessionStorage.removeItem("auth:returnTo");
+          } catch {}
+          setLocation(dest);
         } else {
           throw new Error("세션을 찾을 수 없습니다.");
         }
