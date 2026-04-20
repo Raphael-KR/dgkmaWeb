@@ -87,7 +87,7 @@ export default function InfoPage() {
     {
       year: "1982",
       title: "동문회 창립",
-      description: "제1회 졸업생 배출과 함께 동국대학교 한의과대학 동문회가 정식으로 창립되었습니다.",
+      description: "제1회 졸업생 배출과 함께 동국대학교한의과대학동문회가 정식으로 창립되었습니다.",
       category: "창립",
       icon: <Users className="w-6 h-6" />
     },
@@ -163,7 +163,7 @@ export default function InfoPage() {
         {
           article: "제2조",
           title: "명칭",
-          content: "본 회의 명칭은 '동국대학교 한의과대학 동문회'라 한다."
+          content: "본 회의 명칭은 '동국대학교한의과대학동문회'라 한다."
         },
         {
           article: "제3조",
@@ -296,14 +296,14 @@ export default function InfoPage() {
       <Card className="border-2 border-kakao-yellow">
         <CardHeader className="bg-kakao-yellow">
           <CardTitle className="text-2xl font-bold text-kakao-brown text-center">
-            동국대학교 한의과대학 동문회 소개
+            동국대학교한의과대학동문회 소개
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-kakao-brown">설립 목적</h2>
             <p className="text-gray-700 leading-relaxed">
-              동국대학교 한의과대학 동문회는 동국대학교 한의과대학을 졸업한 동문들 간의 
+              동국대학교한의과대학동문회는 동국대학교 한의과대학을 졸업한 동문들 간의 
               유대 강화와 상호 발전을 도모하며, 한의학 발전과 사회 공헌을 목적으로 설립되었습니다.
             </p>
           </div>
@@ -371,7 +371,7 @@ export default function InfoPage() {
         </CardHeader>
         <CardContent className="p-6">
           <p className="text-gray-700 text-center mb-6">
-            2024년도 동국대학교 한의과대학 동문회를 이끌어가는 임원진을 소개합니다.
+            2024년도 동국대학교한의과대학동문회를 이끌어가는 임원진을 소개합니다.
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -530,7 +530,7 @@ export default function InfoPage() {
       <Card className="border-2 border-kakao-yellow">
         <CardHeader className="bg-kakao-yellow">
           <CardTitle className="text-2xl font-bold text-kakao-brown text-center">
-            동국대학교 한의과대학 동문회 회칙
+            동국대학교한의과대학동문회 회칙
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">

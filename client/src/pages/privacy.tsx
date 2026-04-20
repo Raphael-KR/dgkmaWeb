@@ -40,7 +40,7 @@ export default function Privacy() {
             <section>
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제1조 (개인정보의 처리목적)</h3>
               <div className="space-y-2 text-gray-700">
-                <p>동국대학교 한의과대학 동문회는 다음의 목적을 위하여 개인정보를 처리합니다:</p>
+                <p>동국대학교한의과대학동문회는 다음의 목적을 위하여 개인정보를 처리합니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
                   <li>동문회 회원 가입 및 관리</li>
                   <li>동문회 서비스 제공 및 운영</li>
@@ -182,7 +182,7 @@ export default function Privacy() {
             <section className="border-t pt-6">
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">개인정보 관련 문의</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium">동국대학교 한의과대학 동문회</p>
+                <p className="font-medium">동국대학교한의과대학동문회</p>
                 <p className="text-gray-600">개인정보보호 담당자</p>
                 <p className="text-gray-600">이메일: privacy@donggukhani.com</p>
                 <p className="text-gray-600">전화: 02-XXXX-XXXX</p>

@@ -54,7 +54,7 @@ export default function Login() {
                 <GraduationCap className="text-kakao-brown text-2xl" size={32} />
               </div>
               <h2 className="text-xl font-bold kakao-brown mb-2">
-                동국대학교 한의과대학 동문회에 오신 것을 환영합니다
+                동국대학교한의과대학동문회에 오신 것을 환영합니다
               </h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 동문 여러분과의 소통과 네트워킹을 위한 통합 플랫폼입니다.

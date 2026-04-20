@@ -49,7 +49,7 @@ export default function HeritagePage() {
             <div className="bg-kakao-brown text-white py-8 px-4 mb-6">
                 <div className="max-w-4xl mx-auto text-center">
                     <h1 className="text-3xl font-bold mb-2">동문회 헤리티지</h1>
-                    <p className="text-white/80">동국대학교 한의과대학 동문회의 역사와 전통을 소개합니다.</p>
+                    <p className="text-white/80">동국대학교한의과대학동문회의 역사와 전통을 소개합니다.</p>
                 </div>
             </div>
 

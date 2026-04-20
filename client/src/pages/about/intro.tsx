@@ -10,13 +10,13 @@ export default function AboutIntro() {
           <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">ABOUT US</div>
           <h1 className="text-3xl sm:text-4xl font-bold tp-text-green-dark">동문회 소개</h1>
           <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
-          <p className="text-sm text-gray-500 mt-3">동국대학교 한의과대학 동문회</p>
+          <p className="text-sm text-gray-500 mt-3">동국대학교한의과대학동문회</p>
         </header>
 
         <article className="tp-prose">
           <h2>설립 목적</h2>
           <p>
-            동국대학교 한의과대학 동문회는 1985년 첫 졸업생 배출 이후, 동문 간의 친목과
+            동국대학교한의과대학동문회는 1985년 첫 졸업생 배출 이후, 동문 간의 친목과
             학술 교류, 모교 발전 기여, 그리고 후학 양성 지원을 목적으로 설립되었습니다.
           </p>
 
