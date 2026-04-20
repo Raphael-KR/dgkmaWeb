@@ -104,12 +104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (existingUserByEmail) {
             console.log("User already exists with this email, logging in");
+            req.session.userId = existingUserByEmail.id;
             res.json({ user: existingUserByEmail, token: "kakao-jwt-token" });
             return;
           }
           
           if (existingUserByKakao) {
             console.log("User already exists with this KakaoId, logging in");
+            req.session.userId = existingUserByKakao.id;
             res.json({ user: existingUserByKakao, token: "kakao-jwt-token" });
             return;
           }
@@ -145,6 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Existing user login:", user);
       }
       
+      req.session.userId = user.id;
       res.json({ user, token: "kakao-jwt-token" });
     } catch (error) {
       console.error("Kakao auth error:", error);
