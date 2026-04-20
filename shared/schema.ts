@@ -165,3 +165,16 @@ export type AlumniRecord = typeof alumniDatabase.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
+
+export const insertObituarySchema = z.object({
+  title: z.string().min(1, "제목을 입력해주세요"),
+  deceasedName: z.string().min(1, "고인의 성함을 입력해주세요"),
+  deceasedRelation: z.string().min(1),
+  dateOfDeath: z.string().min(1, "별세일을 입력해주세요"),
+  funeralHome: z.string().optional().default(""),
+  jangji: z.string().optional().default(""),
+  bankAccount: z.string().optional().default(""),
+  chiefMourner: z.string().optional().default(""),
+  contactNumber: z.string().optional().default(""),
+});
+export type InsertObituary = z.infer<typeof insertObituarySchema>;

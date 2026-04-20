@@ -2,6 +2,19 @@
 
 This is a full-stack web application for the Dongguk University Korean Medicine Alumni Association (동국한의동문회). It serves as a centralized, mobile-optimized platform to replace fragmented communication channels, integrating seamlessly with KakaoTalk workflows common in Korean organizations. The system provides core functionality for alumni management, a unified bulletin board system, membership fee management, and robust KakaoTalk integration, aiming to connect and support alumni effectively.
 
+## Recent Changes (2026-04-20)
+
+### Public Homepage for Non-Members
+- New `PublicHome` page at `/` for non-authenticated visitors (logged-in users see existing member home)
+- Dark green + gold theme scoped via `.theme-public` wrapper in `index.css`; member area keeps Kakao yellow/brown
+- 4 self-hosted info pages: `/about/bylaws`, `/about/join`, `/about/dues`, `/about/condolence`
+- Global `LoginModal` with returnTo support; `AuthGate` component wraps all member-only routes
+- `PublicLayout` provides its own header/footer; member chrome (AppHeader/Navigation/BottomNavigation) only renders when logged in
+- Notion official SVG logos (symbol + community) saved to `attached_assets/public-home/`
+- Fully responsive: 1-col mobile / 2-col tablet / 3-col desktop, hamburger drawer for mobile nav
+- Added missing `insertObituarySchema` zod stub in `shared/schema.ts` (was breaking obituary create page)
+- Fixed Kakao SDK env var: `KAKAO_JAVASCRIPT_KEY` → `VITE_KAKAO_JAVASCRIPT_KEY`
+
 ## Recent Changes (2025-08-30)
 
 ### Authentication System

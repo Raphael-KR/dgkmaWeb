@@ -99,3 +99,39 @@
     overflow: hidden;
   }
 }
+
+/* Public (non-member) theme: dark green + gold */
+.theme-public {
+  --tp-green-50: hsl(150, 30%, 96%);
+  --tp-green-100: hsl(150, 28%, 90%);
+  --tp-green-700: hsl(155, 55%, 22%);
+  --tp-green-800: hsl(155, 60%, 16%);
+  --tp-green-900: hsl(155, 65%, 11%);
+  --tp-gold-300: hsl(43, 78%, 70%);
+  --tp-gold-400: hsl(43, 78%, 58%);
+  --tp-gold-500: hsl(40, 70%, 48%);
+  --tp-cream: hsl(44, 50%, 97%);
+  background-color: var(--tp-cream);
+  color: var(--tp-green-900);
+}
+.theme-public .tp-bg-green { background-color: var(--tp-green-800); }
+.theme-public .tp-bg-green-dark { background-color: var(--tp-green-900); }
+.theme-public .tp-bg-cream { background-color: var(--tp-cream); }
+.theme-public .tp-bg-gold { background-color: var(--tp-gold-400); }
+.theme-public .tp-text-green { color: var(--tp-green-800); }
+.theme-public .tp-text-green-dark { color: var(--tp-green-900); }
+.theme-public .tp-text-gold { color: var(--tp-gold-400); }
+.theme-public .tp-text-gold-dark { color: var(--tp-gold-500); }
+.theme-public .tp-border-green { border-color: var(--tp-green-800); }
+.theme-public .tp-border-gold { border-color: var(--tp-gold-400); }
+.theme-public .tp-divider { background: linear-gradient(90deg, transparent, var(--tp-gold-400), transparent); }
+.theme-public a.tp-link { color: var(--tp-green-700); text-decoration: underline; text-underline-offset: 3px; }
+.theme-public a.tp-link:hover { color: var(--tp-gold-500); }
+
+.tp-prose h2 { font-size: 1.375rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem; color: var(--tp-green-800); }
+.tp-prose h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--tp-green-900); }
+.tp-prose p { line-height: 1.75; margin-bottom: 0.75rem; color: hsl(155, 20%, 20%); }
+.tp-prose ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+.tp-prose ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+.tp-prose li { line-height: 1.75; margin-bottom: 0.25rem; }
+.tp-prose strong { color: var(--tp-green-900); font-weight: 600; }
