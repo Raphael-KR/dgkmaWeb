@@ -97,8 +97,13 @@ export function PublicHome() {
           <Card className="border-2 tp-border-gold/30">
             <CardContent className="p-6 sm:p-10">
               <div className="flex flex-col sm:flex-row gap-6 items-start">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full tp-bg-green flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
-                  <span className="text-white font-bold text-xl">제22대</span>
+                <div className="flex-shrink-0 mx-auto sm:mx-0 text-center">
+                  <img
+                    src="/images/executives/choi-yun-yong-president.avif"
+                    alt="최윤용 회장"
+                    className="w-28 sm:w-36 h-auto rounded-xl object-contain shadow-md"
+                  />
+                  <p className="text-xs text-gray-500 mt-1.5 font-medium">제22대 동문회장</p>
                 </div>
                 <div className="flex-1">
                   <p className="leading-relaxed text-gray-700 mb-4">
