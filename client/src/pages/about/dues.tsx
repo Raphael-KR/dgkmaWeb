@@ -49,7 +49,7 @@ export default function AboutDues() {
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium tp-text-green-dark">예금주</td>
-                    <td className="py-3 px-2 text-gray-700">동국대학교 한의과대학 동문회</td>
+                    <td className="py-3 px-2 text-gray-700">동국대학교한의과대학동문회</td>
                   </tr>
                 </tbody>
               </table>

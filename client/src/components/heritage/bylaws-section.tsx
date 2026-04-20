@@ -15,7 +15,7 @@ export function BylawsSection() {
                 {
                     article: "제2조",
                     title: "명칭",
-                    content: "본 회의 명칭은 '동국대학교 한의과대학 동문회'라 한다."
+                    content: "본 회의 명칭은 '동국대학교한의과대학동문회'라 한다."
                 },
                 {
                     article: "제3조",
@@ -131,7 +131,7 @@ export function BylawsSection() {
             <Card className="border-2 border-kakao-yellow">
                 <CardHeader className="bg-kakao-yellow">
                     <CardTitle className="text-2xl font-bold text-kakao-brown text-center">
-                        동국대학교 한의과대학 동문회 회칙
+                        동국대학교한의과대학동문회 회칙
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">

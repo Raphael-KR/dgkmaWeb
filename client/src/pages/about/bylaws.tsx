@@ -16,7 +16,7 @@ export default function AboutBylaws() {
         <article className="tp-prose">
           <h2>제1장 총칙</h2>
           <h3>제1조 (명칭)</h3>
-          <p>본회는 <strong>동국대학교 한의과대학 동문회</strong>(이하 "본회")라 한다.</p>
+          <p>본회는 <strong>동국대학교한의과대학동문회</strong>(이하 "본회")라 한다.</p>
           <h3>제2조 (목적)</h3>
           <p>본회는 동문 간의 친목 도모, 학술 교류, 모교 발전 기여 및 후학 양성 지원을 통하여 한의학의 발전에 이바지함을 목적으로 한다.</p>
           <h3>제3조 (사무소)</h3>

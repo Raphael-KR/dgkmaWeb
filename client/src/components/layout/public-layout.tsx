@@ -41,7 +41,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
             <img src={symbolLogo} alt="동국한의 로고" className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full p-1 flex-shrink-0" />
             <div className="min-w-0">
-              <div className="text-xs tp-text-gold leading-tight">동국대학교 한의과대학</div>
+              <div className="text-xs tp-text-gold leading-tight">동국대학교한의과대학</div>
               <div className="text-sm sm:text-base font-bold leading-tight truncate">동문회</div>
             </div>
           </Link>
@@ -163,13 +163,29 @@ export function PublicLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 pb-16 md:pb-0">{children}</main>
 
       <footer className="tp-bg-green-dark text-white/80 py-8 px-4 mt-12">
-        <div className="max-w-6xl mx-auto text-center text-sm space-y-2">
-          <div className="font-bold tp-text-gold">동국대학교 한의과대학 동문회</div>
-          <div>회원 여러분의 소통과 발전을 위한 공식 플랫폼</div>
-          <div className="text-xs text-white/60 pt-2">
-            <Link href="/terms" className="hover:underline">서비스 이용약관</Link>
-            <span className="mx-2">·</span>
-            <Link href="/privacy" className="hover:underline">개인정보 처리방침</Link>
+        <div className="max-w-6xl mx-auto text-sm space-y-3">
+          <div className="font-bold tp-text-gold text-base">동국대학교한의과대학동문회</div>
+          <dl className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-white/85">
+            <dt className="text-white/60">단체명</dt>
+            <dd>동국대학교한의과대학동문회</dd>
+            <dt className="text-white/60">대표자</dt>
+            <dd>최윤용</dd>
+            <dt className="text-white/60">고유번호</dt>
+            <dd>504-82-90335</dd>
+            <dt className="text-white/60">소재지</dt>
+            <dd>07944 서울특별시 양천구 오목로 181, 1층 큰나무한의원 (신정동)</dd>
+            <dt className="text-white/60">이메일</dt>
+            <dd>
+              <a href="mailto:alumni.dkom@gmail.com" className="hover:underline">alumni.dkom@gmail.com</a>
+            </dd>
+          </dl>
+          <div className="text-xs text-white/60 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+            <div>© 동국대학교한의과대학동문회 · All Rights Reserved.</div>
+            <div>
+              <Link href="/terms" className="hover:underline">서비스 이용약관</Link>
+              <span className="mx-2">·</span>
+              <Link href="/privacy" className="hover:underline">개인정보 처리방침</Link>
+            </div>
           </div>
         </div>
       </footer>

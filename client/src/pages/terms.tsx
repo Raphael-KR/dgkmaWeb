@@ -28,7 +28,7 @@ export default function Terms() {
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-2xl font-bold tp-text-green-dark">
-              동국대학교 한의과대학 동문회 서비스 이용약관
+              동국대학교한의과대학동문회 서비스 이용약관
             </CardTitle>
             <p className="text-sm text-gray-600">
               최종 개정일: 2025년 8월 30일
@@ -40,7 +40,7 @@ export default function Terms() {
             <section>
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제1조 (목적)</h3>
               <p className="text-gray-700 leading-relaxed">
-                본 약관은 동국대학교 한의과대학 동문회(이하 "동문회")가 제공하는 온라인 서비스(이하 "서비스")의 이용조건 및 절차, 
+                본 약관은 동국대학교한의과대학동문회(이하 "동문회")가 제공하는 온라인 서비스(이하 "서비스")의 이용조건 및 절차, 
                 동문회와 이용자의 권리, 의무, 책임사항 등을 규정함을 목적으로 합니다.
               </p>
             </section>
@@ -175,7 +175,7 @@ export default function Terms() {
             <section className="border-t pt-6">
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">문의 연락처</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium">동국대학교 한의과대학 동문회</p>
+                <p className="font-medium">동국대학교한의과대학동문회</p>
                 <p className="text-gray-600">이메일: admin@donggukhani.com</p>
                 <p className="text-gray-600">전화: 02-XXXX-XXXX</p>
               </div>

@@ -45,7 +45,7 @@ export function PublicHome() {
               DONGGUK KOREAN MEDICINE ALUMNI
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-4">
-              동국대학교 한의과대학<br />
+              동국대학교한의과대학<br />
               <span className="tp-text-gold">동문회에 오신 것을 환영합니다</span>
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed mb-6 max-w-xl mx-auto lg:mx-0">
@@ -73,7 +73,7 @@ export function PublicHome() {
           </div>
           <div className="flex-shrink-0 order-1 lg:order-2">
             <div className="w-40 h-40 sm:w-52 sm:h-52 lg:w-64 lg:h-64 rounded-full bg-white/95 p-6 sm:p-8 shadow-2xl">
-              <img src={symbolLogo} alt="동국대학교 한의과대학 동문회" className="w-full h-full object-contain" />
+              <img src={symbolLogo} alt="동국대학교한의과대학동문회" className="w-full h-full object-contain" />
             </div>
           </div>
         </div>
@@ -128,7 +128,7 @@ export function PublicHome() {
             <Card>
               <CardContent className="p-6">
                 <div className="text-xs tp-text-gold-dark font-semibold mb-2">명칭</div>
-                <div className="font-bold tp-text-green-dark mb-1">동국대학교 한의과대학 동문회</div>
+                <div className="font-bold tp-text-green-dark mb-1">동국대학교한의과대학동문회</div>
                 <div className="text-sm text-gray-600">(영문: Dongguk Korean Medicine Alumni Association)</div>
               </CardContent>
             </Card>

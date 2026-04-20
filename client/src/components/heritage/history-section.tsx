@@ -14,7 +14,7 @@ export function HistorySection() {
         {
             year: "1982",
             title: "동문회 창립",
-            description: "제1회 졸업생 배출과 함께 동국대학교 한의과대학 동문회가 정식으로 창립되었습니다.",
+            description: "제1회 졸업생 배출과 함께 동국대학교한의과대학동문회가 정식으로 창립되었습니다.",
             category: "창립",
             icon: <Users className="w-6 h-6" />
         },

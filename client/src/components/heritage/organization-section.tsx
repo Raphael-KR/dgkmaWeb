@@ -61,7 +61,7 @@ export function OrganizationSection() {
                 </CardHeader>
                 <CardContent className="p-6">
                     <p className="text-gray-700 text-center mb-6">
-                        2024년도 동국대학교 한의과대학 동문회를 이끌어가는 임원진을 소개합니다.
+                        2024년도 동국대학교한의과대학동문회를 이끌어가는 임원진을 소개합니다.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
