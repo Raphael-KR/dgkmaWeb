@@ -25,6 +25,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("debug_login") === "true") {
+        params.delete("debug_login");
+        const newSearch = params.toString();
+        const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : "") + window.location.hash;
+        window.history.replaceState(null, "", newUrl);
+        const debugRes = await fetch("/api/debug/login", { credentials: "include" });
+        if (!debugRes.ok) {
+          console.warn("Debug login failed:", debugRes.status);
+        }
+      }
+
       const response = await fetch("/api/auth/me", { credentials: "include" });
       if (response.ok) {
         const data = await response.json();

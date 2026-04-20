@@ -4,6 +4,12 @@ import { storage } from "./storage";
 import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
 
+declare module "express-session" {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth routes
@@ -19,14 +25,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", async (req, res) => {
-    try {
-      // Clear session data if any
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.clearCookie("connect.sid");
       console.log("User logged out");
       res.json({ success: true, message: "Logged out successfully" });
-    } catch (error) {
-      console.error("Logout error:", error);
-      res.status(500).json({ message: "Logout failed" });
-    }
+    });
   });
 
   app.post("/api/auth/kakao/authorize", async (req, res) => {
@@ -97,13 +104,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (existingUserByEmail) {
             console.log("User already exists with this email, logging in");
-            res.json({ user: existingUserByEmail, token: "kakao-jwt-token" });
+            req.session.userId = existingUserByEmail.id;
+            res.json({ user: existingUserByEmail });
             return;
           }
           
           if (existingUserByKakao) {
             console.log("User already exists with this KakaoId, logging in");
-            res.json({ user: existingUserByKakao, token: "kakao-jwt-token" });
+            req.session.userId = existingUserByKakao.id;
+            res.json({ user: existingUserByKakao });
             return;
           }
           
@@ -138,7 +147,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Existing user login:", user);
       }
       
-      res.json({ user, token: "kakao-jwt-token" });
+      req.session.userId = user.id;
+      res.json({ user });
     } catch (error) {
       console.error("Kakao auth error:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -147,16 +157,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    // Mock authentication - in production, verify JWT token
-    const userId = 1; // Extract from JWT
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
     const user = await storage.getUser(userId);
-    
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-    
-    res.json({ user });
+    return res.json({ user });
   });
+
+  if (process.env.NODE_ENV !== "production") {
+    app.get("/api/debug/login", async (req, res) => {
+      const user = await storage.getUser(1);
+      if (!user) {
+        return res.status(404).json({ message: "Debug user not found" });
+      }
+      req.session.userId = 1;
+      res.json({ user });
+    });
+  }
 
   // Categories routes
   app.get("/api/categories", async (req, res) => {
