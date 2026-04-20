@@ -83,12 +83,6 @@ export default function Home() {
     },
   });
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      setLocation("/login");
-    }
-  }, [user, isLoading, setLocation]);
-
   const handleObituarySubmit = () => {
     if (!obituaryUrl.trim()) {
       toast({
