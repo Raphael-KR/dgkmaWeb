@@ -36,20 +36,17 @@ const DIRECTORS: Executive[] = [
 ];
 
 function ExecCard({ exec, size = "md" }: { exec: Executive; size?: "lg" | "md" | "sm" }) {
-  const imgSize = size === "lg" ? "w-32 h-32 sm:w-36 sm:h-36" : size === "md" ? "w-24 h-24 sm:w-28 sm:h-28" : "w-20 h-20 sm:w-24 sm:h-24";
   const nameSize = size === "lg" ? "text-lg font-bold" : size === "md" ? "text-base font-semibold" : "text-sm font-semibold";
   const titleSize = size === "lg" ? "text-sm" : "text-xs";
 
   return (
-    <div className="flex flex-col items-center gap-3 p-5 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-      <div className={`${imgSize} rounded-full overflow-hidden bg-gray-100 ring-2 ring-[#1f4d2e]/20 flex-shrink-0`}>
-        <img
-          src={`/images/executives/${exec.photo}`}
-          alt={`${exec.name} ${exec.title}`}
-          className="w-full h-full object-cover object-top"
-          loading="lazy"
-        />
-      </div>
+    <div className="flex flex-col gap-3 p-4 rounded-xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+      <img
+        src={`/images/executives/${exec.photo}`}
+        alt={`${exec.name} ${exec.title}`}
+        className="w-full h-auto rounded-lg object-contain"
+        loading="lazy"
+      />
       <div className="text-center">
         <p className={`${nameSize} text-gray-900`}>{exec.name}</p>
         <p className={`${titleSize} font-medium tp-text-gold-dark mt-0.5`}>{exec.title}</p>
