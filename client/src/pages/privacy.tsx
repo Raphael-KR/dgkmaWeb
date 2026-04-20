@@ -13,7 +13,10 @@ export default function Privacy() {
         <div className="mb-6">
           <Button
             variant="ghost"
-            onClick={() => setLocation("/login")}
+            onClick={() => {
+              if (window.history.length > 1) window.history.back();
+              else setLocation("/");
+            }}
             className="flex items-center gap-2"
             data-testid="button-back"
           >
