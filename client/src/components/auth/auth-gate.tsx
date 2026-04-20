@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LoginModal } from "@/components/auth/login-modal";
-import { PublicHome } from "@/pages/public-home";
 
 interface AuthGateProps {
   children: ReactNode;
@@ -32,18 +31,34 @@ export function AuthGate({ children, requireAdmin, reason }: AuthGateProps) {
 
   if (!user) {
     return (
-      <>
-        <PublicHome />
+      <div className="theme-public min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-bold tp-text-green-dark mb-2">로그인이 필요한 메뉴입니다</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            카카오 로그인 후 이용해 주세요.
+          </p>
+          <button
+            className="bg-kakao-yellow text-kakao-brown px-5 py-2.5 rounded-md font-bold hover:bg-yellow-400"
+            onClick={() => setModalOpen(true)}
+          >
+            카카오 로그인
+          </button>
+          <div className="mt-4">
+            <button
+              className="text-sm text-gray-500 underline"
+              onClick={() => setLocation("/")}
+            >
+              홈으로 돌아가기
+            </button>
+          </div>
+        </div>
         <LoginModal
           open={modalOpen}
-          onOpenChange={(o) => {
-            setModalOpen(o);
-            if (!o) setLocation("/");
-          }}
+          onOpenChange={setModalOpen}
           returnTo={location}
           reason={reason}
         />
-      </>
+      </div>
     );
   }
 
