@@ -119,7 +119,7 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 비용 입금 계좌]</p>
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
                 <li>
-                  <strong>토스뱅크 1000-9085-9464 최유행</strong> (모임통장)
+                  <strong>기업 085-110653-04-017 동국대학교한의과대학동문회</strong>
                 </li>
                 <li>지출증빙(계산서) 필요 시 10% 추가 송금</li>
                 <li>
@@ -176,7 +176,7 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 비용 입금 계좌]</p>
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
                 <li>
-                  <strong>토스뱅크 1000-9085-9464 최유행</strong> (모임통장)
+                  <strong>기업 085-110653-04-017 동국대학교한의과대학동문회</strong>
                 </li>
                 <li>지출증빙(계산서) 필요 시 10% 추가 송금</li>
                 <li>
