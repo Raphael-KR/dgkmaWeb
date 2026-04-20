@@ -1,8 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
+
+const debugSessionTokens = new Set<string>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -20,7 +23,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/logout", async (req, res) => {
     try {
-      // Clear session data if any
+      const rawCookie = req.headers.cookie ?? "";
+      const tokenMatch = rawCookie.match(/debug_session=([^;]+)/);
+      if (tokenMatch) {
+        debugSessionTokens.delete(tokenMatch[1]);
+      }
+      res.setHeader("Set-Cookie", "debug_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
       console.log("User logged out");
       res.json({ success: true, message: "Logged out successfully" });
     } catch (error) {
@@ -147,16 +155,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    // Mock authentication - in production, verify JWT token
-    const userId = 1; // Extract from JWT
-    const user = await storage.getUser(userId);
-    
-    if (!user) {
-      return res.status(401).json({ message: "User not found" });
+    if (process.env.NODE_ENV !== "production") {
+      const rawCookie = req.headers.cookie ?? "";
+      const tokenMatch = rawCookie.match(/debug_session=([^;]+)/);
+      const token = tokenMatch ? tokenMatch[1] : null;
+      if (token && debugSessionTokens.has(token)) {
+        const user = await storage.getUser(1);
+        if (!user) {
+          return res.status(401).json({ message: "User not found" });
+        }
+        return res.json({ user });
+      }
     }
-    
-    res.json({ user });
+    return res.status(401).json({ message: "Not authenticated" });
   });
+
+  if (process.env.NODE_ENV !== "production") {
+    app.get("/api/debug/login", async (req, res) => {
+      const user = await storage.getUser(1);
+      if (!user) {
+        return res.status(404).json({ message: "Debug user not found" });
+      }
+      const token = randomUUID();
+      debugSessionTokens.add(token);
+      res.setHeader("Set-Cookie", `debug_session=${token}; Path=/; HttpOnly; SameSite=Lax`);
+      res.json({ user });
+    });
+  }
 
   // Categories routes
   app.get("/api/categories", async (req, res) => {
