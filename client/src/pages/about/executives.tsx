@@ -13,7 +13,7 @@ const LEADERS: Executive[] = [
   { name: "최윤용", title: "회장", photo: "choi-yun-yong-president.avif" },
   { name: "최유행", title: "총회의장", photo: "choi-yu-haeng-speaker.avif" },
   { name: "박종웅", title: "수석부회장", photo: "park-jong-wung-svp.avif" },
-  { name: "송상화", title: "부회장", photo: "song-sang-hwa-vp.avif" },
+  { name: "송상화", title: "부회장(부산지부장)", photo: "song-sang-hwa-vp.avif" },
   { name: "박경미", title: "부회장", photo: "park-kyung-mi-vp.avif" },
 ];
 
