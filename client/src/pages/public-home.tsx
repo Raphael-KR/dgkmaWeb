@@ -154,16 +154,16 @@ export function PublicHome() {
                     </thead>
                     <tbody className="text-gray-700">
                       <tr className="border-b border-gray-100">
-                        <td className="py-2 px-2 font-medium">정회원</td>
-                        <td className="py-2 px-2">동국대학교 한의과대학 졸업생</td>
+                        <td className="py-2 px-2 font-medium align-top">회원</td>
+                        <td className="py-2 px-2">동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자로서 본 홈페이지에 가입한 사람</td>
                       </tr>
                       <tr className="border-b border-gray-100">
-                        <td className="py-2 px-2 font-medium">준회원</td>
-                        <td className="py-2 px-2">재학생 및 수료생</td>
+                        <td className="py-2 px-2 font-medium align-top">권리회원</td>
+                        <td className="py-2 px-2">당해 연도 회비를 완납한 회원. 총회 의결권·임원 피선거권·권리회원 전용 혜택 등을 행사할 수 있음</td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-2 font-medium">명예회원</td>
-                        <td className="py-2 px-2">전·현직 교수 및 동문회가 인정한 인사</td>
+                        <td className="py-2 px-2 font-medium align-top">명예회원</td>
+                        <td className="py-2 px-2">회원 자격에 해당하지 않으나, 본회 발전에 현저한 공로가 있어 회장의 추천과 이사회의 승인을 받은 사람</td>
                       </tr>
                     </tbody>
                   </table>

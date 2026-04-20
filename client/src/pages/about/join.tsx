@@ -9,7 +9,7 @@ const steps = [
   { title: "카카오 로그인", desc: "카카오 계정으로 간편하게 로그인합니다." },
   { title: "졸업생 정보 자동 매칭", desc: "이름·휴대폰 번호로 동문 명부와 자동 대조됩니다." },
   { title: "본인 정보 확인 및 보완", desc: "기수, 연락처 등 누락된 정보를 입력합니다." },
-  { title: "관리자 승인", desc: "확인 후 정회원으로 승인됩니다 (보통 1~2일 이내)." },
+  { title: "관리자 승인", desc: "확인 후 회원으로 승인됩니다 (보통 1~2일 이내)." },
   { title: "전체 메뉴 이용", desc: "게시판, 동문 명부, 회비 납부 등 모든 메뉴를 이용할 수 있습니다." },
 ];
 
@@ -24,16 +24,25 @@ export default function AboutJoin() {
           <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">JOIN</div>
           <h1 className="text-3xl sm:text-4xl font-bold tp-text-green-dark">회원가입 안내</h1>
           <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
-          <p className="text-sm text-gray-600 mt-3">동국대학교 한의과대학 졸업생이라면 누구나 정회원으로 가입할 수 있습니다.</p>
+          <p className="text-sm text-gray-600 mt-3">동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자라면 누구나 회원으로 가입할 수 있습니다.</p>
         </header>
 
         <Card className="mb-8 border-2 tp-border-gold/30">
           <CardContent className="p-6 sm:p-8">
-            <h2 className="text-lg font-bold tp-text-green-dark mb-4">가입 자격</h2>
-            <ul className="space-y-2 text-gray-700">
-              <li className="flex gap-2"><CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} /> 동국대학교 한의과대학 <strong className="mx-1">졸업생</strong> (정회원)</li>
-              <li className="flex gap-2"><CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} /> 재학생 및 수료생 (준회원)</li>
-              <li className="flex gap-2"><CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} /> 전·현직 교수 및 동문회 인정 인사 (명예회원)</li>
+            <h2 className="text-lg font-bold tp-text-green-dark mb-4">회원 구성</h2>
+            <ul className="space-y-3 text-gray-700">
+              <li className="flex gap-2">
+                <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} />
+                <span><strong className="tp-text-green-dark">회원</strong> · 동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자로서 본 홈페이지에 가입한 사람</span>
+              </li>
+              <li className="flex gap-2">
+                <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} />
+                <span><strong className="tp-text-green-dark">권리회원</strong> · 당해 연도 회비를 완납한 회원. 총회 의결권 · 임원 피선거권 · 권리회원 전용 혜택 등을 행사할 수 있음</span>
+              </li>
+              <li className="flex gap-2">
+                <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} />
+                <span><strong className="tp-text-green-dark">명예회원</strong> · 회원 자격에 해당하지 않으나, 본회 발전에 현저한 공로가 있어 회장의 추천과 이사회의 승인을 받은 사람</span>
+              </li>
             </ul>
           </CardContent>
         </Card>
