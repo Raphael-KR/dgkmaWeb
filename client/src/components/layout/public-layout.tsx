@@ -8,7 +8,7 @@ import symbolLogo from "@assets/public-home/symbol-logo.svg";
 
 const publicNav: { path: string; label: string; gated?: boolean }[] = [
   { path: "/", label: "홈" },
-  { path: "/heritage", label: "소개", gated: true },
+  { path: "/about/intro", label: "소개" },
   { path: "/about/bylaws", label: "회칙" },
   { path: "/about/join", label: "회원가입" },
   { path: "/about/dues", label: "회비" },

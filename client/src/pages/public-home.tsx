@@ -24,8 +24,8 @@ const quickLinks = [
   { to: "/about/join", icon: UserPlus, title: "회원가입", desc: "정회원 가입 절차 안내" },
   { to: "/about/dues", icon: Wallet, title: "2026 회비 안내", desc: "연회비 납부 방법 및 계좌" },
   { to: "/about/condolence", icon: Heart, title: "경조사 지원", desc: "지원 범위와 신청 방법" },
-  { to: "/", icon: Megaphone, title: "공지사항", desc: "로그인 후 게시판에서 확인" },
-  { to: "/", icon: Info, title: "동문회 소개", desc: "동문회 연혁과 조직" },
+  { to: "/b", icon: Megaphone, title: "공지사항", desc: "로그인 후 게시판에서 확인" },
+  { to: "/about/intro", icon: Info, title: "동문회 소개", desc: "동문회 연혁과 조직" },
 ];
 
 export function PublicHome() {
