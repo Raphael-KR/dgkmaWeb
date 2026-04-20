@@ -58,7 +58,7 @@ export function applySeo(opts: SeoOptions) {
     ? opts.image.startsWith("http")
       ? opts.image
       : `${origin}${opts.image}`
-    : `${origin}/og-image.svg`;
+    : `${origin}/og-image.png`;
 
   document.title = fullTitle;
   setMeta("name", "description", description);
