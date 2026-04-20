@@ -39,10 +39,9 @@ export function PublicLayout({ children }: { children: ReactNode }) {
       <header className="tp-bg-green-dark text-white sticky top-0 z-40 shadow-md">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <img src={symbolLogo} alt="동국한의 로고" className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full p-1 flex-shrink-0" />
-            <div className="min-w-0">
-              <div className="text-xs tp-text-gold leading-tight">동국대학교한의과대학</div>
-              <div className="text-sm sm:text-base font-bold leading-tight truncate">동문회</div>
+            <img src={symbolLogo} alt="동국한의동문회 로고" className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full p-1 flex-shrink-0" />
+            <div className="text-sm sm:text-base font-bold leading-tight truncate">
+              동국대학교한의과대학동문회
             </div>
           </Link>
 

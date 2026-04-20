@@ -44,9 +44,9 @@ export function PublicHome() {
             <div className="inline-block tp-text-gold text-xs sm:text-sm font-semibold tracking-widest mb-3">
               DONGGUK KOREAN MEDICINE ALUMNI
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-4">
-              동국대학교한의과대학<br />
-              <span className="tp-text-gold">동문회에 오신 것을 환영합니다</span>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-4">
+              <span className="block">동국대학교한의과대학동문회</span>
+              <span className="tp-text-gold block mt-1">홈페이지에 오신 것을 환영합니다</span>
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed mb-6 max-w-xl mx-auto lg:mx-0">
               학문적 전통과 임상 경험을 함께 나누는 동문 공동체.<br />
