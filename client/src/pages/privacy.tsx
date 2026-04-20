@@ -2,12 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { PublicLayout } from "@/components/layout/public-layout";
 
 export default function Privacy() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="min-h-screen bg-kakao-gray p-4">
+    <PublicLayout><div className="min-h-screen tp-bg-cream p-4">
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
           <Button
@@ -23,7 +24,7 @@ export default function Privacy() {
 
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-kakao-brown">
+            <CardTitle className="text-2xl font-bold tp-text-green-dark">
               개인정보 처리방침
             </CardTitle>
             <p className="text-sm text-gray-600">
@@ -34,7 +35,7 @@ export default function Privacy() {
           <CardContent className="space-y-8">
             {/* 제1조 개인정보의 처리목적 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제1조 (개인정보의 처리목적)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제1조 (개인정보의 처리목적)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>동국대학교 한의과대학 동문회는 다음의 목적을 위하여 개인정보를 처리합니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
@@ -50,7 +51,7 @@ export default function Privacy() {
 
             {/* 제2조 개인정보의 처리 및 보유기간 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제2조 (개인정보의 처리 및 보유기간)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제2조 (개인정보의 처리 및 보유기간)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 개인정보는 수집·이용 목적이 달성된 후에는 해당 정보를 지체없이 파기합니다.</p>
                 <p>② 다만, 다음의 정보에 대해서는 아래의 이유로 명시한 기간 동안 보존합니다:</p>
@@ -64,7 +65,7 @@ export default function Privacy() {
 
             {/* 제3조 개인정보의 수집항목 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제3조 (처리하는 개인정보의 항목)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제3조 (처리하는 개인정보의 항목)</h3>
               <div className="space-y-4 text-gray-700">
                 <div>
                   <h4 className="font-medium mb-2">① 회원가입 시 수집항목</h4>
@@ -92,7 +93,7 @@ export default function Privacy() {
 
             {/* 제4조 개인정보의 제3자 제공 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제4조 (개인정보의 제3자 제공)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제4조 (개인정보의 제3자 제공)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 동문회는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다.</p>
                 <p>② 다만, 다음의 경우에는 예외로 합니다:</p>
@@ -105,7 +106,7 @@ export default function Privacy() {
 
             {/* 제5조 개인정보 처리위탁 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제5조 (개인정보 처리위탁)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제5조 (개인정보 처리위탁)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 동문회는 서비스 제공을 위해 다음과 같이 개인정보 처리업무를 위탁합니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
@@ -118,7 +119,7 @@ export default function Privacy() {
 
             {/* 제6조 정보주체의 권리 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제6조 (정보주체의 권리·의무 및 행사방법)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제6조 (정보주체의 권리·의무 및 행사방법)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 이용자는 언제든지 다음 각 호의 개인정보 보호 관련 권리를 행사할 수 있습니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
@@ -133,7 +134,7 @@ export default function Privacy() {
 
             {/* 제7조 개인정보의 파기 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제7조 (개인정보의 파기)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제7조 (개인정보의 파기)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 개인정보는 보유기간의 경과, 처리목적 달성 등 그 개인정보가 불필요하게 되었을 때에는 지체없이 파기합니다.</p>
                 <p>② 파기의 절차 및 방법은 다음과 같습니다:</p>
@@ -146,7 +147,7 @@ export default function Privacy() {
 
             {/* 제8조 개인정보 보호책임자 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제8조 (개인정보 보호책임자)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제8조 (개인정보 보호책임자)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 정보주체의 불만처리 및 피해구제를 위하여 아래와 같이 개인정보 보호책임자를 지정합니다:</p>
                 <div className="bg-gray-50 p-4 rounded-lg mt-3">
@@ -160,7 +161,7 @@ export default function Privacy() {
 
             {/* 제9조 개인정보 처리방침 변경 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">제9조 (개인정보 처리방침 변경)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제9조 (개인정보 처리방침 변경)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 이 개인정보처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.</p>
               </div>
@@ -168,7 +169,7 @@ export default function Privacy() {
 
             {/* 부칙 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">부칙</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">부칙</h3>
               <div className="space-y-2 text-gray-700">
                 <p>본 방침은 2025년 8월 30일부터 시행됩니다.</p>
               </div>
@@ -176,7 +177,7 @@ export default function Privacy() {
 
             {/* 문의 */}
             <section className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-3 text-kakao-brown">개인정보 관련 문의</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">개인정보 관련 문의</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="font-medium">동국대학교 한의과대학 동문회</p>
                 <p className="text-gray-600">개인정보보호 담당자</p>
@@ -187,6 +188,6 @@ export default function Privacy() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </div></PublicLayout>
   );
 }

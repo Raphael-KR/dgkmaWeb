@@ -117,9 +117,10 @@ function AppShell() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  // Public pages render their own layout (PublicLayout). Hide member shell.
-  const isPublic = !user && isPublicPath(location);
-  const showMemberChrome = !!user && !["/login"].includes(location);
+  // Public pages provide their own PublicLayout chrome. Always hide member chrome on public paths
+  // (even when logged in) to avoid duplicate headers/navs.
+  const onPublicPath = isPublicPath(location);
+  const showMemberChrome = !!user && !onPublicPath;
 
   return (
     <div className={`min-h-screen ${showMemberChrome ? "bg-gray-50 pb-16" : ""}`}>

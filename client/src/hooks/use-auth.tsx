@@ -59,7 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok && data.user) {
         setUser(data.user);
-        setLocation("/");
+        let dest = "/";
+        try {
+          const stored = sessionStorage.getItem("auth:returnTo");
+          if (stored && stored.startsWith("/") && !stored.startsWith("//")) {
+            dest = stored;
+          }
+          sessionStorage.removeItem("auth:returnTo");
+        } catch {}
+        setLocation(dest);
         toast({
           title: "카카오싱크 로그인 성공",
           description: `${data.user.name}님, 환영합니다! 카카오싱크가 연결되었습니다.`,
