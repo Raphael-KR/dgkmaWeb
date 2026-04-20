@@ -1,11 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
 
-const debugSessionTokens = new Set<string>();
+declare module "express-session" {
+  interface SessionData {
+    userId?: number;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -22,19 +25,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/logout", async (req, res) => {
-    try {
-      const rawCookie = req.headers.cookie ?? "";
-      const tokenMatch = rawCookie.match(/debug_session=([^;]+)/);
-      if (tokenMatch) {
-        debugSessionTokens.delete(tokenMatch[1]);
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Logout failed" });
       }
-      res.setHeader("Set-Cookie", "debug_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+      res.clearCookie("connect.sid");
       console.log("User logged out");
       res.json({ success: true, message: "Logged out successfully" });
-    } catch (error) {
-      console.error("Logout error:", error);
-      res.status(500).json({ message: "Logout failed" });
-    }
+    });
   });
 
   app.post("/api/auth/kakao/authorize", async (req, res) => {
@@ -155,19 +154,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    if (process.env.NODE_ENV !== "production") {
-      const rawCookie = req.headers.cookie ?? "";
-      const tokenMatch = rawCookie.match(/debug_session=([^;]+)/);
-      const token = tokenMatch ? tokenMatch[1] : null;
-      if (token && debugSessionTokens.has(token)) {
-        const user = await storage.getUser(1);
-        if (!user) {
-          return res.status(401).json({ message: "User not found" });
-        }
-        return res.json({ user });
-      }
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
     }
-    return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+    return res.json({ user });
   });
 
   if (process.env.NODE_ENV !== "production") {
@@ -176,9 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "Debug user not found" });
       }
-      const token = randomUUID();
-      debugSessionTokens.add(token);
-      res.setHeader("Set-Cookie", `debug_session=${token}; Path=/; HttpOnly; SameSite=Lax`);
+      req.session.userId = 1;
       res.json({ user });
     });
   }
