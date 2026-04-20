@@ -22,6 +22,7 @@ app.use(
       pool,
       tableName: "session",
       createTableIfMissing: true,
+      pruneSessionInterval: 60,
     }),
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
     resave: false,
