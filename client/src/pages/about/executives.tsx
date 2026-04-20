@@ -86,7 +86,7 @@ export default function AboutExecutives() {
         {/* 감사 */}
         <section className="mb-12">
           <h2 className="text-base font-semibold tp-text-green-dark mb-5 border-b border-[#1f4d2e]/20 pb-2">감사</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-md">
+          <div className="grid grid-cols-2 gap-4 max-w-sm">
             {AUDITORS.map((exec) => (
               <ExecCard key={exec.name} exec={exec} size="md" />
             ))}
