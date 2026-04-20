@@ -111,7 +111,7 @@ export function PublicHome() {
                     회원 모두에게 의미 있는 동문회가 되도록 하겠습니다. 많은 관심과 참여 부탁드립니다.
                   </p>
                   <p className="text-right font-semibold tp-text-green-dark mt-6">
-                    제22대 동문회장 <span className="text-lg">최윤용</span> 드림
+                    동국대학교한의과대학동문회 회장 <span className="text-lg">최윤용</span> 드림
                   </p>
                 </div>
                 <div className="flex-shrink-0 mx-auto sm:mx-0">
