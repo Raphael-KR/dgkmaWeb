@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Link } from "wouter";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useSeo } from "@/lib/seo";
 
@@ -39,6 +40,11 @@ export default function AboutIntro() {
           <p>
             본 동문회는 회장, 부회장, 이사회, 감사로 구성되며 임기는 2년입니다.
             주요 활동을 위해 학술위원회·재무위원회·홍보위원회·경조사위원회 등을 둡니다.
+          </p>
+          <p>
+            <Link href="/about/executives" className="inline-flex items-center gap-1 tp-text-gold-dark font-medium hover:underline">
+              22대 임원 명단 보기 →
+            </Link>
           </p>
 
           <h2>주요 사업</h2>
