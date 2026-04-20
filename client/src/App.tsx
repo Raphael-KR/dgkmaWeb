@@ -28,6 +28,7 @@ import AboutJoin from "@/pages/about/join";
 import AboutDues from "@/pages/about/dues";
 import AboutCondolence from "@/pages/about/condolence";
 import AboutIntro from "@/pages/about/intro";
+import AboutExecutives from "@/pages/about/executives";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -71,6 +72,7 @@ function Router() {
 
       {/* Public about pages */}
       <Route path="/about/intro" component={AboutIntro} />
+      <Route path="/about/executives" component={AboutExecutives} />
       <Route path="/about/bylaws" component={AboutBylaws} />
       <Route path="/about/join" component={AboutJoin} />
       <Route path="/about/dues" component={AboutDues} />
@@ -111,7 +113,7 @@ function Router() {
       {/* Redirect old routes to /heritage */}
       <Route path="/about" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route path="/info" component={() => { window.location.href = '/heritage'; return null; }} />
-      <Route path="/executives" component={() => { window.location.href = '/heritage'; return null; }} />
+      <Route path="/executives" component={() => { window.location.href = '/about/executives'; return null; }} />
       <Route path="/bylaws" component={() => { window.location.href = '/about/bylaws'; return null; }} />
       <Route path="/history" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route component={NotFound} />
