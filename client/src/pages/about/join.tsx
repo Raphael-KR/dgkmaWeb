@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
+import { useSeo } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoginModal } from "@/components/auth/login-modal";
@@ -15,6 +16,12 @@ const steps = [
 
 export default function AboutJoin() {
   const [loginOpen, setLoginOpen] = useState(false);
+  useSeo({
+    title: "회원가입 안내",
+    description:
+      "동국대학교 한의과대학 졸업생을 위한 동문회 가입 절차와 자격 안내. 카카오 로그인으로 간편하게 시작하세요.",
+    path: "/about/join",
+  });
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
   return (

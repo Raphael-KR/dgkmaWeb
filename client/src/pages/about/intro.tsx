@@ -1,7 +1,14 @@
 import { useEffect } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
+import { useSeo } from "@/lib/seo";
 
 export default function AboutIntro() {
+  useSeo({
+    title: "동문회 소개",
+    description:
+      "동국대학교한의과대학동문회의 설립 목적, 연혁, 조직, 주요 사업을 소개합니다.",
+    path: "/about/intro",
+  });
   useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <PublicLayout>

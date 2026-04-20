@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoginModal } from "@/components/auth/login-modal";
 import { PublicLayout } from "@/components/layout/public-layout";
+import { useSeo } from "@/lib/seo";
 import {
   BookOpen, Users2, GraduationCap, HandHeart, Network,
   FileText, UserPlus, Wallet, Heart, Megaphone, Info, LogIn,
@@ -30,6 +31,13 @@ const quickLinks = [
 
 export function PublicHome() {
   const [loginOpen, setLoginOpen] = useState(false);
+
+  useSeo({
+    title: "동국대학교한의과대학동문회",
+    description:
+      "동국대학교 한의과대학 동문 공동체. 학술·교류·후학 지원·경조사를 함께하는 공식 동문회 플랫폼입니다.",
+    path: "/",
+  });
 
   useEffect(() => {
     window.scrollTo(0, 0);
