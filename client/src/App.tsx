@@ -27,6 +27,7 @@ import AboutBylaws from "@/pages/about/bylaws";
 import AboutJoin from "@/pages/about/join";
 import AboutDues from "@/pages/about/dues";
 import AboutCondolence from "@/pages/about/condolence";
+import AboutIntro from "@/pages/about/intro";
 import { AppHeader } from "@/components/layout/app-header";
 import Navigation from "@/components/navigation";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -45,7 +46,12 @@ function RootRoute() {
   return user ? <Home /> : <PublicHome />;
 }
 
-const PUBLIC_PATHS = ["/", "/login", "/terms", "/privacy", "/auth/callback", "/kakao-callback"];
+// Paths whose pages render their own PublicLayout (header/footer) and must NOT
+// have the member chrome (AppHeader + side Navigation) wrapped around them.
+// Note: "/" is intentionally NOT included here. The shell decision for "/" is
+// made dynamically based on auth state — logged-in users get the member shell
+// + Home, non-logged users get PublicHome which renders its own PublicLayout.
+const PUBLIC_PATHS = ["/login", "/terms", "/privacy", "/auth/callback", "/kakao-callback"];
 const PUBLIC_PREFIXES = ["/about/"];
 
 function isPublicPath(path: string) {
@@ -64,6 +70,7 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
 
       {/* Public about pages */}
+      <Route path="/about/intro" component={AboutIntro} />
       <Route path="/about/bylaws" component={AboutBylaws} />
       <Route path="/about/join" component={AboutJoin} />
       <Route path="/about/dues" component={AboutDues} />
@@ -119,12 +126,17 @@ function AppShell() {
 
   // Public pages render their own PublicLayout (with header + footer).
   // Member chrome (AppHeader + side Navigation) only shows for logged-in users on member routes.
+  // Special: "/" → member chrome only when logged in (RootRoute renders Member Home);
+  // non-logged users see PublicHome which renders its own PublicLayout.
   const onPublicPath = isPublicPath(location);
-  const showMemberChrome = !!user && !onPublicPath;
-  // Bottom nav: shown on mobile for both states; gated tabs trigger login modal when not logged in.
-  // Hide on /login and on the auth callback pages to avoid clutter.
+  const onRoot = location === "/";
+  const usesPublicLayout = onPublicPath || (onRoot && !user);
+  const showMemberChrome = !!user && !usesPublicLayout;
+  // Bottom nav: visible on mobile for BOTH states. For non-logged users on
+  // public paths, the gated tabs trigger a LoginModal (handled inside the
+  // BottomNavigation component). Hide only on dedicated auth screens.
   const hideBottomNav = ["/login", "/auth/callback", "/kakao-callback"].includes(location);
-  const showBottomNav = !hideBottomNav && !onPublicPath;
+  const showBottomNav = !hideBottomNav;
 
   return (
     <div className={`min-h-screen ${showMemberChrome ? "bg-gray-50 pb-16" : ""}`}>
