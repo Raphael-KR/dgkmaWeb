@@ -19,7 +19,7 @@ export default function AboutCondolence() {
           <CardContent className="p-6">
             <h2 className="text-lg font-bold tp-text-green-dark mb-3">지원 대상</h2>
             <ul className="space-y-2 text-gray-700 text-sm">
-              <li>• 정회원 본인 및 직계 가족 (배우자, 부모, 자녀)</li>
+              <li>• 권리회원 본인 및 직계 가족 (배우자, 부모, 자녀)</li>
               <li>• 회비를 정상 납부 중인 회원에 한함</li>
             </ul>
           </CardContent>
