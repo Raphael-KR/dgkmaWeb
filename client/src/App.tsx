@@ -117,10 +117,14 @@ function AppShell() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  // Public pages provide their own PublicLayout chrome. Always hide member chrome on public paths
-  // (even when logged in) to avoid duplicate headers/navs.
+  // Public pages render their own PublicLayout (with header + footer).
+  // Member chrome (AppHeader + side Navigation) only shows for logged-in users on member routes.
   const onPublicPath = isPublicPath(location);
   const showMemberChrome = !!user && !onPublicPath;
+  // Bottom nav: shown on mobile for both states; gated tabs trigger login modal when not logged in.
+  // Hide on /login and on the auth callback pages to avoid clutter.
+  const hideBottomNav = ["/login", "/auth/callback", "/kakao-callback"].includes(location);
+  const showBottomNav = !hideBottomNav && !onPublicPath;
 
   return (
     <div className={`min-h-screen ${showMemberChrome ? "bg-gray-50 pb-16" : ""}`}>
@@ -133,7 +137,7 @@ function AppShell() {
       <main>
         <Router />
       </main>
-      {showMemberChrome && <BottomNavigation />}
+      {showBottomNav && <BottomNavigation />}
     </div>
   );
 }
