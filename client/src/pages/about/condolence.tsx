@@ -2,8 +2,15 @@ import { useEffect } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart } from "lucide-react";
+import { useSeo } from "@/lib/seo";
 
 export default function AboutCondolence() {
+  useSeo({
+    title: "경조사 지원 안내",
+    description:
+      "동국대학교한의과대학동문회의 결혼·출산·상사 등 경조사 지원 대상, 범위, 신청 방법을 안내합니다.",
+    path: "/about/condolence",
+  });
   useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <PublicLayout>

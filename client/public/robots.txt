@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /profile
+Disallow: /directory
+Disallow: /b
+Disallow: /p/
+Disallow: /post/
+Disallow: /o
+Disallow: /search
+Disallow: /auth/
+Disallow: /kakao-callback
+
+Sitemap: /sitemap.xml

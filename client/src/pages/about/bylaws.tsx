@@ -1,7 +1,14 @@
 import { useEffect } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
+import { useSeo } from "@/lib/seo";
 
 export default function AboutBylaws() {
+  useSeo({
+    title: "동문회 회칙",
+    description:
+      "동국대학교한의과대학동문회 회칙 전문 — 회원 자격, 임원, 총회, 재정 등 전체 조항을 확인하세요.",
+    path: "/about/bylaws",
+  });
   useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <PublicLayout>

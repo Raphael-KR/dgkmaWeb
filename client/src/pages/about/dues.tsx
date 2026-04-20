@@ -1,8 +1,15 @@
 import { useEffect } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSeo } from "@/lib/seo";
 
 export default function AboutDues() {
+  useSeo({
+    title: "2026년 회비 안내",
+    description:
+      "2026년 동국대학교한의과대학동문회 연회비·평생회비 금액과 납부 계좌, 사용 내역을 안내합니다.",
+    path: "/about/dues",
+  });
   useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <PublicLayout>
