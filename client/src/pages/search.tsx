@@ -27,8 +27,8 @@ export default function SearchPage() {
     queryKey: ["/api/posts/search", searchTerm],
     queryFn: async () => {
       if (!searchTerm.trim()) return [];
-      const response = await fetch(`/api/posts/search?q=${encodeURIComponent(searchTerm)}`, { 
-        credentials: "include" 
+      const response = await fetch(`/api/posts/search?q=${encodeURIComponent(searchTerm)}`, {
+        credentials: "include"
       });
       return response.ok ? response.json() : [];
     },
@@ -43,11 +43,11 @@ export default function SearchPage() {
     { id: 4, name: "최○○", graduationYear: 2020, isVerified: true, department: "한의학과" },
   ];
 
-  const filteredAlumni = searchTerm.trim() 
+  const filteredAlumni = searchTerm.trim()
     ? mockAlumni.filter(person =>
-        person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        person.graduationYear.toString().includes(searchTerm)
-      )
+      person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      person.graduationYear.toString().includes(searchTerm)
+    )
     : [];
 
   const handleSearch = (e: React.FormEvent) => {
@@ -63,9 +63,9 @@ export default function SearchPage() {
       <div className="max-w-md mx-auto px-4 pb-20 pt-6">
         {/* 뒤로가기 버튼 */}
         <div className="py-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => window.history.back()}
             className="mb-4 text-gray-600 hover:text-kakao-brown"
           >
@@ -92,31 +92,28 @@ export default function SearchPage() {
           <div className="flex space-x-1 mb-6 bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setActiveTab("all")}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "all" 
-                  ? "bg-white text-kakao-brown shadow-sm" 
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === "all"
+                  ? "bg-white text-kakao-brown shadow-sm"
                   : "text-gray-600 hover:text-gray-800"
-              }`}
+                }`}
             >
               전체 ({totalResults})
             </button>
             <button
               onClick={() => setActiveTab("posts")}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "posts" 
-                  ? "bg-white text-kakao-brown shadow-sm" 
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === "posts"
+                  ? "bg-white text-kakao-brown shadow-sm"
                   : "text-gray-600 hover:text-gray-800"
-              }`}
+                }`}
             >
               게시글 ({posts?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab("alumni")}
-              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "alumni" 
-                  ? "bg-white text-kakao-brown shadow-sm" 
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === "alumni"
+                  ? "bg-white text-kakao-brown shadow-sm"
                   : "text-gray-600 hover:text-gray-800"
-              }`}
+                }`}
             >
               동문 ({filteredAlumni?.length || 0})
             </button>
@@ -154,10 +151,10 @@ export default function SearchPage() {
             <div className="space-y-4">
               {/* 게시글 결과 */}
               {(activeTab === "all" || activeTab === "posts") && posts?.map((post: any) => (
-                <Card 
-                  key={`post-${post.id}`} 
+                <Card
+                  key={`post-${post.id}`}
                   className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => setLocation(`/boards?category=${post.category.name}`)}
+                  onClick={() => setLocation(`/b?category=${post.category.name}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start space-x-3">
@@ -185,8 +182,8 @@ export default function SearchPage() {
 
               {/* 동문 결과 */}
               {(activeTab === "all" || activeTab === "alumni") && filteredAlumni?.map((person) => (
-                <Card 
-                  key={`alumni-${person.id}`} 
+                <Card
+                  key={`alumni-${person.id}`}
                   className="cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => setLocation("/directory")}
                 >
