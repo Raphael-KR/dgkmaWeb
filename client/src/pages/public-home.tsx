@@ -155,9 +155,11 @@ export function PublicHome() {
                     앞으로도 투명한 운영과 내실 있는 사업으로 자랑스러운 동국 한의의 이름에 걸맞은 동문회가 되도록
                     최선을 다하겠습니다.
                   </p>
+                  <p className="leading-relaxed text-gray-700">
+                    동문 여러분의 변함없는 관심과 적극적인 참여를 부탁드리며, 가정과 일터에 늘 건강과 평안이 함께하시기를 기원합니다.
+                  </p>
                   <p className="text-right font-semibold tp-text-green-dark mt-6">
-                    제22대 회장 <span className="text-lg">최윤용</span>
-                    <span className="block text-sm font-normal text-gray-500 mt-1">졸업 10기 · 88학번 드림</span>
+                    제22대 회장 최윤용 (졸업10기·88학번) 드림
                   </p>
                 </div>
                 <div className="flex-shrink-0 mx-auto sm:mx-0">
