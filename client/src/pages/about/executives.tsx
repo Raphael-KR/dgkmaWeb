@@ -29,7 +29,7 @@ const DIRECTORS: Executive[] = [
   { name: "전가윤", title: "내외협력이사", subtitle: "41기 기장", photo: "jeon-ga-yun-director.avif" },
   { name: "정수아", title: "홍보이사", subtitle: "41기 부기장", photo: "jung-su-a-director.avif" },
   { name: "김선중", title: "이사", subtitle: "42기 기장", photo: "kim-sun-jung-director.avif" },
-  { name: "장우진", title: "이사", subtitle: "42기 부기장", photo: "" },
+  { name: "장우진", title: "이사", subtitle: "42기 부기장", photo: "jang-woo-jin-director.avif" },
   { name: "김정룡", title: "이사", subtitle: "부산지부 부회장", photo: "kim-jung-ryong-director.avif" },
   { name: "김효정", title: "이사", subtitle: "부산지부 총무", photo: "kim-hyo-jung-director.avif" },
   { name: "박주희", title: "이사", subtitle: "부산지부 재무", photo: "park-ju-hee-director.avif" },
