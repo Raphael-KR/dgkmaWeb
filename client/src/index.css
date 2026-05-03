@@ -1,57 +1,73 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --foreground: hsl(0, 0%, 16.9%);
+  --muted: hsl(33, 24%, 96%);
+  --muted-foreground: hsl(28, 5%, 51%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --popover-foreground: hsl(0, 0%, 16.9%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(48, 100%, 50%);
-  --primary-foreground: hsl(24, 9.8%, 10%);
-  --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
+  --card-foreground: hsl(0, 0%, 16.9%);
+  --border: hsl(28, 12%, 88%);
+  --input: hsl(28, 12%, 88%);
+  --primary: hsl(31, 100%, 43%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(13, 73%, 47%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(43, 100%, 46%);
+  --accent-foreground: hsl(0, 0%, 16.9%);
+  --destructive: hsl(0, 65%, 47%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(13, 73%, 47%);
   --radius: 0.5rem;
-  
-  /* Kakao Brand Colors */
-  --kakao: hsl(48, 100%, 50%);
-  --kakao-brown: hsl(24, 9.8%, 10%);
-  --kakao-orange: hsl(16, 100%, 60%);
-  --kakao-gray: hsl(0, 0%, 97%);
+
+  /* DGKMA Design System Tokens */
+  --dg-primary: #DB7200;       /* PANTONE 144 C */
+  --dg-secondary: #CF4520;     /* PANTONE 173 C */
+  --dg-accent: #EAAA00;        /* PANTONE 124 C */
+  --dg-brand-bg: #CB591F;      /* PANTONE 159 C */
+  --dg-brand-bg-dark: #A24617; /* 헤더·푸터용 약 -8% 명도 */
+  --dg-neutral-dark: #2B2B2B;
+  --dg-neutral-mid: #8C8279;
+  --dg-neutral-light: #FAF7F2;
+  --dg-white: #FFFFFF;
+
+  /* Semantic */
+  --dg-success: #2E7D32;
+  --dg-warning: #F9A825;
+  --dg-error: #C62828;
+  --dg-info: #455A64;
+
+  /* Kakao (브랜드 가이드 준수, 변경 금지) */
+  --kakao: #FEE500;
+  --kakao-brown: #191919;
 }
 
 .dark {
-  --background: hsl(240, 10%, 3.9%);
+  --background: hsl(0, 0%, 16.9%);
   --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
+  --muted: hsl(0, 0%, 22%);
+  --muted-foreground: hsl(28, 5%, 70%);
+  --popover: hsl(0, 0%, 16.9%);
   --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
+  --card: hsl(0, 0%, 16.9%);
   --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(48, 100%, 50%);
-  --primary-foreground: hsl(24, 9.8%, 10%);
-  --secondary: hsl(240, 3.7%, 15.9%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
+  --border: hsl(0, 0%, 22%);
+  --input: hsl(0, 0%, 22%);
+  --primary: hsl(31, 100%, 43%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(13, 73%, 47%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --accent: hsl(43, 100%, 46%);
+  --accent-foreground: hsl(0, 0%, 16.9%);
+  --destructive: hsl(0, 65%, 47%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(13, 73%, 47%);
   --radius: 0.5rem;
 }
 
@@ -62,36 +78,25 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--dg-neutral-dark);
   }
 }
 
 @layer utilities {
-  .kakao {
-    background-color: hsl(48, 100%, 50%);
-    color: hsl(24, 9.8%, 10%);
-  }
-  
+  /* Kakao 브랜드 (로그인 버튼 전용 — 디자인 시스템 외) */
+  .kakao,
   .bg-kakao-yellow {
-    background-color: hsl(48, 100%, 50%);
+    background-color: var(--kakao);
+    color: var(--kakao-brown);
   }
-  
-  .text-kakao-brown {
-    color: hsl(24, 9.8%, 10%);
-  }
-  
-  .text-kakao-orange {
-    color: hsl(16, 100%, 60%);
-  }
-  
-  .bg-kakao-orange {
-    background-color: hsl(16, 100%, 60%);
-  }
-  
-  .bg-kakao-gray {
-    background-color: hsl(0, 0%, 97%);
-  }
-  
+  .text-kakao-brown { color: var(--kakao-brown); }
+  .text-kakao-orange { color: var(--dg-secondary); }
+  .bg-kakao-orange { background-color: var(--dg-secondary); }
+  .bg-kakao-gray { background-color: var(--dg-neutral-light); }
+
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -100,38 +105,63 @@
   }
 }
 
-/* Public (non-member) theme: dark green + gold */
+/* =====================================================================
+   Public Theme — DGKMA Design System (PANTONE 144/173/124/159 C)
+   기존 tp-* 유틸리티 클래스를 새 디자인 토큰에 재매핑.
+   ===================================================================== */
 .theme-public {
-  --tp-green-50: hsl(150, 30%, 96%);
-  --tp-green-100: hsl(150, 28%, 90%);
-  --tp-green-700: hsl(155, 55%, 22%);
-  --tp-green-800: hsl(155, 60%, 16%);
-  --tp-green-900: hsl(155, 65%, 11%);
-  --tp-gold-300: hsl(43, 78%, 70%);
-  --tp-gold-400: hsl(43, 78%, 58%);
-  --tp-gold-500: hsl(40, 70%, 48%);
-  --tp-cream: hsl(44, 50%, 97%);
-  background-color: var(--tp-cream);
-  color: var(--tp-green-900);
+  background-color: var(--dg-white);
+  color: var(--dg-neutral-dark);
 }
-.theme-public .tp-bg-green { background-color: var(--tp-green-800); }
-.theme-public .tp-bg-green-dark { background-color: var(--tp-green-900); }
-.theme-public .tp-bg-cream { background-color: var(--tp-cream); }
-.theme-public .tp-bg-gold { background-color: var(--tp-gold-400); }
-.theme-public .tp-text-green { color: var(--tp-green-800); }
-.theme-public .tp-text-green-dark { color: var(--tp-green-900); }
-.theme-public .tp-text-gold { color: var(--tp-gold-400); }
-.theme-public .tp-text-gold-dark { color: var(--tp-gold-500); }
-.theme-public .tp-border-green { border-color: var(--tp-green-800); }
-.theme-public .tp-border-gold { border-color: var(--tp-gold-400); }
-.theme-public .tp-divider { background: linear-gradient(90deg, transparent, var(--tp-gold-400), transparent); }
-.theme-public a.tp-link { color: var(--tp-green-700); text-decoration: underline; text-underline-offset: 3px; }
-.theme-public a.tp-link:hover { color: var(--tp-gold-500); }
 
-.tp-prose h2 { font-size: 1.375rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem; color: var(--tp-green-800); }
-.tp-prose h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--tp-green-900); }
-.tp-prose p { line-height: 1.75; margin-bottom: 0.75rem; color: hsl(155, 20%, 20%); }
+/* 큰 면적 주조 배경 — Brand BG #CB591F */
+.theme-public .tp-bg-green        { background-color: var(--dg-brand-bg); color: var(--dg-white); }
+/* 헤더·푸터 — 약간 더 짙은 변형 (대비·위계 확보) */
+.theme-public .tp-bg-green-dark   { background-color: var(--dg-brand-bg-dark); color: var(--dg-white); }
+/* 섹션 알트 배경 — Warm Tint */
+.theme-public .tp-bg-cream        { background-color: var(--dg-neutral-light); }
+/* 강조 배지·활성 네비 — Accent (텍스트는 반드시 Neutral-Dark) */
+.theme-public .tp-bg-gold         { background-color: var(--dg-accent); color: var(--dg-neutral-dark); }
+
+/* 본문·헤딩 텍스트 — Neutral-Dark */
+.theme-public .tp-text-green      { color: var(--dg-neutral-dark); }
+.theme-public .tp-text-green-dark { color: var(--dg-neutral-dark); }
+/* 어두운 배경 위 강조 — Accent (대비 7.1:1 OK) */
+.theme-public .tp-text-gold       { color: var(--dg-accent); }
+/* 흰 배경 위 강조(eyebrow) — Secondary (대비 4.7:1, AA 충족) */
+.theme-public .tp-text-gold-dark  { color: var(--dg-secondary); }
+
+.theme-public .tp-border-green    { border-color: var(--dg-brand-bg); }
+.theme-public .tp-border-gold     { border-color: var(--dg-accent); }
+
+/* 섹션 디바이더 — Primary→Accent 그라데이션 */
+.theme-public .tp-divider {
+  background: linear-gradient(90deg, transparent, var(--dg-primary), var(--dg-accent), transparent);
+}
+
+/* 텍스트 링크 */
+.theme-public a.tp-link {
+  color: var(--dg-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.theme-public a.tp-link:hover { color: var(--dg-primary); }
+
+/* Prose 본문 — 약관·개인정보 등 정적 페이지 */
+.tp-prose h2 {
+  font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem;
+  color: var(--dg-neutral-dark); letter-spacing: -0.01em;
+}
+.tp-prose h3 {
+  font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem;
+  color: var(--dg-neutral-dark);
+}
+.tp-prose p {
+  line-height: 1.75; margin-bottom: 0.75rem; color: var(--dg-neutral-dark);
+}
 .tp-prose ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
 .tp-prose ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.75rem; }
-.tp-prose li { line-height: 1.75; margin-bottom: 0.25rem; }
-.tp-prose strong { color: var(--tp-green-900); font-weight: 600; }
+.tp-prose li { line-height: 1.75; margin-bottom: 0.25rem; color: var(--dg-neutral-dark); }
+.tp-prose strong { color: var(--dg-neutral-dark); font-weight: 600; }
+.tp-prose a { color: var(--dg-secondary); text-decoration: underline; text-underline-offset: 3px; }
+.tp-prose a:hover { color: var(--dg-primary); }
