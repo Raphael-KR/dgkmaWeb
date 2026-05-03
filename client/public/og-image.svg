@@ -5,11 +5,6 @@
         <stop offset="0" stop-color="#CB591F"/>
         <stop offset="1" stop-color="#A24617"/>
       </linearGradient>
-      <linearGradient id="divider" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#EAAA00" stop-opacity="0"/>
-        <stop offset="0.5" stop-color="#EAAA00" stop-opacity="1"/>
-        <stop offset="1" stop-color="#EAAA00" stop-opacity="0"/>
-      </linearGradient>
     </defs>
     <rect width="1200" height="630" fill="url(#bg)"/>
     <line x1="0" y1="80"  x2="1200" y2="80"  stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
@@ -19,7 +14,7 @@
           font-family="Pretendard"
           font-size="24" font-weight="700" fill="#EAAA00" letter-spacing="6">DONGGUK KOREAN MEDICINE ALUMNI</text>
 
-    <g transform="translate(120 200) scale(0.9486166007905138)">
+    <g transform="translate(120 164.64426877470356) scale(0.9486166007905138)">
       
     <text id="text1" xml:space="preserve" x="-2" y="285" font-family="Pretendard" font-size="96" font-weight="700" fill="#ffffff">한의과대학동문회</text>
     <text id="text2" xml:space="preserve" x="-3" y="160" font-family="Pretendard" font-size="152" font-weight="700" fill="#ffffff">동국대학교</text>
@@ -39,10 +34,4 @@
     </g>
 
     </g>
-
-    <rect x="440" y="532.7114624505929" width="320" height="3" fill="url(#divider)"/>
-
-    <text x="600" y="610.7114624505929" text-anchor="middle"
-          font-family="Pretendard"
-          font-size="44" font-weight="600" fill="#FFFFFF" letter-spacing="-1.2">따뜻한 연대, 함께하는 성장</text>
   </svg>
