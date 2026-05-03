@@ -11,7 +11,7 @@ import {
   Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight,
 } from "lucide-react";
 import symbolLogo from "@assets/public-home/symbol-logo.svg";
-import communityLogo from "@assets/public-home/community-logo-white.svg";
+import communityLogoSvg from "@assets/public-home/community-logo-white.svg?raw";
 
 const programs = [
   {
@@ -378,7 +378,11 @@ export function PublicHome() {
       {/* CTA */}
       <section className="tp-bg-green text-white py-12 sm:py-16 px-4">
         <div className="max-w-3xl mx-auto text-center">
-          <img src={communityLogo} alt="" className="h-16 sm:h-20 mx-auto mb-4 opacity-90" />
+          <div
+            aria-hidden="true"
+            className="h-16 sm:h-20 mx-auto mb-4 opacity-90 [&_svg]:h-full [&_svg]:w-auto [&_svg]:mx-auto"
+            dangerouslySetInnerHTML={{ __html: communityLogoSvg }}
+          />
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">
             동문 여러분의 참여를 기다립니다
           </h2>
