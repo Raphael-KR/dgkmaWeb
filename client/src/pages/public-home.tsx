@@ -11,7 +11,7 @@ import {
   Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight,
 } from "lucide-react";
 import symbolLogo from "@assets/public-home/symbol-logo.svg";
-import communityLogo from "@assets/public-home/community-logo.svg";
+import communityLogo from "@assets/public-home/community-logo-white.svg";
 
 const programs = [
   {
