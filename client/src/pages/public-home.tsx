@@ -333,7 +333,7 @@ export function PublicHome() {
             })}
           </div>
           <div className="text-center">
-            <Link href="/about/executives">
+            <Link href="/officers">
               <Button size="lg" className="tp-bg-green text-white hover:opacity-90 font-bold">
                 <Building2 size={18} className="mr-2" />
                 제22대 임원 명단 보기
