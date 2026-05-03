@@ -7,14 +7,7 @@
       </linearGradient>
     </defs>
     <rect width="1200" height="630" fill="url(#bg)"/>
-    <line x1="0" y1="80"  x2="1200" y2="80"  stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
-    <line x1="0" y1="550" x2="1200" y2="550" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
-
-    <text x="600" y="155" text-anchor="middle"
-          font-family="Pretendard"
-          font-size="24" font-weight="700" fill="#EAAA00" letter-spacing="6">DONGGUK KOREAN MEDICINE ALUMNI</text>
-
-    <g transform="translate(120 164.64426877470356) scale(0.9486166007905138)">
+    <g transform="translate(40 139.58498023715416) scale(1.1067193675889329)">
       
     <text id="text1" xml:space="preserve" x="-2" y="285" font-family="Pretendard" font-size="96" font-weight="700" fill="#ffffff">한의과대학동문회</text>
     <text id="text2" xml:space="preserve" x="-3" y="160" font-family="Pretendard" font-size="152" font-weight="700" fill="#ffffff">동국대학교</text>

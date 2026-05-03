@@ -5,4 +5,4 @@ generated = []
 id = "cY4SIS2YvUkmWicuplFFj"
 uri = "file://client/public/og-image.png"
 type = "image"
-title = "OG 이미지 (슬로건 제거)"
+title = "OG 이미지 (여백 축소, 로고 크게)"
