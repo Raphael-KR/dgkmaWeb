@@ -6,27 +6,63 @@ import { LoginModal } from "@/components/auth/login-modal";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useSeo } from "@/lib/seo";
 import {
-  BookOpen, Users2, GraduationCap, HandHeart, Network,
+  BookOpen, Users2, GraduationCap, HandHeart, Network, Sparkles,
   FileText, UserPlus, Wallet, Heart, Megaphone, Info, LogIn,
+  Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight,
 } from "lucide-react";
 import symbolLogo from "@assets/public-home/symbol-logo.svg";
 import communityLogo from "@assets/public-home/community-logo.svg";
 
 const programs = [
-  { icon: BookOpen, title: "학술·임상강좌", desc: "정기 학술대회, 임상 강좌 및 보수교육 운영" },
-  { icon: Users2, title: "교류·친목", desc: "기수별·지역별 모임, 정기총회를 통한 교류" },
-  { icon: GraduationCap, title: "후학 지원", desc: "재학생 장학사업과 멘토링으로 후학을 지원" },
-  { icon: HandHeart, title: "경조사 지원", desc: "회원 경조사를 함께하며 정을 나눔" },
-  { icon: Network, title: "조직 기반 강화", desc: "동문 명부 관리와 디지털 플랫폼 고도화" },
+  {
+    icon: BookOpen,
+    title: "학술 · 임상 강좌",
+    desc: "실습형 임상 강좌와 학술 세미나를 운영합니다.",
+  },
+  {
+    icon: Users2,
+    title: "동문 교류 · 친목",
+    desc: "연합 홈커밍데이, 총장배 골프·트레킹 대회, 동문교류회, 졸업동기회, 지역지부 모임을 지원합니다.",
+  },
+  {
+    icon: GraduationCap,
+    title: "후학 지원",
+    desc: "재학생 진로·임상 특강, 동문의료기관 진료 참관, 신규 졸업생 특강과 장학 사업을 운영합니다.",
+  },
+  {
+    icon: HandHeart,
+    title: "경조사 지원",
+    desc: "동문 본인 및 배우자 직계 1촌의 경조사에 문자·화환·근조기를 지원합니다.",
+  },
+  {
+    icon: Network,
+    title: "조직 기반 강화",
+    desc: "비영리민간단체 등록, 법인 회계 체계, 공식 홈페이지 운영, 정회원 혜택 확대를 추진합니다.",
+  },
+  {
+    icon: Sparkles,
+    title: "모교 발전 기금",
+    desc: "권리회원 1,000명, 연 1억 원 학교 발전 기부금 조성을 목표로 합니다.",
+    highlight: true,
+  },
+];
+
+const orgItems = [
+  { icon: Crown, title: "총회", desc: "최고 의결 기구 — 회장·총회의장·감사 선출" },
+  { icon: Users, title: "회장단", desc: "회장 · 수석부회장 · 부회장" },
+  { icon: Layers, title: "이사회", desc: "총무 · 기획 · 홍보 · 내외협력 · 법률 · 학술 등 분야별 이사" },
+  { icon: ShieldCheck, title: "감사", desc: "회무 및 회계 감사 — 총회에 보고" },
+  { icon: Star, title: "고문 · 명예회장", desc: "자문 역할" },
+  { icon: Network, title: "하부조직", desc: "기수별 동기회 · 지역지부" },
 ];
 
 const quickLinks = [
-  { to: "/about/bylaws", icon: FileText, title: "회칙", desc: "동문회 정관 및 회칙 전문" },
-  { to: "/about/join", icon: UserPlus, title: "회원가입", desc: "정회원 가입 절차 안내" },
-  { to: "/about/dues", icon: Wallet, title: "2026 회비 안내", desc: "연회비 납부 방법 및 계좌" },
-  { to: "/about/condolence", icon: Heart, title: "경조사 지원", desc: "지원 범위와 신청 방법" },
-  { to: "/b", icon: Megaphone, title: "공지사항", desc: "로그인 후 게시판에서 확인" },
-  { to: "/about/intro", icon: Info, title: "동문회 소개", desc: "동문회 연혁과 조직" },
+  { to: "/about/intro", icon: Info, title: "동문회 소개", desc: "인사말 · 연혁 · 사업 · 조직" },
+  { to: "/about/bylaws", icon: FileText, title: "회칙", desc: "동문회 정관 및 규정" },
+  { to: "/about/join", icon: UserPlus, title: "회원 가입", desc: "가입 안내 및 절차" },
+  { to: "/about/dues", icon: Wallet, title: "2026 회비 안내", desc: "회비 납부 및 납부자 혜택" },
+  { to: "/about/condolence", icon: Heart, title: "경조사 지원", desc: "문자 · 화환 · 근조기" },
+  { to: "/b", icon: Megaphone, title: "공지 & 소식", desc: "동문회 최근 소식" },
 ];
 
 export function PublicHome() {
@@ -99,21 +135,29 @@ export function PublicHome() {
           <Card className="border-2 tp-border-gold/30">
             <CardContent className="p-6 sm:p-10">
               <div className="flex flex-col sm:flex-row gap-6 items-start">
-                <div className="flex-1">
-                  <p className="leading-relaxed text-gray-700 mb-4">
-                    존경하는 동국대학교 한의과대학 동문 여러분, 안녕하십니까.
+                <div className="flex-1 space-y-4">
+                  <p className="leading-relaxed text-gray-700">
+                    존경하는 동국 한의 동문 여러분,
                   </p>
-                  <p className="leading-relaxed text-gray-700 mb-4">
-                    제22대 동문회장으로서 여러분과 함께 동문회의 새로운 도약을 만들어 갈 수 있게 되어
-                    매우 영광스럽게 생각합니다. 우리 동문회는 학문과 임상에서 쌓은 경험을 나누고,
-                    선후배가 함께 성장하는 든든한 공동체입니다.
+                  <p className="leading-relaxed text-gray-700">
+                    반세기 가까이 이어온 동국 한의의 전통과 자긍심을 함께 지켜오신 동문 여러분께 깊이 감사드립니다.
                   </p>
-                  <p className="leading-relaxed text-gray-700 mb-4">
-                    앞으로 학술·임상 강좌, 후학 지원, 경조사, 디지털 기반 강화에 더욱 힘써
-                    회원 모두에게 의미 있는 동문회가 되도록 하겠습니다. 많은 관심과 참여 부탁드립니다.
+                  <p className="leading-relaxed text-gray-700">
+                    제22대 동문회는 <strong className="tp-text-green-dark">‘따뜻한 연대, 함께하는 성장’</strong>을
+                    기치로, 회원 상호 간의 친목과 정보 교류, 후학 양성과 학술 발전, 그리고 한의계와 사회에 기여하는
+                    동문 네트워크 구축에 한 걸음씩 정진하고 있습니다.
+                  </p>
+                  <p className="leading-relaxed text-gray-700">
+                    동문 한 분 한 분의 마음을 잇는 따뜻한 연대 속에서, 서로의 길을 응원하며 함께 성장하는 동문회를
+                    만들어 가겠습니다.
+                  </p>
+                  <p className="leading-relaxed text-gray-700">
+                    앞으로도 투명한 운영과 내실 있는 사업으로 자랑스러운 동국 한의의 이름에 걸맞은 동문회가 되도록
+                    최선을 다하겠습니다.
                   </p>
                   <p className="text-right font-semibold tp-text-green-dark mt-6">
-                    동국대학교한의과대학동문회 회장 <span className="text-lg">최윤용</span> 드림
+                    제22대 회장 <span className="text-lg">최윤용</span>
+                    <span className="block text-sm font-normal text-gray-500 mt-1">졸업 10기 · 88학번 드림</span>
                   </p>
                 </div>
                 <div className="flex-shrink-0 mx-auto sm:mx-0">
@@ -139,19 +183,49 @@ export function PublicHome() {
           </div>
           <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-6 space-y-2">
                 <div className="text-xs tp-text-gold-dark font-semibold mb-2">명칭</div>
-                <div className="font-bold tp-text-green-dark mb-1">동국대학교한의과대학동문회</div>
-                <div className="text-sm text-gray-600">(영문: Dongguk Korean Medicine Alumni Association)</div>
+                <div>
+                  <div className="text-xs text-gray-500">한글</div>
+                  <div className="font-bold tp-text-green-dark">
+                    동국대학교한의과대학동문회 <span className="text-sm font-normal text-gray-600">(약칭: 동국한의동문회)</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">한자</div>
+                  <div className="text-gray-700">
+                    東國大學校韓醫科大學同門會 <span className="text-sm text-gray-500">(略稱: 東國韓醫同門會)</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500">영문</div>
+                  <div className="text-gray-700 text-sm">
+                    Dongguk University College of Korean Medicine Alumni (DGKMA)
+                  </div>
+                </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
-                <div className="text-xs tp-text-gold-dark font-semibold mb-2">설립 목적</div>
-                <p className="text-sm text-gray-700 leading-relaxed">
-                  동문 간의 친목 도모, 학술 교류, 모교 발전 기여 및 후학 양성 지원을 통해
-                  한의학 발전에 이바지함을 목적으로 합니다.
-                </p>
+                <div className="text-xs tp-text-gold-dark font-semibold mb-3">설립 목적</div>
+                <ul className="space-y-2 text-sm text-gray-700 leading-relaxed">
+                  <li className="flex gap-2">
+                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span>모교 발전에 기여</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span>한의학의 정신과 가치를 널리 알리고 발전시키는 데 기여</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span>공공복리 증진과 국민건강 증대에 이바지</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span>회원 상호 간 협력과 내외 상생을 촉진하여 동문과 본회의 사회적 기여가치 제고</span>
+                  </li>
+                </ul>
               </CardContent>
             </Card>
             <Card className="sm:col-span-2">
@@ -194,15 +268,28 @@ export function PublicHome() {
             <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">PROGRAMS</div>
             <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">주요 사업</h2>
             <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
+            <p className="text-sm text-gray-600 mt-3">
+              제22대 동문회 슬로건 — <strong className="tp-text-green-dark">따뜻한 연대, 함께하는 성장</strong>
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {programs.map((p) => {
               const Icon = p.icon;
+              const highlight = (p as { highlight?: boolean }).highlight;
               return (
-                <Card key={p.title} className="hover:shadow-lg transition-shadow border-t-4 tp-border-gold">
+                <Card
+                  key={p.title}
+                  className={`hover:shadow-lg transition-shadow border-t-4 ${
+                    highlight ? "tp-border-gold tp-bg-cream" : "tp-border-gold"
+                  }`}
+                >
                   <CardContent className="p-6">
-                    <div className="w-12 h-12 rounded-xl tp-bg-green flex items-center justify-center mb-4">
-                      <Icon className="text-white" size={24} />
+                    <div
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
+                        highlight ? "tp-bg-gold" : "tp-bg-green"
+                      }`}
+                    >
+                      <Icon className={highlight ? "tp-text-green-dark" : "text-white"} size={24} />
                     </div>
                     <h3 className="font-bold tp-text-green-dark mb-2">{p.title}</h3>
                     <p className="text-sm text-gray-600 leading-relaxed">{p.desc}</p>
@@ -214,8 +301,49 @@ export function PublicHome() {
         </div>
       </section>
 
+      {/* 조직 및 임원 */}
+      <section className="py-12 sm:py-16 px-4 tp-bg-cream border-y tp-border-gold/20">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">ORGANIZATION</div>
+            <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">조직 및 임원</h2>
+            <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
+            <p className="text-sm text-gray-600 mt-3">
+              동문회는 총회를 최고 의결 기구로 하여 회장단·이사회·감사로 구성됩니다.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+            {orgItems.map((o) => {
+              const Icon = o.icon;
+              return (
+                <Card key={o.title}>
+                  <CardContent className="p-6 flex items-start gap-4">
+                    <div className="w-11 h-11 rounded-lg tp-bg-green flex items-center justify-center flex-shrink-0">
+                      <Icon className="text-white" size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold tp-text-green-dark mb-1">{o.title}</h3>
+                      <p className="text-sm text-gray-600 leading-relaxed">{o.desc}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          <div className="text-center">
+            <Link href="/about/executives">
+              <Button size="lg" className="tp-bg-green text-white hover:opacity-90 font-bold">
+                <Building2 size={18} className="mr-2" />
+                제22대 임원 명단 보기
+                <ArrowRight size={18} className="ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* 바로가기 카드 */}
-      <section className="py-12 sm:py-16 px-4 tp-bg-cream border-t tp-border-gold/20">
+      <section className="py-12 sm:py-16 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">
             <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">QUICK LINKS</div>
