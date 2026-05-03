@@ -12,36 +12,24 @@
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <!-- Decorative graphic motif lines -->
-  <line x1="0"    y1="80"  x2="1200" y2="80"  stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
-  <line x1="0"    y1="550" x2="1200" y2="550" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
+  <line x1="0" y1="80"  x2="1200" y2="80"  stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
+  <line x1="0" y1="550" x2="1200" y2="550" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1"/>
 
   <!-- Symbol logo medallion (right side) -->
-  <g transform="translate(880, 175)">
-    <circle cx="140" cy="140" r="150" fill="#FFFFFF" fill-opacity="0.96"/>
-    <circle cx="140" cy="140" r="150" fill="none" stroke="#EAAA00" stroke-width="3"/>
-    <text x="140" y="120" text-anchor="middle"
-          font-family="'Noto Sans CJK KR', sans-serif"
-          font-size="64" font-weight="700" fill="#CB591F">韓醫</text>
-    <text x="140" y="170" text-anchor="middle"
-          font-family="'Noto Sans CJK KR', sans-serif"
-          font-size="20" font-weight="600" fill="#2B2B2B" letter-spacing="2">DGKM ALUMNI</text>
-    <text x="140" y="200" text-anchor="middle"
-          font-family="'Noto Sans CJK KR', sans-serif"
-          font-size="16" font-weight="500" fill="#8C8279" letter-spacing="3">SINCE 1985</text>
-  </g>
+  <circle cx="1010" cy="315" r="170" fill="#FFFFFF"/>
+  <circle cx="1010" cy="315" r="170" fill="none" stroke="#EAAA00" stroke-width="3"/>
 
   <!-- Eyebrow -->
   <text x="80" y="200"
-        font-family="'Noto Sans CJK KR', sans-serif"
+        font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
         font-size="22" font-weight="700" fill="#EAAA00" letter-spacing="6">DONGGUK KOREAN MEDICINE ALUMNI</text>
 
   <!-- Main title -->
   <text x="80" y="290"
-        font-family="'Noto Sans CJK KR', sans-serif"
+        font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
         font-size="64" font-weight="700" fill="#FFFFFF" letter-spacing="-1">동국대학교</text>
   <text x="80" y="370"
-        font-family="'Noto Sans CJK KR', sans-serif"
+        font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
         font-size="64" font-weight="700" fill="#FFFFFF" letter-spacing="-1">한의과대학동문회</text>
 
   <!-- Divider -->
@@ -49,14 +37,14 @@
 
   <!-- Subtitle -->
   <text x="80" y="465"
-        font-family="'Noto Sans CJK KR', sans-serif"
+        font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
         font-size="26" font-weight="400" fill="#FAF7F2">학문적 전통과 임상 경험을 함께 나누는</text>
   <text x="80" y="500"
-        font-family="'Noto Sans CJK KR', sans-serif"
+        font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
         font-size="26" font-weight="400" fill="#FAF7F2">동문 공동체</text>
 
   <!-- URL -->
   <text x="80" y="585"
-        font-family="'Noto Sans CJK KR', sans-serif"
+        font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
         font-size="20" font-weight="600" fill="#EAAA00" letter-spacing="2">dgkma.org</text>
 </svg>
