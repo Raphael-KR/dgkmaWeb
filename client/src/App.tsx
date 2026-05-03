@@ -114,6 +114,7 @@ function Router() {
       <Route path="/about" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route path="/info" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route path="/executives" component={() => { window.location.href = '/about/executives'; return null; }} />
+      <Route path="/officers" component={() => { window.location.href = '/about/executives'; return null; }} />
       <Route path="/bylaws" component={() => { window.location.href = '/about/bylaws'; return null; }} />
       <Route path="/history" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route component={NotFound} />
