@@ -56,7 +56,9 @@ export function PublicHome() {
               <span className="tp-text-gold block mt-1">홈페이지에 오신 것을 환영합니다</span>
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed mb-6 max-w-xl mx-auto lg:mx-0">
-              학문적 전통과 임상 경험을 함께 나누는 동문 공동체.<br />
+              <span className="block text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-2">
+                따뜻한 연대, 함께하는 성장
+              </span>
               학술·교류·후학 지원·경조사를 통해 평생 동행합니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">

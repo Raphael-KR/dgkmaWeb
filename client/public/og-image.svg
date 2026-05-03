@@ -35,13 +35,13 @@
   <!-- Divider -->
   <rect x="80" y="410" width="320" height="3" fill="url(#divider)"/>
 
-  <!-- Subtitle -->
-  <text x="80" y="465"
+  <!-- Subtitle (22대 슬로건) -->
+  <text x="80" y="475"
         font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
-        font-size="26" font-weight="400" fill="#FAF7F2">학문적 전통과 임상 경험을 함께 나누는</text>
-  <text x="80" y="500"
+        font-size="34" font-weight="600" fill="#FFFFFF" letter-spacing="-0.5">따뜻한 연대, 함께하는 성장</text>
+  <text x="80" y="510"
         font-family="Pretendard, 'Noto Sans CJK KR', sans-serif"
-        font-size="26" font-weight="400" fill="#FAF7F2">동문 공동체</text>
+        font-size="20" font-weight="400" fill="#FAF7F2" opacity="0.85">제22대 동국대학교한의과대학동문회</text>
 
   <!-- URL -->
   <text x="80" y="585"
