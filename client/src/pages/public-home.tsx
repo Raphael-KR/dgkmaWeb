@@ -32,7 +32,7 @@ const programs = [
   {
     icon: HandHeart,
     title: "경조사 지원",
-    desc: "동문 본인 및 배우자 직계 1촌의 경조사에 문자·화환·근조기를 지원합니다.",
+    desc: "동문 본인 및 직계존비속(부모·배우자·자녀)의 결혼·개원·사망 경조사에 문자·화환·근조기를 지원합니다.",
   },
   {
     icon: Network,
@@ -85,7 +85,7 @@ export function PublicHome() {
         <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 lg:py-20 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
           <div className="flex-1 text-center lg:text-left order-2 lg:order-1">
             <div className="inline-block tp-text-gold text-xs sm:text-sm font-semibold tracking-widest mb-3">
-              DONGGUK KOREAN MEDICINE ALUMNI
+              DGKMA · DONGGUK KOREAN MEDICINE ALUMNI
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-4">
               <span className="block">동국대학교한의과대학동문회</span>
@@ -202,7 +202,7 @@ export function PublicHome() {
                 <div>
                   <div className="text-xs text-gray-500">영문</div>
                   <div className="text-gray-700 text-sm">
-                    Dongguk University College of Korean Medicine Alumni (DGKMA)
+                    Dongguk University College of Korean Medicine Alumni Association (DGKMA)
                   </div>
                 </div>
               </CardContent>
