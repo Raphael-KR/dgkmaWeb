@@ -31,7 +31,7 @@ export default function Terms() {
               동국대학교한의과대학동문회 서비스 이용약관
             </CardTitle>
             <p className="text-sm text-gray-600">
-              최종 개정일: 2025년 8월 30일
+              최종 개정일: 2026년 5월 4일
             </p>
           </CardHeader>
           
@@ -98,10 +98,12 @@ export default function Terms() {
                 <p>① 동문회는 이용자의 개인정보를 관련 법령에 따라 보호합니다.</p>
                 <p>② 수집하는 개인정보는 다음과 같습니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>필수정보: 성명, 졸업년도, 카카오 계정 정보</li>
-                  <li>선택정보: 연락처, 근무지 정보</li>
+                  <li>필수정보: 성명, 휴대전화번호, 이메일</li>
+                  <li>선택정보: 근무지 정보</li>
                 </ul>
-                <p>③ 개인정보는 서비스 제공 목적으로만 사용되며, 동의 없이 제3자에게 제공하지 않습니다.</p>
+                <p>③ 회원 인증은 카카오 OAuth를 통해 진행되며, 그 과정에서 카카오 계정의 고유 식별자 등 인증에 필요한 정보가 처리됩니다.</p>
+                <p>④ 성명과 휴대전화번호는 동문회가 보유한 졸업생 명부와의 자동 매칭을 통해 동문 자격을 확인하기 위한 식별자(키)로 사용됩니다. 매칭에 실패한 경우 본회 공식 카카오톡 채널을 통한 수동 확인 절차를 거쳐 가입을 처리합니다.</p>
+                <p>⑤ 개인정보의 처리·보유·파기 등 세부 사항은 별도 「개인정보 처리방침」에 따르며, 동의 없이 제3자에게 제공하지 않습니다.</p>
               </div>
             </section>
 
@@ -167,7 +169,7 @@ export default function Terms() {
             <section>
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">부칙</h3>
               <div className="space-y-2 text-gray-700">
-                <p>본 약관은 2025년 8월 30일부터 시행됩니다.</p>
+                <p>본 약관은 2026년 5월 11일부터 시행됩니다.</p>
               </div>
             </section>
 
@@ -176,8 +178,8 @@ export default function Terms() {
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">문의 연락처</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="font-medium">동국대학교한의과대학동문회</p>
-                <p className="text-gray-600">이메일: admin@donggukhani.com</p>
-                <p className="text-gray-600">전화: 02-XXXX-XXXX</p>
+                <p className="text-gray-600">이메일: alumni.dkom@gmail.com</p>
+                
               </div>
             </section>
           </CardContent>

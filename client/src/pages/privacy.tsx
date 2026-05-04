@@ -31,7 +31,7 @@ export default function Privacy() {
               개인정보 처리방침
             </CardTitle>
             <p className="text-sm text-gray-600">
-              최종 개정일: 2025년 8월 30일
+              최종 개정일: 2026년 5월 4일
             </p>
           </CardHeader>
           
@@ -43,6 +43,8 @@ export default function Privacy() {
                 <p>동국대학교한의과대학동문회는 다음의 목적을 위하여 개인정보를 처리합니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
                   <li>동문회 회원 가입 및 관리</li>
+                  <li>성명·휴대전화번호 기반 졸업생 명부 자동 매칭을 통한 동문 자격 확인</li>
+                  <li>매칭 실패 시 본회 카카오톡 채널을 통한 수동 확인 및 명부 정정</li>
                   <li>동문회 서비스 제공 및 운영</li>
                   <li>동문회 행사 안내 및 참여 관리</li>
                   <li>회비 납부 및 관리</li>
@@ -73,8 +75,10 @@ export default function Privacy() {
                 <div>
                   <h4 className="font-medium mb-2">① 회원가입 시 수집항목</h4>
                   <ul className="list-disc list-inside ml-4 space-y-1">
-                    <li>필수항목: 성명, 졸업년도, 학과, 카카오 계정 정보</li>
-                    <li>선택항목: 연락처, 이메일, 근무지 정보</li>
+                    <li>필수항목: 성명, 휴대전화번호, 이메일</li>
+                    <li>선택항목: 근무지 정보</li>
+                    <li>※ 입학년도·졸업년도·학부/대학원 구분 등은 별도 수집하지 않으며, 동문회가 사전 보유한 졸업생 명부와의 매칭을 통해 자동으로 회원 정보에 연결됩니다.</li>
+                    <li>※ 수집한 성명과 휴대전화번호는 졸업생 명부 매칭의 식별자로 사용되며, 매칭 실패 시 본회 공식 카카오톡 채널을 통해 수동 확인 절차를 거칩니다.</li>
                   </ul>
                 </div>
                 <div>
@@ -155,9 +159,8 @@ export default function Privacy() {
                 <p>① 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 정보주체의 불만처리 및 피해구제를 위하여 아래와 같이 개인정보 보호책임자를 지정합니다:</p>
                 <div className="bg-gray-50 p-4 rounded-lg mt-3">
                   <p className="font-medium">개인정보 보호책임자</p>
-                  <p>성명: 동문회 사무국장</p>
-                  <p>연락처: 02-XXXX-XXXX</p>
-                  <p>이메일: privacy@donggukhani.com</p>
+                  <p>성명: 박종웅</p>
+                  <p>이메일: alumni.dkom@gmail.com</p>
                 </div>
               </div>
             </section>
@@ -174,7 +177,7 @@ export default function Privacy() {
             <section>
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">부칙</h3>
               <div className="space-y-2 text-gray-700">
-                <p>본 방침은 2025년 8월 30일부터 시행됩니다.</p>
+                <p>본 방침은 2026년 5월 11일부터 시행됩니다.</p>
               </div>
             </section>
 
@@ -184,8 +187,7 @@ export default function Privacy() {
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="font-medium">동국대학교한의과대학동문회</p>
                 <p className="text-gray-600">개인정보보호 담당자</p>
-                <p className="text-gray-600">이메일: privacy@donggukhani.com</p>
-                <p className="text-gray-600">전화: 02-XXXX-XXXX</p>
+                <p className="text-gray-600">이메일: alumni.dkom@gmail.com</p>
               </div>
             </section>
           </CardContent>
