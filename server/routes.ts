@@ -40,9 +40,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/kakao/authorize", async (req, res) => {
     try {
       const { code } = req.body;
+      // 클라이언트가 사용한 origin과 동일하게 맞춰야 Kakao 토큰 교환이 성공함
+      const origin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || '';
       const baseUrl = process.env.NODE_ENV === 'development'
         ? 'http://localhost:5173'
-        : (process.env.APP_URL || 'https://dgkma.org');
+        : (origin || process.env.APP_URL || 'https://dgkma.org');
       const redirectUri = `${baseUrl}/kakao-callback`;
 
       const params = new URLSearchParams({
