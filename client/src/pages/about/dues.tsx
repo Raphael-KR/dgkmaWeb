@@ -84,7 +84,7 @@ export default function AboutDues() {
             <div className="mb-5">
               <h3 className="font-semibold tp-text-green-dark mb-2">가. 경조사(부고/혼인) 지원</h3>
               <ul className="space-y-1 text-sm text-gray-700 list-disc list-inside">
-                <li>범위: 본인 및 배우자 직계 1촌 이내</li>
+                <li>범위: 본인 및 배우자의 직계 1촌 이내</li>
                 <li>경조사 공고를 동문회에서 올려드림 (밴드 &amp; 회원 단톡방)</li>
                 <li>문자 / 화환 / 근조기 발송비 각각 <strong>5만원 감액</strong></li>
               </ul>

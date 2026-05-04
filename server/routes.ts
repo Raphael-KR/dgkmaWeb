@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
 import { z } from "zod";
+import { parseObituarySms } from "./obituary-parser";
 
 declare module "express-session" {
   interface SessionData {
@@ -261,21 +262,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Obituary URL parsing route
-  app.post("/api/obituary/parse", async (req, res) => {
+  app.post("/api/obituary/parse", (req, res) => {
     try {
-      const { url } = req.body;
-      
-      // Mock obituary parsing - implement with cheerio in production
-      const category = await storage.getCategoryByName("obituary");
-      const mockParsedData = {
-        title: "故 이○○ 동문 부친상",
-        content: "1998년 졸업생 이○○ 동문의 부친께서 향년 78세로 별세하셨습니다.",
-        categoryId: category?.id || 3
-      };
-      
-      res.json(mockParsedData);
+      const { text } = req.body;
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ message: "text 필드가 필요합니다" });
+      }
+      const parsed = parseObituarySms(text);
+      res.json(parsed);
     } catch (error) {
-      res.status(500).json({ message: "Failed to parse obituary URL" });
+      res.status(500).json({ message: "부고 문자 분석에 실패했습니다" });
+    }
+  });
+
+  app.get("/api/obituaries", async (req, res) => {
+    try {
+      const list = await storage.getObituaries();
+      res.json(list);
+    } catch (error) {
+      res.status(500).json({ message: "부고 목록 조회에 실패했습니다" });
+    }
+  });
+
+  app.post("/api/obituaries", async (req, res) => {
+    try {
+      if (!req.session?.userId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+      const obituary = await storage.createObituary({
+        ...req.body,
+        authorId: req.session.userId,
+      });
+      res.status(201).json(obituary);
+    } catch (error) {
+      res.status(500).json({ message: "부고 등록에 실패했습니다" });
     }
   });
 

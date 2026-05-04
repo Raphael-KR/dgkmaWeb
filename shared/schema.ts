@@ -70,6 +70,21 @@ export const alumniDatabase = pgTable("alumni_database", {
   matchedUserId: integer("matched_user_id").references(() => users.id),
 });
 
+export const obituaries = pgTable("obituaries", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  deceasedName: text("deceased_name").notNull(),
+  deceasedRelation: text("deceased_relation").notNull(),
+  dateOfDeath: text("date_of_death").notNull(),
+  funeralHome: text("funeral_home").default(""),
+  jangji: text("jangji").default(""),
+  bankAccount: text("bank_account").default(""),
+  chiefMourner: text("chief_mourner").default(""),
+  contactNumber: text("contact_number").default(""),
+  authorId: integer("author_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const pendingRegistrations = pgTable("pending_registrations", {
   id: serial("id").primaryKey(),
   kakaoId: text("kakao_id").notNull(),
@@ -115,6 +130,13 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 export const alumniDatabaseRelations = relations(alumniDatabase, ({ one }) => ({
   matchedUser: one(users, {
     fields: [alumniDatabase.matchedUserId],
+    references: [users.id],
+  }),
+}));
+
+export const obituariesRelations = relations(obituaries, ({ one }) => ({
+  author: one(users, {
+    fields: [obituaries.authorId],
     references: [users.id],
   }),
 }));
@@ -165,6 +187,7 @@ export type AlumniRecord = typeof alumniDatabase.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
+export type Obituary = typeof obituaries.$inferSelect;
 
 export const insertObituarySchema = z.object({
   title: z.string().min(1, "제목을 입력해주세요"),

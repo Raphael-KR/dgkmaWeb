@@ -1,8 +1,9 @@
-import { 
-  users, posts, payments, alumniDatabase, pendingRegistrations, categories,
-  type User, type InsertUser, type Post, type InsertPost, 
+import {
+  users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries,
+  type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
-  type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory
+  type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
+  type Obituary, type InsertObituary
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or } from "drizzle-orm";
@@ -47,6 +48,11 @@ export interface IStorage {
   getPendingRegistrations(): Promise<PendingRegistration[]>;
   createPendingRegistration(registration: InsertPendingRegistration): Promise<PendingRegistration>;
   updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined>;
+
+  // Obituary methods
+  getObituaries(): Promise<Obituary[]>;
+  getObituary(id: number): Promise<Obituary | undefined>;
+  createObituary(data: InsertObituary & { authorId?: number }): Promise<Obituary>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -401,6 +407,20 @@ export class DatabaseStorage implements IStorage {
       googleSheetsService.finishSync();
       return stats;
     }
+  }
+
+  async getObituaries(): Promise<Obituary[]> {
+    return await db.select().from(obituaries).orderBy(desc(obituaries.createdAt));
+  }
+
+  async getObituary(id: number): Promise<Obituary | undefined> {
+    const [obituary] = await db.select().from(obituaries).where(eq(obituaries.id, id));
+    return obituary || undefined;
+  }
+
+  async createObituary(data: InsertObituary & { authorId?: number }): Promise<Obituary> {
+    const [obituary] = await db.insert(obituaries).values(data).returning();
+    return obituary;
   }
 }
 
