@@ -40,7 +40,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/kakao/authorize", async (req, res) => {
     try {
       const { code } = req.body;
-      const redirectUri = `${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/kakao-callback`;
+      const baseUrl = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:5173'
+        : (process.env.APP_URL || 'https://dgkma.org');
+      const redirectUri = `${baseUrl}/kakao-callback`;
 
       const params = new URLSearchParams({
         grant_type: 'authorization_code',
