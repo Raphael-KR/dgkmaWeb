@@ -160,6 +160,7 @@ export default function Privacy() {
                 <div className="bg-gray-50 p-4 rounded-lg mt-3">
                   <p className="font-medium">개인정보 보호책임자</p>
                   <p>성명: 박종웅</p>
+                  <p>직책: 동국대학교한의과대학동문회 수석부회장</p>
                   <p>이메일: alumni.dkom@gmail.com</p>
                 </div>
               </div>
