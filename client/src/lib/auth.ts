@@ -114,7 +114,7 @@ export const signInWithKakao = async () => {
     // Fallback to development mode with fake data
     const devData = {
       kakaoId: `dev-kakao-id-${Date.now()}`,
-      email: 'dev@donggukhani.com',
+      email: 'alumni.dkom@gmail.com',
       name: '개발자'
     };
     
