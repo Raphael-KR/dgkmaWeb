@@ -155,7 +155,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             let finalUser = existingUserByEmail;
             if (Object.keys(updates).length > 0) {
-              finalUser = await storage.updateUser(existingUserByEmail.id, updates);
+              const updatedUser = await storage.updateUser(existingUserByEmail.id, updates);
+              if (updatedUser) {
+                finalUser = updatedUser;
+              }
             }
             req.session.userId = finalUser.id;
             res.json({ user: finalUser });
@@ -174,7 +177,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             let finalUser = existingUserByKakao;
             if (Object.keys(updates).length > 0) {
-              finalUser = await storage.updateUser(existingUserByKakao.id, updates);
+              const updatedUser = await storage.updateUser(existingUserByKakao.id, updates);
+              if (updatedUser) {
+                finalUser = updatedUser;
+              }
             }
             req.session.userId = finalUser.id;
             res.json({ user: finalUser });
@@ -237,6 +243,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           user = await storage.updateUser(user.id, updates);
         }
         console.log("Existing user login:", user);
+      }
+
+      if (!user) {
+        return res.status(500).json({ message: "사용자 생성에 실패했습니다" });
       }
 
       req.session.userId = user.id;
