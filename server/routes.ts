@@ -67,7 +67,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(tokenData);
       }
 
-      const userRes = await fetch('https://kapi.kakao.com/v2/user/me', {
+      // ⚠️ HTTPS 응답 보장은 요청 단계에서 박음 — 수신값은 변형 ❌ (카카오 원본 보존 원칙)
+      const userRes = await fetch('https://kapi.kakao.com/v2/user/me?secure_resource=true', {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const userInfo = await userRes.json();
@@ -75,10 +76,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json(userInfo);
       }
 
+      // 이메일 동의 검증 (fallback 제거 — 가짜 user${id}@example.com 제거)
+      if (!userInfo.kakao_account?.email) {
+        return res.status(400).json({
+          message: "이메일 동의가 필요합니다",
+          description: "카카오 로그인 시 이메일 제공에 동의해주세요."
+        });
+      }
+
+      // 휴대전화번호 동의 검증 (휴대전화번호 제공 동의 기반 가입 제한 — 권리회원 카카오톡 팀채팅방 단일 채널 운영 정책)
+      if (!userInfo.kakao_account?.phone_number) {
+        return res.status(400).json({
+          message: "휴대전화번호 동의가 필요합니다",
+          description: "본 서비스는 휴대전화번호 제공에 동의한 카카오계정 사용자만 가입 가능합니다. 카카오 로그인 시 휴대전화번호 제공에 동의해주세요."
+        });
+      }
+
+      // 성명(이름) 동의 검증 — fallback 금지 (kakao_account.profile.nickname / properties.nickname / "카카오 사용자" 모두 ❌)
+      if (!userInfo.kakao_account?.name) {
+        return res.status(400).json({
+          message: "성명 동의가 필요합니다",
+          description: "카카오 로그인 시 이름 제공에 동의해주세요."
+        });
+      }
+
+      // ⚠️ 카카오 응답 원본 보존 원칙
+      //  - phone_number를 "01012345678"로 정규화 ❌ → 명부 매칭은 server/google-sheets.ts에서 단방향 변환
+      //  - kakao_account.name이 성명 원본 (profile.nickname / properties.nickname / "카카오 사용자" fallback 모두 ❌)
+      //  - profile_image_url의 http/https 임의 변경 ❌ (HTTPS는 1단계 secure_resource=true로 보장)
       res.json({
         kakaoId: userInfo.id.toString(),
-        email: userInfo.kakao_account?.email || `user${userInfo.id}@example.com`,
-        name: userInfo.properties?.nickname || userInfo.kakao_account?.profile?.nickname || '카카오 사용자',
+        email: userInfo.kakao_account.email,                                    // 원본 보존 (lowercase 변환 ❌)
+        name: userInfo.kakao_account.name,                                      // ⚠️ kakao_account.name 원본
+        profileImage: userInfo.kakao_account.profile?.profile_image_url || null, // 원본 그대로 (http/https 치환 ❌)
+        phoneNumber: userInfo.kakao_account.phone_number,                       // ⚠️ 카카오 응답 원본 그대로
+        birthday: userInfo.kakao_account.birthday || null,                      // 원본 "MMDD"
+        birthdayType: userInfo.kakao_account.birthday_type || null,             // 원본 "SOLAR" | "LUNAR"
+        isLeapMonth: userInfo.kakao_account.is_leap_month ?? null,              // 미동의 시 null
         accessToken: tokenData.access_token,
       });
     } catch (error) {
@@ -89,43 +123,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/kakao", async (req, res) => {
     try {
-      const { kakaoId, email, name, accessToken } = req.body;
-      
+      const { kakaoId, email, name, profileImage, phoneNumber, birthday, birthdayType, isLeapMonth, accessToken } = req.body;
+
       console.log("Kakao auth request:", { kakaoId, email, name });
-      
+
       // Check if user exists
       let user = await storage.getUserByKakaoId(kakaoId);
-      
+
       if (!user) {
-        // Check if alumni exists in Google Sheets first
+        // v5: 휴대전화번호 1순위 + 이름 1건일 때만 매칭. 동명이인은 자동 등록 차단.
         const { googleSheetsService } = await import("./google-sheets");
-        const alumniMatches = await googleSheetsService.findAlumniByName(name);
-        
+        const alumniMatches = await googleSheetsService.findAlumniByPhoneAndName(phoneNumber, name);
+
         if (alumniMatches.length > 0) {
           console.log(`Auto-registering verified alumni: ${name}`);
-          
+
           // Check if user already exists with this email or kakaoId
           const existingUserByEmail = await storage.getUserByEmail?.(email);
           const existingUserByKakao = await storage.getUserByKakaoId?.(kakaoId);
-          
+
           if (existingUserByEmail) {
             console.log("User already exists with this email, logging in");
-            req.session.userId = existingUserByEmail.id;
-            res.json({ user: existingUserByEmail });
+            // ⚠️ updateUser 반환값을 사용 — stale 응답 방지
+            const updates: Partial<typeof existingUserByEmail> = {};
+            if (profileImage && !existingUserByEmail.profileImage) updates.profileImage = profileImage;
+            if (phoneNumber && !existingUserByEmail.phoneNumber) updates.phoneNumber = phoneNumber;
+            if (birthday && !existingUserByEmail.birthday) {
+              updates.birthday = birthday;
+              updates.birthdayType = birthdayType;
+              updates.isLeapMonth = isLeapMonth;
+            }
+            let finalUser = existingUserByEmail;
+            if (Object.keys(updates).length > 0) {
+              finalUser = await storage.updateUser(existingUserByEmail.id, updates);
+            }
+            req.session.userId = finalUser.id;
+            res.json({ user: finalUser });
             return;
           }
-          
+
           if (existingUserByKakao) {
             console.log("User already exists with this KakaoId, logging in");
-            req.session.userId = existingUserByKakao.id;
-            res.json({ user: existingUserByKakao });
+            const updates: Partial<typeof existingUserByKakao> = {};
+            if (profileImage && !existingUserByKakao.profileImage) updates.profileImage = profileImage;
+            if (phoneNumber && !existingUserByKakao.phoneNumber) updates.phoneNumber = phoneNumber;
+            if (birthday && !existingUserByKakao.birthday) {
+              updates.birthday = birthday;
+              updates.birthdayType = birthdayType;
+              updates.isLeapMonth = isLeapMonth;
+            }
+            let finalUser = existingUserByKakao;
+            if (Object.keys(updates).length > 0) {
+              finalUser = await storage.updateUser(existingUserByKakao.id, updates);
+            }
+            req.session.userId = finalUser.id;
+            res.json({ user: finalUser });
             return;
           }
-          
+
           user = await storage.createUser({
             kakaoId,
             email,
             name,
+            profileImage,
+            phoneNumber,
+            birthday,
+            birthdayType,
+            isLeapMonth,
+            graduationYear: alumniMatches[0]?.graduationDate
+              ? parseInt(alumniMatches[0].graduationDate.substring(0, 4), 10) || null
+              : null,
             isVerified: true,
             kakaoSyncEnabled: true,
           });
@@ -136,23 +203,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
             kakaoId,
             email,
             name,
-            userData: { kakaoId, email, name, kakaoSync: true },
+            userData: {
+              kakaoId,
+              email,
+              name,
+              profileImage,
+              phoneNumber,
+              birthday,
+              birthdayType,
+              isLeapMonth,
+              kakaoSync: true,
+            },
           });
-          
-          return res.status(202).json({ 
+
+          return res.status(202).json({
             message: "가입 신청이 접수되었습니다",
             description: "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
-            requiresApproval: true 
+            requiresApproval: true
           });
         }
       } else {
-        // Enable KakaoSync for existing users
-        if (!user.kakaoSyncEnabled) {
-          user = await storage.updateUser(user.id, { kakaoSyncEnabled: true });
+        // Existing user — fill missing v5 fields opportunistically (finalUser 패턴)
+        const updates: Partial<typeof user> = {};
+        if (!user.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
+        if (profileImage && !user.profileImage) updates.profileImage = profileImage;
+        if (phoneNumber && !user.phoneNumber) updates.phoneNumber = phoneNumber;
+        if (birthday && !user.birthday) {
+          updates.birthday = birthday;
+          updates.birthdayType = birthdayType;
+          updates.isLeapMonth = isLeapMonth;
+        }
+        if (Object.keys(updates).length > 0) {
+          user = await storage.updateUser(user.id, updates);
         }
         console.log("Existing user login:", user);
       }
-      
+
       req.session.userId = user.id;
       res.json({ user });
     } catch (error) {
@@ -160,6 +246,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const errorMessage = error instanceof Error ? error.message : String(error);
       res.status(500).json({ message: "Authentication failed", error: errorMessage });
     }
+  });
+
+  // v5 — 활동 지역(시/도) 입력 (온보딩 분기). 401 (no session) / 400 (invalid region).
+  app.post("/api/users/activity-region", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const { region } = req.body;
+    const REGION_OPTIONS = [
+      '서울특별시', '부산광역시', '대구광역시', '인천광역시',
+      '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
+      '경기도', '강원특별자치도', '충청북도', '충청남도',
+      '전북특별자치도', '전라남도', '경상북도', '경상남도',
+      '제주특별자치도', '해외',
+    ];
+    if (!REGION_OPTIONS.includes(region)) {
+      return res.status(400).json({ message: "Invalid region" });
+    }
+    // ⚠️ update 대상은 반드시 req.session.userId — body로 userId 받지 않음 (보안)
+    const updated = await storage.updateUser(req.session.userId, { activityRegion: region });
+    res.json({ user: updated });
   });
 
   app.get("/api/auth/me", async (req, res) => {
@@ -348,13 +455,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Registration not found" });
       }
       
-      // If approved, create user account
+      // If approved, create user account (v5 — profileImage/phoneNumber/birthday 3필드 보존)
       if (status === "approved" && registration.userData) {
         const userData = registration.userData as any;
         await storage.createUser({
           kakaoId: userData.kakaoId,
           email: userData.email,
           name: userData.name,
+          profileImage: userData.profileImage,
+          phoneNumber: userData.phoneNumber,
+          birthday: userData.birthday,
+          birthdayType: userData.birthdayType,
+          isLeapMonth: userData.isLeapMonth,
           isVerified: true,
         });
       }

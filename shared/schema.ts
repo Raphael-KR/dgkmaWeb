@@ -14,6 +14,10 @@ export const users = pgTable("users", {
   kakaoSyncEnabled: boolean("kakao_sync_enabled").default(false),
   profileImage: text("profile_image"),
   phoneNumber: text("phone_number"),
+  birthday: text("birthday"),
+  birthdayType: text("birthday_type"),
+  isLeapMonth: boolean("is_leap_month"),
+  activityRegion: text("activity_region"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

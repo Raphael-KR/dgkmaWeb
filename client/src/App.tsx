@@ -21,8 +21,8 @@ import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
-import AuthCallback from "@/pages/auth-callback";
 import KakaoCallback from "@/pages/kakao-callback";
+import OnboardingRegion from "@/pages/onboarding/region";
 import AboutBylaws from "@/pages/about/bylaws";
 import AboutJoin from "@/pages/about/join";
 import AboutDues from "@/pages/about/dues";
@@ -52,7 +52,7 @@ function RootRoute() {
 // Note: "/" is intentionally NOT included here. The shell decision for "/" is
 // made dynamically based on auth state — logged-in users get the member shell
 // + Home, non-logged users get PublicHome which renders its own PublicLayout.
-const PUBLIC_PATHS = ["/login", "/terms", "/privacy", "/auth/callback", "/kakao-callback"];
+const PUBLIC_PATHS = ["/login", "/terms", "/privacy", "/kakao-callback", "/onboarding/region"];
 const PUBLIC_PREFIXES = ["/about/"];
 
 function isPublicPath(path: string) {
@@ -65,8 +65,8 @@ function Router() {
     <Switch>
       <Route path="/" component={RootRoute} />
       <Route path="/login" component={Login} />
-      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/kakao-callback" component={KakaoCallback} />
+      <Route path="/onboarding/region" component={OnboardingRegion} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
 
@@ -138,7 +138,7 @@ function AppShell() {
   // Bottom nav: visible on mobile for BOTH states. For non-logged users on
   // public paths, the gated tabs trigger a LoginModal (handled inside the
   // BottomNavigation component). Hide only on dedicated auth screens.
-  const hideBottomNav = ["/login", "/auth/callback", "/kakao-callback"].includes(location);
+  const hideBottomNav = ["/login", "/kakao-callback", "/onboarding/region"].includes(location);
   const showBottomNav = !hideBottomNav;
 
   return (

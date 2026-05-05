@@ -214,22 +214,78 @@ export class GoogleSheetsService {
     }
   }
 
-  // 특정 이름으로 동문 검색
+  /**
+   * v5 추가 — 휴대전화번호 1순위 + 이름 1건일 때만 2순위 매칭.
+   * 동명이인은 자동 매칭 차단 (pendingRegistration로 fallback).
+   *
+   * Google Sheets 명부의 휴대전화번호는 모두 "010-XXXX-XXXX" 형식이다.
+   * 카카오 phone_number 원본값은 변형하지 않는다.
+   * 명부 mobile만 카카오 REST API phone_number 비교용 형식으로 변환한다.
+   *
+   * 기본 변환:
+   *   "010-1234-5678" → "+82 10-1234-5678"
+   *
+   * 주의:
+   *   실제 TEST API 응답에서 카카오 phone_number가 다른 형식으로 확인되면
+   *   카카오 원본값을 바꾸지 말고 명부 변환식만 수정한다.
+   *
+   * v5의 name은 카카오 REST API kakao_account.name에서 받은 성명(본명)이다.
+   * 명부 매칭은 휴대전화번호 1순위, 성명 2순위로 수행한다.
+   * 성명 매칭은 nameMatches.length === 1인 경우에만 자동 등록을 허용한다.
+   */
+  async findAlumniByPhoneAndName(phone: string | null, name: string): Promise<AlumniRecord[]> {
+    const alumni = await this.fetchAlumniData();
+
+    // 명부 mobile("010-XXXX-XXXX") → 카카오 phone_number 비교용 형식("+82 10-XXXX-XXXX")
+    const toKakaoPhoneFormat = (mobile?: string | null): string | null => {
+      if (!mobile) return null;
+      const match = mobile.match(/^010-(\d{4})-(\d{4})$/);
+      if (!match) return null;
+      // 이 변환식은 현재 문서 기준의 v5 기본값이다.
+      // TEST API 실제 응답값이 "+82 010-XXXX-XXXX" 등 다른 형식이면
+      // 카카오 phone_number 원본은 바꾸지 말고 이 명부 변환식만 수정한다.
+      return `+82 10-${match[1]}-${match[2]}`;
+    };
+
+    // 1순위: 휴대전화번호 정확 일치 (카카오 응답 원본값 == 명부 변환값)
+    if (phone) {
+      const phoneMatches = alumni.filter(a => toKakaoPhoneFormat(a.mobile) === phone);
+      if (phoneMatches.length > 0) {
+        console.log(`Found phone match for ${phone}: ${phoneMatches.length} record(s)`);
+        return phoneMatches;
+      }
+    }
+
+    // 2순위: 이름 일치 (단, 1건일 때만 자동 등록 허용)
+    const nameMatches = alumni.filter(a => a.name === name);
+    if (nameMatches.length === 1) {
+      console.log(`Found unique name match for ${name}`);
+      return nameMatches;
+    }
+    if (nameMatches.length > 1) {
+      console.log(`Multiple name matches for ${name} (${nameMatches.length}) — blocking auto-match`);
+    }
+    return [];
+  }
+
+  /**
+   * @deprecated v5에서는 findAlumniByPhoneAndName 사용. 후속 ⑩(referenceAlumni 테이블) 착수 시 폐기 예정.
+   */
   async findAlumniByName(name: string): Promise<AlumniRecord[]> {
     const allAlumni = await this.fetchAlumniData();
-    
+
     // 정확한 이름 매칭 우선
     const exactMatches = allAlumni.filter(alumni => alumni.name === name);
     if (exactMatches.length > 0) {
       console.log(`Found exact match for ${name}: ${exactMatches.length} records`);
       return exactMatches;
     }
-    
+
     // 부분 매칭
-    const partialMatches = allAlumni.filter(alumni => 
+    const partialMatches = allAlumni.filter(alumni =>
       alumni.name.includes(name) || name.includes(alumni.name)
     );
-    
+
     console.log(`Found ${partialMatches.length} partial matches for ${name}`);
     return partialMatches;
   }

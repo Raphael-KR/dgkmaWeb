@@ -4,9 +4,21 @@ import { useToast } from "@/hooks/use-toast";
 // Note: Using Supabase for database only, not for authentication
 import type { User } from "@shared/schema";
 
+// v5 — login은 카카오 응답 5개 추가 필드 포함. 성공 시 user 반환 → 호출자가 activityRegion 검사 후 분기.
+interface KakaoLoginPayload {
+  kakaoId: string;
+  email: string;
+  name: string;
+  profileImage?: string | null;
+  phoneNumber: string;
+  birthday?: string | null;
+  birthdayType?: 'SOLAR' | 'LUNAR' | null;
+  isLeapMonth?: boolean | null;
+}
+
 interface AuthContextType {
   user: User | null;
-  login: (kakaoData: { kakaoId: string; email: string; name: string }) => Promise<void>;
+  login: (kakaoData: KakaoLoginPayload) => Promise<{ user: User } | { requiresApproval: true } | null>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -49,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (kakaoData: { kakaoId: string; email: string; name: string }) => {
+  const login = async (kakaoData: KakaoLoginPayload): Promise<{ user: User } | { requiresApproval: true } | null> => {
     try {
       setIsLoading(true);
       const response = await fetch("/api/auth/kakao", {
@@ -66,33 +78,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           title: data.message || "가입 신청 완료",
           description: data.description || "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
         });
-        return;
+        return { requiresApproval: true };
       }
 
       if (response.ok && data.user) {
         setUser(data.user);
-        let dest = "/";
-        try {
-          const stored = sessionStorage.getItem("auth:returnTo");
-          if (stored && stored.startsWith("/") && !stored.startsWith("//")) {
-            dest = stored;
-          }
-          sessionStorage.removeItem("auth:returnTo");
-        } catch {}
-        setLocation(dest);
         toast({
           title: "카카오싱크 로그인 성공",
           description: `${data.user.name}님, 환영합니다! 카카오싱크가 연결되었습니다.`,
         });
-      } else {
-        throw new Error(data.message || "로그인에 실패했습니다.");
+        // ⚠️ setLocation은 호출자(kakao-callback)에서 activityRegion 검사 후 분기 — 여기서 직접 이동하지 않음
+        return { user: data.user };
       }
+
+      throw new Error(data.message || "로그인에 실패했습니다.");
     } catch (error) {
       toast({
         title: "로그인 실패",
         description: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsLoading(false);
     }
