@@ -10,3 +10,6 @@ vite.config.ts.*
 .env.local
 .env.*.local
 attached_assets/fonts/
+
+# graphify knowledge graph artifacts
+graphify-out/
