@@ -12,6 +12,19 @@ declare module "express-session" {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // 카카오 OAuth 환경변수 부팅 검증 — 서버 시작 시 1회만 출력.
+  //  - restApiKeyPrefix 가 카카오 콘솔 [앱 설정 > 앱 키 > REST API 키] 앞 6자리와
+  //    일치해야 token exchange 성공 (불일치 시 KOE114 / KOE303 발생).
+  //  - 아래 prefix 와 token body debug 의 clientIdPrefix 는 항상 같아야 함.
+  //  - 값 전체값은 절대 출력하지 않음 (마스킹).
+  {
+    const restKey = process.env.KAKAO_REST_API_KEY;
+    console.log('[Kakao OAuth] env check:', {
+      restApiKeyPrefix: restKey ? restKey.substring(0, 6) + '...' : null,
+      hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
+      redirectUri: process.env.KAKAO_REDIRECT_URI || '(env 미설정 — Origin/Referer fallback 사용)',
+    });
+  }
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -41,7 +54,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { code } = req.body;
 
-      // KAKAO_REST_API_KEY 누락 시 명시적 에러 (빈 문자열로 요청 시 KOE114 유발)
+      // ⚠️ token exchange 의 client_id 는 반드시 process.env.KAKAO_REST_API_KEY 만 사용.
+      //   - KAKAO_CLIENT_ID, VITE_KAKAO_REST_API_KEY, KAKAO_ADMIN_KEY 등 다른 env 로 fallback ❌
+      //   - VITE_KAKAO_JAVASCRIPT_KEY 는 프론트(브라우저 SDK) 전용 — 서버 token exchange ❌
+      //     (같은 카카오 앱이라도 JS 키와 REST 키는 값이 다름 — 플랫폼별 키 분리)
+      //   - KAKAO_REST_API_KEY 누락 시 빈 문자열로 요청하지 말고 명시적 에러 반환 (KOE114 회피)
       const clientId = process.env.KAKAO_REST_API_KEY;
       if (!clientId) {
         console.error('[Kakao OAuth] KAKAO_REST_API_KEY env is missing');
