@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { GraduationCap } from "lucide-react";
-import { initKakao, kakaoLogin } from "@/lib/auth";
+import { kakaoLogin } from "@/lib/auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -17,22 +17,8 @@ export default function Login() {
     }
   }, [user, setLocation]);
 
-  useEffect(() => {
-    // Initialize Kakao SDK when component mounts
-    initKakao();
-  }, []);
-
+  // v5 — REST authorize URL 직접 이동 방식이라 SDK init 불필요.
   const handleKakaoLogin = () => {
-    if (!window.Kakao) {
-      alert("카카오 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.");
-      return;
-    }
-
-    if (!window.Kakao.isInitialized()) {
-      alert("카카오 SDK 초기화에 실패했습니다. 페이지를 새로고침해주세요.");
-      return;
-    }
-
     kakaoLogin();
   };
 

@@ -83,30 +83,44 @@ export const initKakao = () => {
   }
 };
 
-// Kakao Login using OAuth authorize redirect flow
+// v5 — REST API 인가 URL 직접 이동 방식.
+//
+// 이전(JS SDK Kakao.Auth.authorize) 의 문제:
+//   JS 키와 REST 키는 같은 앱이라도 값이 다름 → 인가 단계의 client_id(JS 키) 와
+//   서버 token exchange 의 client_id(REST 키) 가 달라 KOE114/KOE303 위험.
+//
+// 통일된 흐름:
+//   - 인가/토큰 양쪽 모두 REST API 키를 사용 → client_id byte-for-byte 일치 보장.
+//   - SDK 로드/초기화 의존 제거 (window.Kakao 검사 불필요).
+//
+// scope (v5 TEST API 기준):
+//   name, profile_image, account_email, birthday, phone_number
+//   - profile_nickname 미수집
+//   - birthday 는 선택 동의
+//   - phone_number 는 TEST API 에서 필수 동의 가능, PROD 배포 시 추가 기능 신청 필요
+//   - CI(account_ci) 는 현재 권한 없음 — 후속 ⑤·⑥ 심사 통과 후
 export const kakaoLogin = () => {
-  if (!window.Kakao || !window.Kakao.Auth) {
-    console.error("Kakao SDK not loaded");
+  const clientId = import.meta.env.VITE_KAKAO_REST_API_KEY as string | undefined;
+  const redirectUri = import.meta.env.VITE_KAKAO_REDIRECT_URI as string | undefined;
+
+  if (!clientId) {
+    console.error("VITE_KAKAO_REST_API_KEY is not set");
+    return;
+  }
+  if (!redirectUri) {
+    console.error("VITE_KAKAO_REDIRECT_URI is not set");
     return;
   }
 
-  if (!window.Kakao.isInitialized()) {
-    console.error("Kakao SDK not initialized");
-    return;
-  }
-
-  // v5 TEST API 기준 scope 확정
-  // name, profile_image, account_email, birthday, phone_number
-  // profile_image는 profile_nickname과 분리된 독립 동의항목으로 확인 완료
-  // profile_nickname은 수집하지 않음
-  // birthday는 선택 동의 항목
-  // phone_number는 TEST API에서 필수 동의 가능, PROD 배포 시 추가 기능 신청 필요
-  // CI(account_ci)는 현재 권한 없음 — 후속 ⑤·⑥에서 처리
-  window.Kakao.Auth.authorize({
-    redirectUri: `${window.location.origin}/kakao-callback`,
-    scope: 'name,profile_image,account_email,birthday,phone_number',
-    state: 'kakao_login',
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "name,profile_image,account_email,birthday,phone_number",
+    state: "kakao_login",
   });
+
+  window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 };
 
 // Check service terms agreement status
