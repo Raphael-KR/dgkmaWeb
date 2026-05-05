@@ -36,7 +36,8 @@ export default function OnboardingRegion() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ region }),
+        // 서버는 activityRegion(권장) / region(하위호환) 둘 다 허용. 권장 키로 전송.
+        body: JSON.stringify({ activityRegion: region }),
       });
 
       const data = await response.json();

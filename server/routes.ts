@@ -250,8 +250,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 finalUser = updatedUser;
               }
             }
+            // ⚠️ session save 완료 후 응답 — 비동기 DB write 가 끝나기 전에 클라이언트가
+            //    다음 요청을 보내면 세션 인식 실패(401) 발생.
             req.session.userId = finalUser.id;
-            res.json({ user: finalUser });
+            req.session.save((err) => {
+              if (err) {
+                console.error("[Kakao Auth] session save failed:", err);
+                return res.status(500).json({ message: "세션 저장에 실패했습니다" });
+              }
+              return res.json({ user: finalUser });
+            });
             return;
           }
 
@@ -273,7 +281,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             req.session.userId = finalUser.id;
-            res.json({ user: finalUser });
+            req.session.save((err) => {
+              if (err) {
+                console.error("[Kakao Auth] session save failed:", err);
+                return res.status(500).json({ message: "세션 저장에 실패했습니다" });
+              }
+              return res.json({ user: finalUser });
+            });
             return;
           }
 
@@ -339,8 +353,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "사용자 생성에 실패했습니다" });
       }
 
-      req.session.userId = user.id;
-      res.json({ user });
+      const finalUser = user;
+      req.session.userId = finalUser.id;
+      req.session.save((err) => {
+        if (err) {
+          console.error("[Kakao Auth] session save failed:", err);
+          return res.status(500).json({ message: "세션 저장에 실패했습니다" });
+        }
+        return res.json({ user: finalUser });
+      });
     } catch (error) {
       console.error("Kakao auth error:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -350,10 +371,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // v5 — 활동 지역(시/도) 입력 (온보딩 분기). 401 (no session) / 400 (invalid region).
   app.post("/api/users/activity-region", async (req, res) => {
+    // safe log — 민감 정보 제외, 세션/페이로드 형태만 출력 (401 디버깅용).
+    console.log("[ActivityRegion] save request:", {
+      hasSession: !!req.session,
+      sessionId: req.sessionID ? "present" : "missing",
+      userId: req.session?.userId ?? null,
+      bodyKeys: Object.keys(req.body ?? {}),
+    });
+
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const { region } = req.body;
+
+    // body 필드명: activityRegion(권장) 또는 region(하위호환) 둘 다 허용.
+    const region = req.body?.activityRegion ?? req.body?.region;
     const REGION_OPTIONS = [
       '서울특별시', '부산광역시', '대구광역시', '인천광역시',
       '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
@@ -364,8 +395,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!REGION_OPTIONS.includes(region)) {
       return res.status(400).json({ message: "Invalid region" });
     }
-    // ⚠️ update 대상은 반드시 req.session.userId — body로 userId 받지 않음 (보안)
+
+    // ⚠️ update 대상은 반드시 req.session.userId — body 로 userId 받지 않음 (보안).
+    // ⚠️ DB 컬럼은 users.activityRegion (snake: activity_region).
     const updated = await storage.updateUser(req.session.userId, { activityRegion: region });
+    if (!updated) {
+      return res.status(500).json({ message: "지역 저장에 실패했습니다" });
+    }
     res.json({ user: updated });
   });
 
