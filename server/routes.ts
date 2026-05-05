@@ -40,16 +40,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/kakao/authorize", async (req, res) => {
     try {
       const { code } = req.body;
-      // 클라이언트가 사용한 origin과 동일하게 맞춰야 Kakao 토큰 교환이 성공함
-      const origin = req.headers.origin || req.headers.referer?.replace(/\/$/, '') || '';
-      const baseUrl = process.env.NODE_ENV === 'development'
-        ? 'http://localhost:5173'
-        : (origin || process.env.APP_URL || 'https://dgkma.org');
-      const redirectUri = `${baseUrl}/kakao-callback`;
+
+      // KAKAO_REST_API_KEY 누락 시 명시적 에러 (빈 문자열로 요청 시 KOE114 유발)
+      const clientId = process.env.KAKAO_REST_API_KEY;
+      if (!clientId) {
+        console.error('[Kakao OAuth] KAKAO_REST_API_KEY env is missing');
+        return res.status(500).json({
+          message: 'Kakao 앱 설정 오류',
+          description: '서버에 KAKAO_REST_API_KEY 환경변수가 설정되어 있지 않습니다.',
+        });
+      }
+
+      // redirect_uri 결정 우선순위 (인가 단계와 토큰 단계가 byte-for-byte 동일해야 KOE114 회피):
+      //   1) KAKAO_REDIRECT_URI env  — 명시적 고정값 (가장 권장)
+      //   2) dev 환경                — http://localhost:5173/kakao-callback
+      //   3) Origin 헤더             — 브라우저가 보낸 origin (path 없음, 안전)
+      //   4) Referer 헤더의 origin    — URL 파싱하여 origin만 추출 (referer는 path/query 포함되므로 그대로 쓰면 ❌)
+      //   5) APP_URL env             — 배포 환경별 fallback
+      //   6) https://dgkma.replit.app — 마지막 fallback
+      let redirectUri: string;
+      if (process.env.KAKAO_REDIRECT_URI) {
+        redirectUri = process.env.KAKAO_REDIRECT_URI;
+      } else if (process.env.NODE_ENV === 'development') {
+        redirectUri = 'http://localhost:5173/kakao-callback';
+      } else {
+        let baseUrl = '';
+        const originHeader = req.headers.origin;
+        const refererHeader = req.headers.referer;
+        if (originHeader) {
+          baseUrl = originHeader;
+        } else if (refererHeader) {
+          // ⚠️ referer는 path/query 포함 가능 — origin만 추출해야 함.
+          // 예: "https://dgkma.replit.app/kakao-callback?code=..." → "https://dgkma.replit.app"
+          try {
+            baseUrl = new URL(refererHeader).origin;
+          } catch {
+            baseUrl = '';
+          }
+        }
+        if (!baseUrl) {
+          baseUrl = process.env.APP_URL || 'https://dgkma.replit.app';
+        }
+        redirectUri = `${baseUrl}/kakao-callback`;
+      }
+
+      console.log('[Kakao OAuth] token exchange:', {
+        redirectUri,
+        clientIdPrefix: clientId.substring(0, 6) + '...',
+        hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
+      });
 
       const params = new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: process.env.KAKAO_REST_API_KEY || '',
+        client_id: clientId,
         redirect_uri: redirectUri,
         code,
       });
@@ -64,7 +107,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const tokenData = await tokenRes.json();
       if (!tokenRes.ok) {
-        return res.status(400).json(tokenData);
+        // 카카오 응답 error/error_description/error_code 그대로 전달 (디버깅용)
+        console.error('[Kakao OAuth] token exchange failed:', {
+          redirectUri,
+          status: tokenRes.status,
+          error: tokenData?.error,
+          error_description: tokenData?.error_description,
+          error_code: tokenData?.error_code,
+        });
+        return res.status(400).json({
+          message: '카카오 토큰 교환에 실패했습니다',
+          error: tokenData?.error,
+          error_description: tokenData?.error_description,
+          error_code: tokenData?.error_code,
+          kakao: tokenData,
+        });
       }
 
       // ⚠️ HTTPS 응답 보장은 요청 단계에서 박음 — 수신값은 변형 ❌ (카카오 원본 보존 원칙)
