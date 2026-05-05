@@ -84,21 +84,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         redirectUri = `${baseUrl}/kakao-callback`;
       }
 
-      console.log('[Kakao OAuth] token exchange:', {
-        redirectUri,
-        clientIdPrefix: clientId.substring(0, 6) + '...',
-        hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
-      });
-
-      const params = new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        code,
-      });
+      // body 구성: 카카오 스펙(application/x-www-form-urlencoded)에 맞춰 정확한 파라미터 이름 사용.
+      // grant_type / client_id / redirect_uri / code (필수) + client_secret (선택, 콘솔 활성화 시 필수).
+      // ⚠️ 파라미터 이름 변형 금지 (redirectUri, redirectURL 등은 카카오가 인식 ❌).
+      const params = new URLSearchParams();
+      params.set('grant_type', 'authorization_code');
+      params.set('client_id', clientId);
+      params.set('redirect_uri', redirectUri);
+      params.set('code', String(code ?? ''));
       if (process.env.KAKAO_CLIENT_SECRET) {
-        params.append('client_secret', process.env.KAKAO_CLIENT_SECRET);
+        // 카카오 디벨로퍼스 [보안 > Client Secret] 활성화 시 필수.
+        // ⚠️ "카카오 로그인용" 클라이언트 시크릿만 사용 — 비즈니스 인증용 시크릿 금지.
+        params.set('client_secret', process.env.KAKAO_CLIENT_SECRET);
       }
+
+      // Safe logging — code/REST 키/시크릿 전체값은 절대 출력하지 않음 (마스킹).
+      // 같은 TEST 앱이라면 콘솔 [앱 설정 > 앱 키]의 REST API 키 앞 6자리가 clientIdPrefix와 일치해야 함.
+      // (참고: 프론트의 JavaScript 키와 서버의 REST API 키는 같은 앱이라도 값이 다름 — 카카오 플랫폼별 키 분리.)
+      console.log('[Kakao OAuth] token body debug:', {
+        url: 'https://kauth.kakao.com/oauth/token',
+        contentType: 'application/x-www-form-urlencoded',
+        bodyKeys: Array.from(params.keys()),                      // 어떤 파라미터가 실제로 들어갔는지
+        bodyLength: params.toString().length,
+        grant_type: params.get('grant_type'),
+        clientIdPrefix: clientId.substring(0, 6) + '...',         // REST API 키 앞 6자리만
+        redirect_uri: params.get('redirect_uri'),                 // byte-for-byte 비교용 — 전체 노출 (민감 정보 아님)
+        codePrefix: String(code ?? '').substring(0, 8) + '...',   // 인가 코드 앞 8자리만
+        hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
+        clientSecretPrefix: process.env.KAKAO_CLIENT_SECRET
+          ? process.env.KAKAO_CLIENT_SECRET.substring(0, 4) + '...'
+          : null,
+      });
 
       const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
         method: 'POST',
