@@ -11,13 +11,21 @@ declare module "express-session" {
   }
 }
 
+// 카카오 인증/온보딩 디버그 로그 게이팅. 운영 환경에서는 기본 OFF.
+//   - DEBUG_KAKAO_AUTH=true → 상세 로그 ON (성공 경로 포함).
+//   - 미설정/false           → 성공 경로의 디버그 로그 미출력.
+//   - 실패/에러 로그(token exchange failed, session save failed 등)는 게이팅과 무관하게 항상 출력.
+function isKakaoDebugEnabled(): boolean {
+  return process.env.DEBUG_KAKAO_AUTH === "true";
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // 카카오 OAuth 환경변수 부팅 검증 — 서버 시작 시 1회만 출력.
+  // 카카오 OAuth 환경변수 부팅 검증 — DEBUG_KAKAO_AUTH=true 일 때만 1회 출력.
   //  - restApiKeyPrefix 가 카카오 콘솔 [앱 설정 > 앱 키 > REST API 키] 앞 6자리와
   //    일치해야 token exchange 성공 (불일치 시 KOE114 / KOE303 발생).
   //  - 아래 prefix 와 token body debug 의 clientIdPrefix 는 항상 같아야 함.
   //  - 값 전체값은 절대 출력하지 않음 (마스킹).
-  {
+  if (isKakaoDebugEnabled()) {
     const restKey = process.env.KAKAO_REST_API_KEY;
     console.log('[Kakao OAuth] env check:', {
       restApiKeyPrefix: restKey ? restKey.substring(0, 6) + '...' : null,
@@ -115,23 +123,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         params.set('client_secret', process.env.KAKAO_CLIENT_SECRET);
       }
 
-      // Safe logging — code/REST 키/시크릿 전체값은 절대 출력하지 않음 (마스킹).
-      // 같은 TEST 앱이라면 콘솔 [앱 설정 > 앱 키]의 REST API 키 앞 6자리가 clientIdPrefix와 일치해야 함.
-      // (참고: 프론트의 JavaScript 키와 서버의 REST API 키는 같은 앱이라도 값이 다름 — 카카오 플랫폼별 키 분리.)
-      console.log('[Kakao OAuth] token body debug:', {
-        url: 'https://kauth.kakao.com/oauth/token',
-        contentType: 'application/x-www-form-urlencoded',
-        bodyKeys: Array.from(params.keys()),                      // 어떤 파라미터가 실제로 들어갔는지
-        bodyLength: params.toString().length,
-        grant_type: params.get('grant_type'),
-        clientIdPrefix: clientId.substring(0, 6) + '...',         // REST API 키 앞 6자리만
-        redirect_uri: params.get('redirect_uri'),                 // byte-for-byte 비교용 — 전체 노출 (민감 정보 아님)
-        codePrefix: String(code ?? '').substring(0, 8) + '...',   // 인가 코드 앞 8자리만
-        hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
-        clientSecretPrefix: process.env.KAKAO_CLIENT_SECRET
-          ? process.env.KAKAO_CLIENT_SECRET.substring(0, 4) + '...'
-          : null,
-      });
+      // Safe logging — DEBUG_KAKAO_AUTH=true 일 때만 출력. 전체값은 절대 노출 ❌ (모두 prefix 마스킹).
+      //   같은 TEST 앱이라면 콘솔 [앱 설정 > 앱 키]의 REST API 키 앞 6자리가 clientIdPrefix와 일치해야 함.
+      //   토큰 교환 실패 시의 에러 로그는 게이팅과 무관하게 항상 출력 (장애 진단용).
+      if (isKakaoDebugEnabled()) {
+        console.log('[Kakao OAuth] token body debug:', {
+          url: 'https://kauth.kakao.com/oauth/token',
+          contentType: 'application/x-www-form-urlencoded',
+          bodyKeys: Array.from(params.keys()),
+          bodyLength: params.toString().length,
+          grant_type: params.get('grant_type'),
+          clientIdPrefix: clientId.substring(0, 6) + '...',
+          redirect_uri: params.get('redirect_uri'),
+          codePrefix: String(code ?? '').substring(0, 8) + '...',
+          hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
+          clientSecretPrefix: process.env.KAKAO_CLIENT_SECRET
+            ? process.env.KAKAO_CLIENT_SECRET.substring(0, 4) + '...'
+            : null,
+        });
+      }
 
       const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
         method: 'POST',
@@ -371,13 +381,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // v5 — 활동 지역(시/도) 입력 (온보딩 분기). 401 (no session) / 400 (invalid region).
   app.post("/api/users/activity-region", async (req, res) => {
-    // safe log — 민감 정보 제외, 세션/페이로드 형태만 출력 (401 디버깅용).
-    console.log("[ActivityRegion] save request:", {
-      hasSession: !!req.session,
-      sessionId: req.sessionID ? "present" : "missing",
-      userId: req.session?.userId ?? null,
-      bodyKeys: Object.keys(req.body ?? {}),
-    });
+    // safe log — DEBUG_KAKAO_AUTH=true 일 때만 출력. 민감 정보 제외, 세션/페이로드 형태만.
+    if (isKakaoDebugEnabled()) {
+      console.log("[ActivityRegion] save request:", {
+        hasSession: !!req.session,
+        sessionId: req.sessionID ? "present" : "missing",
+        userId: req.session?.userId ?? null,
+        bodyKeys: Object.keys(req.body ?? {}),
+      });
+    }
 
     if (!req.session.userId) {
       return res.status(401).json({ message: "Unauthorized" });
