@@ -56,8 +56,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // ⚠️ token exchange 의 client_id 는 반드시 process.env.KAKAO_REST_API_KEY 만 사용.
       //   - KAKAO_CLIENT_ID, VITE_KAKAO_REST_API_KEY, KAKAO_ADMIN_KEY 등 다른 env 로 fallback ❌
-      //   - VITE_KAKAO_JAVASCRIPT_KEY 는 프론트(브라우저 SDK) 전용 — 서버 token exchange ❌
-      //     (같은 카카오 앱이라도 JS 키와 REST 키는 값이 다름 — 플랫폼별 키 분리)
+      //   - 클라이언트 인가 단계와 서버 토큰 단계 모두 REST API 키를 써서 client_id 일치 보장
+      //     (v5 는 REST authorize URL 직접 이동 흐름 — JS SDK 미사용).
       //   - KAKAO_REST_API_KEY 누락 시 빈 문자열로 요청하지 말고 명시적 에러 반환 (KOE114 회피)
       const clientId = process.env.KAKAO_REST_API_KEY;
       if (!clientId) {

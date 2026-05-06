@@ -54,51 +54,15 @@ export interface KakaoUserInfo {
   };
 }
 
-// Initialize Kakao SDK
-export const initKakao = () => {
-  if (typeof window !== "undefined" && window.Kakao) {
-    // Get JavaScript Key from environment variable
-    const kakaoKey = import.meta.env.VITE_KAKAO_JAVASCRIPT_KEY || import.meta.env.VITE_KAKAO_JS_KEY;
-    console.log("Kakao key available:", !!kakaoKey, "Key length:", kakaoKey?.length);
-
-    if (!kakaoKey) {
-      console.error("VITE_KAKAO_JAVASCRIPT_KEY is not set");
-      return;
-    }
-
-    if (!window.Kakao.isInitialized()) {
-      try {
-        window.Kakao.init(kakaoKey);
-        console.log("Kakao SDK initialized successfully with key:", kakaoKey.substring(0, 8) + "...");
-        console.log("Kakao Auth available:", !!window.Kakao.Auth);
-        console.log("Kakao API available:", !!window.Kakao.API);
-      } catch (error) {
-        console.error("Kakao SDK initialization failed:", error);
-      }
-    } else {
-      console.log("Kakao SDK already initialized");
-    }
-  } else {
-    console.warn("Kakao SDK not available - window.Kakao:", !!window?.Kakao);
-  }
-};
-
-// v5 — REST API 인가 URL 직접 이동 방식.
-//
-// 이전(JS SDK Kakao.Auth.authorize) 의 문제:
-//   JS 키와 REST 키는 같은 앱이라도 값이 다름 → 인가 단계의 client_id(JS 키) 와
-//   서버 token exchange 의 client_id(REST 키) 가 달라 KOE114/KOE303 위험.
-//
-// 통일된 흐름:
-//   - 인가/토큰 양쪽 모두 REST API 키를 사용 → client_id byte-for-byte 일치 보장.
-//   - SDK 로드/초기화 의존 제거 (window.Kakao 검사 불필요).
+// v5 — REST API 인가 URL 직접 이동.
+//   인가 단계와 토큰 단계 모두 REST API 키를 사용해 client_id byte-for-byte 일치 보장.
 //
 // scope (v5 TEST API 기준):
 //   name, profile_image, account_email, birthday, phone_number
 //   - profile_nickname 미수집
 //   - birthday 는 선택 동의
 //   - phone_number 는 TEST API 에서 필수 동의 가능, PROD 배포 시 추가 기능 신청 필요
-//   - CI(account_ci) 는 현재 권한 없음 — 후속 ⑤·⑥ 심사 통과 후
+//   - CI(account_ci) 는 현재 권한 없음 — 후속 심사 통과 후
 export const kakaoLogin = () => {
   const clientId = import.meta.env.VITE_KAKAO_REST_API_KEY as string | undefined;
   const redirectUri = import.meta.env.VITE_KAKAO_REDIRECT_URI as string | undefined;
@@ -122,31 +86,3 @@ export const kakaoLogin = () => {
 
   window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 };
-
-// Check service terms agreement status
-export const checkServiceTerms = (): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    if (!window.Kakao || !window.Kakao.isInitialized()) {
-      reject(new Error("Kakao SDK not available"));
-      return;
-    }
-
-    window.Kakao.API.request({
-      url: "/v1/user/service/terms",
-      success: (result: any) => {
-        console.log("Service terms status:", result);
-        resolve(result);
-      },
-      fail: (error: any) => {
-        console.error("Failed to check service terms:", error);
-        reject(error);
-      },
-    });
-  });
-};
-
-declare global {
-  interface Window {
-    Kakao: any;
-  }
-}

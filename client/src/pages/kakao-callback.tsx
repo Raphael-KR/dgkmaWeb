@@ -43,10 +43,6 @@ export default function KakaoCallback() {
           throw new Error(data.message || "카카오 인증에 실패했습니다.");
         }
 
-        if (data.accessToken && window.Kakao?.Auth) {
-          window.Kakao.Auth.setAccessToken(data.accessToken);
-        }
-
         // v5 — 카카오 응답 5개 추가 필드 함께 전달.
         const result = await login({
           kakaoId: data.kakaoId,
