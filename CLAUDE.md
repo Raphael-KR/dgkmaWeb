@@ -1,48 +1,51 @@
 # CLAUDE.md
-
 Project-specific instructions for Claude Code working in this repository.
-
-## Environment
-
-This repository is primarily developed and deployed on **Replit**. Do not assume local `npm` scripts work on this Mac — `tsc`, build, and dev scripts may be missing from `node_modules` here. If a script needs to run, prefer asking the user to run it on Replit (or via `! <command>` if interactive) rather than reaching for a local install.
-
-## Use Graphify as the project map
-
-Before doing any of the following, read `graphify-out/GRAPH_REPORT.md` and consult `graphify-out/graph.json`:
-
-- Architecture analysis or design discussion
-- Refactoring across multiple files
-- Dependency tracing or flow debugging
-- Answering "where does X happen?" / "what calls Y?" questions
-
-Prefer Graphify queries over reading many source files:
-
-- `/graphify query "<question>"` — broad context (BFS)
-- `/graphify query "<question>" --dfs` — trace a specific chain
-- `/graphify path "<NodeA>" "<NodeB>"` — shortest path between two concepts
-- `/graphify explain "<NodeName>"` — plain-language node explanation
-
-When the graph lacks enough information, say so — don't hallucinate edges.
-
-## Sensitive flows: trace through Graphify first
-
-When modifying any of the following, trace the relevant dependencies through Graphify before editing:
-
-- Authentication (Supabase, session handling)
-- Onboarding flow
-- Kakao login / OAuth callback
-- Region selection
-- Alumni member flows (directory, member classification, dues)
-
-These areas have non-obvious cross-community couplings (e.g. `LoginModal` bridges three communities). Reading files in isolation will miss the seams.
-
-## Code changes
-
-Prefer small, behavior-preserving edits. Don't add features, refactor, or introduce abstractions beyond what the task requires. If a change is larger than expected, surface that to the user before proceeding.
-
-After meaningful code changes (new files, removed files, restructured modules), suggest running `/graphify --update` to keep the graph in sync. Code-only changes skip the LLM step and update in seconds.
-
-## Files to leave alone
-
-- **`graphify-out/`** — gitignored generated artifacts. Do not commit.
-- **`attached_assets/`** — Korean filenames (Hangul + NFC/NFD normalization) may collide on macOS. Do not clean, rename, or delete files in this directory unless explicitly instructed.
+## Project context
+This repository is the web application for the Dongguk University Korean Medicine Alumni Association.
+The app is developed mainly through Replit and GitHub. The production app is published through Replit and uses environment variables from Replit Secrets.
+The current authentication flow uses Kakao Login v5 with REST OAuth authorization.
+## Environment rules
+This repository is primarily developed and deployed on Replit.
+Do not assume local Mac npm scripts are reliable. Local `node_modules`, `tsc`, build tools, or dev dependencies may be missing or stale.
+When validation is needed, ask the user to run commands in Replit Shell unless the user explicitly asks you to run them elsewhere.
+Preferred validation commands:
+```bash
+npm run check
+npm run build
+```
+Run this only when the database schema changes:
+```bash
+npm run db:push
+```
+## Work rules
+Make small, task-focused edits.
+Do not run codebase graph or indexing tools unless explicitly requested.
+Do not clean, rename, normalize, or delete files in `attached_assets/` unless explicitly instructed.
+Do not reintroduce Supabase client login unless explicitly requested.
+## Kakao login rules
+The current Kakao Login flow uses REST authorize URL navigation.
+Client-side authorize uses `VITE_KAKAO_REST_API_KEY` and `VITE_KAKAO_REDIRECT_URI`.
+Server-side token exchange uses `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and `KAKAO_REDIRECT_URI`.
+The client authorize `redirect_uri` and server token exchange `redirect_uri` must be exactly identical.
+Current production redirect URI:
+```text
+https://dgkma.replit.app/kakao-callback
+```
+Do not use Kakao JavaScript SDK login for the current v5 flow.
+Do not expose server-only secrets through `VITE_`.
+Never log full secrets, access tokens, refresh tokens, or full authorization codes.
+## Session and onboarding rules
+Use `req.session.userId` consistently across auth routes.
+After Kakao login, save the session before responding.
+Keep `app.set("trust proxy", 1)` for Replit production proxy behavior.
+If a logged-in user has no `activityRegion`, redirect to `/onboarding/region`.
+Region save endpoint:
+```text
+POST /api/users/activity-region
+```
+Preferred request body:
+```JSON
+{
+  "activityRegion": "서울특별시"
+}
+```
