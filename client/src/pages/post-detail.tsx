@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
+import { useSeo } from "@/lib/seo";
 
 export default function PostDetail() {
-  const [, params] = useRoute("/post/:id");
+  const [, postParams] = useRoute("/post/:id");
+  const [, shortPostParams] = useRoute("/p/:id");
   const { user } = useAuth();
-  const postId = params?.id;
+  const postId = postParams?.id || shortPostParams?.id;
 
   // 페이지 로드 시 최상단으로 스크롤
   useEffect(() => {
@@ -29,6 +31,15 @@ export default function PostDetail() {
       return response.json();
     },
     enabled: !!postId && !!user,
+  });
+
+  useSeo({
+    title: post?.title || "게시글",
+    description: post?.content
+      ? post.content.replace(/\s+/g, " ").trim().slice(0, 150)
+      : "동국대학교한의과대학동문회 게시글을 확인합니다.",
+    path: postId ? `/post/${postId}` : undefined,
+    type: "article",
   });
 
   if (isLoading) {
