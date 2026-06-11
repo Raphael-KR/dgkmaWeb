@@ -37,30 +37,30 @@ export default function AboutCondolence() {
                 <thead>
                   <tr className="border-b tp-border-gold/40">
                     <th className="text-left py-2 px-2 tp-text-green-dark">구분</th>
-                    <th className="text-center py-2 px-2 tp-text-green-dark">회비 미납자</th>
                     <th className="text-center py-2 px-2 tp-text-green-dark">회비 납부자</th>
+                    <th className="text-center py-2 px-2 tp-text-green-dark">회비 미납자</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-gray-700">
                   <tr>
                     <td className="py-3 px-2 font-medium">단문 문자 (한글 45자 이하)</td>
-                    <td className="py-3 px-2 text-center">5만원</td>
                     <td className="py-3 px-2 text-center"><strong>무료</strong></td>
+                    <td className="py-3 px-2 text-center">5만원</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium">장문 문자 (한글 45자 초과)</td>
-                    <td className="py-3 px-2 text-center">15만원</td>
                     <td className="py-3 px-2 text-center">10만원</td>
+                    <td className="py-3 px-2 text-center">15만원</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium">근조기</td>
-                    <td className="py-3 px-2 text-center">10만원</td>
                     <td className="py-3 px-2 text-center">5만원</td>
+                    <td className="py-3 px-2 text-center">10만원</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium">화환</td>
-                    <td className="py-3 px-2 text-center">13만원</td>
                     <td className="py-3 px-2 text-center">8만원</td>
+                    <td className="py-3 px-2 text-center">13만원</td>
                   </tr>
                 </tbody>
               </table>
@@ -108,9 +108,9 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <h3 className="font-semibold tp-text-green-dark mb-2">2단계. 비용 입금</h3>
               <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 발송요청자 부담금]</p>
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
-                <li>회비 미납자: 단문 5만원, 장문(한글 45자 초과) 15만원</li>
+                <li>회비 납부자: 단문 무료, 장문(한글 45자 초과) 10만원</li>
                 <li>
-                  회비 납부자: 단문 무료, 장문 10만원
+                  회비 미납자: 단문 5만원, 장문 15만원
                 </li>
               </ul>
               <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 비용 입금 계좌]</p>
@@ -164,9 +164,9 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <h3 className="font-semibold tp-text-green-dark mb-2">1단계. 비용 입금</h3>
               <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 발송요청자 부담금]</p>
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
-                <li>회비 미납자: 근조기 10만원 / 화환 13만원</li>
+                <li>회비 납부자: 근조기 5만원 / 화환 8만원</li>
                 <li>
-                  회비 납부자: 근조기 5만원 / 화환 8만원
+                  회비 미납자: 근조기 10만원 / 화환 13만원
                 </li>
               </ul>
               <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 비용 입금 계좌]</p>
