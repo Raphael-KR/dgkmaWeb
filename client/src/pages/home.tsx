@@ -12,6 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Heart, Users, Calendar } from "lucide-react";
+import { MembershipBadge } from "@/components/membership-badge";
+import { KAKAO_CHANNEL_URL } from "@/lib/config";
+import type { MembershipStatus } from "@shared/schema";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -34,12 +37,8 @@ export default function Home() {
     enabled: !!user,
   });
 
-  const { data: userPayments } = useQuery({
-    queryKey: ["/api/payments/user", user?.id],
-    queryFn: async () => {
-      const response = await fetch(`/api/payments/user/${user?.id}`, { credentials: "include" });
-      return response.json();
-    },
+  const { data: membership, isLoading: membershipLoading } = useQuery<MembershipStatus>({
+    queryKey: ["/api/membership/status"],
     enabled: !!user?.id,
   });
 
@@ -119,8 +118,8 @@ export default function Home() {
     );
   }
 
-  const currentYear = new Date().getFullYear();
-  const currentYearPayment = userPayments?.find((p: any) => p.year === currentYear);
+  const currentYear = membership?.year ?? new Date().getFullYear();
+  const currentYearPayment = membership?.isPaid ? membership.currentYearPayment : null;
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -161,6 +160,7 @@ export default function Home() {
                   인증대기
                 </Badge>
               )}
+              {membership && <MembershipBadge tier={membership.tier} />}
               {user.isAdmin && (
                 <Badge className="bg-red-100 text-red-800 text-xs px-3 py-1">
                   관리자
@@ -179,7 +179,11 @@ export default function Home() {
                 내역보기
               </Button>
             </div>
-            {currentYearPayment ? (
+            {membershipLoading || !membership ? (
+              <div className="flex justify-center py-6">
+                <LoadingSpinner />
+              </div>
+            ) : currentYearPayment ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div>
@@ -190,9 +194,11 @@ export default function Home() {
                     <p className="font-bold text-green-600">
                       {currentYearPayment.amount.toLocaleString()}원
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(currentYearPayment.paymentDate).toLocaleDateString()}
-                    </p>
+                    {currentYearPayment.createdAt && (
+                      <p className="text-xs text-gray-500">
+                        {new Date(currentYearPayment.createdAt).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -201,12 +207,21 @@ export default function Home() {
                 <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
                   <div>
                     <p className="font-medium text-gray-800">{currentYear}년 연회비 미납</p>
-                    <p className="text-sm text-gray-600">회비를 납부해 주세요.</p>
+                    <p className="text-sm text-gray-600">회비를 납부하시면 권리회원이 됩니다.</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-yellow-600">50,000원</p>
+                    <p className="font-bold text-yellow-600">
+                      {(membership?.annualDues ?? 50000).toLocaleString()}원
+                    </p>
                   </div>
                 </div>
+                <Button
+                  className="w-full bg-kakao-yellow text-kakao-brown font-bold hover:bg-yellow-400"
+                  onClick={() => setLocation("/about/dues")}
+                  data-testid="button-dues-cta"
+                >
+                  회비 납부 안내 보기
+                </Button>
               </div>
             )}
           </CardContent>
@@ -310,7 +325,21 @@ export default function Home() {
                 <p className="text-xs text-gray-600 font-medium">동문 찾기</p>
               </Button>
 
-              <Button variant="ghost" className="flex-col p-3 h-auto space-y-2">
+              <Button
+                variant="ghost"
+                className="flex-col p-3 h-auto space-y-2"
+                onClick={() => {
+                  if (KAKAO_CHANNEL_URL) {
+                    window.open(KAKAO_CHANNEL_URL, "_blank", "noopener,noreferrer");
+                  } else {
+                    toast({
+                      title: "카톡방 준비 중입니다",
+                      description: "동문 카카오톡 채널이 곧 연결될 예정입니다.",
+                    });
+                  }
+                }}
+                data-testid="button-kakao-channel"
+              >
                 <div className="w-10 h-10 bg-kakao-yellow rounded-lg flex items-center justify-center">
                   <svg className="text-kakao-brown" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z" />
@@ -319,7 +348,12 @@ export default function Home() {
                 <p className="text-xs text-gray-600 font-medium">카톡방 참여</p>
               </Button>
 
-              <Button variant="ghost" className="flex-col p-3 h-auto space-y-2">
+              <Button
+                variant="ghost"
+                className="flex-col p-3 h-auto space-y-2"
+                onClick={() => setLocation("/b")}
+                data-testid="button-meeting-schedule"
+              >
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                   <Calendar className="text-purple-600" size={20} />
                 </div>

@@ -205,3 +205,44 @@ export const insertObituarySchema = z.object({
   contactNumber: z.string().optional().default(""),
 });
 export type InsertObituary = z.infer<typeof insertObituarySchema>;
+
+// 활동 지역(시/도) 18개 — 온보딩·프로필 편집·서버 검증에서 공통 사용.
+export const REGION_OPTIONS = [
+  '서울특별시', '부산광역시', '대구광역시', '인천광역시',
+  '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
+  '경기도', '강원특별자치도', '충청북도', '충청남도',
+  '전북특별자치도', '전라남도', '경상북도', '경상남도',
+  '제주특별자치도', '해외',
+] as const;
+
+// 연회비 기준액(원). 권리회원 판정 안내 및 미납 표시에 사용.
+export const ANNUAL_DUES = 50000;
+
+// 회원 등급(권리회원/일반회원) 판정 결과. 서버·클라이언트 공통 타입.
+// 권리회원 = 당해년도 회비 납부자(완료 상태 납부 1건 이상). /about/dues 의
+// "회비 납부자(권리회원)" 정의와 일치. 별도 결제 연동 없이 기존 납부 내역으로만 산출.
+export type MembershipTier = '권리회원' | '일반회원';
+export type MembershipStatus = {
+  year: number;
+  tier: MembershipTier;
+  isPaid: boolean;
+  paidAmount: number; // 당해년도 완료 납부 합계(원)
+  annualDues: number; // 연회비 기준액(원)
+  currentYearPayment: Payment | null; // 당해년도 최근 납부 1건(표시용)
+};
+
+// 프로필에서 본인이 수정 가능한 항목만 허용 (이름·졸업년도 등 검증 항목 제외).
+export const updateProfileSchema = insertUserSchema
+  .pick({
+    activityRegion: true,
+    birthday: true,
+    birthdayType: true,
+    isLeapMonth: true,
+    kakaoSyncEnabled: true,
+  })
+  .partial()
+  .extend({
+    // 양력/음력만 허용 (클라이언트 값 제약을 서버에서도 강제).
+    birthdayType: z.enum(["SOLAR", "LUNAR"]).nullable().optional(),
+  });
+export type UpdateProfile = z.infer<typeof updateProfileSchema>;

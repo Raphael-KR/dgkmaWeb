@@ -3,7 +3,7 @@ import {
   type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
-  type Obituary, type InsertObituary
+  type Obituary, type InsertObituary, type MembershipStatus, ANNUAL_DUES
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
@@ -83,6 +83,7 @@ export interface IStorage {
   getPaymentsByUser(userId: number): Promise<Payment[]>;
   getPayment(id: number): Promise<Payment | undefined>;
   createPayment(payment: InsertPayment): Promise<Payment>;
+  getMembershipStatus(userId: number): Promise<MembershipStatus>;
   
   // Alumni methods
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
@@ -240,6 +241,24 @@ export class DatabaseStorage implements IStorage {
   async createPayment(insertPayment: InsertPayment): Promise<Payment> {
     const [payment] = await db.insert(payments).values(insertPayment).returning();
     return payment;
+  }
+
+  // 권리회원 등급 판정 — 당해년도 완료 납부 내역으로만 계산(결제 연동 없음).
+  async getMembershipStatus(userId: number): Promise<MembershipStatus> {
+    const year = new Date().getFullYear();
+    const all = await this.getPaymentsByUser(userId); // createdAt desc 정렬
+    const currentYear = all.filter((p) => p.year === year);
+    const completed = currentYear.filter((p) => p.status === "completed");
+    const paidAmount = completed.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+    const isPaid = completed.length > 0;
+    return {
+      year,
+      tier: isPaid ? "권리회원" : "일반회원",
+      isPaid,
+      paidAmount,
+      annualDues: ANNUAL_DUES,
+      currentYearPayment: currentYear[0] ?? null,
+    };
   }
 
   async findAlumniByName(name: string): Promise<any[]> {

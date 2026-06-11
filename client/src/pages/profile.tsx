@@ -8,12 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { LogOut, Download, CreditCard, Edit, Settings, Shield } from "lucide-react";
+import { LogOut, Edit, Settings, Shield, Receipt } from "lucide-react";
+import { MembershipBadge } from "@/components/membership-badge";
+import { ProfileEditDialog } from "@/components/profile/profile-edit-dialog";
+import { SettingsDialog } from "@/components/profile/settings-dialog";
+import type { MembershipStatus } from "@shared/schema";
 
 export default function Profile() {
   const { user, logout } = useAuth();
 
   const [location, setLocation] = useLocation();
+  const [editOpen, setEditOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { data: payments, isLoading: paymentsLoading } = useQuery({
     queryKey: ["/api/payments/user", user?.id],
@@ -21,6 +27,11 @@ export default function Profile() {
       const response = await fetch(`/api/payments/user/${user?.id}`, { credentials: "include" });
       return response.json();
     },
+    enabled: !!user?.id,
+  });
+
+  const { data: membership } = useQuery<MembershipStatus>({
+    queryKey: ["/api/membership/status"],
     enabled: !!user?.id,
   });
 
@@ -75,9 +86,12 @@ export default function Profile() {
               <p className="text-gray-600">
                 {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
               </p>
-              <Badge className={user.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                {user.isVerified ? "인증완료" : "인증대기"}
-              </Badge>
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <Badge className={user.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                  {user.isVerified ? "인증완료" : "인증대기"}
+                </Badge>
+                {membership && <MembershipBadge tier={membership.tier} />}
+              </div>
             </CardHeader>
           </Card>
 
@@ -140,13 +154,11 @@ export default function Profile() {
                     <Button 
                       className="w-full kakao kakao-brown"
                       size="sm"
-                      onClick={() => {
-                        // Mock payment processing
-                        alert("결제 시스템 연동 예정입니다. (토스페이, 카카오페이 등)");
-                      }}
+                      onClick={() => setLocation("/about/dues")}
+                      data-testid="button-dues-guide"
                     >
-                      <CreditCard className="mr-2" size={14} />
-                      50,000원 납부하기
+                      <Receipt className="mr-2" size={14} />
+                      회비 납부 안내 보기
                     </Button>
                   </div>
                 )}
@@ -202,11 +214,21 @@ export default function Profile() {
           {/* Actions */}
           <Card className="shadow-sm mb-6">
             <CardContent className="p-4 space-y-2">
-              <Button variant="ghost" className="w-full justify-start">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => setEditOpen(true)}
+                data-testid="button-edit-profile"
+              >
                 <Edit className="mr-3" size={20} />
                 프로필 수정
               </Button>
-              <Button variant="ghost" className="w-full justify-start">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => setSettingsOpen(true)}
+                data-testid="button-open-settings"
+              >
                 <Settings className="mr-3" size={20} />
                 설정
               </Button>
@@ -248,7 +270,8 @@ export default function Profile() {
         </div>
       </div>
 
-
+      <ProfileEditDialog open={editOpen} onOpenChange={setEditOpen} user={user} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} user={user} />
     </div>
   );
 }
