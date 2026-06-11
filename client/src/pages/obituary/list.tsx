@@ -97,7 +97,12 @@ export default function ObituaryList() {
                                             <span className="text-gray-500 mr-1">상주:</span>
                                             <span className="font-medium">{obituary.chiefMourner}</span>
                                         </div>
-                                        <Button variant="outline" size="sm" className="text-xs">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-xs"
+                                            onClick={() => setLocation(`/o/${obituary.id}`)}
+                                        >
                                             자세히 보기
                                         </Button>
                                     </div>

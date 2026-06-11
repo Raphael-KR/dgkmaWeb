@@ -17,6 +17,7 @@ import Profile from "@/pages/profile";
 import HeritagePage from "@/pages/heritage";
 import ObituaryList from "@/pages/obituary/list";
 import ObituaryCreate from "@/pages/obituary/create";
+import ObituaryDetail from "@/pages/obituary/detail";
 import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
 import Terms from "@/pages/terms";
@@ -108,6 +109,9 @@ function Router() {
       </Route>
       <Route path="/o/new">
         <AuthGate><ObituaryCreate /></AuthGate>
+      </Route>
+      <Route path="/o/:id">
+        <AuthGate><ObituaryDetail /></AuthGate>
       </Route>
 
       {/* Redirect old routes to /heritage */}

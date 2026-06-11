@@ -41,8 +41,18 @@ export const posts = pgTable("posts", {
   categoryId: integer("category_id").references(() => categories.id),
   authorId: integer("author_id").references(() => users.id),
   isPublished: boolean("is_published").default(true),
+  imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// 게시글 댓글. authorId/postId 는 서버에서 세션·URL 로 채움(본문은 content 만).
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  authorId: integer("author_id").references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const payments = pgTable("payments", {
@@ -109,7 +119,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   }),
 }));
 
-export const postsRelations = relations(posts, ({ one }) => ({
+export const postsRelations = relations(posts, ({ one, many }) => ({
   author: one(users, {
     fields: [posts.authorId],
     references: [users.id],
@@ -117,6 +127,18 @@ export const postsRelations = relations(posts, ({ one }) => ({
   category: one(categories, {
     fields: [posts.categoryId],
     references: [categories.id],
+  }),
+  comments: many(comments),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  post: one(posts, {
+    fields: [comments.postId],
+    references: [posts.id],
+  }),
+  author: one(users, {
+    fields: [comments.authorId],
+    references: [users.id],
   }),
 }));
 
@@ -164,6 +186,16 @@ export const insertPostSchema = createInsertSchema(posts).omit({
   updatedAt: true,
 });
 
+// 댓글 작성 입력 — 본문(content)만 검증. postId 는 URL, authorId 는 세션에서 채움.
+export const insertCommentSchema = createInsertSchema(comments)
+  .pick({ content: true })
+  .extend({
+    content: z
+      .string()
+      .min(1, "댓글 내용을 입력해주세요")
+      .max(1000, "댓글은 1000자 이내로 입력해주세요"),
+  });
+
 export const insertPaymentSchema = createInsertSchema(payments).omit({
   id: true,
   createdAt: true,
@@ -185,6 +217,8 @@ export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Post = typeof posts.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;
+export type Comment = typeof comments.$inferSelect;
+export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type AlumniRecord = typeof alumniDatabase.$inferSelect;

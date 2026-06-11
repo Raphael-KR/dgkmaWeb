@@ -1,9 +1,9 @@
 import {
-  users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries,
+  users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries, comments,
   type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
-  type Obituary, type InsertObituary, type MembershipStatus, ANNUAL_DUES
+  type Obituary, type InsertObituary, type MembershipStatus, type Comment, ANNUAL_DUES
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
@@ -55,6 +55,11 @@ const REGION_PATTERNS: Record<string, string[]> = {
   '해외': [],
 };
 
+// 댓글 + 작성자 표시 정보(이름). authorId 가 없는(탈퇴 등) 경우 author=null.
+export type CommentWithAuthor = Comment & {
+  author: { id: number; name: string } | null;
+};
+
 export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
@@ -78,7 +83,13 @@ export interface IStorage {
   updatePost(id: number, post: Partial<InsertPost>): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
   searchPosts(query: string): Promise<(Post & { category: Category })[]>;
-  
+
+  // Comment methods
+  getCommentsByPost(postId: number): Promise<CommentWithAuthor[]>;
+  getComment(id: number): Promise<Comment | undefined>;
+  createComment(data: { postId: number; authorId: number; content: string }): Promise<Comment>;
+  deleteComment(id: number): Promise<boolean>;
+
   // Payment methods
   getPaymentsByUser(userId: number): Promise<Payment[]>;
   getPayment(id: number): Promise<Payment | undefined>;
@@ -179,6 +190,7 @@ export class DatabaseStorage implements IStorage {
       categoryId: posts.categoryId,
       authorId: posts.authorId,
       isPublished: posts.isPublished,
+      imageUrls: posts.imageUrls,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
       category: categories
@@ -198,6 +210,7 @@ export class DatabaseStorage implements IStorage {
       categoryId: posts.categoryId,
       authorId: posts.authorId,
       isPublished: posts.isPublished,
+      imageUrls: posts.imageUrls,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
       category: categories
@@ -224,6 +237,45 @@ export class DatabaseStorage implements IStorage {
 
   async deletePost(id: number): Promise<boolean> {
     const result = await db.delete(posts).where(eq(posts.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getCommentsByPost(postId: number): Promise<CommentWithAuthor[]> {
+    const rows = await db.select({
+      id: comments.id,
+      postId: comments.postId,
+      authorId: comments.authorId,
+      content: comments.content,
+      createdAt: comments.createdAt,
+      authorName: users.name,
+    })
+    .from(comments)
+    .leftJoin(users, eq(comments.authorId, users.id))
+    .where(eq(comments.postId, postId))
+    .orderBy(asc(comments.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      postId: r.postId,
+      authorId: r.authorId,
+      content: r.content,
+      createdAt: r.createdAt,
+      author: r.authorId ? { id: r.authorId, name: r.authorName ?? "회원" } : null,
+    }));
+  }
+
+  async getComment(id: number): Promise<Comment | undefined> {
+    const [comment] = await db.select().from(comments).where(eq(comments.id, id));
+    return comment || undefined;
+  }
+
+  async createComment(data: { postId: number; authorId: number; content: string }): Promise<Comment> {
+    const [comment] = await db.insert(comments).values(data).returning();
+    return comment;
+  }
+
+  async deleteComment(id: number): Promise<boolean> {
+    const result = await db.delete(comments).where(eq(comments.id, id));
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -428,6 +480,7 @@ export class DatabaseStorage implements IStorage {
       categoryId: posts.categoryId,
       authorId: posts.authorId,
       isPublished: posts.isPublished,
+      imageUrls: posts.imageUrls,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
       category: categories
