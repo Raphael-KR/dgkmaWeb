@@ -559,6 +559,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alumni directory (회원 전용) — 본인 기수/지부 범위 동문만 열람. q 로 이름·기수 검색.
+  app.get("/api/alumni", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+      const viewer = await storage.getUser(userId);
+      if (!viewer) {
+        return res.status(401).json({ message: "사용자를 찾을 수 없습니다" });
+      }
+      const q = typeof req.query.q === "string" ? req.query.q : undefined;
+      const result = await storage.getDirectoryAlumni(viewer, q);
+      res.json(result);
+    } catch (error) {
+      console.error("Alumni directory error:", error);
+      res.status(500).json({ message: "동문 명부 조회에 실패했습니다" });
+    }
+  });
+
   // Payments routes
   app.get("/api/payments/user/:userId", async (req, res) => {
     try {

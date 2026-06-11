@@ -1,9 +1,27 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Info } from "lucide-react";
+
+interface DirectoryAlumni {
+  id: number;
+  name: string;
+  generation: string;
+  department: string;
+  graduationYear: number | null;
+  position: string | null;
+  isMatched: boolean;
+}
+
+interface DirectoryResult {
+  alumni: DirectoryAlumni[];
+  total: number;
+  hasScope: boolean;
+  scope: { generation: string | null; region: string | null };
+}
 
 export default function Directory() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -13,53 +31,42 @@ export default function Directory() {
     window.scrollTo(0, 0);
   }, []);
 
+  const { data, isLoading } = useQuery<DirectoryResult>({
+    queryKey: ["/api/alumni"],
+  });
 
-  // Mock alumni data
-  const alumni = [
-    {
-      id: 1,
-      name: "김○○",
-      graduationYear: 2010,
-      isVerified: true,
-      department: "한의학과"
-    },
-    {
-      id: 2,
-      name: "이○○",
-      graduationYear: 2015,
-      isVerified: true,
-      department: "한의학과"
-    },
-    {
-      id: 3,
-      name: "박○○",
-      graduationYear: 2018,
-      isVerified: false,
-      department: "한의학과"
-    },
-  ];
+  const alumni = data?.alumni ?? [];
+  const total = data?.total ?? 0;
+  const hasScope = data?.hasScope ?? false;
 
-  const filteredAlumni = alumni.filter(person =>
-    person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    person.graduationYear.toString().includes(searchTerm)
-  );
+  const filteredAlumni = alumni.filter((person) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      person.name.toLowerCase().includes(term) ||
+      person.generation.includes(searchTerm) ||
+      (person.graduationYear?.toString().includes(searchTerm) ?? false)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-
-      
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
-          <h1 className="text-xl font-bold kakao-brown mb-6">동문록</h1>
-          
+          <h1 className="text-xl font-bold kakao-brown mb-2">동문록</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            같은 기수 또는 같은 지역 동문을 볼 수 있어요.
+          </p>
+
           {/* Search */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-3 text-gray-400" size={20} />
             <Input
-              placeholder="이름 또는 졸업년도로 검색"
+              placeholder="이름 또는 기수로 검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
+              disabled={!hasScope}
             />
           </div>
 
@@ -71,23 +78,60 @@ export default function Directory() {
                   <Users className="text-blue-600" size={24} />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">등록된 동문</p>
-                  <p className="text-xl font-bold">1,247명</p>
+                  <p className="text-sm text-gray-600">열람 가능한 동문</p>
+                  <p className="text-xl font-bold">
+                    {isLoading ? "—" : `${total.toLocaleString()}명`}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Alumni List */}
-          <div className="space-y-3">
-            {filteredAlumni.length === 0 ? (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-gray-500">검색 결과가 없습니다.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredAlumni.map((person) => (
+          {/* 본문 상태별 렌더링 */}
+          {isLoading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <Card key={i} className="shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3 animate-pulse">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-1/3" />
+                        <div className="h-3 bg-gray-100 rounded w-2/3" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : !hasScope ? (
+            // 기수/지역 정보가 없어 열람 범위를 정할 수 없는 경우 안내
+            <Card className="shadow-sm border-yellow-200 bg-yellow-50">
+              <CardContent className="p-6 text-center">
+                <div className="w-12 h-12 bg-yellow-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                  <Info className="text-yellow-600" size={24} />
+                </div>
+                <h3 className="font-bold text-gray-800 mb-2">동문을 보려면 정보가 필요해요</h3>
+                <p className="text-sm text-gray-600">
+                  기수 또는 활동 지역 정보가 없어 열람할 수 있는 동문을 정할 수 없습니다.
+                  <br />
+                  내 정보에 기수·지역을 등록하면 같은 기수·지역 동문을 볼 수 있어요.
+                </p>
+              </CardContent>
+            </Card>
+          ) : filteredAlumni.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <p className="text-gray-500">
+                  {searchTerm.trim()
+                    ? "검색 결과가 없습니다."
+                    : "열람 가능한 동문이 없습니다."}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filteredAlumni.map((person) => (
                 <Card key={person.id} className="shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
@@ -98,26 +142,29 @@ export default function Directory() {
                           </span>
                         </div>
                         <div>
-                          <p className="font-bold">{person.name}</p>
+                          <p className="font-bold">
+                            {person.name}
+                            {person.position && (
+                              <span className="ml-2 text-xs font-normal text-kakao-brown">
+                                {person.position}
+                              </span>
+                            )}
+                          </p>
                           <p className="text-sm text-gray-600">
-                            {person.graduationYear}년 졸업 · {person.department}
+                            {person.generation}기 · {person.department}
+                            {person.graduationYear ? ` · ${person.graduationYear}년 졸업` : ""}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={person.isVerified ? "default" : "secondary"}>
-                          {person.isVerified ? "인증" : "미인증"}
-                        </Badge>
-                        <Button variant="ghost" size="sm">
-                          연락
-                        </Button>
-                      </div>
+                      {person.isMatched && (
+                        <Badge variant="default">회원</Badge>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Join KakaoTalk Group */}
           <Card className="shadow-sm mt-6 bg-gradient-to-r from-yellow-50 to-yellow-100">
@@ -138,8 +185,6 @@ export default function Directory() {
           </Card>
         </div>
       </div>
-
-
     </div>
   );
 }
