@@ -219,8 +219,9 @@ export const REGION_OPTIONS = [
 export const ANNUAL_DUES = 50000;
 
 // 회원 등급(권리회원/일반회원) 판정 결과. 서버·클라이언트 공통 타입.
-// 권리회원 = 당해년도 회비 납부자(완료 상태 납부 1건 이상). /about/dues 의
-// "회비 납부자(권리회원)" 정의와 일치. 별도 결제 연동 없이 기존 납부 내역으로만 산출.
+// 권리회원 = 당해년도 연회비 완납자(type='연회비' + status='completed' 합계가
+// ANNUAL_DUES 이상). /about/dues 의 "회비 납부자(권리회원)" 정의와 일치.
+// 별도 결제 연동 없이 기존 납부 내역으로만 산출.
 export type MembershipTier = '권리회원' | '일반회원';
 export type MembershipStatus = {
   year: number;
@@ -228,7 +229,7 @@ export type MembershipStatus = {
   isPaid: boolean;
   paidAmount: number; // 당해년도 완료 납부 합계(원)
   annualDues: number; // 연회비 기준액(원)
-  currentYearPayment: Payment | null; // 당해년도 최근 납부 1건(표시용)
+  currentYearPayment: Payment | null; // 당해년도 완료된 연회비 중 최신 1건(표시용)
 };
 
 // 프로필에서 본인이 수정 가능한 항목만 허용 (이름·졸업년도 등 검증 항목 제외).
