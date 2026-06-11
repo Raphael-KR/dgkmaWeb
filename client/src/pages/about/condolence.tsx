@@ -29,7 +29,7 @@ export default function AboutCondolence() {
           <CardContent className="p-6">
             <h2 className="text-lg font-bold tp-text-green-dark mb-3">지원 항목별 금액 (한눈에 보기)</h2>
             <p className="text-sm text-gray-700 mb-3">
-              지원 대상: 회원 본인 및 <strong>본인 및 배우자의 직계 1촌(부모·자녀)</strong> 이내 경조사.
+              지원 대상: 회원 본인 및 <strong>배우자의 직계 1촌(부모·자녀)</strong> 이내 경조사.
               회칙 제25조에 따른 길흉사(결혼·개원·사망)에 적용됩니다.
             </p>
             <div className="overflow-x-auto -mx-2 px-2">
