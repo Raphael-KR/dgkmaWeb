@@ -11,6 +11,23 @@ import { Badge } from "@/components/ui/badge";
 
 import { Search, ArrowLeft, FileText, Users } from "lucide-react";
 
+interface DirectoryAlumni {
+  id: number;
+  name: string;
+  generation: string;
+  department: string;
+  graduationYear: number | null;
+  position: string | null;
+  isMatched: boolean;
+}
+
+interface DirectoryResult {
+  alumni: DirectoryAlumni[];
+  total: number;
+  hasScope: boolean;
+  scope: { generation: string | null; region: string | null };
+}
+
 export default function SearchPage() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
@@ -35,20 +52,22 @@ export default function SearchPage() {
     enabled: !!searchTerm.trim() && (activeTab === "all" || activeTab === "posts"),
   });
 
-  // 동문 검색 (모의 데이터)
-  const mockAlumni = [
-    { id: 1, name: "김○○", graduationYear: 2010, isVerified: true, department: "한의학과" },
-    { id: 2, name: "이○○", graduationYear: 2015, isVerified: true, department: "한의학과" },
-    { id: 3, name: "박○○", graduationYear: 2018, isVerified: false, department: "한의학과" },
-    { id: 4, name: "최○○", graduationYear: 2020, isVerified: true, department: "한의학과" },
-  ];
+  // 동문 검색 (실데이터 — 본인 기수/지부 범위 제한은 서버에서 처리)
+  const { data: alumniResult, isLoading: alumniLoading } = useQuery<DirectoryResult>({
+    queryKey: ["/api/alumni", searchTerm],
+    queryFn: async () => {
+      if (!searchTerm.trim()) return { alumni: [], total: 0, hasScope: false, scope: { generation: null, region: null } };
+      const response = await fetch(`/api/alumni?q=${encodeURIComponent(searchTerm)}`, {
+        credentials: "include",
+      });
+      return response.ok
+        ? response.json()
+        : { alumni: [], total: 0, hasScope: false, scope: { generation: null, region: null } };
+    },
+    enabled: !!searchTerm.trim() && (activeTab === "all" || activeTab === "alumni"),
+  });
 
-  const filteredAlumni = searchTerm.trim()
-    ? mockAlumni.filter(person =>
-      person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      person.graduationYear.toString().includes(searchTerm)
-    )
-    : [];
+  const filteredAlumni = alumniResult?.alumni ?? [];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +75,7 @@ export default function SearchPage() {
   };
 
   const totalResults = (posts?.length || 0) + (filteredAlumni?.length || 0);
-  const isLoading = postsLoading;
+  const isLoading = postsLoading || alumniLoading;
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -196,16 +215,24 @@ export default function SearchPage() {
                           </span>
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-800">{person.name}</h4>
+                          <h4 className="font-medium text-gray-800">
+                            {person.name}
+                            {person.position && (
+                              <span className="ml-2 text-xs font-normal text-kakao-brown">
+                                {person.position}
+                              </span>
+                            )}
+                          </h4>
                           <p className="text-sm text-gray-600">
-                            {person.graduationYear}년 졸업 • {person.department}
+                            {person.generation}기 • {person.department}
+                            {person.graduationYear ? ` • ${person.graduationYear}년 졸업` : ""}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge className={person.isVerified ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                          {person.isVerified ? "인증완료" : "인증대기"}
-                        </Badge>
+                        {person.isMatched && (
+                          <Badge className="bg-green-100 text-green-800">회원</Badge>
+                        )}
                         <Users size={16} className="text-gray-400" />
                       </div>
                     </div>
