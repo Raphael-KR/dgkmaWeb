@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS } from "@shared/schema";
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
 
 declare module "express-session" {
   interface SessionData {
@@ -551,7 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 첨부 이미지 경로는 오브젝트 스토리지 상대경로만 허용 (외부 URL <img src> 주입 차단).
       if (
         validatedData.imageUrls &&
-        !validatedData.imageUrls.every((u) => /^\/(objects|public-objects)\//.test(u))
+        !validatedData.imageUrls.every((u) => /^\/objects\//.test(u))
       ) {
         return res.status(400).json({ message: "잘못된 첨부 이미지 경로입니다" });
       }
@@ -852,6 +853,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // 오브젝트 스토리지 라우트 (업로드 URL 발급 + /objects/ 서빙)
+  registerObjectStorageRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

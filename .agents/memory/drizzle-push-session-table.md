@@ -11,4 +11,4 @@ It always prompts "Is <X> table created or renamed from another table?" because 
 
 **How to apply additive schema changes:** Apply the exact DDL Drizzle would generate directly via the `executeSql` callback (development env targets the same DB as `DATABASE_URL`). Match Drizzle's FK naming convention `<table>_<col>_<reftable>_<refcol>_fk` so a later `db:push` sees no diff. Do NOT re-run `db:push` afterward — it would offer to DROP the session table.
 
-Note: in this dev environment the DB reachable via `executeSql`/drizzle is the same one the running server uses, but it is typically empty (no seed rows). `getPost`/`getPosts` inner-join `categories`, so a post needs a non-null `category_id` to be returned.
+Note: in this dev environment the DB reachable via `executeSql`/drizzle is the same one the running server uses, but it is typically empty (no seed rows).
