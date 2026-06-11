@@ -192,7 +192,7 @@ export default function Home() {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-green-600">
-                      {currentYearPayment.amount.toLocaleString()}원
+                      {membership.paidAmount.toLocaleString()}원
                     </p>
                     {currentYearPayment.createdAt && (
                       <p className="text-xs text-gray-500">

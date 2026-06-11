@@ -63,8 +63,9 @@ export default function Profile() {
     return null;
   }
 
-  const currentYear = new Date().getFullYear();
-  const currentYearPayment = payments?.find((p: any) => p.year === currentYear);
+  const currentYear = membership?.year ?? new Date().getFullYear();
+  // 당해년도 연회비 완납 여부는 membership API 결과만 사용(완료된 연회비 합계 기준).
+  const currentYearPayment = membership?.isPaid ? membership.currentYearPayment : null;
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -129,17 +130,23 @@ export default function Profile() {
               {/* Current Year Payment Status */}
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-3">{currentYear}년 연회비</p>
-                {currentYearPayment ? (
+                {!membership ? (
+                  <div className="flex justify-center py-4">
+                    <LoadingSpinner />
+                  </div>
+                ) : currentYearPayment ? (
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                     <div>
                       <p className="font-bold text-green-800">납부완료</p>
-                      <p className="text-xs text-green-600">
-                        {new Date(currentYearPayment.createdAt).toLocaleDateString()} 납부
-                      </p>
+                      {currentYearPayment.createdAt && (
+                        <p className="text-xs text-green-600">
+                          {new Date(currentYearPayment.createdAt).toLocaleDateString()} 납부
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-green-600">
-                        {currentYearPayment.amount.toLocaleString()}원
+                        {membership.paidAmount.toLocaleString()}원
                       </p>
                     </div>
                   </div>
