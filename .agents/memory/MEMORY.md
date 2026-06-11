@@ -1,0 +1,1 @@
+- [Drizzle push & session table](drizzle-push-session-table.md) — db:push prompts create-vs-rename because connect-pg-simple `session` isn't in schema; apply additive DDL via executeSql instead, never re-run push.
