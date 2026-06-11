@@ -108,7 +108,7 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <h3 className="font-semibold tp-text-green-dark mb-2">2단계. 비용 입금</h3>
               <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 발송요청자 부담금]</p>
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
-                <li>회비 납부자: 단문 무료, 장문(한글 45자 초과) 10만원</li>
+                <li>회비 납부자: 단문 무료, 장문 10만원(한글 45자 초과시)</li>
                 <li>
                   회비 미납자: 단문 5만원, 장문 15만원
                 </li>
@@ -209,7 +209,7 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
             <ol className="space-y-3 text-sm text-gray-700 list-decimal list-outside ml-5">
               <li>
                 경조사 문자는 단문은 권리회원(본인 및 배우자의 직계 1촌 이내)과 본인상은 무료, 일반회원 5만원,
-                장문(한글 45자 초과)은 권리회원 10만원, 일반회원 15만원을 받고 발송합니다.
+                장문 10만원(한글 45자 초과시)은 권리회원, 일반회원 15만원을 받고 발송합니다.
                 <ul className="mt-1 list-disc list-inside text-gray-600">
                   <li>동문 전체 문자는 단문 약 3만원, 장문 약 9만원의 실비가 발생합니다.</li>
                 </ul>
