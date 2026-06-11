@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,9 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/schema";
-import { Plus } from "lucide-react";
+import { Plus, ImagePlus, X, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useUpload } from "@/hooks/use-upload";
 
 export default function Boards() {
   const { user } = useAuth();
@@ -26,6 +27,33 @@ export default function Boards() {
   const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { uploadFile, isUploading } = useUpload({
+    onError: () => {
+      toast({
+        title: "사진 업로드 실패",
+        description: "사진 업로드 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    for (const file of files) {
+      const result = await uploadFile(file);
+      if (result?.objectPath) {
+        setImageUrls((prev) => [...prev, result.objectPath]);
+      }
+    }
+  };
+
+  const removeImage = (path: string) => {
+    setImageUrls((prev) => prev.filter((p) => p !== path));
+  };
 
   // 페이지 로드 시 최상단으로 스크롤
   useEffect(() => {
@@ -91,6 +119,7 @@ export default function Boards() {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       setIsWriteDialogOpen(false);
       writeForm.reset();
+      setImageUrls([]);
     },
     onError: (error) => {
       toast({
@@ -106,6 +135,7 @@ export default function Boards() {
     createPostMutation.mutate({
       ...data,
       authorId: user?.id!,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     });
   };
 
@@ -121,7 +151,16 @@ export default function Boards() {
             <h1 className="text-xl font-bold text-kakao-brown">게시판</h1>
 
             {/* 글쓰기 버튼 */}
-            <Dialog open={isWriteDialogOpen} onOpenChange={setIsWriteDialogOpen}>
+            <Dialog
+              open={isWriteDialogOpen}
+              onOpenChange={(open) => {
+                setIsWriteDialogOpen(open);
+                if (!open) {
+                  setImageUrls([]);
+                  writeForm.reset();
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
                   <Plus size={16} className="mr-1" />
@@ -197,17 +236,74 @@ export default function Boards() {
                       )}
                     />
 
+                    {/* 사진 첨부 */}
+                    <div className="space-y-2">
+                      <FormLabel>사진 첨부</FormLabel>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploading}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full"
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 size={16} className="mr-1 animate-spin" />
+                            업로드중...
+                          </>
+                        ) : (
+                          <>
+                            <ImagePlus size={16} className="mr-1" />
+                            사진 추가
+                          </>
+                        )}
+                      </Button>
+                      {imageUrls.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {imageUrls.map((path) => (
+                            <div key={path} className="relative">
+                              <img
+                                src={path}
+                                alt="첨부 이미지"
+                                className="w-full h-20 object-cover rounded-md border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeImage(path)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"
+                                aria-label="이미지 삭제"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex justify-end space-x-2 pt-4">
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => setIsWriteDialogOpen(false)}
+                        onClick={() => {
+                          setIsWriteDialogOpen(false);
+                          setImageUrls([]);
+                        }}
                       >
                         취소
                       </Button>
                       <Button
                         type="submit"
-                        disabled={createPostMutation.isPending}
+                        disabled={createPostMutation.isPending || isUploading}
                         className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400"
                       >
                         {createPostMutation.isPending ? "작성중..." : "작성완료"}
