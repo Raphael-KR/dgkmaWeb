@@ -37,30 +37,30 @@ export default function AboutCondolence() {
                 <thead>
                   <tr className="border-b tp-border-gold/40">
                     <th className="text-left py-2 px-2 tp-text-green-dark">구분</th>
-                    <th className="text-left py-2 px-2 tp-text-green-dark">기본 부담금</th>
-                    <th className="text-left py-2 px-2 tp-text-green-dark">회비 납부자</th>
+                    <th className="text-center py-2 px-2 tp-text-green-dark">기본 부담금</th>
+                    <th className="text-center py-2 px-2 tp-text-green-dark">회비 납부자</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-gray-700">
                   <tr>
                     <td className="py-3 px-2 font-medium">단문 문자 (한글 45자 이하)</td>
-                    <td className="py-3 px-2">5만원</td>
-                    <td className="py-3 px-2"><strong>무료</strong></td>
+                    <td className="py-3 px-2 text-center">5만원</td>
+                    <td className="py-3 px-2 text-center"><strong>무료</strong></td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium">장문 문자 (한글 45자 초과)</td>
-                    <td className="py-3 px-2">15만원</td>
-                    <td className="py-3 px-2">10만원</td>
+                    <td className="py-3 px-2 text-center">15만원</td>
+                    <td className="py-3 px-2 text-center">10만원</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium">근조기</td>
-                    <td className="py-3 px-2">10만원</td>
-                    <td className="py-3 px-2">5만원</td>
+                    <td className="py-3 px-2 text-center">10만원</td>
+                    <td className="py-3 px-2 text-center">5만원</td>
                   </tr>
                   <tr>
                     <td className="py-3 px-2 font-medium">화환</td>
-                    <td className="py-3 px-2">13만원</td>
-                    <td className="py-3 px-2">8만원</td>
+                    <td className="py-3 px-2 text-center">13만원</td>
+                    <td className="py-3 px-2 text-center">8만원</td>
                   </tr>
                 </tbody>
               </table>
