@@ -243,21 +243,26 @@ export class DatabaseStorage implements IStorage {
     return payment;
   }
 
-  // 권리회원 등급 판정 — 당해년도 완료 납부 내역으로만 계산(결제 연동 없음).
+  // 권리회원 등급 판정 — 당해년도 "연회비" 완납자만 권리회원(결제 연동 없음).
+  // 완납 기준: type='연회비' + status='completed' 합계가 연회비 기준액(ANNUAL_DUES) 이상.
+  // (기타 납부·부분 납부·미완료 건은 등급 판정에서 제외)
   async getMembershipStatus(userId: number): Promise<MembershipStatus> {
     const year = new Date().getFullYear();
     const all = await this.getPaymentsByUser(userId); // createdAt desc 정렬
-    const currentYear = all.filter((p) => p.year === year);
-    const completed = currentYear.filter((p) => p.status === "completed");
-    const paidAmount = completed.reduce((sum, p) => sum + (p.amount ?? 0), 0);
-    const isPaid = completed.length > 0;
+    // 당해년도 완료된 연회비 납부만 집계.
+    const completedDues = all.filter(
+      (p) => p.year === year && p.type === "연회비" && p.status === "completed",
+    );
+    const paidAmount = completedDues.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+    const isPaid = paidAmount >= ANNUAL_DUES;
     return {
       year,
       tier: isPaid ? "권리회원" : "일반회원",
       isPaid,
       paidAmount,
       annualDues: ANNUAL_DUES,
-      currentYearPayment: currentYear[0] ?? null,
+      // 표시용: 완료된 연회비 중 최신 1건(없으면 null) — 납부완료 카드에서만 사용.
+      currentYearPayment: completedDues[0] ?? null,
     };
   }
 
