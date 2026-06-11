@@ -110,7 +110,7 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
                 <li>회비 미납자: 단문 5만원, 장문(한글 45자 초과) 15만원</li>
                 <li>
-                  회비 납부자: 단문 무룼, 장문 10만원
+                  회비 납부자: 단문 무료, 장문 10만원
                 </li>
               </ul>
               <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 비용 입금 계좌]</p>
