@@ -208,8 +208,8 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
             <h2 className="text-lg font-bold tp-text-green-dark mb-3">다. 경조사 문자 FAQ</h2>
             <ol className="space-y-3 text-sm text-gray-700 list-decimal list-outside ml-5">
               <li>
-                경조사 문자는 단문은 권리회원(본인 및 배우자의 직계 1촌 이내)과 본인상은 무료, 준회원 5만원,
-                장문(한글 45자 초과)은 권리회원 10만원, 준회원 15만원을 받고 발송합니다.
+                경조사 문자는 단문은 권리회원(본인 및 배우자의 직계 1촌 이내)과 본인상은 무료, 일반회원 5만원,
+                장문(한글 45자 초과)은 권리회원 10만원, 일반회원 15만원을 받고 발송합니다.
                 <ul className="mt-1 list-disc list-inside text-gray-600">
                   <li>동문 전체 문자는 단문 약 3만원, 장문 약 9만원의 실비가 발생합니다.</li>
                 </ul>
