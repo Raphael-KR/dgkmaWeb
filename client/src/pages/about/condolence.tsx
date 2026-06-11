@@ -164,9 +164,9 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
               <h3 className="font-semibold tp-text-green-dark mb-2">1단계. 비용 입금</h3>
               <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 발송요청자 부담금]</p>
               <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
-                <li>근조기 5만원 / 화환 8만원</li>
+                <li>회비 미납자: 근조기 10만원 / 화환 13만원</li>
                 <li>
-                  ※ 비회비 납부자: 근조기 10만원, 화환 13만원
+                  회비 납부자: 근조기 5만원 / 화환 8만원
                 </li>
               </ul>
               <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 비용 입금 계좌]</p>
