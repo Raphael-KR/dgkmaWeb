@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema } from "@shared/schema";
+import { insertPostSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS } from "@shared/schema";
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
 
@@ -397,13 +397,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // body 필드명: activityRegion(권장) 또는 region(하위호환) 둘 다 허용.
     const region = req.body?.activityRegion ?? req.body?.region;
-    const REGION_OPTIONS = [
-      '서울특별시', '부산광역시', '대구광역시', '인천광역시',
-      '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
-      '경기도', '강원특별자치도', '충청북도', '충청남도',
-      '전북특별자치도', '전라남도', '경상북도', '경상남도',
-      '제주특별자치도', '해외',
-    ];
     if (!REGION_OPTIONS.includes(region)) {
       return res.status(400).json({ message: "Invalid region" });
     }
@@ -427,6 +420,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "User not found" });
     }
     return res.json({ user });
+  });
+
+  // 본인 프로필 수정 — 인증과 무관한 항목만 허용(activityRegion/birthday/birthdayType/
+  // isLeapMonth/kakaoSyncEnabled). 이름·졸업년도·연락처 등 검증 항목은 변경 불가.
+  // ⚠️ 대상은 항상 req.session.userId — body 로 userId 받지 않음(보안).
+  app.patch("/api/users/me", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+      const data = updateProfileSchema.parse(req.body);
+      if (data.activityRegion != null && !REGION_OPTIONS.includes(data.activityRegion as any)) {
+        return res.status(400).json({ message: "유효하지 않은 활동지역입니다" });
+      }
+      const updated = await storage.updateUser(req.session.userId, data);
+      if (!updated) {
+        return res.status(404).json({ message: "사용자를 찾을 수 없습니다" });
+      }
+      res.json({ user: updated });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "입력값이 올바르지 않습니다", errors: error.errors });
+      }
+      res.status(500).json({ message: "프로필 저장에 실패했습니다" });
+    }
+  });
+
+  // 권리회원 등급/회비 납부 현황 — 세션 기준 본인만 조회.
+  app.get("/api/membership/status", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+      const status = await storage.getMembershipStatus(req.session.userId);
+      res.json(status);
+    } catch (error) {
+      console.error("Membership status error:", error);
+      res.status(500).json({ message: "회원 등급 조회에 실패했습니다" });
+    }
   });
 
   if (process.env.NODE_ENV !== "production") {
@@ -582,7 +614,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Payments routes
   app.get("/api/payments/user/:userId", async (req, res) => {
     try {
-      const payments = await storage.getPaymentsByUser(parseInt(req.params.userId));
+      const sessionUserId = req.session.userId;
+      if (!sessionUserId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+      const targetUserId = parseInt(req.params.userId);
+      // 본인 또는 관리자만 열람 가능 (타인 납부 내역 노출 방지).
+      if (targetUserId !== sessionUserId) {
+        const viewer = await storage.getUser(sessionUserId);
+        if (!viewer?.isAdmin) {
+          return res.status(403).json({ message: "권한이 없습니다" });
+        }
+      }
+      const payments = await storage.getPaymentsByUser(targetUserId);
       res.json(payments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch payments" });

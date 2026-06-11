@@ -18,6 +18,7 @@ interface KakaoLoginPayload {
 
 interface AuthContextType {
   user: User | null;
+  setUser: (user: User | null) => void;
   login: (kakaoData: KakaoLoginPayload) => Promise<{ user: User } | { requiresApproval: true } | null>;
   logout: () => void;
   isLoading: boolean;
@@ -127,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, setUser, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
