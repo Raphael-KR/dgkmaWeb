@@ -37,7 +37,7 @@ export default function AboutCondolence() {
                 <thead>
                   <tr className="border-b tp-border-gold/40">
                     <th className="text-left py-2 px-2 tp-text-green-dark">구분</th>
-                    <th className="text-center py-2 px-2 tp-text-green-dark">기본 부담금</th>
+                    <th className="text-center py-2 px-2 tp-text-green-dark">회비 미납자</th>
                     <th className="text-center py-2 px-2 tp-text-green-dark">회비 납부자</th>
                   </tr>
                 </thead>
