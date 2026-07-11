@@ -1,5 +1,5 @@
-# CLAUDE.md
-Project-specific instructions for Claude Code working in this repository.
+# AGENTS.md
+Project-specific instructions for Codex working in this repository.
 ## Project context
 This repository is the web application for the Dongguk University Korean Medicine Alumni Association.
 The app is developed mainly through Replit and GitHub. The production app is published through Replit and uses environment variables from Replit Secrets.
