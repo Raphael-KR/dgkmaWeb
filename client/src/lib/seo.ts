@@ -13,7 +13,21 @@ export interface SeoOptions {
   path?: string;
   keywords?: string;
   type?: "website" | "article";
+  noIndex?: boolean;
 }
+
+export const COMMUNITY_EVENTS_SEO = {
+  index: {
+    title: "경조사",
+    description: "동국대학교한의과대학동문회 회원 경조사 소식을 확인합니다.",
+    noIndex: true,
+  },
+  detail: {
+    title: "경조사 상세",
+    description: "동국대학교한의과대학동문회 회원 경조사 상세 내용을 확인합니다.",
+    noIndex: true,
+  },
+} as const;
 
 function setMeta(attr: "name" | "property", key: string, content: string) {
   if (!content) return;
@@ -63,7 +77,7 @@ export function applySeo(opts: SeoOptions) {
   document.title = fullTitle;
   setMeta("name", "description", description);
   setMeta("name", "keywords", keywords);
-  setMeta("name", "robots", "index, follow");
+  setMeta("name", "robots", opts.noIndex ? "noindex, nofollow" : "index, follow");
   setLink("canonical", url);
 
   setMeta("property", "og:site_name", SITE_NAME);
@@ -84,5 +98,5 @@ export function useSeo(opts: SeoOptions) {
   useEffect(() => {
     applySeo(opts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts.title, opts.description, opts.image, opts.path, opts.type, opts.keywords]);
+  }, [opts.title, opts.description, opts.image, opts.path, opts.type, opts.keywords, opts.noIndex]);
 }

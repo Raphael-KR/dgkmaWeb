@@ -20,7 +20,9 @@ export const obituaryDetailsSchema = z.object({
   chiefMourner: z.string().trim().optional(),
 }).strict();
 
-const emptyPublishedDetailsSchema = z.object({}).strict();
+export const memoDetailsSchema = z.object({
+  memo: z.string().trim().max(5_000).optional(),
+}).strict();
 
 const commonDraftFields = {
   eventType: z.enum(COMMUNITY_EVENT_TYPES),
@@ -34,12 +36,28 @@ const commonDraftFields = {
   sourceUrls: z.array(z.string().url()).max(3).default([]),
 };
 
-export const communityEventDraftSchema = z.object({
-  ...commonDraftFields,
-  details: z.record(z.unknown()).default({}),
-});
+const draftCommonSchema = z.object(commonDraftFields);
 
-const publishedCommonSchema = communityEventDraftSchema.extend({
+export const communityEventDraftSchema = z.discriminatedUnion("eventType", [
+  draftCommonSchema.extend({
+    eventType: z.literal("obituary"),
+    details: obituaryDetailsSchema.default({}),
+  }),
+  draftCommonSchema.extend({
+    eventType: z.literal("wedding"),
+    details: memoDetailsSchema.default({}),
+  }),
+  draftCommonSchema.extend({
+    eventType: z.literal("opening"),
+    details: memoDetailsSchema.default({}),
+  }),
+  draftCommonSchema.extend({
+    eventType: z.literal("other"),
+    details: memoDetailsSchema.default({}),
+  }),
+]);
+
+const publishedCommonSchema = draftCommonSchema.extend({
   title: z.string().trim().min(1),
   eventDate: z.string().trim().min(1),
   relatedMemberName: z.string().trim().min(1),
@@ -59,21 +77,22 @@ export const communityEventPublishSchema = z.discriminatedUnion("eventType", [
   }),
   publishedCommonSchema.extend({
     eventType: z.literal("wedding"),
-    details: emptyPublishedDetailsSchema.default({}),
+    details: memoDetailsSchema.default({}),
   }),
   publishedCommonSchema.extend({
     eventType: z.literal("opening"),
-    details: emptyPublishedDetailsSchema.default({}),
+    details: memoDetailsSchema.default({}),
   }),
   publishedCommonSchema.extend({
     eventType: z.literal("other"),
-    details: emptyPublishedDetailsSchema.default({}),
+    details: memoDetailsSchema.default({}),
   }),
 ]);
 
 export type CommunityEventDraftInput = z.infer<typeof communityEventDraftSchema>;
 export type CommunityEventPublishInput = z.infer<typeof communityEventPublishSchema>;
 export type ObituaryDetails = z.infer<typeof obituaryDetailsSchema>;
+export type MemoDetails = z.infer<typeof memoDetailsSchema>;
 export interface LegacyObituaryDetails {
   deceasedName?: string;
   legacyDateOfDeath?: string;
@@ -84,6 +103,6 @@ export interface LegacyObituaryDetails {
   burialPlace?: string;
   chiefMourner?: string;
 }
-export type CommunityEventDetails = ObituaryDetails | LegacyObituaryDetails;
+export type CommunityEventDetails = ObituaryDetails | MemoDetails | LegacyObituaryDetails;
 export type CommunityEventType = (typeof COMMUNITY_EVENT_TYPES)[number];
 export type CommunityEventStatus = (typeof COMMUNITY_EVENT_STATUSES)[number];

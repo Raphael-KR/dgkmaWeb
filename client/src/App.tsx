@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,9 +15,9 @@ import Boards from "@/pages/boards";
 import Directory from "@/pages/directory";
 import Profile from "@/pages/profile";
 import HeritagePage from "@/pages/heritage";
-import ObituaryList from "@/pages/obituary/list";
-import ObituaryCreate from "@/pages/obituary/create";
 import ObituaryDetail from "@/pages/obituary/detail";
+import CommunityEventsPage from "@/pages/events";
+import CommunityEventDetail from "@/pages/events/detail";
 import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
 import Terms from "@/pages/terms";
@@ -104,14 +104,16 @@ function Router() {
       <Route path="/post/:id">
         <AuthGate><PostDetail /></AuthGate>
       </Route>
-      <Route path="/o">
-        <AuthGate><ObituaryList /></AuthGate>
-      </Route>
-      <Route path="/o/new">
-        <AuthGate><ObituaryCreate /></AuthGate>
-      </Route>
+      <Route path="/o/new" component={() => <Redirect to="/events?type=obituary&compose=1" replace />} />
+      <Route path="/o" component={() => <Redirect to="/events?type=obituary" replace />} />
       <Route path="/o/:id">
         <AuthGate><ObituaryDetail /></AuthGate>
+      </Route>
+      <Route path="/events">
+        <AuthGate><CommunityEventsPage /></AuthGate>
+      </Route>
+      <Route path="/events/:id">
+        <AuthGate><CommunityEventDetail /></AuthGate>
       </Route>
 
       {/* Redirect old routes to /heritage */}

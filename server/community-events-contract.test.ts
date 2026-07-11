@@ -12,20 +12,56 @@ test("community event types and statuses are fixed", () => {
   assert.deepEqual(COMMUNITY_EVENT_STATUSES, ["draft", "published"]);
 });
 
-test("drafts may be incomplete but published events require common fields", () => {
+test("obituary drafts accept partial approved fields and reject unknown detail keys", () => {
   const draft = communityEventDraftSchema.safeParse({
     eventType: "obituary",
-    details: { parserConfidence: 0.5 },
+    details: { deceasedName: "김한의" },
   });
 
   assert.equal(draft.success, true);
   if (draft.success) {
-    assert.deepEqual(draft.data.details, { parserConfidence: 0.5 });
+    assert.deepEqual(draft.data.details, { deceasedName: "김한의" });
   }
+  assert.equal(communityEventDraftSchema.safeParse({ eventType: "obituary" }).success, true);
+  assert.equal(communityEventDraftSchema.safeParse({
+    eventType: "obituary",
+    details: { parserConfidence: 0.5 },
+  }).success, false);
   assert.equal(communityEventPublishSchema.safeParse({ eventType: "obituary" }).success, false);
 });
 
-test("published non-obituary events accept only empty details", () => {
+test("wedding, opening, and other drafts use an optional bounded memo", () => {
+  for (const eventType of ["wedding", "opening", "other"] as const) {
+    const absentDetails = communityEventDraftSchema.safeParse({ eventType });
+
+    assert.equal(absentDetails.success, true);
+    if (absentDetails.success) {
+      assert.deepEqual(absentDetails.data.details, {});
+    }
+    const memo = communityEventDraftSchema.safeParse({
+      eventType,
+      details: { memo: "  추가 안내  " },
+    });
+    assert.equal(memo.success, true);
+    if (memo.success) {
+      assert.deepEqual(memo.data.details, { memo: "추가 안내" });
+    }
+    assert.equal(communityEventDraftSchema.safeParse({
+      eventType,
+      details: { memo: "가".repeat(5_000) },
+    }).success, true);
+    assert.equal(communityEventDraftSchema.safeParse({
+      eventType,
+      details: { memo: "가".repeat(5_001) },
+    }).success, false);
+    assert.equal(communityEventDraftSchema.safeParse({
+      eventType,
+      details: { arbitrary: "초안에 저장하면 안 됨" },
+    }).success, false);
+  }
+});
+
+test("published wedding, opening, and other events use the same memo details contract", () => {
   for (const eventType of ["wedding", "opening", "other"] as const) {
     const base = {
       eventType,
@@ -40,6 +76,18 @@ test("published non-obituary events accept only empty details", () => {
       assert.deepEqual(withoutDetails.data.details, {});
     }
     assert.equal(communityEventPublishSchema.safeParse({ ...base, details: {} }).success, true);
+    assert.equal(communityEventPublishSchema.safeParse({
+      ...base,
+      details: { memo: "가".repeat(5_001) },
+    }).success, false);
+    const memo = communityEventPublishSchema.safeParse({
+      ...base,
+      details: { memo: "  축하합니다  " },
+    });
+    assert.equal(memo.success, true);
+    if (memo.success) {
+      assert.deepEqual(memo.data.details, { memo: "축하합니다" });
+    }
     assert.equal(communityEventPublishSchema.safeParse({
       ...base,
       details: { arbitrary: "게시하면 안 됨" },

@@ -1,11 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS } from "@shared/schema";
+import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
   communityEventDraftSchema,
   communityEventPublishSchema,
+  type CommunityEventDraftInput,
+  type CommunityEventPublishInput,
 } from "@shared/community-events";
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
@@ -17,6 +19,8 @@ import {
 } from "./auth-middleware";
 import { getErrorType } from "./safe-logging";
 import { isSelectablePostCategory } from "@shared/category-policy";
+import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
+import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
 
 declare module "express-session" {
   interface SessionData {
@@ -32,6 +36,46 @@ function parsePositiveInteger(value: string): number | undefined {
   }
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed <= POSTGRES_SERIAL_MAX ? parsed : undefined;
+}
+
+function sanitizePublishedEvent(event: CommunityEvent) {
+  const { sourceText: _sourceText, ...publishedEvent } = event;
+  return publishedEvent;
+}
+
+type TrustedObituaryAssembly =
+  | { kind: "invalid"; missingFields: string[] }
+  | { kind: "missing"; missingFields: string[] }
+  | {
+    kind: "ready";
+    input: NonNullable<ReturnType<typeof assembleObituaryPreview>["input"]>;
+    text: string;
+  };
+
+async function assembleTrustedObituary(
+  draft: CommunityEvent,
+  userId: number,
+): Promise<TrustedObituaryAssembly> {
+  const validatedDraft = parseStoredObituaryDraft(draft);
+  if (!validatedDraft.draft) {
+    return { kind: "invalid", missingFields: validatedDraft.missingFields };
+  }
+
+  const [user, alumni, membership] = await Promise.all([
+    storage.getUser(userId),
+    storage.getAlumniRecordByUserId(userId),
+    storage.getMembershipStatus(userId),
+  ]);
+  const preview = assembleObituaryPreview({ draft: validatedDraft.draft, user, alumni, membership });
+  if (!preview.input) {
+    return { kind: "missing", missingFields: preview.missingFields };
+  }
+
+  return {
+    kind: "ready",
+    input: preview.input,
+    text: renderObituaryAnnouncement(preview.input),
+  };
 }
 
 // 카카오 인증/온보딩 디버그 로그 게이팅. 운영 환경에서는 기본 OFF.
@@ -812,19 +856,95 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/events/:id/preview", async (req, res) => {
+    try {
+      const id = parsePositiveInteger(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "잘못된 소식입니다" });
+      }
+      const userId = req.session.userId!;
+      const draft = await storage.getEventDraft(id, userId);
+      if (!draft || draft.eventType !== "obituary") {
+        return res.status(404).json({ message: "임시 저장된 부고를 찾을 수 없습니다" });
+      }
+      const preview = await assembleTrustedObituary(draft, userId);
+      if (preview.kind === "invalid") {
+        return res.status(400).json({
+          message: "저장된 부고 초안이 올바르지 않습니다",
+          missingFields: preview.missingFields,
+        });
+      }
+      if (preview.kind === "missing") {
+        return res.status(400).json({
+          message: "부고문 미리보기에 필요한 정보가 부족합니다",
+          missingFields: preview.missingFields,
+        });
+      }
+
+      res.json({ text: preview.text });
+    } catch {
+      res.status(500).json({ message: "부고문 미리보기를 만들지 못했습니다" });
+    }
+  });
+
   app.post("/api/events/:id/publish", async (req, res) => {
     try {
       const id = parsePositiveInteger(req.params.id);
       if (!id) {
         return res.status(400).json({ message: "잘못된 소식입니다" });
       }
-      const data = communityEventPublishSchema.parse(req.body);
-      const event = await storage.publishEvent(id, req.session.userId!, data);
+      const userId = req.session.userId!;
+      const ownedDraft = await storage.getEventDraft(id, userId);
+      if (!ownedDraft) {
+        const alreadyPublished = await storage.getPublishedEvent(id);
+        if (alreadyPublished?.authorId === userId) {
+          return res.json(sanitizePublishedEvent(alreadyPublished));
+        }
+        return res.status(404).json({ message: "소식을 찾을 수 없습니다" });
+      }
+
+      let data: CommunityEventPublishInput;
+      if (req.body?.eventType === "obituary") {
+        const draftData = communityEventDraftSchema.parse(req.body);
+        if (draftData.eventType !== "obituary" || ownedDraft.eventType !== "obituary") {
+          return res.status(400).json({ message: "잘못된 요청입니다" });
+        }
+        const candidate = {
+          ...ownedDraft,
+          ...draftData,
+          details: draftData.details,
+        } as CommunityEvent;
+        const announcement = await assembleTrustedObituary(candidate, userId);
+        if (announcement.kind !== "ready") {
+          return res.status(400).json({
+            message: announcement.kind === "invalid"
+              ? "저장된 부고 초안이 올바르지 않습니다"
+              : "부고문 게시에 필요한 정보가 부족합니다",
+            missingFields: announcement.missingFields,
+          });
+        }
+        const canonicalDraft: CommunityEventDraftInput = {
+          ...draftData,
+          relatedMemberName: announcement.input.memberName,
+          contactNumber: announcement.input.memberPhone,
+          details: {
+            ...draftData.details,
+            memberTitle: announcement.input.memberTitle,
+          },
+        };
+        data = communityEventPublishSchema.parse(canonicalDraft);
+      } else {
+        data = communityEventPublishSchema.parse(req.body);
+        if (data.eventType !== ownedDraft.eventType) {
+          return res.status(400).json({ message: "잘못된 요청입니다" });
+        }
+      }
+
+      const event = await storage.publishEvent(id, userId, data);
       if (!event) {
         return res.status(404).json({ message: "소식을 찾을 수 없습니다" });
       }
-      const { sourceText: _sourceText, ...publishedEvent } = event;
-      res.json(publishedEvent);
+      res.json(sanitizePublishedEvent(event));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
@@ -839,7 +959,7 @@ export async function registerRoutes(
         ? undefined
         : z.enum(COMMUNITY_EVENT_TYPES).parse(req.query.type);
       const events = await storage.getPublishedEvents(eventType);
-      res.json(events.map(({ sourceText: _sourceText, ...event }) => event));
+      res.json(events.map(sanitizePublishedEvent));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
@@ -858,8 +978,7 @@ export async function registerRoutes(
       if (!event) {
         return res.status(404).json({ message: "소식을 찾을 수 없습니다" });
       }
-      const { sourceText: _sourceText, ...publishedEvent } = event;
-      res.json(publishedEvent);
+      res.json(sanitizePublishedEvent(event));
     } catch (error) {
       res.status(500).json({ message: "소식 조회에 실패했습니다" });
     }
