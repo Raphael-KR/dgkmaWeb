@@ -11,11 +11,13 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 활동 지역 온보딩과 기수·지역 범위 기반 동문 주소록
 - 권리회원 상태 및 당해 연회비 납부 표시
 - 게시판 댓글, 이미지 첨부, 부고 상세 화면
+- 운영 카테고리 기준을 재현하는 idempotent seed SQL
 
 ### Changed
 
 - 카카오 로그인 v5를 REST OAuth authorize URL과 서버 토큰 교환 방식으로 정리
 - 카카오 로그인 완료 전에 PostgreSQL 세션 저장을 보장
+- 명부 불일치 가입을 관리자 승인 대기 정책으로 확정
 
 ### Security
 
@@ -25,6 +27,8 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 모든 `/api/admin/*`에 공통 서버 관리자 인증을 적용
 - 실제 결제 연동 전까지 결제 기록 생성을 관리자 전용으로 제한
 - 카카오 로그인과 Google Sheets 명부 처리 로그에서 개인정보와 원본 행 제거
+- 부고 목록·상세·문자 파싱·등록 API를 로그인 회원 전용으로 통일
+- 게시글 작성 시 활성화된 공지·자유·행사·소식 분류만 허용
 
 ## [1.1.0] - 2026-04-20
 
