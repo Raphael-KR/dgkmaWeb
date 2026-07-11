@@ -5,6 +5,7 @@
 ## 검증 전 조건
 
 - [ ] GitHub `main`, Replit 개발 워크스페이스, 배포 대상 커밋을 확인한다.
+- [ ] Replit 개발 워크스페이스에서 `npm test`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit 개발 워크스페이스에서 `npm run check`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit 개발 워크스페이스에서 `npm run build`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit Deployments에서 Republish가 완료되었다.
@@ -130,18 +131,21 @@
 
 ## 관리자 기능 주의사항
 
-관리자 화면 `/admin`은 클라이언트에서 관리자 계정을 요구한다. 그러나 일부 `/api/admin/*`와 결제 기록 생성 API는 서버 권한 보완이 끝나지 않았다.
+관리자 화면과 `/api/admin/*`는 서버에서도 관리자 계정을 요구한다. 실제 결제 연동 전까지 결제 기록 생성도 관리자만 수행한다.
 
-- [ ] 운영 관리자는 공개 네트워크에서 관리자 API를 직접 호출하지 않는다.
-- [ ] 가입 승인과 Google Sheets 동기화는 서버 권한 보완 후 회귀 테스트한다.
-- [ ] 공개 결제 기록 생성 API는 보호 작업 전까지 운영 결제 근거로 사용하지 않는다.
-- [ ] 관련 보완 상태는 [roadmap.md](./roadmap.md)의 `긴급` 항목에서 확인한다.
+- [ ] 비로그인 `GET /api/admin/sync-progress` 요청이 `401`을 반환한다.
+- [ ] 일반회원 `GET /api/admin/sync-progress` 요청이 `403`을 반환한다.
+- [ ] 관리자 화면에서 가입 승인, Google Sheets 연결 확인, 명부 동기화와 진행 조회가 정상 동작한다.
+- [ ] 비로그인 및 일반회원 `POST /api/payments` 요청이 각각 `401`, `403`을 반환하고 기록을 생성하지 않는다.
+- [ ] 관리자가 합의된 테스트 결제 기록을 생성하면 `201`을 반환한다.
+- [ ] Replit 실행 로그에 동문 원본 행, 이름, 전화번호, 주소, 이메일, 생일, 사용자 객체가 나타나지 않는다.
 
 ## 배포 전후 기술 검증
 
 Replit 개발 워크스페이스에서 실행한다.
 
 ```bash
+npm test
 npm run check
 npm run build
 ```
@@ -153,6 +157,10 @@ Republish 후 실행한다.
 ```bash
 curl -I https://dgkma.replit.app/
 curl -sS https://dgkma.replit.app/api/categories
+curl -i https://dgkma.replit.app/api/admin/sync-progress
+curl -i -X POST https://dgkma.replit.app/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{"userId":1,"amount":1,"year":2026,"type":"verification","status":"pending"}'
 curl -i -X POST https://dgkma.replit.app/api/categories \
   -H "Content-Type: application/json" \
   -d '{"name":"deployment-probe","displayName":"probe"}'
@@ -162,6 +170,7 @@ curl -i -X POST https://dgkma.replit.app/api/categories \
 
 - 홈페이지는 `200`을 반환한다.
 - 카테고리 API는 `all`, `notice`, `free`, `event`, `news`를 반환한다.
+- 비로그인 관리자 진행 조회와 결제 기록 생성 요청은 `401`을 반환하며 데이터를 변경하지 않는다.
 - 비로그인 카테고리 생성 요청은 `401`과 로그인 필요 메시지를 반환하며 데이터를 생성하지 않는다.
 
 마지막으로 실제 계정에서 카카오 로그인, 게시글과 이미지, 댓글, 주소록, 부고의 변경된 흐름을 확인한다.

@@ -22,6 +22,9 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 게시판 작성자·댓글 작성자 식별을 세션 기준으로 제한
 - 카테고리 생성 API를 관리자 전용으로 제한
 - 이미지 업로드를 10MB 이하 JPG, PNG, WebP, GIF로 제한하고 안전한 MIME만 인라인 제공
+- 모든 `/api/admin/*`에 공통 서버 관리자 인증을 적용
+- 실제 결제 연동 전까지 결제 기록 생성을 관리자 전용으로 제한
+- 카카오 로그인과 Google Sheets 명부 처리 로그에서 개인정보와 원본 행 제거
 
 ## [1.1.0] - 2026-04-20
 
