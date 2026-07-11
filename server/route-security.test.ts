@@ -36,6 +36,7 @@ test("community event routes share the member guard and preserve draft route ord
     'app.post("/api/events/drafts"',
     'app.patch("/api/events/drafts/:id"',
     'app.delete("/api/events/drafts/:id"',
+    'app.post("/api/events/:id/preview"',
     'app.post("/api/events/:id/publish"',
     'app.get("/api/events"',
     'app.get("/api/events/:id"',

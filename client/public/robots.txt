@@ -7,6 +7,8 @@ Disallow: /b
 Disallow: /p/
 Disallow: /post/
 Disallow: /o
+Disallow: /events
+Disallow: /events/
 Disallow: /search
 Disallow: /auth/
 Disallow: /kakao-callback

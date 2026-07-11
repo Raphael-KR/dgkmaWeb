@@ -1,6 +1,6 @@
 export interface ParsedObituary {
   deceasedName: string;
-  deceasedRelation: string;
+  deceasedRelation?: string;
   dateOfDeath: string;
   funeralHome: string;
   jangji: string;
@@ -9,16 +9,16 @@ export interface ParsedObituary {
   contactNumber: string;
 }
 
-const RELATION_PATTERNS: { pattern: RegExp; relation: string }[] = [
-  { pattern: /부친|부상|아버님|아버지/, relation: "부친" },
-  { pattern: /모친|모상|어머님|어머니/, relation: "모친" },
-  { pattern: /조부|할아버님|할아버지/, relation: "조부" },
-  { pattern: /조모|할머님|할머니/, relation: "조모" },
-  { pattern: /장인/, relation: "장인" },
-  { pattern: /장모/, relation: "장모" },
-  { pattern: /배우자|남편|아내|부군|영부인/, relation: "배우자" },
-  { pattern: /본인/, relation: "본인" },
-];
+const RELATION_ALIASES = [
+  { aliases: ["본인"], relation: "본인" },
+  { aliases: ["부친", "아버님", "아버지"], relation: "부친" },
+  { aliases: ["모친", "어머님", "어머니"], relation: "모친" },
+  { aliases: ["빙부", "장인"], relation: "빙부" },
+  { aliases: ["빙모", "장모"], relation: "빙모" },
+  { aliases: ["시부"], relation: "시부" },
+  { aliases: ["시모"], relation: "시모" },
+  { aliases: ["자녀", "아들", "딸"], relation: "자녀" },
+] as const;
 
 // 한국 날짜/시간 패턴 (다양한 형식 커버)
 const DATE_PATTERNS = [
@@ -40,11 +40,24 @@ function extractDeceasedName(text: string): string {
   return "";
 }
 
-function extractRelation(text: string): string {
-  for (const { pattern, relation } of RELATION_PATTERNS) {
-    if (pattern.test(text)) return relation;
+function extractRelation(text: string): string | undefined {
+  const labeled = text.match(/(?:고인과의\s*)?관계\s*[：:]\s*([가-힣]+)/);
+  if (labeled) {
+    for (const { aliases, relation } of RELATION_ALIASES) {
+      if ((aliases as readonly string[]).includes(labeled[1])) return relation;
+    }
   }
-  return "본인";
+
+  for (const { aliases, relation } of RELATION_ALIASES) {
+    for (const alias of aliases) {
+      const expression = new RegExp(
+        `${alias}(?:상(?:입니다|으로|을|이)?(?=$|\\s|[.,])|께서\\s*(?:별세|소천|작고)|\\s+(?:별세|소천|작고))`,
+        "m",
+      );
+      if (expression.test(text)) return relation;
+    }
+  }
+  return undefined;
 }
 
 function extractDateOfDeath(text: string): string {
@@ -84,9 +97,10 @@ function extractPhone(text: string): string {
 }
 
 export function parseObituarySms(text: string): Partial<ParsedObituary> {
+  const deceasedRelation = extractRelation(text);
   return {
     deceasedName: extractDeceasedName(text),
-    deceasedRelation: extractRelation(text),
+    ...(deceasedRelation ? { deceasedRelation } : {}),
     dateOfDeath: extractDateOfDeath(text),
     funeralHome: extractLabeled(text, ["빈소", "장례식장"]),
     jangji: extractLabeled(text, ["장지"]),

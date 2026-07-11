@@ -14,6 +14,7 @@ type SeoMeta = {
   keywords?: string;
   image?: string;
   type?: "website" | "article";
+  noIndex?: boolean;
 };
 
 const STATIC_SEO: Record<string, SeoMeta> = {
@@ -97,6 +98,11 @@ const STATIC_SEO: Record<string, SeoMeta> = {
     title: "부고 등록",
     description: "동문회 부고 알림을 등록합니다.",
   },
+  "/events": {
+    title: "경조사",
+    description: "동국대학교한의과대학동문회 회원 경조사 소식을 확인합니다.",
+    noIndex: true,
+  },
 };
 
 function stripQueryAndHash(url: string) {
@@ -131,6 +137,15 @@ function getOrigin(req: Request) {
 }
 
 async function getRouteSeo(pathname: string): Promise<SeoMeta> {
+  if (/^\/events\/\d+$/.test(pathname)) {
+    return {
+      title: "경조사 상세",
+      description: "동국대학교한의과대학동문회 회원 경조사 상세 내용을 확인합니다.",
+      type: "article",
+      noIndex: true,
+    };
+  }
+
   const postMatch = pathname.match(/^\/(?:post|p)\/(\d+)$/);
   if (postMatch) {
     try {
@@ -192,6 +207,7 @@ export async function injectSeo(req: Request, html: string) {
   const imagePath = meta.image || DEFAULT_IMAGE;
   const image = imagePath.startsWith("http") ? imagePath : `${origin}${imagePath}`;
   const type = meta.type || "website";
+  const robots = meta.noIndex ? "noindex, nofollow" : "index, follow";
 
   let nextHtml = html.replace(/<title>.*?<\/title>/i, `<title>${escapeHtml(title)}</title>`);
   nextHtml = upsertLinkTag(nextHtml, "canonical", `<link rel="canonical" href="${escapeHtml(url)}" />`);
@@ -199,6 +215,7 @@ export async function injectSeo(req: Request, html: string) {
   const tags: Array<[string, string]> = [
     ["name=description", `<meta name="description" content="${escapeHtml(description)}" />`],
     ["name=keywords", `<meta name="keywords" content="${escapeHtml(keywords)}" />`],
+    ["name=robots", `<meta name="robots" content="${robots}" />`],
     ["property=og:site_name", `<meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />`],
     ["property=og:title", `<meta property="og:title" content="${escapeHtml(title)}" />`],
     ["property=og:description", `<meta property="og:description" content="${escapeHtml(description)}" />`],

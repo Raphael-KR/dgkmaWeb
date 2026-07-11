@@ -12,9 +12,15 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, sql, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
+import { koreaCalendarYear } from "./korea-date";
+import { uniqueAlumniMatch } from "./alumni-match";
+import {
+  eventDraftAdvisoryLockId,
+  getOrCreateEventDraft,
+} from "./event-draft-creation";
 
 // 동문 명부 노출 허용 필드 (개인정보 최소화 — 연락처·주소·메모 제외)
 export type DirectoryAlumni = {
@@ -104,6 +110,7 @@ export interface IStorage {
   getMembershipStatus(userId: number): Promise<MembershipStatus>;
   
   // Alumni methods
+  getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
@@ -123,6 +130,7 @@ export interface IStorage {
   // Community event methods
   getPublishedEvents(eventType?: CommunityEventType): Promise<CommunityEvent[]>;
   getPublishedEvent(id: number): Promise<CommunityEvent | undefined>;
+  getEventDraft(id: number, authorId: number): Promise<CommunityEvent | undefined>;
   getLatestEventDraft(authorId: number, eventType: CommunityEventType): Promise<CommunityEvent | undefined>;
   createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent>;
   updateEventDraft(id: number, authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent | undefined>;
@@ -315,7 +323,7 @@ export class DatabaseStorage implements IStorage {
   // 완납 기준: type='연회비' + status='completed' 합계가 연회비 기준액(ANNUAL_DUES) 이상.
   // (기타 납부·부분 납부·미완료 건은 등급 판정에서 제외)
   async getMembershipStatus(userId: number): Promise<MembershipStatus> {
-    const year = new Date().getFullYear();
+    const year = koreaCalendarYear();
     const all = await this.getPaymentsByUser(userId); // createdAt desc 정렬
     // 당해년도 완료된 연회비 납부만 집계.
     const completedDues = all.filter(
@@ -351,6 +359,14 @@ export class DatabaseStorage implements IStorage {
     
     // 로컬 데이터베이스에서 검색
     return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
+  }
+
+  async getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined> {
+    const alumni = await db.select().from(alumniDatabase)
+      .where(eq(alumniDatabase.matchedUserId, userId))
+      .orderBy(asc(alumniDatabase.id))
+      .limit(2);
+    return uniqueAlumniMatch(alumni);
   }
 
   async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {
@@ -657,6 +673,16 @@ export class DatabaseStorage implements IStorage {
     return event || undefined;
   }
 
+  async getEventDraft(id: number, authorId: number): Promise<CommunityEvent | undefined> {
+    const [event] = await db.select().from(communityEvents)
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "draft"),
+      ));
+    return event || undefined;
+  }
+
   async getLatestEventDraft(authorId: number, eventType: CommunityEventType): Promise<CommunityEvent | undefined> {
     const [event] = await db.select().from(communityEvents)
       .where(and(
@@ -670,10 +696,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent> {
-    const [event] = await db.insert(communityEvents)
-      .values({ ...data, authorId })
-      .returning();
-    return event;
+    return getOrCreateEventDraft(
+      (work) => db.transaction(async (tx) => work({
+        lock: async (lockedAuthorId, eventType) => {
+          await tx.execute(sql`
+            select pg_advisory_xact_lock(
+              ${lockedAuthorId},
+              ${eventDraftAdvisoryLockId(eventType)}
+            )
+          `);
+        },
+        find: async (draftAuthorId, eventType) => {
+          const [existing] = await tx.select().from(communityEvents)
+            .where(and(
+              eq(communityEvents.authorId, draftAuthorId),
+              eq(communityEvents.eventType, eventType),
+              eq(communityEvents.status, "draft"),
+            ))
+            .orderBy(desc(communityEvents.updatedAt))
+            .limit(1);
+          return existing || undefined;
+        },
+        update: async (id, draftAuthorId, eventType, draftData) => {
+          const [updated] = await tx.update(communityEvents)
+            .set({ ...draftData, updatedAt: new Date() })
+            .where(and(
+              eq(communityEvents.id, id),
+              eq(communityEvents.authorId, draftAuthorId),
+              eq(communityEvents.eventType, eventType),
+              eq(communityEvents.status, "draft"),
+            ))
+            .returning();
+          if (!updated) throw new Error("임시 저장된 소식을 갱신하지 못했습니다.");
+          return updated;
+        },
+        insert: async (draftAuthorId, draftData) => {
+          const [created] = await tx.insert(communityEvents)
+            .values({ ...draftData, authorId: draftAuthorId })
+            .returning();
+          return created;
+        },
+      })),
+      authorId,
+      data,
+    );
   }
 
   async updateEventDraft(
@@ -715,7 +781,15 @@ export class DatabaseStorage implements IStorage {
         eq(communityEvents.status, "draft"),
       ))
       .returning();
-    return event || undefined;
+    if (event) return event;
+
+    const [published] = await db.select().from(communityEvents)
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "published"),
+      ));
+    return published || undefined;
   }
 }
 

@@ -16,7 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/schema";
 import { isSelectablePostCategory } from "@shared/category-policy";
-import { Plus, ImagePlus, X, Loader2 } from "lucide-react";
+import { Plus, ImagePlus, X, Loader2, HeartHandshake } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { useUpload } from "@/hooks/use-upload";
@@ -148,26 +148,38 @@ export default function Boards() {
 
       <div className="max-w-md mx-auto px-4 pb-20">
         <div className="py-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-kakao-brown">게시판</h1>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h1 className="shrink-0 text-xl font-bold text-kakao-brown">게시판</h1>
 
-            {/* 글쓰기 버튼 */}
-            <Dialog
-              open={isWriteDialogOpen}
-              onOpenChange={(open) => {
-                setIsWriteDialogOpen(open);
-                if (!open) {
-                  setImageUrls([]);
-                  writeForm.reset();
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
-                  <Plus size={16} className="mr-1" />
-                  글쓰기
-                </Button>
-              </DialogTrigger>
+            <div className="flex min-w-0 items-center justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => setLocation("/events")}
+                aria-label="경조사 페이지로 이동"
+              >
+                <HeartHandshake size={16} className="mr-1" />
+                경조사
+              </Button>
+
+              {/* 글쓰기 버튼 */}
+              <Dialog
+                open={isWriteDialogOpen}
+                onOpenChange={(open) => {
+                  setIsWriteDialogOpen(open);
+                  if (!open) {
+                    setImageUrls([]);
+                    writeForm.reset();
+                  }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button size="sm" className="shrink-0 bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
+                    <Plus size={16} className="mr-1" />
+                    글쓰기
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-sm mx-4">
                 <DialogHeader>
                   <DialogTitle>새 게시글 작성</DialogTitle>
@@ -313,7 +325,8 @@ export default function Boards() {
                   </form>
                 </Form>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           </div>
 
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">

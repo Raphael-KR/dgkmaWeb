@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation, Link } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
@@ -8,10 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Heart, Users, Calendar } from "lucide-react";
+import { HeartHandshake, Users, Calendar } from "lucide-react";
 import { MembershipBadge } from "@/components/membership-badge";
 import { KAKAO_CHANNEL_URL } from "@/lib/config";
 import type { MembershipStatus } from "@shared/schema";
@@ -20,8 +19,6 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [obituaryUrl, setObituaryUrl] = useState("");
 
   // 페이지 로드 시 최상단으로 스크롤
   useEffect(() => {
@@ -41,58 +38,6 @@ export default function Home() {
     queryKey: ["/api/membership/status"],
     enabled: !!user?.id,
   });
-
-  const parseObituaryMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const response = await fetch("/api/obituary/parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ url }),
-      });
-      return response.json();
-    },
-    onSuccess: async (parsedData) => {
-      // Create post with parsed data
-      const response = await fetch("/api/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          ...parsedData,
-          authorId: user?.id,
-        }),
-      });
-
-      if (response.ok) {
-        queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-        toast({
-          title: "부고가 등록되었습니다",
-          description: "게시판에서 확인하실 수 있습니다.",
-        });
-        setObituaryUrl("");
-      }
-    },
-    onError: () => {
-      toast({
-        title: "부고 등록 실패",
-        description: "URL을 다시 확인해주세요.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleObituarySubmit = () => {
-    if (!obituaryUrl.trim()) {
-      toast({
-        title: "URL을 입력해주세요",
-        description: "부고 사이트 URL을 입력하세요.",
-        variant: "destructive",
-      });
-      return;
-    }
-    parseObituaryMutation.mutate(obituaryUrl);
-  };
 
   // Handle loading state
   if (isLoading) {
@@ -276,36 +221,14 @@ export default function Home() {
           )}
         </Card>
 
-        {/* Obituary Quick Submit */}
-        <Card className="bg-gradient-to-r from-gray-50 to-gray-100 mb-6">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                <Heart className="text-red-600" size={16} />
-              </div>
-              <h3 className="font-bold text-gray-800">부고 등록</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              부고 사이트 URL을 입력하시면 자동으로 내용을 파싱하여 등록됩니다.
-            </p>
-            <div className="flex space-x-2">
-              <Input
-                type="url"
-                placeholder="부고 사이트 URL 입력"
-                className="flex-1"
-                value={obituaryUrl}
-                onChange={(e) => setObituaryUrl(e.target.value)}
-              />
-              <Button
-                className="bg-kakao-yellow text-kakao-brown font-bold px-6 hover:bg-yellow-400"
-                onClick={handleObituarySubmit}
-                disabled={parseObituaryMutation.isPending}
-              >
-                {parseObituaryMutation.isPending ? "처리중..." : "등록"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <Button
+          className="mb-6 w-full bg-kakao-yellow text-kakao-brown font-bold hover:bg-yellow-400"
+          onClick={() => setLocation("/events")}
+          aria-label="경조사 페이지로 이동"
+        >
+          <HeartHandshake size={18} className="mr-2" />
+          경조사
+        </Button>
 
 
 
