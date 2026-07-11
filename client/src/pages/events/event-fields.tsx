@@ -140,8 +140,8 @@ export function EventFields({ disabled, eventType, form, publishErrors }: EventF
             <Field id="obituary-account" label="마음 전하실 계좌">
               <Input id="obituary-account" disabled={disabled} placeholder="은행 계좌번호 예금주" {...fieldA11y("obituary-account")} {...form.register(toFormPath("details.accountInfo"))} />
             </Field>
-            <Field id="obituary-url" label="모바일 부고장 URL">
-              <Input id="obituary-url" disabled={disabled} type="url" placeholder="https://" {...fieldA11y("obituary-url")} {...form.register(toFormPath("details.sourceUrl"))} />
+            <Field id="obituary-url" label="모바일 부고장 URL" error={publishErrors["details.sourceUrl"]}>
+              <Input id="obituary-url" disabled={disabled} type="url" placeholder="https://" {...fieldA11y("obituary-url", publishErrors["details.sourceUrl"])} {...form.register(toFormPath("details.sourceUrl"))} />
             </Field>
             <Field id="member-title" label="회원 직함">
               <Input id="member-title" disabled={disabled} placeholder="예: 한의원 원장" {...fieldA11y("member-title")} {...form.register(toFormPath("details.memberTitle"))} />
@@ -158,8 +158,8 @@ export function EventFields({ disabled, eventType, form, publishErrors }: EventF
           </div>
         </div>
       ) : (
-        <Field id="event-memo" label="상세 메모">
-          <Textarea id="event-memo" disabled={disabled} className="min-h-[112px] resize-y" placeholder="안내할 내용을 입력하세요." {...fieldA11y("event-memo")} {...form.register(toFormPath("details.memo"))} />
+        <Field id="event-memo" label="상세 메모" error={publishErrors["details.memo"]}>
+          <Textarea id="event-memo" disabled={disabled} className="min-h-[112px] resize-y" placeholder="안내할 내용을 입력하세요." {...fieldA11y("event-memo", publishErrors["details.memo"])} {...form.register(toFormPath("details.memo"))} />
         </Field>
       )}
     </div>

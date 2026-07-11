@@ -63,6 +63,8 @@ test("community event composer stays visible and only submits schema-backed even
   assert.doesNotMatch(composer, /authorId|membershipTier|memberName|memberPhone/);
 
   assert.match(fields, /details\.memo/);
+  assert.match(fields, /error=\{publishErrors\["details\.memo"\]\}/);
+  assert.match(fields, /fieldA11y\("event-memo", publishErrors\["details\.memo"\]\)/);
   assert.match(fields, /details\.deceasedName/);
   assert.match(fields, /details\.deceasedAge/);
   assert.match(fields, /details\.relationship/);
@@ -72,6 +74,8 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(fields, /details\.funeralHome/);
   assert.match(fields, /details\.accountInfo/);
   assert.match(fields, /details\.sourceUrl/);
+  assert.match(fields, /error=\{publishErrors\["details\.sourceUrl"\]\}/);
+  assert.match(fields, /fieldA11y\("obituary-url", publishErrors\["details\.sourceUrl"\]\)/);
   assert.match(fields, /details\.memberTitle/);
   assert.match(fields, /details\.familyContact/);
   assert.match(fields, /aria-invalid/);
