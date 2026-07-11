@@ -407,9 +407,9 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           <ObituaryPreview
             contentFingerprint={previewFingerprint}
             draftId={draftId}
+            draftStatus={isRecovered ? "recovered" : isSaved ? "saved" : isSaving ? "saving" : "idle"}
             eventType={currentType}
             isPaused={isBusy}
-            isSaved={isSaved}
           />
         )}
 

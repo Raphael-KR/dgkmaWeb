@@ -15,6 +15,8 @@ import { db } from "./db";
 import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
+import { koreaCalendarYear } from "./korea-date";
+import { uniqueAlumniMatch } from "./alumni-match";
 
 // 동문 명부 노출 허용 필드 (개인정보 최소화 — 연락처·주소·메모 제외)
 export type DirectoryAlumni = {
@@ -317,7 +319,7 @@ export class DatabaseStorage implements IStorage {
   // 완납 기준: type='연회비' + status='completed' 합계가 연회비 기준액(ANNUAL_DUES) 이상.
   // (기타 납부·부분 납부·미완료 건은 등급 판정에서 제외)
   async getMembershipStatus(userId: number): Promise<MembershipStatus> {
-    const year = new Date().getFullYear();
+    const year = koreaCalendarYear();
     const all = await this.getPaymentsByUser(userId); // createdAt desc 정렬
     // 당해년도 완료된 연회비 납부만 집계.
     const completedDues = all.filter(
@@ -356,9 +358,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined> {
-    const [alumni] = await db.select().from(alumniDatabase)
-      .where(eq(alumniDatabase.matchedUserId, userId));
-    return alumni || undefined;
+    const alumni = await db.select().from(alumniDatabase)
+      .where(eq(alumniDatabase.matchedUserId, userId))
+      .orderBy(asc(alumniDatabase.id))
+      .limit(2);
+    return uniqueAlumniMatch(alumni);
   }
 
   async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {

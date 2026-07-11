@@ -1,6 +1,6 @@
 import {
-  OBITUARY_RELATIONSHIPS,
-  type ObituaryDetails,
+  communityEventDraftSchema,
+  type CommunityEventDraftInput,
 } from "@shared/community-events";
 import type { ObituaryAnnouncementInput } from "@shared/obituary-announcement";
 import type {
@@ -11,23 +11,30 @@ import type {
 } from "@shared/schema";
 
 type PreviewSources = {
-  draft: CommunityEvent;
+  draft: ObituaryDraftInput;
   user: User | undefined;
   alumni: AlumniRecord | undefined;
   membership: MembershipStatus;
 };
 
+type ObituaryDraftInput = Extract<CommunityEventDraftInput, { eventType: "obituary" }>;
+
+export type StoredObituaryDraftValidation =
+  | { draft: ObituaryDraftInput; missingFields: [] }
+  | { draft?: undefined; missingFields: string[] };
+
 export type ObituaryPreviewAssembly =
   | { input: ObituaryAnnouncementInput; missingFields: [] }
   | { input?: undefined; missingFields: string[] };
 
-function requiredText(value: string | null | undefined): string | undefined {
-  const trimmed = value?.trim();
+function requiredText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
   return trimmed || undefined;
 }
 
-export function admissionYearLabel(value: string | null | undefined): string | undefined {
-  if (!value) return undefined;
+export function admissionYearLabel(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value) return undefined;
   const normalized = value
     .trim()
     .replace(/[./]/g, "-")
@@ -53,20 +60,49 @@ export function admissionYearLabel(value: string | null | undefined): string | u
   return `${String(year % 100).padStart(2, "0")}학번`;
 }
 
+function optionalStoredText(value: unknown): unknown {
+  return value ?? undefined;
+}
+
+export function parseStoredObituaryDraft(
+  stored: CommunityEvent,
+): StoredObituaryDraftValidation {
+  const result = communityEventDraftSchema.safeParse({
+    eventType: stored.eventType,
+    title: optionalStoredText(stored.title),
+    eventDate: optionalStoredText(stored.eventDate),
+    location: optionalStoredText(stored.location),
+    relatedMemberName: optionalStoredText(stored.relatedMemberName),
+    contactNumber: optionalStoredText(stored.contactNumber),
+    accountInfo: optionalStoredText(stored.accountInfo),
+    sourceText: optionalStoredText(stored.sourceText),
+    sourceUrls: stored.sourceUrls ?? [],
+    details: stored.details,
+  });
+  if (!result.success || result.data.eventType !== "obituary") {
+    const missingFields = result.success
+      ? ["eventType"]
+      : Array.from(new Set(result.error.issues.map((issue) => {
+        const [root, detail] = issue.path;
+        return root === "details" && typeof detail === "string" ? detail : String(root ?? "draft");
+      })));
+    return { missingFields };
+  }
+  return { draft: result.data, missingFields: [] };
+}
+
 export function assembleObituaryPreview({
   draft,
   user,
   alumni,
   membership,
 }: PreviewSources): ObituaryPreviewAssembly {
-  const details = draft.details as ObituaryDetails;
+  const details = draft.details;
   const graduationClass = requiredText(alumni?.generation);
   const admissionYear = admissionYearLabel(alumni?.admissionDate);
   const memberName = requiredText(user?.name);
   const membershipTier = requiredText(membership.tier);
-  const relationship = OBITUARY_RELATIONSHIPS.includes(
-    details.relationship as (typeof OBITUARY_RELATIONSHIPS)[number],
-  ) ? details.relationship : undefined;
+  const relationship = details.relationship;
   const deceasedName = requiredText(details.deceasedName);
   const deceasedAge = Number.isInteger(details.deceasedAge) && (details.deceasedAge ?? 0) > 0
     ? details.deceasedAge
@@ -104,7 +140,7 @@ export function assembleObituaryPreview({
       funeralHome: funeralHome!,
       funeralDate: funeralDate!,
       memberPhone: memberPhone!,
-      accountInfo: requiredText(details.accountInfo ?? draft.accountInfo),
+      accountInfo: requiredText(details.accountInfo) ?? requiredText(draft.accountInfo),
       sourceUrl: requiredText(details.sourceUrl),
     },
     missingFields: [],

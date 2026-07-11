@@ -18,7 +18,7 @@ import {
 import { getErrorType } from "./safe-logging";
 import { isSelectablePostCategory } from "@shared/category-policy";
 import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
-import { assembleObituaryPreview } from "./obituary-preview";
+import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
 
 declare module "express-session" {
   interface SessionData {
@@ -825,13 +825,20 @@ export async function registerRoutes(
       if (!draft || draft.eventType !== "obituary") {
         return res.status(404).json({ message: "임시 저장된 부고를 찾을 수 없습니다" });
       }
+      const validatedDraft = parseStoredObituaryDraft(draft);
+      if (!validatedDraft.draft) {
+        return res.status(400).json({
+          message: "저장된 부고 초안이 올바르지 않습니다",
+          missingFields: validatedDraft.missingFields,
+        });
+      }
 
       const [user, alumni, membership] = await Promise.all([
         storage.getUser(userId),
         storage.getAlumniRecordByUserId(userId),
         storage.getMembershipStatus(userId),
       ]);
-      const preview = assembleObituaryPreview({ draft, user, alumni, membership });
+      const preview = assembleObituaryPreview({ draft: validatedDraft.draft, user, alumni, membership });
       if (!preview.input) {
         return res.status(400).json({
           message: "부고문 미리보기에 필요한 정보가 부족합니다",

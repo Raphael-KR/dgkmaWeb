@@ -6,15 +6,16 @@ import { useToast } from "@/hooks/use-toast";
 import type { CommunityEventType } from "@shared/community-events";
 import {
   canApplyPreviewResponse,
+  isObituaryPreviewEligible,
   type PreviewRequestIdentity,
 } from "./obituary-preview-logic";
 
 type ObituaryPreviewProps = {
   contentFingerprint: string;
   draftId?: number;
+  draftStatus: "idle" | "recovered" | "saved" | "saving";
   eventType: CommunityEventType;
   isPaused: boolean;
-  isSaved: boolean;
 };
 
 type PreviewState =
@@ -23,6 +24,7 @@ type PreviewState =
   | { status: "success"; text: string; request: PreviewRequestIdentity };
 
 const missingFieldLabels: Record<string, string> = {
+  details: "부고 상세 정보",
   graduationClass: "졸업 기수",
   admissionYear: "입학 연도",
   memberName: "회원 이름",
@@ -33,6 +35,7 @@ const missingFieldLabels: Record<string, string> = {
   funeralHome: "빈소",
   funeralDate: "발인 일시",
   memberPhone: "회원 연락처",
+  sourceUrl: "모바일 부고장 URL",
 };
 
 function isMissingFields(value: unknown): value is string[] {
@@ -42,9 +45,9 @@ function isMissingFields(value: unknown): value is string[] {
 export function ObituaryPreview({
   contentFingerprint,
   draftId,
+  draftStatus,
   eventType,
   isPaused,
-  isSaved,
 }: ObituaryPreviewProps) {
   const { toast } = useToast();
   const [state, setState] = useState<PreviewState>({ status: "idle" });
@@ -55,6 +58,7 @@ export function ObituaryPreview({
     draftId,
     contentFingerprint,
     requestVersion: 0,
+    draftStatus,
     isPaused,
   });
   activeRef.current = {
@@ -62,6 +66,7 @@ export function ObituaryPreview({
     draftId,
     contentFingerprint,
     requestVersion: requestVersionRef.current,
+    draftStatus,
     isPaused,
   };
 
@@ -70,10 +75,10 @@ export function ObituaryPreview({
     activeRef.current.requestVersion = requestVersionRef.current;
     controllerRef.current?.abort();
     setState({ status: "idle" });
-  }, [contentFingerprint, draftId, eventType, isPaused]);
+  }, [contentFingerprint, draftId, draftStatus, eventType, isPaused]);
 
   useEffect(() => {
-    if (eventType !== "obituary" || !draftId || !isSaved || isPaused) return;
+    if (!isObituaryPreviewEligible(activeRef.current) || !draftId) return;
 
     const controller = new AbortController();
     controllerRef.current?.abort();
@@ -112,7 +117,7 @@ export function ObituaryPreview({
     })();
 
     return () => controller.abort();
-  }, [draftId, eventType, isPaused, isSaved]);
+  }, [draftId, draftStatus, eventType, isPaused]);
 
   const isCurrentRequest = "request" in state
     && canApplyPreviewResponse(activeRef.current, state.request);

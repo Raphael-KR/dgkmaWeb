@@ -33,6 +33,7 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
 
 const memberId = 2_147_483_646;
 const otherMemberId = 2_147_483_645;
+const noAlumniMemberId = 2_147_483_644;
 
 const draftPayload = {
   eventType: "wedding" as const,
@@ -227,6 +228,22 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     details: { relationship: "부친" },
   });
   const missingProfileDraft = event({ ...completeDraft, id: 4, authorId: otherMemberId });
+  const noAlumniDraft = event({ ...completeDraft, id: 5, authorId: noAlumniMemberId });
+  const corruptDraft = event({
+    ...completeDraft,
+    id: 6,
+    details: "corrupt" as unknown as CommunityEvent["details"],
+  });
+  const overAgeDraft = event({
+    ...completeDraft,
+    id: 7,
+    details: { ...completeDraft.details, deceasedAge: 131 },
+  });
+  const invalidUrlDraft = event({
+    ...completeDraft,
+    id: 8,
+    details: { ...completeDraft.details, sourceUrl: "not-a-url" },
+  });
   const user = {
     id: memberId,
     kakaoId: null,
@@ -267,18 +284,22 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     if (id === 1 && authorId === memberId) return completeDraft;
     if (id === 2 && authorId === memberId) return incompleteDraft;
     if (id === 4 && authorId === otherMemberId) return missingProfileDraft;
+    if (id === 5 && authorId === noAlumniMemberId) return noAlumniDraft;
+    if (id === 6 && authorId === memberId) return corruptDraft;
+    if (id === 7 && authorId === memberId) return overAgeDraft;
+    if (id === 8 && authorId === memberId) return invalidUrlDraft;
     return undefined;
   });
   t.mock.method(storage, "getUser", async (id) => {
     if (id === memberId) return user;
-    if (id === otherMemberId) return { ...user, id, email: "other@example.com", name: "", phoneNumber: null };
+    if (id === otherMemberId) return { ...user, id, email: "other@example.com", phoneNumber: null };
+    if (id === noAlumniMemberId) {
+      return { ...user, id, email: "no-alumni@example.com", phoneNumber: "010-3333-4444" };
+    }
     return undefined;
   });
   t.mock.method(storage, "getAlumniRecordByUserId", async (id) => {
     if (id === memberId) return alumni;
-    if (id === otherMemberId) {
-      return { ...alumni, generation: "", admissionDate: "1986-02-31", mobile: null, matchedUserId: id };
-    }
     return undefined;
   });
   t.mock.method(storage, "getMembershipStatus", async () => ({
@@ -294,6 +315,7 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
   try {
     const memberHeaders = { "content-type": "application/json", "x-test-user-id": String(memberId) };
     const otherHeaders = { "content-type": "application/json", "x-test-user-id": String(otherMemberId) };
+    const noAlumniHeaders = { "content-type": "application/json", "x-test-user-id": String(noAlumniMemberId) };
     const forgedBody = {
       memberName: "공격자 이름",
       memberPhone: "010-9999-9999",
@@ -320,9 +342,16 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     assert.deepEqual((await missingProfile.json()).missingFields, [
       "graduationClass",
       "admissionYear",
-      "memberName",
       "memberPhone",
     ]);
+
+    const noAlumni = await fetch(`${server.baseUrl}/api/events/5/preview`, {
+      method: "POST",
+      headers: noAlumniHeaders,
+      body: JSON.stringify(forgedBody),
+    });
+    assert.equal(noAlumni.status, 400);
+    assert.deepEqual((await noAlumni.json()).missingFields, ["graduationClass", "admissionYear"]);
 
     const published = await fetch(`${server.baseUrl}/api/events/3/preview`, {
       method: "POST",
@@ -341,6 +370,23 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
       message: "부고문 미리보기에 필요한 정보가 부족합니다",
       missingFields: ["deceasedName", "deceasedAge", "funeralHome", "funeralDate"],
     });
+
+    for (const [id, missingFields] of [
+      [6, ["details"]],
+      [7, ["deceasedAge"]],
+      [8, ["sourceUrl"]],
+    ] as const) {
+      const invalidStoredDraft = await fetch(`${server.baseUrl}/api/events/${id}/preview`, {
+        method: "POST",
+        headers: memberHeaders,
+        body: JSON.stringify(forgedBody),
+      });
+      assert.equal(invalidStoredDraft.status, 400);
+      assert.deepEqual(await invalidStoredDraft.json(), {
+        message: "저장된 부고 초안이 올바르지 않습니다",
+        missingFields,
+      });
+    }
 
     const response = await fetch(`${server.baseUrl}/api/events/1/preview`, {
       method: "POST",

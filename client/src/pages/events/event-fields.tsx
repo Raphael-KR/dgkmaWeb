@@ -42,15 +42,17 @@ type EventFieldsProps = {
 type FieldProps = {
   children: React.ReactNode;
   error?: string;
+  help?: string;
   id: string;
   label: string;
 };
 
-function Field({ children, error, id, label }: FieldProps) {
+function Field({ children, error, help, id, label }: FieldProps) {
   return (
     <div className="min-w-0 space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       {children}
+      {help && <p id={`${id}-help`} className="text-sm text-gray-500">{help}</p>}
       {error && <p id={`${id}-error`} role="alert" className="text-sm text-red-700">{error}</p>}
     </div>
   );
@@ -143,8 +145,12 @@ export function EventFields({ disabled, eventType, form, publishErrors }: EventF
             <Field id="obituary-url" label="모바일 부고장 URL" error={publishErrors["details.sourceUrl"]}>
               <Input id="obituary-url" disabled={disabled} type="url" placeholder="https://" {...fieldA11y("obituary-url", publishErrors["details.sourceUrl"])} {...form.register(toFormPath("details.sourceUrl"))} />
             </Field>
-            <Field id="member-title" label="회원 직함">
-              <Input id="member-title" disabled={disabled} placeholder="예: 한의원 원장" {...fieldA11y("member-title")} {...form.register(toFormPath("details.memberTitle"))} />
+            <Field
+              id="member-title"
+              label="회원 직함"
+              help="표준 부고문 미리보기에는 매칭된 동문 명부의 직함이 사용됩니다."
+            >
+              <Input id="member-title" disabled={disabled} placeholder="예: 한의원 원장" {...fieldA11y("member-title")} aria-describedby="member-title-help" {...form.register(toFormPath("details.memberTitle"))} />
             </Field>
             <Field id="family-contact" label="유가족 연락처">
               <Input id="family-contact" disabled={disabled} placeholder="예: 010-0000-0000" {...fieldA11y("family-contact")} {...form.register(toFormPath("details.familyContact"))} />

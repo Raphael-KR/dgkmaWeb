@@ -41,12 +41,15 @@ test("storage exposes owner-scoped draft methods", async () => {
 });
 
 test("preview storage lookups stay owner and matched-user scoped", async () => {
-  const storage = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
+  const [storage, alumniMatch] = await Promise.all([
+    readFile(new URL("./storage.ts", import.meta.url), "utf8"),
+    readFile(new URL("./alumni-match.ts", import.meta.url), "utf8"),
+  ]);
   const draftMethod = storage.match(
     /async getEventDraft\([\s\S]*?return event \|\| undefined;\n  }/,
   )?.[0];
   const alumniMethod = storage.match(
-    /async getAlumniRecordByUserId\([\s\S]*?return alumni \|\| undefined;\n  }/,
+    /async getAlumniRecordByUserId\([\s\S]*?return uniqueAlumniMatch\(alumni\);\n  }/,
   )?.[0];
 
   assert.ok(draftMethod, "getEventDraft 구현을 찾을 수 없습니다");
@@ -55,6 +58,10 @@ test("preview storage lookups stay owner and matched-user scoped", async () => {
   assert.match(draftMethod, /eq\(communityEvents\.status, "draft"\)/);
   assert.ok(alumniMethod, "getAlumniRecordByUserId 구현을 찾을 수 없습니다");
   assert.match(alumniMethod, /eq\(alumniDatabase\.matchedUserId, userId\)/);
+  assert.match(alumniMethod, /orderBy\(asc\(alumniDatabase\.id\)\)/);
+  assert.match(alumniMethod, /limit\(2\)/);
+  assert.match(alumniMethod, /uniqueAlumniMatch\(alumni\)/);
+  assert.match(alumniMatch, /records\.length === 1 \? records\[0\] : undefined/);
 });
 
 test("publishing updates only an owned draft", async () => {
