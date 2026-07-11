@@ -97,7 +97,7 @@ test("protected routes enforce the live session role matrix", async () => {
   }
 });
 
-test("obituary APIs require a member session", async () => {
+test("obituary APIs require a member session", async (t) => {
   const memberId = 2_147_483_646;
   const obituary: Obituary = {
     id: 1,
@@ -113,16 +113,21 @@ test("obituary APIs require a member session", async () => {
     authorId: memberId,
     createdAt: new Date("2026-07-11T00:00:00Z"),
   };
-  const originalGetObituaries = storage.getObituaries;
-  const originalGetObituary = storage.getObituary;
-  const originalCreateObituary = storage.createObituary;
+  let obituaryStorageCalls = 0;
   let createdObituaryInput: Parameters<typeof storage.createObituary>[0] | undefined;
-  storage.getObituaries = async () => [obituary];
-  storage.getObituary = async () => obituary;
-  storage.createObituary = async (data) => {
+  t.mock.method(storage, "getObituaries", async () => {
+    obituaryStorageCalls += 1;
+    return [obituary];
+  });
+  t.mock.method(storage, "getObituary", async () => {
+    obituaryStorageCalls += 1;
+    return obituary;
+  });
+  t.mock.method(storage, "createObituary", async (data) => {
+    obituaryStorageCalls += 1;
     createdObituaryInput = data;
     return { ...obituary, ...data };
-  };
+  });
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
 
   try {
@@ -145,6 +150,7 @@ test("obituary APIs require a member session", async () => {
       body: "{}",
     });
     assert.equal(anonymousCreate.status, 401);
+    assert.equal(obituaryStorageCalls, 0);
 
     const memberParse = await fetch(`${server.baseUrl}/api/obituary/parse`, {
       method: "POST",
@@ -183,15 +189,13 @@ test("obituary APIs require a member session", async () => {
     });
     assert.equal(memberCreate.status, 201);
     assert.equal(createdObituaryInput?.authorId, memberId);
+    assert.equal(obituaryStorageCalls, 3);
   } finally {
     await server.close();
-    storage.getObituaries = originalGetObituaries;
-    storage.getObituary = originalGetObituary;
-    storage.createObituary = originalCreateObituary;
   }
 });
 
-test("post creation enforces the approved category policy before writing", async () => {
+test("post creation enforces the approved category policy before writing", async (t) => {
   const memberId = 2_147_483_646;
   const category = (id: number, name: string, isActive = true): Category => ({
     id,
@@ -210,11 +214,9 @@ test("post creation enforces the approved category policy before writing", async
     [3, category(3, "free", false)],
     [4, category(4, "market")],
   ]);
-  const originalGetCategory = storage.getCategory;
-  const originalCreatePost = storage.createPost;
   const createdPosts: Parameters<typeof storage.createPost>[0][] = [];
-  storage.getCategory = async (id) => categories.get(id);
-  storage.createPost = async (data) => {
+  t.mock.method(storage, "getCategory", async (id) => categories.get(id));
+  t.mock.method(storage, "createPost", async (data) => {
     createdPosts.push(data);
     return {
       id: 1,
@@ -227,7 +229,7 @@ test("post creation enforces the approved category policy before writing", async
       createdAt: new Date("2026-07-11T00:00:00Z"),
       updatedAt: new Date("2026-07-11T00:00:00Z"),
     } satisfies Post;
-  };
+  });
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
 
   try {
@@ -259,7 +261,5 @@ test("post creation enforces the approved category policy before writing", async
     assert.equal(createdPosts[0].authorId, memberId);
   } finally {
     await server.close();
-    storage.getCategory = originalGetCategory;
-    storage.createPost = originalCreatePost;
   }
 });
