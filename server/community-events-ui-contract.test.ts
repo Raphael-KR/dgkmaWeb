@@ -90,6 +90,40 @@ test("community events page switches the list to a newly published event type", 
   assert.match(page, /<EventComposer onPublished=\{\(eventType\) => setSelectedType\(eventType\)\}/);
 });
 
+test("community event entry points replace the obsolete home obituary form", async () => {
+  const [boards, home] = await Promise.all([
+    readFile(new URL("../client/src/pages/boards.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../client/src/pages/home.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(boards, /HeartHandshake/);
+  assert.match(boards, /aria-label="경조사 페이지로 이동"/);
+  assert.match(boards, /onClick=\{\(\) => setLocation\("\/events"\)\}/);
+  assert.match(boards, /flex items-center justify-between gap-3 mb-4/);
+  assert.match(boards, /shrink-0/);
+
+  assert.match(home, /HeartHandshake/);
+  assert.match(home, /aria-label="경조사 페이지로 이동"/);
+  assert.match(home, /onClick=\{\(\) => setLocation\("\/events"\)\}/);
+  assert.doesNotMatch(home, /obituaryUrl|parseObituaryMutation|handleObituarySubmit|\/api\/obituary\/parse/);
+});
+
+test("legacy obituary entry routes redirect without replacing legacy details or public condolence", async () => {
+  const app = await readFile(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+
+  const legacyNewRedirect = '<Route path="/o/new" component={() => <Redirect to="/events?type=obituary&compose=1" replace />} />';
+  const legacyListRedirect = '<Route path="/o" component={() => <Redirect to="/events?type=obituary" replace />} />';
+  const legacyDetailRoute = '<Route path="/o/:id">\n        <AuthGate><ObituaryDetail /></AuthGate>\n      </Route>';
+
+  assert.match(app, /import \{ Switch, Route, Redirect, useLocation \} from "wouter"/);
+  assert.ok(app.includes(legacyNewRedirect));
+  assert.ok(app.includes(legacyListRedirect));
+  assert.ok(app.includes(legacyDetailRoute));
+  assert.ok(app.indexOf(legacyNewRedirect) < app.indexOf(legacyListRedirect));
+  assert.ok(app.indexOf(legacyListRedirect) < app.indexOf(legacyDetailRoute));
+  assert.match(app, /<Route path="\/about\/condolence" component=\{AboutCondolence\} \/>/);
+});
+
 test("community event detail guards malformed details and keeps fixed private SEO", async () => {
   const [detail, clientSeo, serverSeo] = await Promise.all([
     readFile(new URL("../client/src/pages/events/detail.tsx", import.meta.url), "utf8"),
