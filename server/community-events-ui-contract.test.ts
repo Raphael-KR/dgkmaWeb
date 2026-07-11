@@ -28,6 +28,41 @@ test("community event routes and list requests stay member-only and guarded", as
   assert.match(robots, /^Disallow: \/events\/$/m);
 });
 
+test("community event composer stays visible and only submits schema-backed event data", async () => {
+  const [composer, fields] = await Promise.all([
+    readFile(new URL("../client/src/pages/events/event-composer.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../client/src/pages/events/event-fields.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(composer, /useForm<CommunityEventDraftInput>/);
+  assert.match(composer, /zodResolver\(communityEventDraftSchema\)/);
+  assert.match(composer, /<ToggleGroup/);
+  assert.match(composer, /\["obituary", "wedding", "opening", "other"\]/);
+  assert.match(composer, /EVENT_TYPE_LABELS\[eventType\]/);
+  assert.match(composer, /<Textarea/);
+  assert.match(composer, /문자와 공개 링크를 함께 붙여넣으세요/);
+  assert.match(composer, /<EventFields/);
+  assert.match(composer, /communityEventPublishSchema\.safeParse/);
+  assert.match(composer, /apiRequest\("POST", "\/api\/events\/drafts"/);
+  assert.match(composer, /apiRequest\("POST", `\/api\/events\/\$\{publishDraftId\}\/publish`/);
+  assert.match(composer, /apiRequest\("POST", "\/api\/obituary\/parse"/);
+  assert.match(composer, /링크 내용 수집은 준비 중이며 입력한 문자만 분석했습니다\./);
+  assert.match(composer, /invalidateQueries\(\{ queryKey: \["\/api\/events"\] \}\)/);
+  assert.match(composer, /removeQueries\(\{ queryKey: \["\/api\/events\/drafts\/latest"\] \}\)/);
+  assert.doesNotMatch(composer, /\b(?:Dialog|Accordion|Collapsible)\b/);
+  assert.doesNotMatch(composer, /authorId|membershipTier|memberName|memberPhone/);
+
+  assert.match(fields, /details\.memo/);
+  assert.match(fields, /details\.deceasedName/);
+  assert.match(fields, /details\.deceasedAge/);
+  assert.match(fields, /details\.relationship/);
+  assert.match(fields, /details\.funeralDate/);
+  assert.match(fields, /details\.funeralHome/);
+  assert.match(fields, /details\.accountInfo/);
+  assert.match(fields, /details\.sourceUrl/);
+  assert.match(fields, /details\.familyContact/);
+});
+
 test("community event detail guards malformed details and keeps fixed private SEO", async () => {
   const [detail, clientSeo, serverSeo] = await Promise.all([
     readFile(new URL("../client/src/pages/events/detail.tsx", import.meta.url), "utf8"),
