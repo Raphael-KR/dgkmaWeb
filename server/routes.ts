@@ -25,8 +25,11 @@ declare module "express-session" {
 }
 
 function parsePositiveInteger(value: string): number | undefined {
+  if (!/^[1-9]\d*$/.test(value)) {
+    return undefined;
+  }
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 // 카카오 인증/온보딩 디버그 로그 게이팅. 운영 환경에서는 기본 OFF.

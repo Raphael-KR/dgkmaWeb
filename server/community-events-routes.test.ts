@@ -75,6 +75,10 @@ test("community event APIs enforce member sessions and do not expose source text
   let storageCalls = 0;
   let createdAuthorId: number | undefined;
   let createdDraft: Parameters<typeof storage.createEventDraft>[1] | undefined;
+  let updatedAuthorId: number | undefined;
+  let updatedDraft: Parameters<typeof storage.updateEventDraft>[2] | undefined;
+  let publishedAuthorId: number | undefined;
+  let publishedData: Parameters<typeof storage.publishEvent>[2] | undefined;
 
   t.mock.method(storage, "getPublishedEvents", async () => {
     storageCalls += 1;
@@ -94,16 +98,20 @@ test("community event APIs enforce member sessions and do not expose source text
     createdDraft = data;
     return draftEvent;
   });
-  t.mock.method(storage, "updateEventDraft", async () => {
+  t.mock.method(storage, "updateEventDraft", async (_id, authorId, data) => {
     storageCalls += 1;
+    updatedAuthorId = authorId;
+    updatedDraft = data;
     return draftEvent;
   });
   t.mock.method(storage, "deleteEventDraft", async () => {
     storageCalls += 1;
     return true;
   });
-  t.mock.method(storage, "publishEvent", async () => {
+  t.mock.method(storage, "publishEvent", async (_id, authorId, data) => {
     storageCalls += 1;
+    publishedAuthorId = authorId;
+    publishedData = data;
     return publishedEvent;
   });
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
@@ -160,9 +168,11 @@ test("community event APIs enforce member sessions and do not expose source text
     const update = await fetch(`${server.baseUrl}/api/events/drafts/1`, {
       method: "PATCH",
       headers: { "content-type": "application/json", ...headers },
-      body: JSON.stringify(draftPayload),
+      body: JSON.stringify({ ...draftPayload, authorId: 1 }),
     });
     assert.equal(update.status, 200);
+    assert.equal(updatedAuthorId, memberId);
+    assert.equal("authorId" in (updatedDraft ?? {}), false);
 
     const remove = await fetch(`${server.baseUrl}/api/events/drafts/1`, {
       method: "DELETE",
@@ -173,9 +183,11 @@ test("community event APIs enforce member sessions and do not expose source text
     const publish = await fetch(`${server.baseUrl}/api/events/1/publish`, {
       method: "POST",
       headers: { "content-type": "application/json", ...headers },
-      body: JSON.stringify(draftPayload),
+      body: JSON.stringify({ ...draftPayload, authorId: 1 }),
     });
     assert.equal(publish.status, 200);
+    assert.equal(publishedAuthorId, memberId);
+    assert.equal("authorId" in (publishedData ?? {}), false);
   } finally {
     await server.close();
   }
@@ -230,13 +242,15 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
     });
     assert.equal(invalidPublish.status, 400);
 
-    for (const request of [
-      fetch(`${server.baseUrl}/api/events/0`, { headers: memberHeaders }),
-      fetch(`${server.baseUrl}/api/events/drafts/0`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
-      fetch(`${server.baseUrl}/api/events/drafts/0`, { method: "DELETE", headers: memberHeaders }),
-      fetch(`${server.baseUrl}/api/events/0/publish`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
-    ]) {
-      assert.equal((await request).status, 400);
+    for (const id of ["0", "1e3", "0x10", "1.0", "+1", "%201", "1%20"]) {
+      for (const request of [
+        fetch(`${server.baseUrl}/api/events/${id}`, { headers: memberHeaders }),
+        fetch(`${server.baseUrl}/api/events/drafts/${id}`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
+        fetch(`${server.baseUrl}/api/events/drafts/${id}`, { method: "DELETE", headers: memberHeaders }),
+        fetch(`${server.baseUrl}/api/events/${id}/publish`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
+      ]) {
+        assert.equal((await request).status, 400);
+      }
     }
 
     const otherUpdate = await fetch(`${server.baseUrl}/api/events/drafts/1`, {
