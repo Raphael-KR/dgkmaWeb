@@ -37,6 +37,16 @@ type ImmediateSaveRetryInput = {
   hasMeaningfulInput: boolean;
 };
 
+const NULLABLE_DRAFT_STRING_FIELDS = [
+  "title",
+  "eventDate",
+  "location",
+  "relatedMemberName",
+  "contactNumber",
+  "accountInfo",
+  "sourceText",
+] as const;
+
 export function publishResolutionLock(
   outcome: "published" | "ambiguous",
   draftId: number,
@@ -115,8 +125,19 @@ async function errorMessage(response: Response, fallback: string) {
   }
 }
 
+function normalizeDraftResponse(rawDraft: unknown): unknown {
+  if (!rawDraft || typeof rawDraft !== "object" || Array.isArray(rawDraft)) return rawDraft;
+
+  const normalized = { ...rawDraft } as Record<string, unknown>;
+  NULLABLE_DRAFT_STRING_FIELDS.forEach((field) => {
+    if (normalized[field] === null) delete normalized[field];
+  });
+  if (normalized.sourceUrls === null) normalized.sourceUrls = [];
+  return normalized;
+}
+
 async function parseDraftResponse(response: Response, eventType: CommunityEventType) {
-  const rawDraft = await response.json() as { id?: unknown; eventType?: unknown };
+  const rawDraft = normalizeDraftResponse(await response.json()) as { id?: unknown; eventType?: unknown };
   const parsedDraft = communityEventDraftSchema.safeParse(rawDraft);
   if (
     !parsedDraft.success

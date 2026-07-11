@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   clearedDraftFailureState,
   draftFingerprint,
+  fetchLatestEventDraft,
   planImmediateSaveRetry,
   publishFailureResolution,
   publishResolutionLock,
@@ -18,6 +19,29 @@ const obituaryDraft = {
   sourceUrls: [],
   details: {},
 };
+
+function databaseObituaryDraft(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 1,
+    legacyObituaryId: null,
+    eventType: "obituary",
+    status: "draft",
+    title: "동문 부고",
+    eventDate: null,
+    location: null,
+    relatedMemberName: null,
+    contactNumber: null,
+    accountInfo: null,
+    sourceText: null,
+    sourceUrls: [],
+    details: {},
+    authorId: 7,
+    publishedAt: null,
+    createdAt: "2026-07-12T00:00:00.000Z",
+    updatedAt: "2026-07-12T00:00:00.000Z",
+    ...overrides,
+  };
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(status === 204 ? undefined : JSON.stringify(body), {
@@ -144,6 +168,67 @@ test("ambiguous publish retry keeps the pinned ID and autosave lock", () => {
     publishResolutionId: 37,
     shouldResumeAutosave: false,
   });
+});
+
+test("latest recovery accepts nullable database draft columns without weakening details", async () => {
+  const recovered = await fetchLatestEventDraft(
+    async () => jsonResponse(databaseObituaryDraft({ sourceUrls: null })),
+    "obituary",
+  );
+
+  assert.deepEqual(recovered, {
+    id: 1,
+    eventType: "obituary",
+    title: "동문 부고",
+    sourceUrls: [],
+    details: {},
+  });
+
+  await assert.rejects(() => fetchLatestEventDraft(
+    async () => jsonResponse(databaseObituaryDraft({ details: { unexpected: true } })),
+    "obituary",
+  ), /유형 또는 형식/);
+  await assert.rejects(() => fetchLatestEventDraft(
+    async () => jsonResponse(databaseObituaryDraft({ sourceUrls: ["not-a-url"] })),
+    "obituary",
+  ), /유형 또는 형식/);
+  await assert.rejects(() => fetchLatestEventDraft(
+    async () => jsonResponse(databaseObituaryDraft({ id: 0 })),
+    "obituary",
+  ), /유형 또는 형식/);
+});
+
+test("nullable POST response parses and its draft ID continues with a PATCH save", async () => {
+  const calls: Array<{ body?: string; method?: string; url: string }> = [];
+  const fetcher = async (url: string, init?: RequestInit) => {
+    calls.push({ body: init?.body as string | undefined, method: init?.method, url });
+    if (calls.length === 1) return jsonResponse({ message: "missing" }, 404);
+    if (calls.length === 2) return jsonResponse(databaseObituaryDraft(), 201);
+    return jsonResponse(databaseObituaryDraft({ title: "내용을 보완한 부고" }));
+  };
+
+  const created = await saveEventDraftWithFallback({
+    eventType: "obituary",
+    fetcher,
+    payload: obituaryDraft,
+  });
+  const continued = await saveEventDraftWithFallback({
+    draftId: created.id,
+    eventType: "obituary",
+    fetcher,
+    payload: { ...obituaryDraft, title: "내용을 보완한 부고" },
+  });
+
+  assert.equal(created.id, 1);
+  assert.equal(created.eventDate, undefined);
+  assert.equal(continued.id, 1);
+  assert.equal(continued.title, "내용을 보완한 부고");
+  assert.deepEqual(calls.map(({ method, url }) => `${method} ${url}`), [
+    "GET /api/events/drafts/latest?type=obituary",
+    "POST /api/events/drafts",
+    "PATCH /api/events/drafts/1",
+  ]);
+  assert.equal(JSON.parse(calls[2].body ?? "{}").title, "내용을 보완한 부고");
 });
 
 test("no-ID save checks latest and PATCHes an existing draft", async () => {
