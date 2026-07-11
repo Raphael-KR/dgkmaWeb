@@ -4,6 +4,25 @@ All notable changes to dgkmaWeb (동국대학교한의과대학동문회 웹) ar
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- 활동 지역 온보딩과 기수·지역 범위 기반 동문 주소록
+- 권리회원 상태 및 당해 연회비 납부 표시
+- 게시판 댓글, 이미지 첨부, 부고 상세 화면
+
+### Changed
+
+- 카카오 로그인 v5를 REST OAuth authorize URL과 서버 토큰 교환 방식으로 정리
+- 카카오 로그인 완료 전에 PostgreSQL 세션 저장을 보장
+
+### Security
+
+- 게시판 작성자·댓글 작성자 식별을 세션 기준으로 제한
+- 카테고리 생성 API를 관리자 전용으로 제한
+- 이미지 업로드를 10MB 이하 JPG, PNG, WebP, GIF로 제한하고 안전한 MIME만 인라인 제공
+
 ## [1.1.0] - 2026-04-20
 
 ### Added
