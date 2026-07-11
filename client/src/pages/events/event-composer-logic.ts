@@ -49,8 +49,10 @@ export function canApplyParsedSource(input: ParseAcceptanceInput) {
 }
 
 export function classifyPublishRecovery(event: { status?: unknown } | undefined) {
-  return event?.status === "published" ? "published" : "retain-draft";
+  return event?.status === "published" ? "published" : "ambiguous";
 }
+
+export class ConclusivePublishError extends Error {}
 
 export type FormErrorEntry = {
   message: string;
@@ -104,7 +106,8 @@ export async function publishDraftWithRecovery<T>({
   try {
     await publishDraft(knownDraftId, payload);
     return { draftId: knownDraftId, outcome: "published" as const };
-  } catch {
+  } catch (error) {
+    if (error instanceof ConclusivePublishError) throw error;
     let recoveredEvent: { status?: unknown } | undefined;
     try {
       recoveredEvent = await getEvent(knownDraftId);

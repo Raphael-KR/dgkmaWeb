@@ -95,6 +95,10 @@ test("community event APIs enforce member sessions and do not expose source text
     storageCalls += 1;
     return draftEvent;
   });
+  t.mock.method(storage, "getEventDraft", async (_id, authorId) => {
+    storageCalls += 1;
+    return authorId === memberId ? draftEvent : undefined;
+  });
   t.mock.method(storage, "createEventDraft", async (authorId, data) => {
     storageCalls += 1;
     createdAuthorId = authorId;
@@ -427,6 +431,9 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
     return id === 2_147_483_647 ? event({ id, status: "published" }) : undefined;
   });
   t.mock.method(storage, "getLatestEventDraft", async () => undefined);
+  t.mock.method(storage, "getEventDraft", async (id, authorId) => {
+    return id === 1 && authorId === memberId ? event() : undefined;
+  });
   t.mock.method(storage, "createEventDraft", async () => event());
   t.mock.method(storage, "updateEventDraft", async (_id, authorId) => {
     return authorId === memberId ? event() : undefined;
@@ -522,6 +529,173 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
       body: JSON.stringify(draftPayload),
     });
     assert.equal(alreadyPublished.status, 404);
+  } finally {
+    await server.close();
+  }
+});
+
+test("obituary publish canonicalizes profile fields and retries idempotently for only the owner", async (t) => {
+  const obituaryId = 31;
+  const noAlumniId = 32;
+  const canonicalUser = {
+    id: memberId,
+    kakaoId: null,
+    email: "member@example.com",
+    name: "서버 회원",
+    graduationYear: null,
+    isVerified: true,
+    isAdmin: false,
+    kakaoSyncEnabled: false,
+    profileImage: null,
+    phoneNumber: "010-1234-5678",
+    birthday: null,
+    birthdayType: null,
+    isLeapMonth: null,
+    activityRegion: "서울특별시",
+    createdAt: null,
+    updatedAt: null,
+  };
+  const canonicalAlumni = {
+    id: 91,
+    department: "한의학과",
+    generation: "8기",
+    name: "동문 명부 이름",
+    admissionDate: "1986-03-02",
+    graduationDate: null,
+    address: null,
+    mobile: "010-9999-0000",
+    phone: null,
+    group: null,
+    status: null,
+    alumniPosition: "서버 명부 직함",
+    memo: null,
+    isMatched: true,
+    matchedUserId: memberId,
+  };
+  const ownedDraft = event({
+    id: obituaryId,
+    eventType: "obituary",
+    authorId: memberId,
+    relatedMemberName: "저장된 위조 이름",
+    contactNumber: "저장된 위조 연락처",
+    details: {},
+  });
+  const noAlumniDraft = event({
+    id: noAlumniId,
+    eventType: "obituary",
+    authorId: noAlumniMemberId,
+    details: {},
+  });
+  let publishedRecord: CommunityEvent | undefined;
+  let publishCalls = 0;
+  let publishedData: Parameters<typeof storage.publishEvent>[2] | undefined;
+
+  t.mock.method(storage, "getPublishedEvent", async (id) => {
+    return publishedRecord?.id === id ? publishedRecord : undefined;
+  });
+  t.mock.method(storage, "getEventDraft", async (id, authorId) => {
+    if (publishedRecord?.id === id) return undefined;
+    if (id === obituaryId && authorId === memberId) return ownedDraft;
+    if (id === noAlumniId && authorId === noAlumniMemberId) return noAlumniDraft;
+    return undefined;
+  });
+  t.mock.method(storage, "getUser", async (id) => {
+    if (id === memberId) return canonicalUser;
+    if (id === noAlumniMemberId) {
+      return { ...canonicalUser, id, email: "no-alumni@example.com" };
+    }
+    return undefined;
+  });
+  t.mock.method(storage, "getAlumniRecordByUserId", async (id) => {
+    return id === memberId ? canonicalAlumni : undefined;
+  });
+  t.mock.method(storage, "getMembershipStatus", async () => ({
+    year: 2026,
+    tier: "권리회원",
+    isPaid: true,
+    paidAmount: 100_000,
+    annualDues: 100_000,
+    currentYearPayment: null,
+  }));
+  t.mock.method(storage, "publishEvent", async (id, authorId, data) => {
+    publishCalls += 1;
+    publishedData = data;
+    if (id !== obituaryId || authorId !== memberId) return undefined;
+    publishedRecord = event({
+      ...data,
+      id,
+      authorId,
+      status: "published",
+      sourceText: "비공개 원문",
+      publishedAt: new Date("2026-07-12T01:00:00Z"),
+    });
+    return publishedRecord;
+  });
+
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
+  const publishBody = {
+    eventType: "obituary" as const,
+    title: "서버 회원 동문 부친상",
+    eventDate: "2026-08-01",
+    location: "동국병원 장례식장",
+    accountInfo: "동국은행 123-456",
+    details: {
+      deceasedName: "김한의",
+      deceasedAge: 88,
+      relationship: "부친" as const,
+      funeralDate: "2026년 8월 3일",
+      funeralHome: "동국병원 장례식장 202호",
+      memberTitle: "요청 위조 직함",
+    },
+  };
+
+  try {
+    const ownerHeaders = { "content-type": "application/json", "x-test-user-id": String(memberId) };
+    const first = await fetch(`${server.baseUrl}/api/events/${obituaryId}/publish`, {
+      method: "POST",
+      headers: ownerHeaders,
+      body: JSON.stringify(publishBody),
+    });
+    assert.equal(first.status, 200);
+    const firstBody = await first.json() as Record<string, unknown>;
+    assert.equal(firstBody.relatedMemberName, "서버 회원");
+    assert.equal(firstBody.contactNumber, "010-1234-5678");
+    assert.equal((firstBody.details as Record<string, unknown>).memberTitle, "서버 명부 직함");
+    assert.equal(firstBody.sourceText, undefined);
+    assert.equal(publishedData?.relatedMemberName, "서버 회원");
+    assert.equal(publishedData?.contactNumber, "010-1234-5678");
+    assert.equal((publishedData?.details as Record<string, unknown>).memberTitle, "서버 명부 직함");
+
+    const retry = await fetch(`${server.baseUrl}/api/events/${obituaryId}/publish`, {
+      method: "POST",
+      headers: ownerHeaders,
+      body: JSON.stringify({ malformed: "retry body is ignored after publication" }),
+    });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json() as Record<string, unknown>).sourceText, undefined);
+    assert.equal(publishCalls, 1);
+
+    const crossOwner = await fetch(`${server.baseUrl}/api/events/${obituaryId}/publish`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user-id": String(otherMemberId) },
+      body: JSON.stringify(publishBody),
+    });
+    assert.equal(crossOwner.status, 404);
+    assert.deepEqual(await crossOwner.json(), { message: "소식을 찾을 수 없습니다" });
+    assert.equal(publishCalls, 1);
+
+    const noAlumni = await fetch(`${server.baseUrl}/api/events/${noAlumniId}/publish`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user-id": String(noAlumniMemberId) },
+      body: JSON.stringify({
+        ...publishBody,
+        relatedMemberName: "요청 위조 이름",
+        contactNumber: "010-0000-0000",
+      }),
+    });
+    assert.equal(noAlumni.status, 400);
+    assert.ok((await noAlumni.json() as { missingFields?: string[] }).missingFields?.includes("graduationClass"));
+    assert.equal(publishCalls, 1);
   } finally {
     await server.close();
   }

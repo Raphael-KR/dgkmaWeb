@@ -24,6 +24,7 @@ test("community event routes and list requests stay member-only and guarded", as
   assert.match(list, /credentials: "include"/);
   assert.match(list, /if \(!response\.ok\) \{\s*throw new Error/);
   assert.doesNotMatch(list, /sourceText/);
+  assert.match(list, /경조사 목록 다시 불러오기/);
   assert.match(robots, /^Disallow: \/events$/m);
   assert.match(robots, /^Disallow: \/events\/$/m);
 });
@@ -136,6 +137,9 @@ test("community event detail guards malformed details and keeps fixed private SE
   assert.match(detail, /!Array\.isArray\(value\)/);
   assert.match(detail, /isEventDetails\(details\) \? details : \{\}/);
   assert.doesNotMatch(detail, /sourceText/);
+  assert.match(detail, /target="_blank"/);
+  assert.match(detail, /rel="noopener noreferrer"/);
+  assert.match(detail, /경조사 상세 다시 불러오기/);
   assert.match(detail, /const backPath = `\/events\?type=\$\{event\.eventType\}`/);
   assert.match(detail, /setLocation\(backPath\)/);
   assert.match(detail, /useSeo\(\{\s*\.\.\.COMMUNITY_EVENTS_SEO\.detail,/);

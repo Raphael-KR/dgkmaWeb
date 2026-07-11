@@ -67,11 +67,12 @@ test("preview storage lookups stay owner and matched-user scoped", async () => {
 test("publishing updates only an owned draft", async () => {
   const storage = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
   const publishMethod = storage.match(
-    /async publishEvent\([\s\S]*?return event \|\| undefined;\n  }/,
+    /async publishEvent\([\s\S]*?return published \|\| undefined;\n  }/,
   )?.[0];
 
   assert.ok(publishMethod, "publishEvent 구현을 찾을 수 없습니다");
   assert.match(publishMethod, /eq\(communityEvents\.id, id\)/);
   assert.match(publishMethod, /eq\(communityEvents\.authorId, authorId\)/);
   assert.match(publishMethod, /eq\(communityEvents\.status, "draft"\)/);
+  assert.match(publishMethod, /eq\(communityEvents\.authorId, authorId\)[\s\S]*eq\(communityEvents\.status, "published"\)/);
 });

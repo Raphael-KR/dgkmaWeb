@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, LoaderCircle } from "lucide-react";
+import { Copy, LoaderCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -7,6 +7,7 @@ import type { CommunityEventType } from "@shared/community-events";
 import {
   canApplyPreviewResponse,
   isObituaryPreviewEligible,
+  missingFieldLabel,
   type PreviewRequestIdentity,
 } from "./obituary-preview-logic";
 
@@ -23,21 +24,6 @@ type PreviewState =
   | { status: "incomplete"; missingFields: string[]; request: PreviewRequestIdentity }
   | { status: "success"; text: string; request: PreviewRequestIdentity };
 
-const missingFieldLabels: Record<string, string> = {
-  details: "부고 상세 정보",
-  graduationClass: "졸업 기수",
-  admissionYear: "입학 연도",
-  memberName: "회원 이름",
-  membershipTier: "회원 등급",
-  relationship: "고인과의 관계",
-  deceasedName: "고인 성함",
-  deceasedAge: "고인 나이",
-  funeralHome: "빈소",
-  funeralDate: "발인 일시",
-  memberPhone: "회원 연락처",
-  sourceUrl: "모바일 부고장 URL",
-};
-
 function isMissingFields(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((field) => typeof field === "string");
 }
@@ -51,6 +37,7 @@ export function ObituaryPreview({
 }: ObituaryPreviewProps) {
   const { toast } = useToast();
   const [state, setState] = useState<PreviewState>({ status: "idle" });
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const requestVersionRef = useRef(0);
   const controllerRef = useRef<AbortController>();
   const activeRef = useRef({
@@ -117,7 +104,7 @@ export function ObituaryPreview({
     })();
 
     return () => controller.abort();
-  }, [draftId, draftStatus, eventType, isPaused]);
+  }, [draftId, draftStatus, eventType, isPaused, retryAttempt]);
 
   const isCurrentRequest = "request" in state
     && canApplyPreviewResponse(activeRef.current, state.request);
@@ -168,11 +155,23 @@ export function ObituaryPreview({
       {missingFields && (
         <div className="mt-2 text-sm text-red-700" role="status">
           <p>미리보기에 필요한 정보가 부족합니다.</p>
-          <p className="mt-1">{missingFields.map((field) => missingFieldLabels[field] ?? field).join(", ")}</p>
+          <p className="mt-1">{missingFields.map(missingFieldLabel).join(", ")}</p>
         </div>
       )}
       {state.status === "error" && (
-        <p className="mt-2 text-sm text-red-700" role="status">미리보기를 불러오지 못했습니다.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-red-700" role="status">
+          <span>미리보기를 불러오지 못했습니다.</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+            aria-label="미리보기 다시 불러오기"
+          >
+            <RefreshCw aria-hidden="true" />
+            다시 불러오기
+          </Button>
+        </div>
       )}
       {currentText && (
         <pre className="mt-2 whitespace-pre-wrap break-words border-l-2 border-gray-300 pl-3 font-sans text-sm leading-6 text-gray-800">

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, MapPin, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, ExternalLink, MapPin, Phone, RefreshCw, UserRound } from "lucide-react";
 import { useLocation, useRoute } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,15 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { COMMUNITY_EVENTS_SEO, useSeo } from "@/lib/seo";
 import { EVENT_TYPE_LABELS, type PublishedCommunityEvent } from "./event-list";
 import type { CommunityEventType } from "@shared/community-events";
+import {
+  classifyEventDetailError,
+  loadCommunityEventDetail,
+  safeExternalHttpUrl,
+} from "./event-detail-logic";
 
 type DetailRowProps = {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
 };
 
 type ObituaryDetails = {
@@ -24,6 +29,7 @@ type ObituaryDetails = {
   familyContact?: string;
   accountInfo?: string;
   legacyDateOfDeath?: string;
+  sourceUrl?: string;
 };
 
 const eventDateLabels: Record<CommunityEventType, string> = {
@@ -77,6 +83,7 @@ function getObituaryDetails(details: unknown): ObituaryDetails {
     familyContact: getDetailText(safeDetails.familyContact),
     accountInfo: getDetailText(safeDetails.accountInfo),
     legacyDateOfDeath: getDetailText(safeDetails.legacyDateOfDeath),
+    sourceUrl: safeExternalHttpUrl(safeDetails.sourceUrl),
   };
 }
 
@@ -90,15 +97,9 @@ export default function CommunityEventDetail() {
   const [, setLocation] = useLocation();
   const id = params?.id;
 
-  const { data: event, isLoading, error } = useQuery<PublishedCommunityEvent>({
+  const { data: event, isLoading, error, isFetching, refetch } = useQuery<PublishedCommunityEvent>({
     queryKey: ["/api/events", id],
-    queryFn: async () => {
-      const response = await fetch(`/api/events/${id}`, { credentials: "include" });
-      if (!response.ok) {
-        throw new Error("경조사 상세를 불러오지 못했습니다.");
-      }
-      return response.json();
-    },
+    queryFn: () => loadCommunityEventDetail<PublishedCommunityEvent>(fetch, id!),
     enabled: Boolean(id),
   });
 
@@ -116,7 +117,7 @@ export default function CommunityEventDetail() {
     );
   }
 
-  if (error || !event) {
+  if (error && classifyEventDetailError(error) === "not-found") {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-8">
         <div className="mx-auto max-w-2xl text-center">
@@ -126,6 +127,32 @@ export default function CommunityEventDetail() {
             <ArrowLeft aria-hidden="true" />
             경조사 목록으로
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-lg font-semibold text-gray-900">경조사 상세를 불러오지 못했습니다</h1>
+          <p className="mt-2 text-sm text-gray-600">연결을 확인한 뒤 다시 불러와주세요.</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              aria-label="경조사 상세 다시 불러오기"
+            >
+              <RefreshCw className={isFetching ? "animate-spin" : undefined} aria-hidden="true" />
+              다시 불러오기
+            </Button>
+            <Button variant="ghost" onClick={() => setLocation("/events")}>
+              <ArrowLeft aria-hidden="true" />
+              경조사 목록으로
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -172,6 +199,22 @@ export default function CommunityEventDetail() {
             )}
             {(event.accountInfo || obituaryDetails?.accountInfo) && (
               <DetailRow label="마음 전하실 곳" value={event.accountInfo || obituaryDetails?.accountInfo || ""} />
+            )}
+            {obituaryDetails?.sourceUrl && (
+              <DetailRow
+                label="모바일 부고장"
+                value={(
+                  <a
+                    href={obituaryDetails.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-blue-700 underline underline-offset-2"
+                  >
+                    모바일 부고장 열기
+                    <ExternalLink className="size-4" aria-hidden="true" />
+                  </a>
+                )}
+              />
             )}
             {memo && <DetailRow label="안내" value={memo} />}
           </dl>

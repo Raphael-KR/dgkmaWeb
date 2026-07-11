@@ -737,7 +737,15 @@ export class DatabaseStorage implements IStorage {
         eq(communityEvents.status, "draft"),
       ))
       .returning();
-    return event || undefined;
+    if (event) return event;
+
+    const [published] = await db.select().from(communityEvents)
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "published"),
+      ));
+    return published || undefined;
   }
 }
 

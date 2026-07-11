@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronRight, MapPin, UserRound } from "lucide-react";
+import { CalendarDays, ChevronRight, MapPin, RefreshCw, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { CommunityEventDetails, CommunityEventType } from "@shared/community-events";
@@ -34,7 +35,7 @@ function eventListUrl(selectedType: EventListProps["selectedType"]) {
 }
 
 export function EventList({ selectedType, onSelect }: EventListProps) {
-  const { data: events = [], isLoading, error } = useQuery<PublishedCommunityEvent[]>({
+  const { data: events = [], isLoading, error, isFetching, refetch } = useQuery<PublishedCommunityEvent[]>({
     queryKey: ["/api/events", selectedType],
     queryFn: async () => {
       const response = await fetch(eventListUrl(selectedType), { credentials: "include" });
@@ -55,8 +56,19 @@ export function EventList({ selectedType, onSelect }: EventListProps) {
 
   if (error) {
     return (
-      <div className="flex min-h-[12rem] items-center justify-center border-y border-red-100 px-4 text-center text-sm text-red-700">
-        경조사 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+      <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 border-y border-red-100 px-4 text-center text-sm text-red-700">
+        <p>경조사 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          aria-label="경조사 목록 다시 불러오기"
+        >
+          <RefreshCw className={isFetching ? "animate-spin" : undefined} aria-hidden="true" />
+          다시 불러오기
+        </Button>
       </div>
     );
   }

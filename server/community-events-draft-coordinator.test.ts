@@ -4,6 +4,8 @@ import {
   clearedDraftFailureState,
   draftFingerprint,
   planImmediateSaveRetry,
+  publishResolutionLock,
+  shouldResumeAutosave,
   saveEventDraftWithFallback,
   shouldApplyRecoveredDraft,
   waitForDraftReadiness,
@@ -116,6 +118,15 @@ test("immediate save retry advances revision and clears stale status even withou
     shouldSave: false,
     status: "idle",
   });
+});
+
+test("ambiguous publish locks autosave to the same event until resolution", () => {
+  const lock = publishResolutionLock("ambiguous", 37);
+
+  assert.equal(lock, 37);
+  assert.equal(shouldResumeAutosave(lock), false);
+  assert.equal(publishResolutionLock("published", 37), undefined);
+  assert.equal(shouldResumeAutosave(undefined), true);
 });
 
 test("no-ID save checks latest and PATCHes an existing draft", async () => {

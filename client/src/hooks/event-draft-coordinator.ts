@@ -37,6 +37,17 @@ type ImmediateSaveRetryInput = {
   hasMeaningfulInput: boolean;
 };
 
+export function publishResolutionLock(
+  outcome: "published" | "ambiguous",
+  draftId: number,
+): number | undefined {
+  return outcome === "ambiguous" ? draftId : undefined;
+}
+
+export function shouldResumeAutosave(publishResolutionId: number | undefined): boolean {
+  return publishResolutionId === undefined;
+}
+
 export function clearedDraftFailureState() {
   return {
     errorKind: undefined,

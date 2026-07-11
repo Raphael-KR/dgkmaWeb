@@ -13,6 +13,7 @@ import {
   fetchLatestEventDraft,
   planImmediateSaveRetry,
   saveEventDraftWithFallback,
+  shouldResumeAutosave,
   shouldApplyRecoveredDraft,
   waitForDraftReadiness,
   type DraftFetcher,
@@ -48,6 +49,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
   const [errorMessage, setErrorMessage] = useState<string>();
   const [errorKind, setErrorKind] = useState<DraftErrorKind>();
   const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  const [publishResolutionId, setPublishResolutionId] = useState<number>();
   const activeRef = useRef({ eventType, generation: 0 });
   const draftIdRef = useRef<number>();
   const draftIdsByTypeRef = useRef(new Map<CommunityEventType, number>());
@@ -64,6 +66,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
   const discardingRef = useRef(false);
   const externallyPausedRef = useRef(isPaused);
   const manuallyPausedRef = useRef(false);
+  const publishResolutionIdRef = useRef<number>();
   const suppressedFingerprintRef = useRef<string>();
   const fetcher = useCallback<DraftFetcher>((url, init) => fetch(url, init), []);
 
@@ -273,11 +276,13 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
   }, [clearSaveTimeout]);
 
   const resumeAutosave = useCallback(() => {
+    if (!shouldResumeAutosave(publishResolutionIdRef.current)) return;
     manuallyPausedRef.current = false;
     if (!externallyPausedRef.current) scheduleSave(form.getValues());
   }, [form, scheduleSave]);
 
   const prepareForPublish = useCallback(async () => {
+    if (publishResolutionIdRef.current) return publishResolutionIdRef.current;
     const readyDraftId = await settleAutosave();
     if (recoveryFailedRef.current) {
       throw new Error("초안 복구를 다시 시도한 뒤 게시해주세요.");
@@ -293,10 +298,24 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     setDraftId(id);
   }, []);
 
+  const lockPublishResolution = useCallback((id: number) => {
+    if (!mountedRef.current) return;
+    clearSaveTimeout();
+    manuallyPausedRef.current = true;
+    publishResolutionIdRef.current = id;
+    setPublishResolutionId(id);
+    const currentType = activeRef.current.eventType;
+    draftIdsByTypeRef.current.set(currentType, id);
+    draftIdRef.current = id;
+    setDraftId(id);
+  }, [clearSaveTimeout]);
+
   const completePublish = useCallback((resetValues: CommunityEventDraftInput) => {
     clearSaveTimeout();
     if (!mountedRef.current) return;
     saveRevisionRef.current += 1;
+    publishResolutionIdRef.current = undefined;
+    setPublishResolutionId(undefined);
     const currentType = activeRef.current.eventType;
     typeEpochRef.current.set(currentType, (typeEpochRef.current.get(currentType) ?? 0) + 1);
     draftIdsByTypeRef.current.delete(currentType);
@@ -308,7 +327,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
   }, [clearFailureGates, clearSaveTimeout]);
 
   const discardDraft = useCallback(async () => {
-    if (discardingRef.current) return false;
+    if (discardingRef.current || publishResolutionIdRef.current) return false;
     const requestEventType = activeRef.current.eventType;
     const requestGeneration = activeRef.current.generation;
     discardingRef.current = true;
@@ -397,10 +416,12 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     isRecovering,
     isSaving: status === "saving",
     isSaved: status === "saved",
+    isPublishResolutionPending: publishResolutionId !== undefined,
     completePublish,
     discardDraft,
     prepareForPublish,
     registerDraftId,
+    lockPublishResolution,
     resumeAutosave,
     retryDraft,
     settleAutosave,

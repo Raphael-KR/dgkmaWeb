@@ -56,3 +56,16 @@ test("omits absent optional lines without empty labels", () => {
   assert.doesNotMatch(text, /위치 확인/);
   assert.doesNotMatch(text, /\(\)/);
 });
+
+test("omits whitespace-only optional title, account, and source URL", () => {
+  const text = renderObituaryAnnouncement({
+    ...input,
+    memberTitle: "   ",
+    accountInfo: "\t",
+    sourceUrl: "  ",
+  });
+
+  assert.doesNotMatch(text, /마음 전하실 곳/);
+  assert.doesNotMatch(text, /위치 확인/);
+  assert.doesNotMatch(text, /\(\s*\)/);
+});

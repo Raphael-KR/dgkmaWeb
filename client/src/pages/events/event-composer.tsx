@@ -18,7 +18,7 @@ import {
   type CommunityEventType,
   type ObituaryDetails,
 } from "@shared/community-events";
-import { canApplyParsedSource, collectFormErrorEntries, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
+import { canApplyParsedSource, collectFormErrorEntries, ConclusivePublishError, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
 import { EventFields } from "./event-fields";
 import { EVENT_TYPE_LABELS } from "./event-list";
 import { ObituaryPreview } from "./obituary-preview";
@@ -119,19 +119,22 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     isRecovering,
     isSaved,
     isSaving,
+    isPublishResolutionPending,
     completePublish: completeDraftPublish,
     discardDraft,
     prepareForPublish,
     registerDraftId,
+    lockPublishResolution,
     resumeAutosave,
     retryDraft,
     settleAutosave,
   } = useEventDraft({ eventType: currentType, form, isPaused: isParsing || isPublishing });
   const sourceError = publishErrors.sourceText;
   const isBusy = isParsing || isPublishing || isDiscarding || isRecovering;
+  const inputsDisabled = isBusy || isPublishResolutionPending;
 
   const changeType = (eventType: CommunityEventType) => {
-    if (isBusy || eventType === currentType) return;
+    if (inputsDisabled || eventType === currentType) return;
     if (form.formState.isDirty && !window.confirm("유형을 변경하면 이전 유형의 상세 입력은 초기화됩니다. 원문과 공통 입력을 유지하고 변경할까요?")) {
       return;
     }
@@ -143,7 +146,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
   };
 
   const loadSource = async () => {
-    if (isBusy) return;
+    if (inputsDisabled) return;
     const snapshot = form.getValues();
     const snapshotSourceText = snapshot.sourceText ?? "";
     if (!snapshotSourceText.trim()) {
@@ -291,7 +294,17 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         },
         payload: publishSnapshot,
         publishDraft: async (publishDraftId, payload) => {
-          await apiRequest("POST", `/api/events/${publishDraftId}/publish`, payload);
+          try {
+            await apiRequest("POST", `/api/events/${publishDraftId}/publish`, payload);
+          } catch (error) {
+            const status = error instanceof Error
+              ? Number(/^(\d{3}):/.exec(error.message)?.[1])
+              : undefined;
+            if (status && status >= 400 && status < 500 && status !== 408) {
+              throw new ConclusivePublishError(error instanceof Error ? error.message : "게시 요청이 거절되었습니다.");
+            }
+            throw error;
+          }
         },
         rememberDraftId: registerDraftId,
       });
@@ -299,10 +312,10 @@ export function EventComposer({ onPublished }: EventComposerProps) {
       if (result.outcome === "published") {
         await completePublish(publishSnapshot.eventType);
       } else {
-        registerDraftId(result.draftId);
+        lockPublishResolution(result.draftId);
         toast({
           title: "게시 확인이 필요합니다",
-          description: "입력 내용은 유지했습니다. 게시를 다시 시도해주세요.",
+          description: "자동 저장을 멈췄습니다. 같은 소식의 게시 결과를 다시 확인해주세요.",
           variant: "destructive",
         });
       }
@@ -338,7 +351,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           {isSaved && <span>임시저장됨</span>}
           {draftError && <span className="text-red-700">{draftError}</span>}
           {canRetry && (
-            <Button type="button" variant="ghost" size="sm" onClick={retryDraft} disabled={isBusy} className="h-8 px-2">
+            <Button type="button" variant="ghost" size="sm" onClick={retryDraft} disabled={inputsDisabled} className="h-8 px-2">
               다시 시도
             </Button>
           )}
@@ -348,7 +361,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
               variant="ghost"
               size="sm"
               onClick={() => void handleDiscard()}
-              disabled={isBusy}
+              disabled={inputsDisabled}
               className="h-8 px-2"
             >
               <Trash2 aria-hidden="true" />
@@ -372,7 +385,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
               <ToggleGroupItem
                 key={eventType}
                 value={eventType}
-                disabled={isBusy}
+                disabled={inputsDisabled}
                 aria-label={EVENT_TYPE_LABELS[eventType]}
                 className="h-9 w-full px-2 text-sm"
               >
@@ -386,7 +399,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           <Label htmlFor="event-source">경조사 원문</Label>
           <Textarea
             id="event-source"
-            disabled={isBusy}
+            disabled={inputsDisabled}
             className="mt-2 min-h-[96px] resize-none"
             placeholder="문자와 공개 링크를 함께 붙여넣으세요"
             aria-describedby={sourceError ? "event-source-error" : undefined}
@@ -396,12 +409,12 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           {sourceError && <p id="event-source-error" role="alert" className="mt-1 text-sm text-red-700">{sourceError}</p>}
         </div>
 
-        <Button type="button" variant="outline" onClick={() => void loadSource()} disabled={isBusy} className="w-full sm:w-auto">
+        <Button type="button" variant="outline" onClick={() => void loadSource()} disabled={inputsDisabled} className="w-full sm:w-auto">
           {isParsing ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileText aria-hidden="true" />}
           경조사 내용 불러오기
         </Button>
 
-        <EventFields disabled={isBusy} eventType={currentType} form={form} publishErrors={publishErrors} />
+        <EventFields disabled={inputsDisabled} eventType={currentType} form={form} publishErrors={publishErrors} />
 
         {currentType === "obituary" && (
           <ObituaryPreview
@@ -409,15 +422,21 @@ export function EventComposer({ onPublished }: EventComposerProps) {
             draftId={draftId}
             draftStatus={isRecovered ? "recovered" : isSaved ? "saved" : isSaving ? "saving" : "idle"}
             eventType={currentType}
-            isPaused={isBusy}
+            isPaused={inputsDisabled}
           />
+        )}
+
+        {isPublishResolutionPending && (
+          <div className="border-y border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" role="status">
+            게시 응답을 확인하지 못해 자동 저장을 멈췄습니다. 아래 버튼으로 같은 소식의 결과를 다시 확인해주세요.
+          </div>
         )}
 
         <div className="flex flex-col gap-2 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500">게시 후 경조사 목록에서 바로 확인할 수 있습니다.</p>
           <Button type="submit" disabled={isBusy} className="sm:min-w-28">
             {isPublishing ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
-            게시
+            {isPublishResolutionPending ? "게시 결과 다시 확인" : "게시"}
           </Button>
         </div>
       </form>

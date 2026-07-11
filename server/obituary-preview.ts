@@ -101,7 +101,9 @@ export function assembleObituaryPreview({
   const graduationClass = requiredText(alumni?.generation);
   const admissionYear = admissionYearLabel(alumni?.admissionDate);
   const memberName = requiredText(user?.name);
-  const membershipTier = requiredText(membership.tier);
+  const membershipTier = membership.tier === "권리회원" || membership.tier === "일반회원"
+    ? membership.tier
+    : undefined;
   const relationship = details.relationship;
   const deceasedName = requiredText(details.deceasedName);
   const deceasedAge = Number.isInteger(details.deceasedAge) && (details.deceasedAge ?? 0) > 0

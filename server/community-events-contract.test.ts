@@ -76,6 +76,10 @@ test("published wedding, opening, and other events use the same memo details con
       assert.deepEqual(withoutDetails.data.details, {});
     }
     assert.equal(communityEventPublishSchema.safeParse({ ...base, details: {} }).success, true);
+    assert.equal(communityEventPublishSchema.safeParse({
+      ...base,
+      details: { memo: "가".repeat(5_001) },
+    }).success, false);
     const memo = communityEventPublishSchema.safeParse({
       ...base,
       details: { memo: "  축하합니다  " },

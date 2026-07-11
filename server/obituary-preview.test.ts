@@ -118,3 +118,15 @@ test("member phone uses the nullish user-phone priority without fabrication", ()
   assert.equal(blankUserPhone.input, undefined);
   assert.ok(blankUserPhone.missingFields.includes("memberPhone"));
 });
+
+test("membership tier must be one of the server-approved values", () => {
+  const result = assembleObituaryPreview({
+    draft,
+    user,
+    alumni,
+    membership: { ...membership, tier: "관리자" as MembershipStatus["tier"] },
+  });
+
+  assert.equal(result.input, undefined);
+  assert.ok(result.missingFields.includes("membershipTier"));
+});

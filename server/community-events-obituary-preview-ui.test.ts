@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   canApplyPreviewResponse,
   isObituaryPreviewEligible,
+  missingFieldLabel,
 } from "../client/src/pages/events/obituary-preview-logic";
 
 const request = {
@@ -27,6 +28,19 @@ test("saving and stale drafts are not preview eligible", () => {
   assert.equal(canApplyPreviewResponse({ ...request, draftStatus: "saved", isPaused: true }, request), false);
 });
 
+test("every preview missing-field path is presented in Korean with a safe fallback", () => {
+  for (const field of [
+    "eventType", "title", "eventDate", "location", "relatedMemberName", "contactNumber",
+    "accountInfo", "sourceText", "sourceUrls", "details", "deceasedName", "deceasedAge",
+    "relationship", "funeralDate", "funeralHome", "memberTitle", "familyContact",
+    "burialPlace", "chiefMourner", "graduationClass", "admissionYear", "memberName",
+    "membershipTier", "memberPhone", "sourceUrl",
+  ]) {
+    assert.doesNotMatch(missingFieldLabel(field), /^[A-Za-z][A-Za-z0-9.]*$/);
+  }
+  assert.equal(missingFieldLabel("internal.unknownPath"), "입력값");
+});
+
 test("obituary preview keeps formatting and exposes an accessible icon copy action", async () => {
   const [preview, composer] = await Promise.all([
     readFile(new URL("../client/src/pages/events/obituary-preview.tsx", import.meta.url), "utf8"),
@@ -39,6 +53,7 @@ test("obituary preview keeps formatting and exposes an accessible icon copy acti
   assert.match(preview, /<TooltipContent>표준 부고문 복사<\/TooltipContent>/);
   assert.match(preview, /missingFields/);
   assert.match(preview, /canApplyPreviewResponse/);
+  assert.match(preview, /미리보기 다시 불러오기/);
   assert.match(composer, /currentType === "obituary" && \(/);
   assert.match(composer, /<ObituaryPreview/);
   assert.match(composer, /isRecovered/);

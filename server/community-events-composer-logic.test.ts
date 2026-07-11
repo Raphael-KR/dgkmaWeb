@@ -5,6 +5,7 @@ import {
   canApplyParsedSource,
   collectFormErrorEntries,
   classifyPublishRecovery,
+  ConclusivePublishError,
   hasMeaningfulDraftInput,
   publishDraftWithRecovery,
   splitEventSource,
@@ -60,8 +61,8 @@ test("rejects stale parser results after the source or event type changes", () =
 
 test("only treats a recovered published event as a completed publish", () => {
   assert.equal(classifyPublishRecovery({ status: "published" }), "published");
-  assert.equal(classifyPublishRecovery({ status: "draft" }), "retain-draft");
-  assert.equal(classifyPublishRecovery(undefined), "retain-draft");
+  assert.equal(classifyPublishRecovery({ status: "draft" }), "ambiguous");
+  assert.equal(classifyPublishRecovery(undefined), "ambiguous");
 });
 
 test("remembers a newly created draft before retry-safe publish recovery", async () => {
@@ -84,7 +85,38 @@ test("remembers a newly created draft before retry-safe publish recovery", async
   });
 
   assert.deepEqual(calls, ["create", "remember:17", "publish:17", "get:17"]);
-  assert.deepEqual(result, { draftId: 17, outcome: "retain-draft" });
+  assert.deepEqual(result, { draftId: 17, outcome: "ambiguous" });
+});
+
+test("ambiguous publish retry keeps resolving the same event without another draft", async () => {
+  let createCalls = 0;
+  const publishedIds: number[] = [];
+  const first = await publishDraftWithRecovery({
+    createDraft: async () => ({ id: ++createCalls + 40 }),
+    getEvent: async () => { throw new Error("status unavailable"); },
+    payload: { title: "부고" },
+    publishDraft: async (id) => {
+      publishedIds.push(id);
+      throw new Error("response lost");
+    },
+    rememberDraftId: () => undefined,
+  });
+  const retry = await publishDraftWithRecovery({
+    createDraft: async () => ({ id: ++createCalls + 40 }),
+    draftId: first.draftId,
+    getEvent: async () => { throw new Error("status unavailable"); },
+    payload: { title: "부고" },
+    publishDraft: async (id) => {
+      publishedIds.push(id);
+      throw new Error("response lost again");
+    },
+    rememberDraftId: () => undefined,
+  });
+
+  assert.deepEqual(first, { draftId: 41, outcome: "ambiguous" });
+  assert.deepEqual(retry, { draftId: 41, outcome: "ambiguous" });
+  assert.equal(createCalls, 1);
+  assert.deepEqual(publishedIds, [41, 41]);
 });
 
 test("confirms a publish when the publish response is lost", async () => {
@@ -97,6 +129,25 @@ test("confirms a publish when the publish response is lost", async () => {
   });
 
   assert.deepEqual(result, { draftId: 18, outcome: "published" });
+});
+
+test("a conclusive publish rejection does not enter ambiguous recovery", async () => {
+  let getCalls = 0;
+
+  await assert.rejects(() => publishDraftWithRecovery({
+    createDraft: async () => ({ id: 19 }),
+    draftId: 19,
+    getEvent: async () => {
+      getCalls += 1;
+      return { status: "draft" };
+    },
+    payload: { title: "부고" },
+    publishDraft: async () => {
+      throw new ConclusivePublishError("게시 정보가 올바르지 않습니다.");
+    },
+    rememberDraftId: () => undefined,
+  }), /올바르지 않습니다/);
+  assert.equal(getCalls, 0);
 });
 
 test("collects nested resolver errors into focusable field paths", () => {
