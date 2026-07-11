@@ -73,6 +73,7 @@ test("community event APIs enforce member sessions and do not expose source text
   });
   const draftEvent = event();
   let storageCalls = 0;
+  const listedEventTypes: Array<Parameters<typeof storage.getPublishedEvents>[0]> = [];
   let createdAuthorId: number | undefined;
   let createdDraft: Parameters<typeof storage.createEventDraft>[1] | undefined;
   let updatedAuthorId: number | undefined;
@@ -80,8 +81,9 @@ test("community event APIs enforce member sessions and do not expose source text
   let publishedAuthorId: number | undefined;
   let publishedData: Parameters<typeof storage.publishEvent>[2] | undefined;
 
-  t.mock.method(storage, "getPublishedEvents", async () => {
+  t.mock.method(storage, "getPublishedEvents", async (eventType) => {
     storageCalls += 1;
+    listedEventTypes.push(eventType);
     return [publishedEvent];
   });
   t.mock.method(storage, "getPublishedEvent", async () => {
@@ -148,6 +150,11 @@ test("community event APIs enforce member sessions and do not expose source text
     const list = await fetch(`${server.baseUrl}/api/events`, { headers });
     assert.equal(list.status, 200);
     assert.equal((await list.json())[0].sourceText, undefined);
+    assert.deepEqual(listedEventTypes, [undefined]);
+
+    const filteredList = await fetch(`${server.baseUrl}/api/events?type=wedding`, { headers });
+    assert.equal(filteredList.status, 200);
+    assert.deepEqual(listedEventTypes, [undefined, "wedding"]);
 
     const detail = await fetch(`${server.baseUrl}/api/events/1`, { headers });
     assert.equal(detail.status, 200);
@@ -194,15 +201,22 @@ test("community event APIs enforce member sessions and do not expose source text
 });
 
 test("community event APIs reject invalid input and hide owner-scoped drafts", async (t) => {
-  t.mock.method(storage, "getPublishedEvent", async () => undefined);
+  let publishedListCalls = 0;
+  t.mock.method(storage, "getPublishedEvents", async () => {
+    publishedListCalls += 1;
+    return [];
+  });
+  t.mock.method(storage, "getPublishedEvent", async (id) => {
+    return id === 2_147_483_647 ? event({ id, status: "published" }) : undefined;
+  });
   t.mock.method(storage, "getLatestEventDraft", async () => undefined);
   t.mock.method(storage, "createEventDraft", async () => event());
   t.mock.method(storage, "updateEventDraft", async (_id, authorId) => {
     return authorId === memberId ? event() : undefined;
   });
   t.mock.method(storage, "deleteEventDraft", async (_id, authorId) => authorId === memberId);
-  t.mock.method(storage, "publishEvent", async (_id, authorId) => {
-    return authorId === memberId ? event({ status: "published" }) : undefined;
+  t.mock.method(storage, "publishEvent", async (id, authorId) => {
+    return id === 1 && authorId === memberId ? event({ status: "published" }) : undefined;
   });
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
 
@@ -220,6 +234,12 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
       headers: memberHeaders,
     });
     assert.equal(latestInvalidType.status, 400);
+
+    const invalidListType = await fetch(`${server.baseUrl}/api/events?type=invalid`, {
+      headers: memberHeaders,
+    });
+    assert.equal(invalidListType.status, 400);
+    assert.equal(publishedListCalls, 0);
 
     const invalidDraft = await fetch(`${server.baseUrl}/api/events/drafts`, {
       method: "POST",
@@ -242,7 +262,12 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
     });
     assert.equal(invalidPublish.status, 400);
 
-    for (const id of ["0", "1e3", "0x10", "1.0", "+1", "%201", "1%20"]) {
+    const maxId = await fetch(`${server.baseUrl}/api/events/2147483647`, {
+      headers: memberHeaders,
+    });
+    assert.equal(maxId.status, 200);
+
+    for (const id of ["0", "1e3", "0x10", "1.0", "+1", "%201", "1%20", "2147483648"]) {
       for (const request of [
         fetch(`${server.baseUrl}/api/events/${id}`, { headers: memberHeaders }),
         fetch(`${server.baseUrl}/api/events/drafts/${id}`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
@@ -272,6 +297,13 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
       body: JSON.stringify(draftPayload),
     });
     assert.equal(otherPublish.status, 404);
+
+    const alreadyPublished = await fetch(`${server.baseUrl}/api/events/2/publish`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...memberHeaders },
+      body: JSON.stringify(draftPayload),
+    });
+    assert.equal(alreadyPublished.status, 404);
   } finally {
     await server.close();
   }

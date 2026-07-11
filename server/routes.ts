@@ -24,12 +24,14 @@ declare module "express-session" {
   }
 }
 
+const POSTGRES_SERIAL_MAX = 2_147_483_647;
+
 function parsePositiveInteger(value: string): number | undefined {
   if (!/^[1-9]\d*$/.test(value)) {
     return undefined;
   }
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? parsed : undefined;
+  return Number.isSafeInteger(parsed) && parsed <= POSTGRES_SERIAL_MAX ? parsed : undefined;
 }
 
 // 카카오 인증/온보딩 디버그 로그 게이팅. 운영 환경에서는 기본 OFF.
@@ -831,11 +833,17 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/events", async (_req, res) => {
+  app.get("/api/events", async (req, res) => {
     try {
-      const events = await storage.getPublishedEvents();
+      const eventType = req.query.type === undefined
+        ? undefined
+        : z.enum(COMMUNITY_EVENT_TYPES).parse(req.query.type);
+      const events = await storage.getPublishedEvents(eventType);
       res.json(events.map(({ sourceText: _sourceText, ...event }) => event));
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
       res.status(500).json({ message: "소식 목록 조회에 실패했습니다" });
     }
   });

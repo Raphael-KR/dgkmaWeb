@@ -12,9 +12,40 @@ test("community event schema contains migration and ownership fields", async () 
   assert.match(schema, /authorId: integer\("author_id"\)/);
 });
 
+test("database event details use explicit obituary and legacy shapes", async () => {
+  const contract = await readFile(
+    new URL("../shared/community-events.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(contract, /export interface LegacyObituaryDetails/);
+  assert.match(contract, /legacyDateOfDeath\?: string/);
+  assert.match(contract, /legacyRelationship\?: string/);
+  assert.match(
+    contract,
+    /export type CommunityEventDetails = ObituaryDetails \| LegacyObituaryDetails/,
+  );
+  assert.doesNotMatch(
+    contract,
+    /export type CommunityEventDetails[^\n]*Record<string, unknown>/,
+  );
+});
+
 test("storage exposes owner-scoped draft methods", async () => {
   const storage = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
   assert.match(storage, /getLatestEventDraft\(authorId: number, eventType: CommunityEventType\)/);
   assert.match(storage, /updateEventDraft\(id: number, authorId: number,/);
   assert.match(storage, /deleteEventDraft\(id: number, authorId: number\)/);
+});
+
+test("publishing updates only an owned draft", async () => {
+  const storage = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
+  const publishMethod = storage.match(
+    /async publishEvent\([\s\S]*?return event \|\| undefined;\n  }/,
+  )?.[0];
+
+  assert.ok(publishMethod, "publishEvent 구현을 찾을 수 없습니다");
+  assert.match(publishMethod, /eq\(communityEvents\.id, id\)/);
+  assert.match(publishMethod, /eq\(communityEvents\.authorId, authorId\)/);
+  assert.match(publishMethod, /eq\(communityEvents\.status, "draft"\)/);
 });

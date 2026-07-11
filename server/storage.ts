@@ -709,7 +709,11 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const [event] = await db.update(communityEvents)
       .set({ ...data, status: "published", publishedAt: now, updatedAt: now })
-      .where(and(eq(communityEvents.id, id), eq(communityEvents.authorId, authorId)))
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "draft"),
+      ))
       .returning();
     return event || undefined;
   }
