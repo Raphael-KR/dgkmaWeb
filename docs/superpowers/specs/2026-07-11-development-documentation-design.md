@@ -10,7 +10,7 @@
 
 1. 현재 프로덕션에서 검증된 동작
 2. `main` 브랜치의 코드와 Replit 설정
-3. `AGENTS.md`와 `CLAUDE.md`의 현재 작업 규칙
+3. `AGENTS.md`의 현재 작업 규칙
 4. 기존 운영 문서
 5. 과거 기획과 변경 이력
 
@@ -26,7 +26,7 @@
 - 현재 기술 스택의 짧은 요약
 - 개발, 검증, GitHub 동기화, Replit 재배포의 기본 흐름
 - 개발 운영 문서 목록과 각 문서의 역할
-- `planning_proposal.md`, `roadmap.md`, `walkthrough.md`, `CHANGELOG.md`, `replit.md`, `CLAUDE.md`, `AGENTS.md` 링크
+- `planning_proposal.md`, `roadmap.md`, `walkthrough.md`, `CHANGELOG.md`, `replit.md`, `AGENTS.md` 링크
 
 비밀값, 데이터베이스 접속 문자열, SSH 개인키 정보는 기록하지 않는다.
 
@@ -89,15 +89,15 @@ Ver 3.0의 장기 비전과 제품 정책 문서로 유지한다.
 
 과거 기록의 표현이 현재 구조와 달라도 삭제하지 않고, 현재 상태는 새 항목과 운영 문서에서 설명한다.
 
-### `CLAUDE.md`와 `AGENTS.md`
+### `AGENTS.md`
 
-이번 작업에서는 내용을 통합하거나 이동하지 않는다. `README.md`에서 AI 작업 규칙 문서로 안내하며, 서로 충돌하는 규칙은 별도 후속 과제로 남기지 않고 현재 동일한 핵심 규칙을 유지한다.
+`AGENTS.md`를 AI 작업 규칙의 유일한 기준 문서로 Git에 추가한다. 기존 `CLAUDE.md`와 `AGENTS.md`는 제목과 도구명 외의 규칙이 동일하므로 별도 병합 작업 없이 `AGENTS.md`의 내용을 기준으로 유지하고 `CLAUDE.md`를 삭제한다. `README.md`와 다른 문서에서는 `AGENTS.md`만 안내하며 `CLAUDE.md` 참조를 남기지 않는다.
 
 ## 제외 범위
 
 - 애플리케이션 소스 코드 변경
 - 데이터베이스 스키마 또는 운영 데이터 변경
-- 기존 문서 파일의 이동이나 삭제
+- `CLAUDE.md` 외 기존 문서 파일의 이동이나 삭제
 - 외부 서비스 설정 변경
 - 보안 문제의 실제 코드 수정
 
@@ -119,7 +119,8 @@ Ver 3.0의 장기 비전과 제품 정책 문서로 유지한다.
 3. `walkthrough.md`의 경로와 API가 현재 코드에 존재하는지 대조
 4. `roadmap.md`의 완료 항목이 실제 프로덕션 검증 결과와 일치하는지 확인
 5. 환경변수 값, 토큰, 데이터베이스 URL, 개인키가 문서에 포함되지 않았는지 확인
-6. `git diff --check`로 Markdown 형식 오류 확인
+6. `CLAUDE.md` 파일과 해당 파일을 가리키는 참조가 남아 있지 않은지 확인
+7. `git diff --check`로 Markdown 형식 오류 확인
 
 애플리케이션 코드를 변경하지 않으므로 `npm run check`와 `npm run build`는 이번 문서 작업의 필수 검증에서 제외한다.
 
@@ -129,5 +130,6 @@ Ver 3.0의 장기 비전과 제품 정책 문서로 유지한다.
 - 장기 비전은 `planning_proposal.md`, 실행 순서는 `roadmap.md`, 실제 검증은 `walkthrough.md`에서 각각 확인할 수 있다.
 - `replit.md`가 현재 GitHub, Replit 개발, Replit 프로덕션의 관계를 정확히 설명한다.
 - `CHANGELOG.md`에 최근 배포 변경이 기록된다.
+- `AGENTS.md`가 유일한 AI 작업 규칙 문서로 추적되고 `CLAUDE.md`와 관련 참조가 제거된다.
 - 현재 기능과 향후 계획을 혼동하게 만드는 핵심 표현이 제거된다.
 - 소스 코드와 사용자 자료 파일에는 변경이 없다.
