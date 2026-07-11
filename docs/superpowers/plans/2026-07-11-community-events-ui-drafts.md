@@ -15,7 +15,8 @@
 - Use segmented controls/tabs for `부고`, `결혼`, `개원`, and `기타`.
 - Do not show internal IDs, raw source text, or another member's draft.
 - Published-event list/detail data remains member-only.
-- `/o`, `/o/new`, and `/o/:id` remain compatible.
+- Draft and published details are type-specific strict contracts: obituary drafts use the existing optional obituary fields; wedding, opening, and other use `{ memo?: string }`, trimmed and limited to 5,000 characters. Unknown detail keys are rejected, and non-obituary published details default to `{}` when absent.
+- `/o` and `/o/new` redirect to their event equivalents; `/o/:id` remains on the legacy detail route until an explicit legacy-to-event lookup exists. `/about/condolence` remains public.
 - Do not add a new component library or frontend test framework.
 - Validate in Replit with `npm test`, `npm run check`, and `npm run build`.
 
@@ -322,7 +323,7 @@ Run the route test and expect `404` for the preview endpoint.
 
 - [ ] **Step 3: Implement preview assembly**
 
-Add `getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>` to `IStorage` and `DatabaseStorage`, filtering `alumni_database.matched_user_id`. Load the owner draft, session user, matched alumni record, and `storage.getMembershipStatus(userId)`. Use `alumni.generation` for graduation class, derive the admission-year label only from a parseable `alumni.admissionDate`, use `alumni.alumniPosition` for the optional title, and use `user.phoneNumber ?? alumni.mobile` for the member contact. If a required display value is absent, return it in `missingFields` instead of inventing it. Ignore forged profile/tier/title fields in the request and pass only server-sourced values to `renderObituaryAnnouncement`.
+Add `getEventDraft(id: number, authorId: number): Promise<CommunityEvent | undefined>` to `IStorage` and `DatabaseStorage`; it must filter by event ID, author ID, and draft status. Add `getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>` to `IStorage` and `DatabaseStorage`, filtering `alumni_database.matched_user_id`. Load the owner-scoped draft through `getEventDraft(id, userId)`, session user, matched alumni record, and `storage.getMembershipStatus(userId)`. Use `alumni.generation` for graduation class, derive the admission-year label only from a parseable `alumni.admissionDate`, use `alumni.alumniPosition` for the optional title, and use `user.phoneNumber ?? alumni.mobile` for the member contact. If a required display value is absent, return it in `missingFields` instead of inventing it. Ignore forged profile/tier/title fields in the request and pass only server-sourced values to `renderObituaryAnnouncement`.
 
 - [ ] **Step 4: Add preview UI**
 
@@ -342,7 +343,7 @@ Run route tests, `npm test`, `npm run check`, and `npm run build`. Commit with m
 
 - [ ] **Step 1: Write failing entry-point assertions**
 
-Assert the board header contains a `경조사` command pointing to `/events`, the home page no longer contains `obituaryUrl` or `parseObituaryMutation`, and legacy `/o` routes redirect to the approved `/events` equivalents.
+Assert the board header contains a `경조사` command pointing to `/events`, the home page no longer contains `obituaryUrl` or `parseObituaryMutation`, `/o` and `/o/new` redirect to the approved `/events` equivalents, and `/o/:id` remains on the legacy detail route.
 
 - [ ] **Step 2: Run RED verification**
 
@@ -359,10 +360,10 @@ Use Wouter route components that preserve these mappings:
 ```text
 /o       -> /events?type=obituary
 /o/new   -> /events?type=obituary&compose=1
-/o/:id   -> /events/:mappedId or the legacy detail until mapping exists
+/o/:id   -> existing legacy detail route until an explicit legacy-to-event lookup exists
 ```
 
-Do not redirect `/about/condolence`.
+Do not redirect `/o/:id` or `/about/condolence`.
 
 - [ ] **Step 5: Run GREEN verification and commit**
 

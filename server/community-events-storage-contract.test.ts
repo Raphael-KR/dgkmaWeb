@@ -12,7 +12,7 @@ test("community event schema contains migration and ownership fields", async () 
   assert.match(schema, /authorId: integer\("author_id"\)/);
 });
 
-test("database event details use explicit obituary and legacy shapes", async () => {
+test("database event details use explicit obituary, memo, and legacy shapes", async () => {
   const contract = await readFile(
     new URL("../shared/community-events.ts", import.meta.url),
     "utf8",
@@ -21,9 +21,10 @@ test("database event details use explicit obituary and legacy shapes", async () 
   assert.match(contract, /export interface LegacyObituaryDetails/);
   assert.match(contract, /legacyDateOfDeath\?: string/);
   assert.match(contract, /legacyRelationship\?: string/);
+  assert.match(contract, /export type MemoDetails = z\.infer<typeof memoDetailsSchema>/);
   assert.match(
     contract,
-    /export type CommunityEventDetails = ObituaryDetails \| LegacyObituaryDetails/,
+    /export type CommunityEventDetails = ObituaryDetails \| MemoDetails \| LegacyObituaryDetails/,
   );
   assert.doesNotMatch(
     contract,
