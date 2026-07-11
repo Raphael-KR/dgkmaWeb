@@ -23,6 +23,16 @@ test("event draft hook recovers, autosaves, and discards drafts without identity
   assert.match(hook, /isDirtyRef\.current/);
   assert.match(coordinator, /response\.status === 404/);
   assert.doesNotMatch(`${hook}\n${coordinator}`, /authorId|profile|membershipTier/);
+
+  const retryStart = hook.indexOf('if (errorKind !== "save")');
+  const retryClear = hook.indexOf("clearSaveTimeout()", retryStart);
+  const retryPersist = hook.indexOf("persistDraft(", retryStart);
+  assert.ok(retryStart >= 0 && retryClear > retryStart && retryPersist > retryClear);
+
+  const discardStart = hook.indexOf("const discardDraft");
+  const discardReset = hook.indexOf("form.reset(resetValues)", discardStart);
+  const discardClear = hook.indexOf("clearFailureGates()", discardReset);
+  assert.ok(discardStart >= 0 && discardReset > discardStart && discardClear > discardReset);
 });
 
 test("event composer integrates recovery, compact status, discard, and publish reset", async () => {
@@ -35,6 +45,7 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.match(composer, /다시 시도/);
   assert.match(composer, /isBusy = isParsing \|\| isPublishing \|\| isDiscarding \|\| isRecovering/);
   assert.doesNotMatch(composer, /draftError && <span role="alert"/);
+  assert.match(composer, /if \(!hasRecoveryError\)/);
   assert.match(composer, /completePublish/);
   assert.match(composer, /임시저장된 내용을 복구했습니다/);
   assert.match(composer, /저장 중/);

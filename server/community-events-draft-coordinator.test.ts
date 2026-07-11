@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  clearedDraftFailureState,
   draftFingerprint,
+  planImmediateSaveRetry,
   saveEventDraftWithFallback,
   shouldApplyRecoveredDraft,
   waitForDraftReadiness,
@@ -94,6 +96,80 @@ test("publish readiness waits for recovery before reading the active save and dr
   assert.deepEqual(order, ["recovery", "read-save", "save"]);
 });
 
+test("successful discard clears recovery and save failure gates", () => {
+  assert.deepEqual(clearedDraftFailureState(), {
+    errorKind: undefined,
+    errorMessage: undefined,
+    recoveryFailed: false,
+    status: "idle",
+  });
+});
+
+test("immediate save retry advances revision and clears stale status even without input", () => {
+  assert.deepEqual(planImmediateSaveRetry({ currentRevision: 4, hasMeaningfulInput: true }), {
+    revision: 5,
+    shouldSave: true,
+    status: "saving",
+  });
+  assert.deepEqual(planImmediateSaveRetry({ currentRevision: 4, hasMeaningfulInput: false }), {
+    revision: 5,
+    shouldSave: false,
+    status: "idle",
+  });
+});
+
+test("no-ID save checks latest and PATCHes an existing draft", async () => {
+  const calls: string[] = [];
+  const fetcher = async (url: string, init?: RequestInit) => {
+    calls.push(`${init?.method} ${url}`);
+    if (calls.length === 1) return jsonResponse({ ...obituaryDraft, id: 21 });
+    return jsonResponse({ ...obituaryDraft, id: 21 });
+  };
+
+  const result = await saveEventDraftWithFallback({
+    eventType: "obituary",
+    fetcher,
+    payload: obituaryDraft,
+  });
+
+  assert.equal(result.id, 21);
+  assert.deepEqual(calls, [
+    "GET /api/events/drafts/latest?type=obituary",
+    "PATCH /api/events/drafts/21",
+  ]);
+});
+
+test("retry after a lost POST response discovers and PATCHes without a second POST", async () => {
+  const calls: string[] = [];
+  const fetcher = async (url: string, init?: RequestInit) => {
+    calls.push(`${init?.method} ${url}`);
+    if (calls.length === 1) return jsonResponse({ message: "missing" }, 404);
+    if (calls.length === 2) throw new TypeError("response lost");
+    if (calls.length === 3) return jsonResponse({ ...obituaryDraft, id: 22 });
+    return jsonResponse({ ...obituaryDraft, id: 22 });
+  };
+
+  await assert.rejects(() => saveEventDraftWithFallback({
+    eventType: "obituary",
+    fetcher,
+    payload: obituaryDraft,
+  }), /response lost/);
+  const retry = await saveEventDraftWithFallback({
+    eventType: "obituary",
+    fetcher,
+    payload: obituaryDraft,
+  });
+
+  assert.equal(retry.id, 22);
+  assert.equal(calls.filter((call) => call === "POST /api/events/drafts").length, 1);
+  assert.deepEqual(calls, [
+    "GET /api/events/drafts/latest?type=obituary",
+    "POST /api/events/drafts",
+    "GET /api/events/drafts/latest?type=obituary",
+    "PATCH /api/events/drafts/22",
+  ]);
+});
+
 test("PATCH 404 recovers latest draft and retries PATCH once", async () => {
   const calls: string[] = [];
   const fetcher = async (url: string, init?: RequestInit) => {
@@ -182,11 +258,18 @@ test("rejects created, updated, and recovered drafts with the wrong event type",
     details: {},
   };
 
+  let createCall = 0;
   await assert.rejects(() => saveEventDraftWithFallback({
     eventType: "obituary",
-    fetcher: async () => jsonResponse(wrongType, 201),
+    fetcher: async () => {
+      createCall += 1;
+      return createCall === 1
+        ? jsonResponse({ message: "missing" }, 404)
+        : jsonResponse(wrongType, 201);
+    },
     payload: obituaryDraft,
   }), /유형/);
+  assert.equal(createCall, 2);
   await assert.rejects(() => saveEventDraftWithFallback({
     draftId: 7,
     eventType: "obituary",

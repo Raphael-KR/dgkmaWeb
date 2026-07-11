@@ -32,6 +32,28 @@ type DraftReadinessInput = {
   recoveryPromise: Promise<void>;
 };
 
+type ImmediateSaveRetryInput = {
+  currentRevision: number;
+  hasMeaningfulInput: boolean;
+};
+
+export function clearedDraftFailureState() {
+  return {
+    errorKind: undefined,
+    errorMessage: undefined,
+    recoveryFailed: false,
+    status: "idle" as const,
+  };
+}
+
+export function planImmediateSaveRetry({ currentRevision, hasMeaningfulInput }: ImmediateSaveRetryInput) {
+  return {
+    revision: currentRevision + 1,
+    shouldSave: hasMeaningfulInput,
+    status: hasMeaningfulInput ? "saving" as const : "idle" as const,
+  };
+}
+
 function normalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalize);
   if (value && typeof value === "object") {
@@ -132,7 +154,14 @@ export async function saveEventDraftWithFallback({
   }
   const safePayload = parsedPayload.data;
 
-  if (!draftId) return createDraft(fetcher, eventType, safePayload);
+  if (!draftId) {
+    const latestDraft = await fetchLatestEventDraft(fetcher, eventType);
+    if (!latestDraft) return createDraft(fetcher, eventType, safePayload);
+
+    const latestPatch = await patchDraft(fetcher, latestDraft.id, safePayload);
+    if (!latestPatch.ok) throw new Error(await errorMessage(latestPatch, "임시 저장에 실패했습니다."));
+    return parseDraftResponse(latestPatch, eventType);
+  }
 
   const initialPatch = await patchDraft(fetcher, draftId, safePayload);
   if (initialPatch.ok) return parseDraftResponse(initialPatch, eventType);

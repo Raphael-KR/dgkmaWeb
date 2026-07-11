@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useEventDraft } from "@/hooks/use-event-draft";
+import { saveEventDraftWithFallback } from "@/hooks/event-draft-coordinator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -109,6 +110,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     draftId,
     errorMessage: draftError,
     canRetry,
+    hasRecoveryError,
     isDiscarding,
     isRecovered,
     isRecovering,
@@ -270,18 +272,14 @@ export function EventComposer({ onPublished }: EventComposerProps) {
       const preparedDraftId = await prepareForPublish();
       const result = await publishDraftWithRecovery({
         createDraft: async (payload) => {
-          const response = await apiRequest("POST", "/api/events/drafts", payload);
-          const rawDraft = await response.json() as { id?: unknown; eventType?: unknown };
-          const parsedDraft = communityEventDraftSchema.safeParse(rawDraft);
-          if (
-            !parsedDraft.success
-            || typeof rawDraft.id !== "number"
-            || rawDraft.id <= 0
-            || parsedDraft.data.eventType !== payload.eventType
-          ) {
-            throw new Error("초안 응답의 유형 또는 형식이 올바르지 않습니다.");
-          }
-          return { id: rawDraft.id };
+          const draft = await saveEventDraftWithFallback({
+            eventType: payload.eventType,
+            fetcher: (url, init) => url === "/api/events/drafts" && init?.method === "POST"
+              ? apiRequest("POST", "/api/events/drafts", payload)
+              : fetch(url, init),
+            payload,
+          });
+          return { id: draft.id };
         },
         draftId: preparedDraftId,
         getEvent: async (publishDraftId) => {
@@ -306,7 +304,9 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         });
       }
     } catch {
-      toast({ title: "게시 실패", description: "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
+      if (!hasRecoveryError) {
+        toast({ title: "게시 실패", description: "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
+      }
     } finally {
       resumeAutosave();
       publishingRef.current = false;

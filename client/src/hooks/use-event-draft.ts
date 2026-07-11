@@ -8,8 +8,10 @@ import {
 } from "@shared/community-events";
 import { canApplyDraftResult, hasMeaningfulDraftInput } from "@/pages/events/event-composer-logic";
 import {
+  clearedDraftFailureState,
   draftFingerprint,
   fetchLatestEventDraft,
+  planImmediateSaveRetry,
   saveEventDraftWithFallback,
   shouldApplyRecoveredDraft,
   waitForDraftReadiness,
@@ -82,6 +84,14 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       requestEventType,
       requestGeneration,
     });
+  }, []);
+
+  const clearFailureGates = useCallback(() => {
+    const cleared = clearedDraftFailureState();
+    recoveryFailedRef.current = cleared.recoveryFailed;
+    setErrorKind(cleared.errorKind);
+    setErrorMessage(cleared.errorMessage);
+    setStatus(cleared.status);
   }, []);
 
   const persistDraft = useCallback((
@@ -292,12 +302,10 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     draftIdsByTypeRef.current.delete(currentType);
     draftIdRef.current = undefined;
     setDraftId(undefined);
-    setStatus("idle");
-    setErrorMessage(undefined);
-    setErrorKind(undefined);
+    clearFailureGates();
     suppressedFingerprintRef.current = draftFingerprint(resetValues);
     queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest", currentType] });
-  }, [clearSaveTimeout]);
+  }, [clearFailureGates, clearSaveTimeout]);
 
   const discardDraft = useCallback(async () => {
     if (discardingRef.current) return false;
@@ -332,7 +340,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       suppressedFingerprintRef.current = draftFingerprint(resetValues);
       form.reset(resetValues);
       queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest", requestEventType] });
-      setStatus("idle");
+      clearFailureGates();
       return true;
     } catch (error) {
       if (!isCurrent(requestEventType, requestGeneration)) return false;
@@ -346,7 +354,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       manuallyPausedRef.current = false;
       discardingRef.current = false;
     }
-  }, [fetcher, form, isCurrent, resumeAutosave, settleAutosave, toast]);
+  }, [clearFailureGates, fetcher, form, isCurrent, resumeAutosave, settleAutosave, toast]);
 
   const retryDraft = useCallback(() => {
     if (errorKind === "recovery") {
@@ -360,12 +368,22 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     }
     if (errorKind !== "save") return;
 
+    clearSaveTimeout();
     manuallyPausedRef.current = false;
     const values = form.getValues();
-    if (!hasMeaningfulDraftInput(values)) return;
-    const revision = ++saveRevisionRef.current;
-    void persistDraft(values, activeRef.current.eventType, activeRef.current.generation, revision);
-  }, [errorKind, form, persistDraft]);
+    const retry = planImmediateSaveRetry({
+      currentRevision: saveRevisionRef.current,
+      hasMeaningfulInput: hasMeaningfulDraftInput(values),
+    });
+    saveRevisionRef.current = retry.revision;
+    const cleared = clearedDraftFailureState();
+    recoveryFailedRef.current = cleared.recoveryFailed;
+    setErrorKind(cleared.errorKind);
+    setErrorMessage(cleared.errorMessage);
+    setStatus(retry.status);
+    if (!retry.shouldSave) return;
+    void persistDraft(values, activeRef.current.eventType, activeRef.current.generation, retry.revision);
+  }, [clearSaveTimeout, errorKind, form, persistDraft]);
 
   const isRecovering = status === "recovering" || activeRef.current.eventType !== eventType;
 
@@ -373,6 +391,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     draftId,
     errorMessage,
     canRetry: errorKind === "recovery" || errorKind === "save",
+    hasRecoveryError: errorKind === "recovery",
     isDiscarding: status === "discarding",
     isRecovered: status === "recovered",
     isRecovering,
