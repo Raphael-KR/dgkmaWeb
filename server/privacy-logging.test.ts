@@ -123,3 +123,11 @@ test("protected server logs contain no personal source values", async () => {
 
   assert.deepEqual(violations, []);
 });
+
+test("request logging never captures JSON response bodies", async () => {
+  const indexUrl = new URL("./index.ts", import.meta.url);
+  const source = await readFile(indexUrl, "utf8");
+
+  assert.doesNotMatch(source, /capturedJsonResponse/);
+  assert.doesNotMatch(source, /res\.json\s*=/);
+});

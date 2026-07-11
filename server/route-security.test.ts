@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
 import test from "node:test";
+import express from "express";
+import type { AdminUserLookup } from "./auth-middleware";
+import { registerRoutes } from "./routes";
 
 const routesPath = new URL("./routes.ts", import.meta.url);
 
@@ -20,4 +24,73 @@ test("payment creation requires an administrator", async () => {
   const source = await readFile(routesPath, "utf8");
 
   assert.match(source, /app\.post\("\/api\/payments", requireAdmin,/);
+});
+
+async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    const userId = req.header("x-test-user-id");
+    (req as any).session = userId ? { userId: Number(userId) } : {};
+    next();
+  });
+
+  const server = await registerRoutes(app, { getUserForAdmin });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const { port } = server.address() as AddressInfo;
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    }),
+  };
+}
+
+test("protected routes enforce the live session role matrix", async () => {
+  const memberId = 2_147_483_646;
+  const adminId = 2_147_483_647;
+  let lookupCalls = 0;
+  const server = await startAuthorizationTestServer(async (userId) => {
+    lookupCalls += 1;
+    return { isAdmin: userId === adminId };
+  });
+
+  try {
+    const anonymousAdmin = await fetch(`${server.baseUrl}/api/admin/sync-progress`);
+    assert.equal(anonymousAdmin.status, 401);
+
+    const memberAdmin = await fetch(`${server.baseUrl}/api/admin/sync-progress`, {
+      headers: { "x-test-user-id": String(memberId) },
+    });
+    assert.equal(memberAdmin.status, 403);
+
+    const adminAdmin = await fetch(`${server.baseUrl}/api/admin/sync-progress`, {
+      headers: { "x-test-user-id": String(adminId) },
+    });
+    assert.equal(adminAdmin.status, 200);
+
+    const anonymousPayment = await fetch(`${server.baseUrl}/api/payments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(anonymousPayment.status, 401);
+
+    const memberPayment = await fetch(`${server.baseUrl}/api/payments`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-test-user-id": String(memberId),
+      },
+      body: "{}",
+    });
+    assert.equal(memberPayment.status, 403);
+    assert.equal(lookupCalls, 3);
+  } finally {
+    await server.close();
+  }
 });
