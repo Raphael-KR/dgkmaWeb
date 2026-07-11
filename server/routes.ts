@@ -2,6 +2,11 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS } from "@shared/schema";
+import {
+  COMMUNITY_EVENT_TYPES,
+  communityEventDraftSchema,
+  communityEventPublishSchema,
+} from "@shared/community-events";
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
@@ -17,6 +22,11 @@ declare module "express-session" {
   interface SessionData {
     userId?: number;
   }
+}
+
+function parsePositiveInteger(value: string): number | undefined {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 // 카카오 인증/온보딩 디버그 로그 게이팅. 운영 환경에서는 기본 OFF.
@@ -727,6 +737,120 @@ export async function registerRoutes(
       res.status(201).json(obituary);
     } catch (error) {
       res.status(500).json({ message: "부고 등록에 실패했습니다" });
+    }
+  });
+
+  app.use("/api/events", requireAuthenticated);
+
+  app.get("/api/events/drafts/latest", async (req, res) => {
+    try {
+      const eventType = z.enum(COMMUNITY_EVENT_TYPES).parse(req.query.type);
+      const event = await storage.getLatestEventDraft(req.session.userId!, eventType);
+      if (!event) {
+        return res.status(404).json({ message: "임시 저장된 소식을 찾을 수 없습니다" });
+      }
+      res.json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      res.status(500).json({ message: "임시 저장된 소식 조회에 실패했습니다" });
+    }
+  });
+
+  app.post("/api/events/drafts", async (req, res) => {
+    try {
+      const data = communityEventDraftSchema.parse(req.body);
+      const event = await storage.createEventDraft(req.session.userId!, data);
+      res.status(201).json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      res.status(500).json({ message: "임시 저장된 소식 작성에 실패했습니다" });
+    }
+  });
+
+  app.patch("/api/events/drafts/:id", async (req, res) => {
+    try {
+      const id = parsePositiveInteger(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "잘못된 소식입니다" });
+      }
+      const data = communityEventDraftSchema.parse(req.body);
+      const event = await storage.updateEventDraft(id, req.session.userId!, data);
+      if (!event) {
+        return res.status(404).json({ message: "임시 저장된 소식을 찾을 수 없습니다" });
+      }
+      res.json(event);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      res.status(500).json({ message: "임시 저장된 소식 수정에 실패했습니다" });
+    }
+  });
+
+  app.delete("/api/events/drafts/:id", async (req, res) => {
+    try {
+      const id = parsePositiveInteger(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "잘못된 소식입니다" });
+      }
+      const deleted = await storage.deleteEventDraft(id, req.session.userId!);
+      if (!deleted) {
+        return res.status(404).json({ message: "임시 저장된 소식을 찾을 수 없습니다" });
+      }
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "임시 저장된 소식 삭제에 실패했습니다" });
+    }
+  });
+
+  app.post("/api/events/:id/publish", async (req, res) => {
+    try {
+      const id = parsePositiveInteger(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "잘못된 소식입니다" });
+      }
+      const data = communityEventPublishSchema.parse(req.body);
+      const event = await storage.publishEvent(id, req.session.userId!, data);
+      if (!event) {
+        return res.status(404).json({ message: "소식을 찾을 수 없습니다" });
+      }
+      const { sourceText: _sourceText, ...publishedEvent } = event;
+      res.json(publishedEvent);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      res.status(500).json({ message: "소식 발행에 실패했습니다" });
+    }
+  });
+
+  app.get("/api/events", async (_req, res) => {
+    try {
+      const events = await storage.getPublishedEvents();
+      res.json(events.map(({ sourceText: _sourceText, ...event }) => event));
+    } catch (error) {
+      res.status(500).json({ message: "소식 목록 조회에 실패했습니다" });
+    }
+  });
+
+  app.get("/api/events/:id", async (req, res) => {
+    try {
+      const id = parsePositiveInteger(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "잘못된 소식입니다" });
+      }
+      const event = await storage.getPublishedEvent(id);
+      if (!event) {
+        return res.status(404).json({ message: "소식을 찾을 수 없습니다" });
+      }
+      const { sourceText: _sourceText, ...publishedEvent } = event;
+      res.json(publishedEvent);
+    } catch (error) {
+      res.status(500).json({ message: "소식 조회에 실패했습니다" });
     }
   });
 
