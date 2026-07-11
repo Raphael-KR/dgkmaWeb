@@ -144,3 +144,14 @@ curl -sS https://dgkma.replit.app/api/categories
 6. 카카오 redirect URI의 클라이언트·서버·개발자 콘솔 값 비교
 
 환경변수 값이나 사용자 개인 정보를 장애 보고에 첨부하지 않습니다.
+
+## Legacy obituary migration
+
+1. Apply the schema in the development database.
+2. Record counts from obituaries and community_events.
+3. Run scripts/migrate-obituaries-to-community-events.sql in the development SQL console.
+4. Verify migrated count, legacy_obituary_id uniqueness, event_type, status, and author_id.
+5. Repeat the script and verify the count does not change.
+6. Republish code only after development verification.
+7. Apply schema and data migration separately in the production SQL console.
+8. Keep obituaries unchanged until rollback and route compatibility are verified.
