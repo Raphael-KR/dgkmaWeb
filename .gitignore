@@ -16,3 +16,6 @@ graphify-out/
 
 # Local Git worktrees
 .worktrees/
+
+# Subagent-driven development scratch state
+.superpowers/

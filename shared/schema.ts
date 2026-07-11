@@ -2,6 +2,7 @@ import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizz
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { CommunityEventDetails } from "@shared/community-events";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -99,6 +100,26 @@ export const obituaries = pgTable("obituaries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const communityEvents = pgTable("community_events", {
+  id: serial("id").primaryKey(),
+  legacyObituaryId: integer("legacy_obituary_id").unique(),
+  eventType: text("event_type").notNull(),
+  status: text("status").notNull().default("draft"),
+  title: text("title"),
+  eventDate: text("event_date"),
+  location: text("location"),
+  relatedMemberName: text("related_member_name"),
+  contactNumber: text("contact_number"),
+  accountInfo: text("account_info"),
+  sourceText: text("source_text"),
+  sourceUrls: text("source_urls").array().default([]),
+  details: jsonb("details").$type<CommunityEventDetails>().notNull().default({}),
+  authorId: integer("author_id").references(() => users.id),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const pendingRegistrations = pgTable("pending_registrations", {
   id: serial("id").primaryKey(),
   kakaoId: text("kakao_id").notNull(),
@@ -113,6 +134,7 @@ export const pendingRegistrations = pgTable("pending_registrations", {
 export const usersRelations = relations(users, ({ many, one }) => ({
   posts: many(posts),
   payments: many(payments),
+  communityEvents: many(communityEvents),
   alumniRecord: one(alumniDatabase, {
     fields: [users.id],
     references: [alumniDatabase.matchedUserId],
@@ -163,6 +185,13 @@ export const alumniDatabaseRelations = relations(alumniDatabase, ({ one }) => ({
 export const obituariesRelations = relations(obituaries, ({ one }) => ({
   author: one(users, {
     fields: [obituaries.authorId],
+    references: [users.id],
+  }),
+}));
+
+export const communityEventsRelations = relations(communityEvents, ({ one }) => ({
+  author: one(users, {
+    fields: [communityEvents.authorId],
     references: [users.id],
   }),
 }));
@@ -226,6 +255,8 @@ export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
 export type Obituary = typeof obituaries.$inferSelect;
+export type CommunityEvent = typeof communityEvents.$inferSelect;
+export type InsertCommunityEvent = typeof communityEvents.$inferInsert;
 
 export const insertObituarySchema = z.object({
   title: z.string().min(1, "제목을 입력해주세요"),

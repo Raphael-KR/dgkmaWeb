@@ -86,13 +86,13 @@ Google Sheets는 현재 신규 가입 매칭과 관리자 동기화에 사용됩
 
 ### 스키마 변경
 
-스키마 변경이 있을 때만 Replit 개발 워크스페이스에서 다음 명령을 검토해 사용합니다.
+스키마 변경은 자동 실행하지 않습니다. Development Database와 Production Database에 각각 additive 변경 SQL을 명시적으로 검토한 뒤 수동 적용하고, 테이블과 컬럼을 확인합니다. 개발 환경에서 `db:push`를 사용해야 할 때도 변경 내용을 먼저 확인한 뒤 Replit Shell에서 직접 실행합니다.
 
 ```bash
 npm run db:push
 ```
 
-프로덕션에는 생성 SQL을 확인한 후 Production SQL 콘솔에서 additive SQL을 적용합니다. 기존 컬럼·테이블 삭제처럼 되돌리기 어려운 SQL은 별도 백업과 복구 절차 없이 실행하지 않습니다.
+프로덕션에는 생성 SQL을 확인한 후 Production SQL 콘솔에서 additive SQL만 수동 적용합니다. 적용 결과를 확인하기 전에는 Republish하지 않습니다. 기존 컬럼·테이블 삭제처럼 되돌리기 어려운 SQL은 별도 백업과 복구 절차 없이 실행하지 않습니다.
 
 ### 운영 데이터와 seed
 
@@ -119,11 +119,17 @@ npm run build
 
 ## 배포
 
-1. GitHub `main`, 로컬, Replit 개발 워크스페이스의 커밋이 같은지 확인합니다.
-2. Replit 개발 워크스페이스에서 `npm run check`와 `npm run build`를 실행합니다.
-3. Replit Deployments에서 Republish합니다.
-4. 공개 홈페이지와 핵심 API의 HTTP 상태를 확인합니다.
-5. 실제 계정으로 카카오 로그인과 변경된 회원 기능을 확인합니다.
+먼저 GitHub `main`, 로컬, Replit 개발 워크스페이스의 배포 대상 커밋이 같은지 확인합니다.
+
+1. Development Database에 additive 스키마를 수동 적용하고 검증합니다.
+2. 배포할 코드에서 테스트, 타입 검사, 빌드를 완료합니다.
+3. Production Database에 additive 스키마를 수동 적용하고 검증합니다.
+4. Replit Deployments에서 Republish합니다.
+5. 스키마와 코드 준비 상태를 확인한 뒤 데이터 마이그레이션을 별도 수동 SQL로 실행합니다.
+6. 공개 홈페이지와 핵심 API의 HTTP 상태를 확인합니다.
+7. 실제 계정으로 카카오 로그인과 변경된 회원 기능을 확인합니다.
+
+데이터 마이그레이션은 스키마 적용이나 코드 시작 과정에 포함하지 않고 각 환경의 SQL 콘솔에서 별도 승인 후 실행합니다.
 
 기본 배포 점검:
 
@@ -144,3 +150,17 @@ curl -sS https://dgkma.replit.app/api/categories
 6. 카카오 redirect URI의 클라이언트·서버·개발자 콘솔 값 비교
 
 환경변수 값이나 사용자 개인 정보를 장애 보고에 첨부하지 않습니다.
+
+## Legacy obituary migration
+
+1. Development Database에 `community_events` additive 스키마를 수동 적용하고 테이블·컬럼을 검증합니다.
+2. 코드의 테스트, 타입 검사, 빌드가 통과했는지 확인합니다.
+3. `obituaries`와 `community_events` 건수를 기록합니다.
+4. 개발 SQL 콘솔에서 `scripts/migrate-obituaries-to-community-events.sql`을 별도로 수동 실행합니다.
+5. 이관 건수, `legacy_obituary_id` 유일성, `event_type`, `status`, `author_id`를 검증합니다.
+6. 같은 SQL을 다시 실행해 건수가 늘지 않는지 확인합니다.
+7. Republish 전에 Production Database에 같은 additive 스키마를 Production SQL 콘솔에서 수동 적용하고 검증합니다.
+8. Republish 후 프로덕션 데이터 마이그레이션 SQL을 별도 승인받아 Production SQL 콘솔에서 수동 실행합니다.
+9. 이관 건수와 중복 여부, API 호환성을 검증합니다.
+
+롤백과 기존 경로 호환성 검증이 끝날 때까지 기존 `obituaries` 테이블과 데이터는 그대로 유지합니다.

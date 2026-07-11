@@ -1,10 +1,16 @@
 import {
-  users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries, comments,
+  users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries, comments, communityEvents,
   type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
-  type Obituary, type InsertObituary, type MembershipStatus, type Comment, ANNUAL_DUES
+  type Obituary, type InsertObituary, type MembershipStatus, type Comment, ANNUAL_DUES,
+  type CommunityEvent
 } from "@shared/schema";
+import type {
+  CommunityEventDraftInput,
+  CommunityEventPublishInput,
+  CommunityEventType,
+} from "@shared/community-events";
 import { db } from "./db";
 import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
@@ -113,6 +119,15 @@ export interface IStorage {
   getObituaries(): Promise<Obituary[]>;
   getObituary(id: number): Promise<Obituary | undefined>;
   createObituary(data: InsertObituary & { authorId?: number }): Promise<Obituary>;
+
+  // Community event methods
+  getPublishedEvents(eventType?: CommunityEventType): Promise<CommunityEvent[]>;
+  getPublishedEvent(id: number): Promise<CommunityEvent | undefined>;
+  getLatestEventDraft(authorId: number, eventType: CommunityEventType): Promise<CommunityEvent | undefined>;
+  createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent>;
+  updateEventDraft(id: number, authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent | undefined>;
+  deleteEventDraft(id: number, authorId: number): Promise<boolean>;
+  publishEvent(id: number, authorId: number, data: CommunityEventPublishInput): Promise<CommunityEvent | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -625,6 +640,82 @@ export class DatabaseStorage implements IStorage {
   async createObituary(data: InsertObituary & { authorId?: number }): Promise<Obituary> {
     const [obituary] = await db.insert(obituaries).values(data).returning();
     return obituary;
+  }
+
+  async getPublishedEvents(eventType?: CommunityEventType): Promise<CommunityEvent[]> {
+    const condition = eventType
+      ? and(eq(communityEvents.status, "published"), eq(communityEvents.eventType, eventType))
+      : eq(communityEvents.status, "published");
+    return await db.select().from(communityEvents)
+      .where(condition)
+      .orderBy(desc(communityEvents.publishedAt));
+  }
+
+  async getPublishedEvent(id: number): Promise<CommunityEvent | undefined> {
+    const [event] = await db.select().from(communityEvents)
+      .where(and(eq(communityEvents.id, id), eq(communityEvents.status, "published")));
+    return event || undefined;
+  }
+
+  async getLatestEventDraft(authorId: number, eventType: CommunityEventType): Promise<CommunityEvent | undefined> {
+    const [event] = await db.select().from(communityEvents)
+      .where(and(
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.eventType, eventType),
+        eq(communityEvents.status, "draft"),
+      ))
+      .orderBy(desc(communityEvents.updatedAt))
+      .limit(1);
+    return event || undefined;
+  }
+
+  async createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent> {
+    const [event] = await db.insert(communityEvents)
+      .values({ ...data, authorId })
+      .returning();
+    return event;
+  }
+
+  async updateEventDraft(
+    id: number,
+    authorId: number,
+    data: CommunityEventDraftInput,
+  ): Promise<CommunityEvent | undefined> {
+    const [event] = await db.update(communityEvents)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "draft"),
+      ))
+      .returning();
+    return event || undefined;
+  }
+
+  async deleteEventDraft(id: number, authorId: number): Promise<boolean> {
+    const result = await db.delete(communityEvents).where(and(
+      eq(communityEvents.id, id),
+      eq(communityEvents.authorId, authorId),
+      eq(communityEvents.status, "draft"),
+    ));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async publishEvent(
+    id: number,
+    authorId: number,
+    data: CommunityEventPublishInput,
+  ): Promise<CommunityEvent | undefined> {
+    const now = new Date();
+    const [event] = await db.update(communityEvents)
+      .set({ ...data, status: "published", publishedAt: now, updatedAt: now })
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "draft"),
+      ))
+      .returning();
+    return event || undefined;
   }
 }
 

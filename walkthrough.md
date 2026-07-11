@@ -8,6 +8,7 @@
 - [ ] Replit 개발 워크스페이스에서 `npm test`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit 개발 워크스페이스에서 `npm run check`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit 개발 워크스페이스에서 `npm run build`가 종료 코드 `0`으로 끝난다.
+- [ ] Replit 개발 워크스페이스에서 `git diff --check`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit Deployments에서 Republish가 완료되었다.
 - [ ] 비로그인 브라우저와 실제 동문 계정을 준비한다.
 - [ ] 관리자 기능 검증이 필요하면 `isAdmin=true`인 별도 관리자 계정을 준비한다.
@@ -125,6 +126,21 @@
 
 부고 데이터 API는 회원 전용이며 공개 경조사 안내 페이지 `/about/condolence`와 별개다.
 
+## 경조사 통합 기반 API (진행 중)
+
+다음 항목은 회원 전용 기반 API의 계약과 접근 정책을 확인하는 체크다. 현재 `/events` UI, 문자·링크 파싱, 초안 복구 UI는 포함하지 않는다.
+
+- [ ] 비로그인 `GET /api/events`와 `GET /api/events/:id` 요청이 `401`을 반환한다.
+- [ ] 비로그인 초안 조회·생성·수정·삭제와 게시 전환 요청이 `401`을 반환한다.
+- [ ] 실제 회원이 `POST /api/events/drafts`로 자신의 초안을 만든다.
+- [ ] 작성자 회원은 자신의 초안을 수정·삭제하고 게시할 수 있다.
+- [ ] 다른 회원은 해당 초안을 수정·삭제·게시할 수 없고 `404`를 받는다.
+- [ ] `GET /api/events`와 `GET /api/events/:id`는 `published` 상태만 반환한다.
+- [ ] `GET /api/events?type=obituary`, `wedding`, `opening`, `other`는 요청 유형에 맞는 published 경조사만 반환한다.
+- [ ] published 목록·상세 응답에 원문 `sourceText`가 포함되지 않는다.
+
+기존 부고 API와 데이터는 별도로 유지한다. `community_events` 스키마와 부고 복사 SQL은 개발·프로덕션 SQL 콘솔에서 별도 승인 후 적용하며, 코드 시작이나 테스트가 마이그레이션을 자동 실행하지 않는지 확인한다.
+
 ## 프로필·권리회원
 
 실제 회원 계정으로 `/profile`에 접근한다.
@@ -156,9 +172,12 @@ Replit 개발 워크스페이스에서 실행한다.
 npm test
 npm run check
 npm run build
+git diff --check
 ```
 
-두 명령의 기대 결과는 종료 코드 `0`이다.
+네 명령의 기대 결과는 종료 코드 `0`이다. 기존 Browserslist와 번들 청크 크기 경고는 종료 코드가 `0`이면 허용한다.
+
+이 검증만으로 경조사 통합의 UI, 파싱, 초안 복구 화면 또는 실제 데이터 마이그레이션 완료를 의미하지 않는다. 배포와 DB 변경은 검토 후 별도 게이트를 통과해야 한다.
 
 Republish 후 실행한다.
 
