@@ -2,6 +2,30 @@ import type { CommunityEventType } from "@shared/community-events";
 
 const URL_PATTERN = /https?:\/\/[^\s]+/g;
 
+type DraftResultAcceptanceInput = {
+  activeEventType: CommunityEventType;
+  activeGeneration: number;
+  requestEventType: CommunityEventType;
+  requestGeneration: number;
+};
+
+export function canApplyDraftResult(input: DraftResultAcceptanceInput) {
+  return input.activeEventType === input.requestEventType
+    && input.activeGeneration === input.requestGeneration;
+}
+
+export function hasMeaningfulDraftInput(input: object) {
+  const hasValue = (value: unknown): boolean => {
+    if (typeof value === "string") return value.trim().length > 0;
+    if (typeof value === "number") return true;
+    if (Array.isArray(value)) return value.some(hasValue);
+    if (value && typeof value === "object") return Object.values(value).some(hasValue);
+    return false;
+  };
+
+  return Object.entries(input).some(([key, value]) => key !== "eventType" && hasValue(value));
+}
+
 export function splitEventSource(sourceText: string) {
   return {
     sourceUrls: sourceText.match(URL_PATTERN)?.slice(0, 3) ?? [],

@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, type Path, type SubmitHandler, useForm } from "react-hook-form";
-import { FileText, LoaderCircle, Send } from "lucide-react";
+import { FileText, LoaderCircle, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useEventDraft } from "@/hooks/use-event-draft";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -94,11 +95,9 @@ function initialValues(eventType: CommunityEventType): CommunityEventDraftInput 
 
 export function EventComposer({ onPublished }: EventComposerProps) {
   const { toast } = useToast();
-  const [draftId, setDraftId] = useState<number>();
   const [isParsing, setIsParsing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishErrors, setPublishErrors] = useState<Record<string, string>>({});
-  const draftIdRef = useRef<number>();
   const parseRequestRef = useRef(0);
   const publishingRef = useRef(false);
   const form = useForm<CommunityEventDraftInput>({
@@ -106,13 +105,22 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     defaultValues: initialValues("obituary"),
   });
   const currentType = form.watch("eventType");
+  const {
+    draftId,
+    errorMessage: draftError,
+    isDiscarding,
+    isRecovered,
+    isSaved,
+    isSaving,
+    completePublish: completeDraftPublish,
+    discardDraft,
+    prepareForPublish,
+    registerDraftId,
+    resumeAutosave,
+    settleAutosave,
+  } = useEventDraft({ eventType: currentType, form, isPaused: isParsing || isPublishing });
   const sourceError = publishErrors.sourceText;
-  const isBusy = isParsing || isPublishing;
-
-  const storeDraftId = (id: number | undefined) => {
-    draftIdRef.current = id;
-    setDraftId(id);
-  };
+  const isBusy = isParsing || isPublishing || isDiscarding;
 
   const changeType = (eventType: CommunityEventType) => {
     if (isBusy || eventType === currentType) return;
@@ -153,6 +161,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     const requestToken = ++parseRequestRef.current;
     setIsParsing(true);
     try {
+      await settleAutosave();
       const response = await apiRequest("POST", "/api/obituary/parse", { text: textOnly });
       const parsed = await response.json() as ParsedObituary;
       const currentValues = form.getValues();
@@ -190,6 +199,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     } catch {
       toast({ title: "분석 실패", description: "문자 내용을 분석하지 못했습니다. 직접 입력해주세요.", variant: "destructive" });
     } finally {
+      resumeAutosave();
       if (parseRequestRef.current === requestToken) setIsParsing(false);
     }
   };
@@ -197,9 +207,10 @@ export function EventComposer({ onPublished }: EventComposerProps) {
   const completePublish = async (eventType: CommunityEventType) => {
     await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
     queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest"] });
-    form.reset(initialValues(eventType));
+    const resetValues = initialValues(eventType);
+    completeDraftPublish(resetValues);
+    form.reset(resetValues);
     form.clearErrors();
-    storeDraftId(undefined);
     setPublishErrors({});
     onPublished(eventType);
     toast({ title: "경조사를 게시했습니다", description: "새 소식이 아래 목록에 반영되었습니다." });
@@ -253,6 +264,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     setIsPublishing(true);
     const publishSnapshot = data;
     try {
+      const preparedDraftId = await prepareForPublish();
       const result = await publishDraftWithRecovery({
         createDraft: async (payload) => {
           const response = await apiRequest("POST", "/api/events/drafts", payload);
@@ -260,7 +272,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           if (!draft.id) throw new Error("초안 ID를 받지 못했습니다.");
           return { id: draft.id };
         },
-        draftId: draftIdRef.current ?? draftId,
+        draftId: preparedDraftId ?? draftId,
         getEvent: async (publishDraftId) => {
           const response = await apiRequest("GET", `/api/events/${publishDraftId}`);
           return response.json() as Promise<{ status?: unknown }>;
@@ -269,13 +281,13 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         publishDraft: async (publishDraftId, payload) => {
           await apiRequest("POST", `/api/events/${publishDraftId}/publish`, payload);
         },
-        rememberDraftId: storeDraftId,
+        rememberDraftId: registerDraftId,
       });
 
       if (result.outcome === "published") {
         await completePublish(publishSnapshot.eventType);
       } else {
-        storeDraftId(result.draftId);
+        registerDraftId(result.draftId);
         toast({
           title: "게시 확인이 필요합니다",
           description: "입력 내용은 유지했습니다. 게시를 다시 시도해주세요.",
@@ -285,17 +297,44 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     } catch {
       toast({ title: "게시 실패", description: "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
     } finally {
+      resumeAutosave();
       publishingRef.current = false;
       setIsPublishing(false);
     }
   };
 
+  const handleDiscard = async () => {
+    if (await discardDraft()) {
+      form.clearErrors();
+      setPublishErrors({});
+    }
+  };
+
   return (
     <section className="w-full border-y border-gray-200 py-4">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
+      <div className="mb-3 flex flex-col items-start justify-between gap-3 sm:flex-row">
         <div>
           <h2 className="text-base font-semibold text-gray-900">경조사 등록</h2>
           <p className="mt-1 text-sm text-gray-500">내용을 확인한 뒤 게시해주세요.</p>
+        </div>
+        <div className="flex min-h-8 flex-wrap items-center gap-1 text-sm text-gray-500 sm:justify-end" aria-live="polite">
+          {isRecovered && <span>임시저장된 내용을 복구했습니다</span>}
+          {isSaving && <span>저장 중</span>}
+          {isSaved && <span>임시저장됨</span>}
+          {draftError && <span role="alert" className="text-red-700">{draftError}</span>}
+          {draftId && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleDiscard()}
+              disabled={isBusy}
+              className="h-8 px-2"
+            >
+              <Trash2 aria-hidden="true" />
+              초안 삭제
+            </Button>
+          )}
         </div>
       </div>
 

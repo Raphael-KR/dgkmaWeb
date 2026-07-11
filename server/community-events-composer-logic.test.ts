@@ -1,12 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canApplyDraftResult,
   canApplyParsedSource,
   collectFormErrorEntries,
   classifyPublishRecovery,
+  hasMeaningfulDraftInput,
   publishDraftWithRecovery,
   splitEventSource,
 } from "../client/src/pages/events/event-composer-logic";
+
+test("only autosaves meaningful draft input", () => {
+  assert.equal(hasMeaningfulDraftInput({ eventType: "obituary", sourceUrls: [], details: {} }), false);
+  assert.equal(hasMeaningfulDraftInput({ eventType: "obituary", sourceText: "   ", sourceUrls: [], details: {} }), false);
+  assert.equal(hasMeaningfulDraftInput({ eventType: "obituary", title: "부고", sourceUrls: [], details: {} }), true);
+  assert.equal(hasMeaningfulDraftInput({ eventType: "wedding", sourceUrls: [], details: { memo: "소식" } }), true);
+});
+
+test("only applies draft results for the active type and generation", () => {
+  assert.equal(canApplyDraftResult({
+    activeEventType: "obituary",
+    activeGeneration: 3,
+    requestEventType: "obituary",
+    requestGeneration: 3,
+  }), true);
+  assert.equal(canApplyDraftResult({
+    activeEventType: "wedding",
+    activeGeneration: 4,
+    requestEventType: "obituary",
+    requestGeneration: 3,
+  }), false);
+});
 
 test("keeps URL-only input as a link-only source without text to parse", () => {
   assert.deepEqual(splitEventSource("https://example.com/obituary"), {
