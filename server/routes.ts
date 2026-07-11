@@ -11,6 +11,7 @@ import {
   type AdminUserLookup,
 } from "./auth-middleware";
 import { getErrorType } from "./safe-logging";
+import { isSelectablePostCategory } from "@shared/category-policy";
 
 declare module "express-session" {
   interface SessionData {
@@ -575,6 +576,12 @@ export async function registerRoutes(
       }
       const { authorId: _ignoredAuthorId, ...rest } = req.body ?? {};
       const validatedData = insertPostSchema.parse(rest);
+      const category = validatedData.categoryId == null
+        ? undefined
+        : await storage.getCategory(validatedData.categoryId);
+      if (!isSelectablePostCategory(category)) {
+        return res.status(400).json({ message: "게시글 카테고리를 선택해주세요" });
+      }
       // 첨부 이미지 경로는 오브젝트 스토리지 상대경로만 허용 (외부 URL <img src> 주입 차단).
       if (
         validatedData.imageUrls &&
