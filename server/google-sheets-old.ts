@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { getErrorType } from './safe-logging';
 
 interface AlumniRecord {
   name: string;
@@ -10,7 +11,6 @@ interface AlumniRecord {
 export class GoogleSheetsService {
   private sheets: any;
   private spreadsheetId: string;
-  private headersLogged: boolean = false;
   private cachedAlumniData: AlumniRecord[] | null = null;
 
   constructor() {
@@ -48,17 +48,6 @@ export class GoogleSheetsService {
 
       const rows = response.data.values || [];
       const alumniData: AlumniRecord[] = [];
-
-      // 첫 번째 행 확인 (헤더 정보 로깅) - 1회만 실행
-      if (rows.length > 0 && !this.headersLogged) {
-        console.log('Spreadsheet headers:', rows[0]);
-        
-        // 첫 5개 행 데이터 구조 확인
-        for (let i = 1; i < Math.min(6, rows.length); i++) {
-          console.log(`Row ${i}:`, rows[i]);
-        }
-        this.headersLogged = true;
-      }
 
       // 첫 번째 행은 헤더로 건너뛰기
       // 스프레드시트 구조: [학과, 기수, 성명, 입학일자, 졸업일자, 주소]
@@ -103,16 +92,11 @@ export class GoogleSheetsService {
 
       console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);
       
-      // 첫 몇 개 동문 이름 출력으로 데이터 확인
-      if (alumniData.length > 0) {
-        console.log('Sample alumni names:', alumniData.slice(0, 5).map(a => `${a.name} (${a.graduationYear})`));
-      }
-      
       // 캐시에 저장
       this.cachedAlumniData = alumniData;
       return alumniData;
     } catch (error) {
-      console.error('Error fetching alumni data from Google Sheets:', error);
+      console.error('Error fetching alumni data from Google Sheets:', getErrorType(error));
       return [];
     }
   }
@@ -124,7 +108,7 @@ export class GoogleSheetsService {
     // 정확한 이름 매칭 우선
     const exactMatches = allAlumni.filter(alumni => alumni.name === name);
     if (exactMatches.length > 0) {
-      console.log(`Found exact match for ${name}: ${exactMatches.length} records`);
+      console.log(`Found ${exactMatches.length} exact name match record(s)`);
       return exactMatches;
     }
     
@@ -133,7 +117,7 @@ export class GoogleSheetsService {
       alumni.name.includes(name) || name.includes(alumni.name)
     );
     
-    console.log(`Found ${partialMatches.length} partial matches for ${name}`);
+    console.log(`Found ${partialMatches.length} partial name match record(s)`);
     return partialMatches;
   }
 
@@ -166,14 +150,14 @@ export class GoogleSheetsService {
         return false;
       }
 
-      const response = await this.sheets.spreadsheets.get({
+      await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
 
-      console.log(`Connected to Google Sheets: ${response.data.properties?.title}`);
+      console.log('Connected to Google Sheets');
       return true;
     } catch (error) {
-      console.error('Google Sheets connection test failed:', error);
+      console.error('Google Sheets connection test failed:', getErrorType(error));
       return false;
     }
   }

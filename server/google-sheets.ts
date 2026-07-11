@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { getErrorType } from './safe-logging';
 
 export interface AlumniRecord {
   department: string; // 학과
@@ -19,7 +20,6 @@ export class GoogleSheetsService {
   private sheets: any;
   private spreadsheetId: string | undefined;
   private cachedAlumniData: AlumniRecord[] | null = null;
-  private headersLogged = false;
   
   // 동기화 진행상황 추적
   private syncProgress = {
@@ -62,7 +62,7 @@ export class GoogleSheetsService {
       this.sheets = google.sheets({ version: 'v4', auth });
       console.log('Google Sheets service initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Google Sheets service:', error);
+      console.error('Failed to initialize Google Sheets service:', getErrorType(error));
     }
   }
 
@@ -75,7 +75,6 @@ export class GoogleSheetsService {
 
     // 캐시 강제 초기화
     this.cachedAlumniData = null;
-    this.headersLogged = false;
     console.log('Cache cleared for fresh duplicate analysis');
 
     try {
@@ -86,17 +85,6 @@ export class GoogleSheetsService {
 
       const rows = response.data.values || [];
       const alumniData: AlumniRecord[] = [];
-
-      // 헤더와 첫 몇 행 데이터 구조 확인 (한 번만 로그)
-      if (!this.headersLogged && rows.length > 0) {
-        console.log(`Google Sheets raw data analysis:`);
-        console.log(`- Total rows from API: ${rows.length}`);
-        console.log('- Spreadsheet headers:', rows[0]);
-        for (let i = 1; i < Math.min(6, rows.length); i++) {
-          console.log(`- Row ${i}:`, rows[i]);
-        }
-        this.headersLogged = true;
-      }
 
       // 첫 번째 행은 헤더로 건너뛰기
       // 스프레드시트 구조: [학과, 기수, 성명, 입학일자, 졸업일자, 주소, 핸드폰번호, 전화번호, 그룹, 상태, 동문회직책, 메모]
@@ -130,14 +118,7 @@ export class GoogleSheetsService {
           });
           validRows++;
         } else {
-          // 누락된 데이터 로그
-          if (i <= 10 || (row[0] || row[1] || row[2])) { // 첫 10개 또는 부분 데이터가 있는 경우만 로그
-            console.log(`Skipped row ${i} (missing required data):`, {
-              department: row[0],
-              generation: row[1], 
-              name: row[2]
-            });
-          }
+          console.log(`Skipped source row ${i} with missing required data`);
           skippedRows++;
         }
       }
@@ -177,39 +158,13 @@ export class GoogleSheetsService {
       console.log(`- Mobile number duplicates: ${mobileDuplicates.length}`);
       console.log(`- Same name/generation combinations: ${nameDuplicates.length} (동명이인)`);
       
-      if (mobileDuplicates.length > 0) {
-        console.log('==== MOBILE NUMBER DUPLICATES (문제) ====');
-        mobileDuplicates.forEach(([mobile, count]) => {
-          console.log(`DUPLICATE MOBILE: ${mobile} appears ${count} times`);
-        });
-        console.log('==== END MOBILE DUPLICATES ====');
-      }
-      
-      if (nameDuplicates.length > 0) {
-        console.log('==== SAME NAME/GENERATION (동명이인, 정상) ====');
-        nameDuplicates.slice(0, 5).forEach(dup => {
-          console.log(`동명이인: ${dup.name} (${dup.generation}기) ${dup.count}명`);
-        });
-        if (nameDuplicates.length > 5) {
-          console.log(`... 및 ${nameDuplicates.length - 5}개 더`);
-        }
-        console.log('==== END SAME NAME ====');
-      }
-
       console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);
-      
-      // 첫 몇 개 동문 정보 출력
-      if (alumniData.length > 0) {
-        console.log('Sample alumni data:', alumniData.slice(0, 3).map(a => 
-          `${a.name} (${a.generation}기, ${a.department})`
-        ));
-      }
       
       // 캐시에 저장
       this.cachedAlumniData = alumniData;
       return alumniData;
     } catch (error) {
-      console.error('Error fetching alumni data from Google Sheets:', error);
+      console.error('Error fetching alumni data from Google Sheets:', getErrorType(error));
       return [];
     }
   }
@@ -251,7 +206,7 @@ export class GoogleSheetsService {
     if (phone) {
       const phoneMatches = alumni.filter(a => toKakaoPhoneFormat(a.mobile) === phone);
       if (phoneMatches.length > 0) {
-        console.log(`Found phone match for ${phone}: ${phoneMatches.length} record(s)`);
+        console.log(`Found ${phoneMatches.length} phone match record(s)`);
         return phoneMatches;
       }
     }
@@ -259,11 +214,11 @@ export class GoogleSheetsService {
     // 2순위: 이름 일치 (단, 1건일 때만 자동 등록 허용)
     const nameMatches = alumni.filter(a => a.name === name);
     if (nameMatches.length === 1) {
-      console.log(`Found unique name match for ${name}`);
+      console.log('Found one unique name match');
       return nameMatches;
     }
     if (nameMatches.length > 1) {
-      console.log(`Multiple name matches for ${name} (${nameMatches.length}) — blocking auto-match`);
+      console.log(`Found ${nameMatches.length} name matches; blocking auto-match`);
     }
     return [];
   }
@@ -277,7 +232,7 @@ export class GoogleSheetsService {
     // 정확한 이름 매칭 우선
     const exactMatches = allAlumni.filter(alumni => alumni.name === name);
     if (exactMatches.length > 0) {
-      console.log(`Found exact match for ${name}: ${exactMatches.length} records`);
+      console.log(`Found ${exactMatches.length} exact name match record(s)`);
       return exactMatches;
     }
 
@@ -286,7 +241,7 @@ export class GoogleSheetsService {
       alumni.name.includes(name) || name.includes(alumni.name)
     );
 
-    console.log(`Found ${partialMatches.length} partial matches for ${name}`);
+    console.log(`Found ${partialMatches.length} partial name match record(s)`);
     return partialMatches;
   }
 
@@ -363,14 +318,14 @@ export class GoogleSheetsService {
         return false;
       }
 
-      const response = await this.sheets.spreadsheets.get({
+      await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
 
-      console.log(`Connected to Google Sheets: ${response.data.properties?.title}`);
+      console.log('Connected to Google Sheets');
       return true;
     } catch (error) {
-      console.error('Google Sheets connection test failed:', error);
+      console.error('Google Sheets connection test failed:', getErrorType(error));
       return false;
     }
   }
