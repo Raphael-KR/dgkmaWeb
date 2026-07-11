@@ -28,6 +28,24 @@ test("payment creation requires an administrator", async () => {
   assert.match(source, /app\.post\("\/api\/payments", requireAdmin,/);
 });
 
+test("community event routes share the member guard and preserve draft route ordering", async () => {
+  const source = await readFile(routesPath, "utf8");
+  const guardIndex = source.indexOf('app.use("/api/events", requireAuthenticated)');
+  const routeOrder = [
+    'app.get("/api/events/drafts/latest"',
+    'app.post("/api/events/drafts"',
+    'app.patch("/api/events/drafts/:id"',
+    'app.delete("/api/events/drafts/:id"',
+    'app.post("/api/events/:id/publish"',
+    'app.get("/api/events"',
+    'app.get("/api/events/:id"',
+  ].map((route) => source.indexOf(route));
+
+  assert.ok(guardIndex >= 0);
+  assert.ok(routeOrder.every((index) => index > guardIndex));
+  assert.deepEqual([...routeOrder].sort((a, b) => a - b), routeOrder);
+});
+
 async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
   const app = express();
   app.use(express.json());
