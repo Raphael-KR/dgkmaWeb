@@ -94,3 +94,42 @@ test("protected routes enforce the live session role matrix", async () => {
     await server.close();
   }
 });
+
+test("obituary APIs require a member session", async () => {
+  const memberId = 2_147_483_646;
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
+
+  try {
+    const anonymousList = await fetch(`${server.baseUrl}/api/obituaries`);
+    assert.equal(anonymousList.status, 401);
+
+    const anonymousDetail = await fetch(`${server.baseUrl}/api/obituaries/1`);
+    assert.equal(anonymousDetail.status, 401);
+
+    const anonymousParse = await fetch(`${server.baseUrl}/api/obituary/parse`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "故 홍길동" }),
+    });
+    assert.equal(anonymousParse.status, 401);
+
+    const anonymousCreate = await fetch(`${server.baseUrl}/api/obituaries`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(anonymousCreate.status, 401);
+
+    const memberParse = await fetch(`${server.baseUrl}/api/obituary/parse`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-test-user-id": String(memberId),
+      },
+      body: JSON.stringify({ text: "故 홍길동" }),
+    });
+    assert.equal(memberParse.status, 200);
+  } finally {
+    await server.close();
+  }
+});
