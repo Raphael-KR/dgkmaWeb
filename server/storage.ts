@@ -8,6 +8,7 @@ import {
 import { db } from "./db";
 import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
+import { getErrorType } from "./safe-logging";
 
 // 동문 명부 노출 허용 필드 (개인정보 최소화 — 연락처·주소·메모 제외)
 export type DirectoryAlumni = {
@@ -323,11 +324,14 @@ export class DatabaseStorage implements IStorage {
     try {
       const googleResults = await googleSheetsService.findAlumniByName(name);
       if (googleResults.length > 0) {
-        console.log(`Found ${googleResults.length} matches in Google Sheets for ${name}`);
+        console.log(`Found ${googleResults.length} Google Sheets match record(s)`);
         return googleResults;
       }
     } catch (error) {
-      console.error('Error searching Google Sheets, falling back to local database:', error);
+      console.error(
+        'Error searching Google Sheets, falling back to local database:',
+        getErrorType(error),
+      );
     }
     
     // 로컬 데이터베이스에서 검색
@@ -546,12 +550,7 @@ export class DatabaseStorage implements IStorage {
         try {
           // 필수 데이터 검증 (휴대전화번호 포함)
           if (!alumniData.name || !alumniData.generation || !alumniData.department || !alumniData.mobile) {
-            console.log(`Skipping invalid alumni data at index ${i}:`, {
-              name: alumniData.name,
-              generation: alumniData.generation,
-              department: alumniData.department,
-              mobile: alumniData.mobile
-            });
+            console.log(`Skipping invalid alumni source row at index ${i}`);
             stats.errors++;
             googleSheetsService.updateSyncProgress('데이터 검증 오류 발생', undefined, undefined, stats.errors);
             continue;
@@ -583,14 +582,9 @@ export class DatabaseStorage implements IStorage {
             if (stats.synced % 50 === 0) {
               console.log(`Progress: ${stats.synced}/${stats.total} new records synced (${Math.round((stats.synced/stats.total)*100)}%)`);
             }
-          } else {
-            // 기존 데이터가 있으면 스킵 (휴대전화번호 중복 방지)
-            if (stats.synced < 50) { // 처음 50건만 상세 로그
-              console.log(`Skipped existing alumni (mobile exists): ${alumniData.name} (${alumniData.generation}기) - ${alumniData.mobile}`);
-            }
           }
         } catch (error) {
-          console.error(`Error syncing alumni ${alumniData.name} (${alumniData.generation}기):`, error);
+          console.error(`Error syncing alumni source row at index ${i}:`, getErrorType(error));
           stats.errors++;
         }
       }
@@ -612,7 +606,7 @@ export class DatabaseStorage implements IStorage {
       
       return stats;
     } catch (error) {
-      console.error('Google Sheets sync failed:', error);
+      console.error('Google Sheets sync failed:', getErrorType(error));
       // 에러 시에도 동기화 상태 정리
       googleSheetsService.finishSync();
       return stats;

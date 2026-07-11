@@ -6,6 +6,7 @@ import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
 import { createRequireAdmin } from "./auth-middleware";
+import { getErrorType } from "./safe-logging";
 
 declare module "express-session" {
   interface SessionData {
@@ -45,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Auth callback - redirecting to home");
       return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/`);
     } catch (error) {
-      console.error("Auth callback error:", error);
+      console.error("Auth callback error:", getErrorType(error));
       return res.redirect(`${process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : ''}/login?error=server_error`);
     }
   });
@@ -53,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/logout", async (req, res) => {
     req.session.destroy((err) => {
       if (err) {
-        console.error("Logout error:", err);
+        console.error("Logout error:", getErrorType(err));
         return res.status(500).json({ message: "Logout failed" });
       }
       res.clearCookie("connect.sid");
@@ -139,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           grant_type: params.get('grant_type'),
           clientIdPrefix: clientId.substring(0, 6) + '...',
           redirect_uri: params.get('redirect_uri'),
-          codePrefix: String(code ?? '').substring(0, 8) + '...',
+          hasCode: (params.get('code')?.length ?? 0) > 0,
           hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
           clientSecretPrefix: process.env.KAKAO_CLIENT_SECRET
             ? process.env.KAKAO_CLIENT_SECRET.substring(0, 4) + '...'
@@ -220,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessToken: tokenData.access_token,
       });
     } catch (error) {
-      console.error('Kakao OAuth authorize error:', error);
+      console.error('Kakao OAuth authorize error:', getErrorType(error));
       res.status(500).json({ message: 'Kakao authorization failed' });
     }
   });
@@ -229,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { kakaoId, email, name, profileImage, phoneNumber, birthday, birthdayType, isLeapMonth, accessToken } = req.body;
 
-      console.log("Kakao auth request:", { kakaoId, email, name });
+      console.log("Kakao authentication request received");
 
       // Check if user exists
       let user = await storage.getUserByKakaoId(kakaoId);
@@ -240,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const alumniMatches = await googleSheetsService.findAlumniByPhoneAndName(phoneNumber, name);
 
         if (alumniMatches.length > 0) {
-          console.log(`Auto-registering verified alumni: ${name}`);
+          console.log("Auto-registering verified alumni");
 
           // Check if user already exists with this email or kakaoId
           const existingUserByEmail = await storage.getUserByEmail?.(email);
@@ -269,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             req.session.userId = finalUser.id;
             req.session.save((err) => {
               if (err) {
-                console.error("[Kakao Auth] session save failed:", err);
+                console.error("[Kakao Auth] session save failed:", getErrorType(err));
                 return res.status(500).json({ message: "세션 저장에 실패했습니다" });
               }
               return res.json({ user: finalUser });
@@ -297,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             req.session.userId = finalUser.id;
             req.session.save((err) => {
               if (err) {
-                console.error("[Kakao Auth] session save failed:", err);
+                console.error("[Kakao Auth] session save failed:", getErrorType(err));
                 return res.status(500).json({ message: "세션 저장에 실패했습니다" });
               }
               return res.json({ user: finalUser });
@@ -320,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isVerified: true,
             kakaoSyncEnabled: true,
           });
-          console.log("Auto-registered verified alumni:", user);
+          console.log("Auto-registered verified alumni");
         } else {
           // For non-alumni, still create pending registration but indicate KakaoSync
           await storage.createPendingRegistration({
@@ -360,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (Object.keys(updates).length > 0) {
           user = await storage.updateUser(user.id, updates);
         }
-        console.log("Existing user login:", user);
+        console.log("Existing user login completed");
       }
 
       if (!user) {
@@ -371,13 +372,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = finalUser.id;
       req.session.save((err) => {
         if (err) {
-          console.error("[Kakao Auth] session save failed:", err);
+          console.error("[Kakao Auth] session save failed:", getErrorType(err));
           return res.status(500).json({ message: "세션 저장에 실패했습니다" });
         }
         return res.json({ user: finalUser });
       });
     } catch (error) {
-      console.error("Kakao auth error:", error);
+      console.error("Kakao auth error:", getErrorType(error));
       const errorMessage = error instanceof Error ? error.message : String(error);
       res.status(500).json({ message: "Authentication failed", error: errorMessage });
     }
@@ -390,7 +391,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[ActivityRegion] save request:", {
         hasSession: !!req.session,
         sessionId: req.sessionID ? "present" : "missing",
-        userId: req.session?.userId ?? null,
         bodyKeys: Object.keys(req.body ?? {}),
       });
     }
@@ -460,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const status = await storage.getMembershipStatus(req.session.userId);
       res.json(status);
     } catch (error) {
-      console.error("Membership status error:", error);
+      console.error("Membership status error:", getErrorType(error));
       res.status(500).json({ message: "회원 등급 조회에 실패했습니다" });
     }
   });
@@ -534,7 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const posts = await storage.searchPosts(query);
       res.json(posts);
     } catch (error) {
-      console.error("Search error:", error);
+      console.error("Search error:", getErrorType(error));
       res.status(500).json({ 
         message: "Failed to search posts", 
         error: error instanceof Error ? error.message : String(error)
@@ -722,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await storage.getDirectoryAlumni(viewer, q);
       res.json(result);
     } catch (error) {
-      console.error("Alumni directory error:", error);
+      console.error("Alumni directory error:", getErrorType(error));
       res.status(500).json({ message: "동문 명부 조회에 실패했습니다" });
     }
   });
@@ -821,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Sending response:', response);
       res.json(response);
     } catch (error) {
-      console.error("Alumni sync error:", error);
+      console.error("Alumni sync error:", getErrorType(error));
       res.status(500).json({ message: "동기화 실패", error: error instanceof Error ? error.message : String(error) });
     }
   });
@@ -833,7 +833,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const progress = googleSheetsService.getSyncProgress();
       res.json(progress);
     } catch (error) {
-      console.error("Sync progress error:", error);
+      console.error("Sync progress error:", getErrorType(error));
       res.status(500).json({ error: "진행상황 조회 실패" });
     }
   });
@@ -858,7 +858,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error) {
-      console.error("Google Sheets test error:", error);
+      console.error("Google Sheets test error:", getErrorType(error));
       res.status(500).json({ 
         connected: false, 
         message: "Google Sheets 연결 실패",

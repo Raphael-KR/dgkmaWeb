@@ -71,6 +71,10 @@ function containsSensitiveValue(node: ts.Node): boolean {
     if (sensitiveProperties.has(node.name.text)) {
       return true;
     }
+    return containsSensitiveValue(node.expression);
+  }
+  if (ts.isPropertyAssignment(node)) {
+    return containsSensitiveValue(node.initializer);
   }
   if (
     ts.isElementAccessExpression(node)
