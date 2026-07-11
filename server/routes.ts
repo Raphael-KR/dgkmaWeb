@@ -5,7 +5,7 @@ import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendi
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
-import { createRequireAdmin } from "./auth-middleware";
+import { createRequireAdmin, type AdminUserLookup } from "./auth-middleware";
 import { getErrorType } from "./safe-logging";
 
 declare module "express-session" {
@@ -22,8 +22,17 @@ function isKakaoDebugEnabled(): boolean {
   return process.env.DEBUG_KAKAO_AUTH === "true";
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  const requireAdmin = createRequireAdmin((userId) => storage.getUser(userId));
+export type RouteDependencies = {
+  getUserForAdmin?: AdminUserLookup;
+};
+
+export async function registerRoutes(
+  app: Express,
+  dependencies: RouteDependencies = {},
+): Promise<Server> {
+  const getUserForAdmin = dependencies.getUserForAdmin
+    ?? ((userId: number) => storage.getUser(userId));
+  const requireAdmin = createRequireAdmin(getUserForAdmin);
 
   // 카카오 OAuth 환경변수 부팅 검증 — DEBUG_KAKAO_AUTH=true 일 때만 1회 출력.
   //  - restApiKeyPrefix 가 카카오 콘솔 [앱 설정 > 앱 키 > REST API 키] 앞 6자리와
