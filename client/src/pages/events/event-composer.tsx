@@ -108,8 +108,10 @@ export function EventComposer({ onPublished }: EventComposerProps) {
   const {
     draftId,
     errorMessage: draftError,
+    canRetry,
     isDiscarding,
     isRecovered,
+    isRecovering,
     isSaved,
     isSaving,
     completePublish: completeDraftPublish,
@@ -117,10 +119,11 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     prepareForPublish,
     registerDraftId,
     resumeAutosave,
+    retryDraft,
     settleAutosave,
   } = useEventDraft({ eventType: currentType, form, isPaused: isParsing || isPublishing });
   const sourceError = publishErrors.sourceText;
-  const isBusy = isParsing || isPublishing || isDiscarding;
+  const isBusy = isParsing || isPublishing || isDiscarding || isRecovering;
 
   const changeType = (eventType: CommunityEventType) => {
     if (isBusy || eventType === currentType) return;
@@ -268,11 +271,19 @@ export function EventComposer({ onPublished }: EventComposerProps) {
       const result = await publishDraftWithRecovery({
         createDraft: async (payload) => {
           const response = await apiRequest("POST", "/api/events/drafts", payload);
-          const draft = await response.json() as { id?: number };
-          if (!draft.id) throw new Error("초안 ID를 받지 못했습니다.");
-          return { id: draft.id };
+          const rawDraft = await response.json() as { id?: unknown; eventType?: unknown };
+          const parsedDraft = communityEventDraftSchema.safeParse(rawDraft);
+          if (
+            !parsedDraft.success
+            || typeof rawDraft.id !== "number"
+            || rawDraft.id <= 0
+            || parsedDraft.data.eventType !== payload.eventType
+          ) {
+            throw new Error("초안 응답의 유형 또는 형식이 올바르지 않습니다.");
+          }
+          return { id: rawDraft.id };
         },
-        draftId: preparedDraftId ?? draftId,
+        draftId: preparedDraftId,
         getEvent: async (publishDraftId) => {
           const response = await apiRequest("GET", `/api/events/${publishDraftId}`);
           return response.json() as Promise<{ status?: unknown }>;
@@ -319,9 +330,15 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         </div>
         <div className="flex min-h-8 flex-wrap items-center gap-1 text-sm text-gray-500 sm:justify-end" aria-live="polite">
           {isRecovered && <span>임시저장된 내용을 복구했습니다</span>}
+          {isRecovering && <span>복구 중</span>}
           {isSaving && <span>저장 중</span>}
           {isSaved && <span>임시저장됨</span>}
-          {draftError && <span role="alert" className="text-red-700">{draftError}</span>}
+          {draftError && <span className="text-red-700">{draftError}</span>}
+          {canRetry && (
+            <Button type="button" variant="ghost" size="sm" onClick={retryDraft} disabled={isBusy} className="h-8 px-2">
+              다시 시도
+            </Button>
+          )}
           {draftId && (
             <Button
               type="button"

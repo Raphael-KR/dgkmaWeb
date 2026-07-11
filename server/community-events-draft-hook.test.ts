@@ -3,19 +3,26 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("event draft hook recovers, autosaves, and discards drafts without identity fields", async () => {
-  const hook = await readFile(new URL("../client/src/hooks/use-event-draft.ts", import.meta.url), "utf8");
+  const [hook, coordinator] = await Promise.all([
+    readFile(new URL("../client/src/hooks/use-event-draft.ts", import.meta.url), "utf8"),
+    readFile(new URL("../client/src/hooks/event-draft-coordinator.ts", import.meta.url), "utf8"),
+  ]);
 
-  assert.match(hook, /\/api\/events\/drafts\/latest\?type=/);
-  assert.match(hook, /\/api\/events\/drafts/);
-  assert.match(hook, /knownDraftId \? "PATCH" : "POST"/);
+  assert.match(coordinator, /\/api\/events\/drafts\/latest\?type=/);
+  assert.match(coordinator, /\/api\/events\/drafts/);
+  assert.match(coordinator, /requestInit\("PATCH"/);
+  assert.match(coordinator, /requestInit\("POST"/);
   assert.match(hook, /method:\s*"DELETE"/);
-  assert.match(hook, /credentials:\s*"include"/);
+  assert.match(coordinator, /credentials:\s*"include"/);
   assert.match(hook, /600/);
   assert.match(hook, /clearTimeout/);
   assert.match(hook, /AbortController/);
-  assert.match(hook, /form\.formState\.isDirty/);
-  assert.match(hook, /response\.status === 404/);
-  assert.doesNotMatch(hook, /authorId|profile|membershipTier/);
+  assert.match(hook, /useFormState/);
+  assert.match(hook, /recoveryPromiseRef/);
+  assert.match(hook, /recoveryFailedRef/);
+  assert.match(hook, /isDirtyRef\.current/);
+  assert.match(coordinator, /response\.status === 404/);
+  assert.doesNotMatch(`${hook}\n${coordinator}`, /authorId|profile|membershipTier/);
 });
 
 test("event composer integrates recovery, compact status, discard, and publish reset", async () => {
@@ -24,6 +31,10 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.match(composer, /useEventDraft/);
   assert.match(composer, /registerDraftId/);
   assert.match(composer, /prepareForPublish/);
+  assert.match(composer, /isRecovering/);
+  assert.match(composer, /다시 시도/);
+  assert.match(composer, /isBusy = isParsing \|\| isPublishing \|\| isDiscarding \|\| isRecovering/);
+  assert.doesNotMatch(composer, /draftError && <span role="alert"/);
   assert.match(composer, /completePublish/);
   assert.match(composer, /임시저장된 내용을 복구했습니다/);
   assert.match(composer, /저장 중/);

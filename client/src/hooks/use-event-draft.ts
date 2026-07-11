@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
+import { useFormState, type UseFormReturn } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import {
-  communityEventDraftSchema,
   type CommunityEventDraftInput,
   type CommunityEventType,
 } from "@shared/community-events";
 import { canApplyDraftResult, hasMeaningfulDraftInput } from "@/pages/events/event-composer-logic";
+import {
+  draftFingerprint,
+  fetchLatestEventDraft,
+  saveEventDraftWithFallback,
+  shouldApplyRecoveredDraft,
+  waitForDraftReadiness,
+  type DraftFetcher,
+} from "./event-draft-coordinator";
 
 type DraftStatus = "idle" | "recovering" | "recovered" | "saving" | "saved" | "discarding" | "error";
+type DraftErrorKind = "recovery" | "save" | "discard";
 
 type UseEventDraftInput = {
   eventType: CommunityEventType;
@@ -19,10 +27,6 @@ type UseEventDraftInput = {
 
 function emptyDraft(eventType: CommunityEventType): CommunityEventDraftInput {
   return { eventType, sourceUrls: [], details: {} } as CommunityEventDraftInput;
-}
-
-function fingerprint(value: CommunityEventDraftInput) {
-  return JSON.stringify(value);
 }
 
 async function responseError(response: Response, fallback: string) {
@@ -36,25 +40,33 @@ async function responseError(response: Response, fallback: string) {
 
 export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput) {
   const { toast } = useToast();
+  const { isDirty } = useFormState({ control: form.control });
   const [draftId, setDraftId] = useState<number>();
-  const [status, setStatus] = useState<DraftStatus>("idle");
+  const [status, setStatus] = useState<DraftStatus>("recovering");
   const [errorMessage, setErrorMessage] = useState<string>();
+  const [errorKind, setErrorKind] = useState<DraftErrorKind>();
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
   const activeRef = useRef({ eventType, generation: 0 });
   const draftIdRef = useRef<number>();
   const draftIdsByTypeRef = useRef(new Map<CommunityEventType, number>());
   const typeEpochRef = useRef(new Map<CommunityEventType, number>());
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const recoveryControllerRef = useRef<AbortController>();
+  const recoveryPromiseRef = useRef<Promise<void>>(Promise.resolve());
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const saveRevisionRef = useRef(0);
   const mountedRef = useRef(true);
-  const recoveringRef = useRef(false);
+  const isDirtyRef = useRef(isDirty);
+  const recoveringRef = useRef(true);
+  const recoveryFailedRef = useRef(false);
   const discardingRef = useRef(false);
   const externallyPausedRef = useRef(isPaused);
   const manuallyPausedRef = useRef(false);
   const suppressedFingerprintRef = useRef<string>();
+  const fetcher = useCallback<DraftFetcher>((url, init) => fetch(url, init), []);
 
   externallyPausedRef.current = isPaused;
+  isDirtyRef.current = isDirty;
 
   const clearSaveTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -83,6 +95,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       if (
         manuallyPausedRef.current
         || externallyPausedRef.current
+        || recoveringRef.current
         || requestEpoch !== (typeEpochRef.current.get(requestEventType) ?? 0)
         || !isCurrent(requestEventType, requestGeneration)
       ) {
@@ -91,44 +104,41 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
 
       setStatus("saving");
       setErrorMessage(undefined);
+      setErrorKind(undefined);
       const knownDraftId = draftIdsByTypeRef.current.get(requestEventType);
-      const method = knownDraftId ? "PATCH" : "POST";
-      const url = knownDraftId ? `/api/events/drafts/${knownDraftId}` : "/api/events/drafts";
 
       try {
-        const response = await fetch(url, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-          credentials: "include",
+        const savedDraft = await saveEventDraftWithFallback({
+          draftId: knownDraftId,
+          eventType: requestEventType,
+          fetcher,
+          payload: values,
         });
-        if (!response.ok) throw new Error(await responseError(response, "임시 저장에 실패했습니다."));
-        const savedDraft = await response.json() as { id?: unknown };
-        const savedId = typeof savedDraft.id === "number" ? savedDraft.id : knownDraftId;
-        if (!savedId) throw new Error("초안 ID를 받지 못했습니다.");
-
         if (requestEpoch === (typeEpochRef.current.get(requestEventType) ?? 0)) {
-          draftIdsByTypeRef.current.set(requestEventType, savedId);
+          draftIdsByTypeRef.current.set(requestEventType, savedDraft.id);
         }
         if (isCurrent(requestEventType, requestGeneration)) {
-          draftIdRef.current = savedId;
-          setDraftId(savedId);
+          draftIdRef.current = savedDraft.id;
+          setDraftId(savedDraft.id);
           if (revision === saveRevisionRef.current) setStatus("saved");
         }
       } catch (error) {
         if (isCurrent(requestEventType, requestGeneration) && revision === saveRevisionRef.current) {
           setStatus("error");
+          setErrorKind("save");
           setErrorMessage(error instanceof Error ? error.message : "임시 저장에 실패했습니다.");
         }
       }
     });
-  }, [isCurrent]);
+    return saveQueueRef.current;
+  }, [fetcher, isCurrent]);
 
   const scheduleSave = useCallback((values: CommunityEventDraftInput) => {
     clearSaveTimeout();
     if (
       values.eventType !== activeRef.current.eventType
       || recoveringRef.current
+      || recoveryFailedRef.current
       || externallyPausedRef.current
       || manuallyPausedRef.current
       || !hasMeaningfulDraftInput(values)
@@ -136,7 +146,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       return;
     }
 
-    const valueFingerprint = fingerprint(values);
+    const valueFingerprint = draftFingerprint(values);
     if (suppressedFingerprintRef.current === valueFingerprint) {
       suppressedFingerprintRef.current = undefined;
       return;
@@ -147,7 +157,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     const revision = ++saveRevisionRef.current;
     timeoutRef.current = setTimeout(() => {
       timeoutRef.current = undefined;
-      persistDraft(values, requestEventType, requestGeneration, revision);
+      void persistDraft(values, requestEventType, requestGeneration, revision);
     }, 600);
   }, [clearSaveTimeout, persistDraft]);
 
@@ -165,46 +175,47 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     clearSaveTimeout();
     recoveryControllerRef.current?.abort();
     const generation = activeRef.current.generation + 1;
+    const startFingerprint = draftFingerprint(form.getValues());
     activeRef.current = { eventType, generation };
     recoveringRef.current = true;
+    recoveryFailedRef.current = false;
     draftIdRef.current = draftIdsByTypeRef.current.get(eventType);
     setDraftId(draftIdRef.current);
     setStatus("recovering");
     setErrorMessage(undefined);
+    setErrorKind(undefined);
 
     const controller = new AbortController();
     recoveryControllerRef.current = controller;
-    void (async () => {
+    const recoveryPromise = (async () => {
       try {
-        const response = await fetch(`/api/events/drafts/latest?type=${encodeURIComponent(eventType)}`, {
-          method: "GET",
-          credentials: "include",
-          signal: controller.signal,
-        });
-        if (response.status === 404) {
-          if (isCurrent(eventType, generation)) {
-            draftIdsByTypeRef.current.delete(eventType);
-            draftIdRef.current = undefined;
-            setDraftId(undefined);
-            setStatus("idle");
-          }
+        const recoveredDraft = await fetchLatestEventDraft(fetcher, eventType, controller.signal);
+        if (!isCurrent(eventType, generation)) return;
+        if (!recoveredDraft) {
+          draftIdsByTypeRef.current.delete(eventType);
+          draftIdRef.current = undefined;
+          setDraftId(undefined);
+          setStatus("idle");
           return;
         }
-        if (!response.ok) throw new Error(await responseError(response, "임시 저장 내용을 불러오지 못했습니다."));
 
-        const rawDraft = await response.json() as { id?: unknown };
-        const parsedDraft = communityEventDraftSchema.safeParse(rawDraft);
-        if (!parsedDraft.success || typeof rawDraft.id !== "number") {
-          throw new Error("임시 저장 내용의 형식이 올바르지 않습니다.");
-        }
-        if (!isCurrent(eventType, generation)) return;
-
-        draftIdsByTypeRef.current.set(eventType, rawDraft.id);
-        draftIdRef.current = rawDraft.id;
-        setDraftId(rawDraft.id);
-        if (!form.formState.isDirty) {
-          suppressedFingerprintRef.current = fingerprint(parsedDraft.data);
-          form.reset(parsedDraft.data);
+        draftIdsByTypeRef.current.set(eventType, recoveredDraft.id);
+        draftIdRef.current = recoveredDraft.id;
+        setDraftId(recoveredDraft.id);
+        const { id: _recoveredId, ...recoveredValues } = recoveredDraft;
+        const canReset = shouldApplyRecoveredDraft({
+          activeEventType: activeRef.current.eventType,
+          activeGeneration: activeRef.current.generation,
+          currentFingerprint: draftFingerprint(form.getValues()),
+          isDirty: isDirtyRef.current,
+          requestEventType: eventType,
+          requestGeneration: generation,
+          responseEventType: recoveredDraft.eventType,
+          startFingerprint,
+        });
+        if (canReset) {
+          suppressedFingerprintRef.current = draftFingerprint(recoveredValues);
+          form.reset(recoveredValues as CommunityEventDraftInput);
           setStatus("recovered");
         } else {
           setStatus("idle");
@@ -212,7 +223,9 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (isCurrent(eventType, generation)) {
+          recoveryFailedRef.current = true;
           setStatus("error");
+          setErrorKind("recovery");
           setErrorMessage(error instanceof Error ? error.message : "임시 저장 내용을 불러오지 못했습니다.");
         }
       } finally {
@@ -222,9 +235,10 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
         }
       }
     })();
+    recoveryPromiseRef.current = recoveryPromise;
 
     return () => controller.abort();
-  }, [clearSaveTimeout, eventType, form, isCurrent, scheduleSave]);
+  }, [clearSaveTimeout, eventType, fetcher, form, isCurrent, recoveryAttempt, scheduleSave]);
 
   useEffect(() => {
     const subscription = form.watch((values) => scheduleSave(values as CommunityEventDraftInput));
@@ -239,8 +253,13 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     manuallyPausedRef.current = true;
     clearSaveTimeout();
     saveRevisionRef.current += 1;
-    await saveQueueRef.current.catch(() => undefined);
+    const readyDraftId = await waitForDraftReadiness({
+      getDraftId: () => draftIdRef.current,
+      getSavePromise: () => saveQueueRef.current.catch(() => undefined),
+      recoveryPromise: recoveryPromiseRef.current.catch(() => undefined),
+    });
     if (mountedRef.current) setStatus((current) => current === "saving" ? "idle" : current);
+    return readyDraftId;
   }, [clearSaveTimeout]);
 
   const resumeAutosave = useCallback(() => {
@@ -249,8 +268,11 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
   }, [form, scheduleSave]);
 
   const prepareForPublish = useCallback(async () => {
-    await settleAutosave();
-    return draftIdRef.current;
+    const readyDraftId = await settleAutosave();
+    if (recoveryFailedRef.current) {
+      throw new Error("초안 복구를 다시 시도한 뒤 게시해주세요.");
+    }
+    return readyDraftId;
   }, [settleAutosave]);
 
   const registerDraftId = useCallback((id: number) => {
@@ -272,7 +294,8 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     setDraftId(undefined);
     setStatus("idle");
     setErrorMessage(undefined);
-    suppressedFingerprintRef.current = fingerprint(resetValues);
+    setErrorKind(undefined);
+    suppressedFingerprintRef.current = draftFingerprint(resetValues);
     queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest", currentType] });
   }, [clearSaveTimeout]);
 
@@ -292,8 +315,9 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     }
 
     setErrorMessage(undefined);
+    setErrorKind(undefined);
     try {
-      const response = await fetch(`/api/events/drafts/${id}`, {
+      const response = await fetcher(`/api/events/drafts/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -305,7 +329,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       draftIdRef.current = undefined;
       setDraftId(undefined);
       const resetValues = emptyDraft(requestEventType);
-      suppressedFingerprintRef.current = fingerprint(resetValues);
+      suppressedFingerprintRef.current = draftFingerprint(resetValues);
       form.reset(resetValues);
       queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest", requestEventType] });
       setStatus("idle");
@@ -314,6 +338,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       if (!isCurrent(requestEventType, requestGeneration)) return false;
       const message = error instanceof Error ? error.message : "초안을 삭제하지 못했습니다.";
       setStatus("error");
+      setErrorKind("discard");
       setErrorMessage(message);
       toast({ title: "초안 삭제 실패", description: message, variant: "destructive" });
       return false;
@@ -321,13 +346,36 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
       manuallyPausedRef.current = false;
       discardingRef.current = false;
     }
-  }, [form, isCurrent, resumeAutosave, settleAutosave, toast]);
+  }, [fetcher, form, isCurrent, resumeAutosave, settleAutosave, toast]);
+
+  const retryDraft = useCallback(() => {
+    if (errorKind === "recovery") {
+      recoveringRef.current = true;
+      recoveryFailedRef.current = false;
+      setStatus("recovering");
+      setErrorMessage(undefined);
+      setErrorKind(undefined);
+      setRecoveryAttempt((attempt) => attempt + 1);
+      return;
+    }
+    if (errorKind !== "save") return;
+
+    manuallyPausedRef.current = false;
+    const values = form.getValues();
+    if (!hasMeaningfulDraftInput(values)) return;
+    const revision = ++saveRevisionRef.current;
+    void persistDraft(values, activeRef.current.eventType, activeRef.current.generation, revision);
+  }, [errorKind, form, persistDraft]);
+
+  const isRecovering = status === "recovering" || activeRef.current.eventType !== eventType;
 
   return {
     draftId,
     errorMessage,
+    canRetry: errorKind === "recovery" || errorKind === "save",
     isDiscarding: status === "discarding",
     isRecovered: status === "recovered",
+    isRecovering,
     isSaving: status === "saving",
     isSaved: status === "saved",
     completePublish,
@@ -335,6 +383,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     prepareForPublish,
     registerDraftId,
     resumeAutosave,
+    retryDraft,
     settleAutosave,
   };
 }
