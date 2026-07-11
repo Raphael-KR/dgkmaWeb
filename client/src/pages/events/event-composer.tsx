@@ -138,6 +138,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     prepareForPublish,
     registerDraftId,
     lockPublishResolution,
+    releasePublishResolution,
     resumeAutosave,
     retryDraft,
     settleAutosave,
@@ -345,11 +346,12 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         });
       }
     } catch (error) {
+      const conclusiveMessage = conclusivePublishErrorMessage(error);
+      if (conclusiveMessage) releasePublishResolution();
       if (!hasRecoveryError) {
         toast({
           title: "게시 실패",
-          description: conclusivePublishErrorMessage(error)
-            ?? "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.",
+          description: conclusiveMessage ?? "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.",
           variant: "destructive",
         });
       }

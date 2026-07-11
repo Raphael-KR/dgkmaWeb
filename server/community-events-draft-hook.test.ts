@@ -20,6 +20,9 @@ test("event draft hook recovers, autosaves, and discards drafts without identity
   assert.match(hook, /useFormState/);
   assert.match(hook, /recoveryPromiseRef/);
   assert.match(hook, /recoveryFailedRef/);
+  assert.match(hook, /releasePublishResolution/);
+  assert.match(hook, /draftIdsByTypeRef\.current\.delete/);
+  assert.match(hook, /publishResolutionIdRef\.current = undefined/);
   assert.match(hook, /isDirtyRef\.current/);
   assert.match(coordinator, /response\.status === 404/);
   assert.doesNotMatch(`${hook}\n${coordinator}`, /authorId|profile|membershipTier/);
@@ -47,6 +50,8 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.doesNotMatch(composer, /draftError && <span role="alert"/);
   assert.match(composer, /if \(!hasRecoveryError\)/);
   assert.match(composer, /completePublish/);
+  assert.match(composer, /releasePublishResolution/);
+  assert.match(composer, /if \(conclusiveMessage\)/);
   assert.match(composer, /임시저장된 내용을 복구했습니다/);
   assert.match(composer, /저장 중/);
   assert.match(composer, /임시저장됨/);

@@ -12,6 +12,7 @@ import {
   draftFingerprint,
   fetchLatestEventDraft,
   planImmediateSaveRetry,
+  publishFailureResolution,
   saveEventDraftWithFallback,
   shouldResumeAutosave,
   shouldApplyRecoveredDraft,
@@ -310,6 +311,27 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     setDraftId(id);
   }, [clearSaveTimeout]);
 
+  const releasePublishResolution = useCallback(() => {
+    const lockedId = publishResolutionIdRef.current;
+    if (!lockedId || !mountedRef.current) return false;
+
+    clearSaveTimeout();
+    const currentType = activeRef.current.eventType;
+    const resolution = publishFailureResolution(lockedId, "conclusive");
+    publishResolutionIdRef.current = undefined;
+    setPublishResolutionId(resolution.publishResolutionId);
+    if (draftIdsByTypeRef.current.get(currentType) === lockedId) {
+      draftIdsByTypeRef.current.delete(currentType);
+    }
+    if (draftIdRef.current === lockedId) {
+      draftIdRef.current = resolution.draftId;
+      setDraftId(resolution.draftId);
+    }
+    manuallyPausedRef.current = !resolution.shouldResumeAutosave;
+    setStatus("idle");
+    return true;
+  }, [clearSaveTimeout]);
+
   const completePublish = useCallback((resetValues: CommunityEventDraftInput) => {
     clearSaveTimeout();
     if (!mountedRef.current) return;
@@ -422,6 +444,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     prepareForPublish,
     registerDraftId,
     lockPublishResolution,
+    releasePublishResolution,
     resumeAutosave,
     retryDraft,
     settleAutosave,

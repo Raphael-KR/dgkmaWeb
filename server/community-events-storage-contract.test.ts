@@ -40,7 +40,7 @@ test("storage exposes owner-scoped draft methods", async () => {
   assert.match(storage, /deleteEventDraft\(id: number, authorId: number\)/);
 });
 
-test("draft creation is transactionally locked before selecting or inserting", async () => {
+test("draft creation is transactionally locked before constrained update or insert", async () => {
   const storage = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
   const createMethod = storage.match(
     /async createEventDraft\([\s\S]*?\n  }\n\n  async updateEventDraft/,
@@ -51,8 +51,14 @@ test("draft creation is transactionally locked before selecting or inserting", a
   assert.match(createMethod, /pg_advisory_xact_lock/);
   const lockIndex = createMethod.indexOf("pg_advisory_xact_lock");
   const selectIndex = createMethod.indexOf("tx.select");
+  const updateIndex = createMethod.indexOf("tx.update");
   const insertIndex = createMethod.indexOf("tx.insert");
-  assert.ok(lockIndex >= 0 && selectIndex > lockIndex && insertIndex > selectIndex);
+  assert.ok(lockIndex >= 0 && selectIndex > lockIndex && updateIndex > selectIndex && insertIndex > updateIndex);
+  const updateBlock = createMethod.slice(updateIndex, insertIndex);
+  assert.match(updateBlock, /eq\(communityEvents\.id, id\)/);
+  assert.match(updateBlock, /eq\(communityEvents\.authorId, draftAuthorId\)/);
+  assert.match(updateBlock, /eq\(communityEvents\.eventType, eventType\)/);
+  assert.match(updateBlock, /eq\(communityEvents\.status, "draft"\)/);
 });
 
 test("preview storage lookups stay owner and matched-user scoped", async () => {

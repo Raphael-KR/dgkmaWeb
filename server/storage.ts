@@ -717,6 +717,19 @@ export class DatabaseStorage implements IStorage {
             .limit(1);
           return existing || undefined;
         },
+        update: async (id, draftAuthorId, eventType, draftData) => {
+          const [updated] = await tx.update(communityEvents)
+            .set({ ...draftData, updatedAt: new Date() })
+            .where(and(
+              eq(communityEvents.id, id),
+              eq(communityEvents.authorId, draftAuthorId),
+              eq(communityEvents.eventType, eventType),
+              eq(communityEvents.status, "draft"),
+            ))
+            .returning();
+          if (!updated) throw new Error("임시 저장된 소식을 갱신하지 못했습니다.");
+          return updated;
+        },
         insert: async (draftAuthorId, draftData) => {
           const [created] = await tx.insert(communityEvents)
             .values({ ...draftData, authorId: draftAuthorId })

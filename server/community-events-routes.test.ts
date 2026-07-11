@@ -704,19 +704,31 @@ test("obituary publish canonicalizes profile fields and retries idempotently for
 
 test("concurrent draft create routes preserve owner and type get-or-create results", async (t) => {
   const drafts = new Map<string, CommunityEvent>();
-  const pending = new Map<string, Promise<CommunityEvent>>();
+  const queues = new Map<string, Promise<void>>();
   let nextId = 100;
   let insertCount = 0;
+  let updateCount = 0;
 
   t.mock.method(storage, "createEventDraft", async (authorId, data) => {
     const key = `${authorId}:${data.eventType}`;
-    const existing = drafts.get(key);
-    if (existing) return existing;
-    const active = pending.get(key);
-    if (active) return active;
-
-    const creation = (async () => {
+    const previous = queues.get(key) ?? Promise.resolve();
+    const write = previous.then(async () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
+      const existing = drafts.get(key);
+      if (existing) {
+        updateCount += 1;
+        const updated = event({
+          ...existing,
+          ...data,
+          id: existing.id,
+          authorId,
+          eventType: data.eventType,
+          title: data.title ?? null,
+          details: data.details,
+        });
+        drafts.set(key, updated);
+        return updated;
+      }
       insertCount += 1;
       const created = event({
         ...data,
@@ -728,13 +740,9 @@ test("concurrent draft create routes preserve owner and type get-or-create resul
       });
       drafts.set(key, created);
       return created;
-    })();
-    pending.set(key, creation);
-    try {
-      return await creation;
-    } finally {
-      pending.delete(key);
-    }
+    });
+    queues.set(key, write.then(() => undefined, () => undefined));
+    return write;
   });
 
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
@@ -759,12 +767,13 @@ test("concurrent draft create routes preserve owner and type get-or-create resul
     assert.equal(competing.status, 201);
     assert.equal(firstBody.id, competingBody.id);
     assert.equal(firstBody.title, draftPayload.title);
-    assert.equal(competingBody.title, draftPayload.title);
+    assert.equal(competingBody.title, "경쟁 요청 제목");
     assert.notEqual(firstBody.id, otherUserBody.id);
     assert.notEqual(firstBody.id, otherTypeBody.id);
     assert.equal(otherUserBody.authorId, otherMemberId);
     assert.equal(otherTypeBody.eventType, "opening");
     assert.equal(insertCount, 3);
+    assert.equal(updateCount, 1);
   } finally {
     await server.close();
   }

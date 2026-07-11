@@ -4,6 +4,7 @@ import {
   clearedDraftFailureState,
   draftFingerprint,
   planImmediateSaveRetry,
+  publishFailureResolution,
   publishResolutionLock,
   shouldResumeAutosave,
   saveEventDraftWithFallback,
@@ -127,6 +128,22 @@ test("ambiguous publish locks autosave to the same event until resolution", () =
   assert.equal(shouldResumeAutosave(lock), false);
   assert.equal(publishResolutionLock("published", 37), undefined);
   assert.equal(shouldResumeAutosave(undefined), true);
+});
+
+test("conclusive publish retry clears the pinned ID and resumes autosave", () => {
+  assert.deepEqual(publishFailureResolution(37, "conclusive"), {
+    draftId: undefined,
+    publishResolutionId: undefined,
+    shouldResumeAutosave: true,
+  });
+});
+
+test("ambiguous publish retry keeps the pinned ID and autosave lock", () => {
+  assert.deepEqual(publishFailureResolution(37, "ambiguous"), {
+    draftId: 37,
+    publishResolutionId: 37,
+    shouldResumeAutosave: false,
+  });
 });
 
 test("no-ID save checks latest and PATCHes an existing draft", async () => {

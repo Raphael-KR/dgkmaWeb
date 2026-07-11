@@ -48,6 +48,24 @@ export function shouldResumeAutosave(publishResolutionId: number | undefined): b
   return publishResolutionId === undefined;
 }
 
+export function publishFailureResolution(
+  publishResolutionId: number | undefined,
+  failure: "conclusive" | "ambiguous",
+) {
+  if (failure === "conclusive") {
+    return {
+      draftId: undefined,
+      publishResolutionId: undefined,
+      shouldResumeAutosave: true,
+    };
+  }
+  return {
+    draftId: publishResolutionId,
+    publishResolutionId,
+    shouldResumeAutosave: publishResolutionId === undefined,
+  };
+}
+
 export function clearedDraftFailureState() {
   return {
     errorKind: undefined,
