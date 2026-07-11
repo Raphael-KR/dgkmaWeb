@@ -1,6 +1,14 @@
 import type { RequestHandler } from "express";
 import { getErrorType } from "./safe-logging";
 
+export const requireAuthenticated: RequestHandler = (req, res, next) => {
+  if (!req.session?.userId) {
+    res.status(401).json({ message: "로그인이 필요합니다" });
+    return;
+  }
+  next();
+};
+
 export type AdminUserLookup = (
   userId: number,
 ) => Promise<{ isAdmin?: boolean | null } | undefined>;

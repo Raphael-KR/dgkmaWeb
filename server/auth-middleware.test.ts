@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { NextFunction, Request, Response } from "express";
-import { createRequireAdmin } from "./auth-middleware";
+import { createRequireAdmin, requireAuthenticated } from "./auth-middleware";
 
 function requestWithUserId(userId?: number): Request {
   return { session: userId === undefined ? {} : { userId } } as unknown as Request;
@@ -21,6 +21,38 @@ function responseDouble() {
   } as unknown as Response;
   return { response, state };
 }
+
+test("requireAuthenticated returns 401 without a session user", () => {
+  const { response, state } = responseDouble();
+  let nextCalls = 0;
+
+  requireAuthenticated(
+    requestWithUserId(),
+    response,
+    (() => {
+      nextCalls += 1;
+    }) as NextFunction,
+  );
+
+  assert.equal(state.status, 401);
+  assert.equal(nextCalls, 0);
+});
+
+test("requireAuthenticated calls next with a session user", () => {
+  const { response, state } = responseDouble();
+  let nextCalls = 0;
+
+  requireAuthenticated(
+    requestWithUserId(7),
+    response,
+    (() => {
+      nextCalls += 1;
+    }) as NextFunction,
+  );
+
+  assert.equal(state.status, undefined);
+  assert.equal(nextCalls, 1);
+});
 
 test("requireAdmin returns 401 without a session user", async () => {
   let lookupCalls = 0;

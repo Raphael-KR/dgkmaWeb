@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/schema";
+import { isSelectablePostCategory } from "@shared/category-policy";
 import { Plus, ImagePlus, X, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -191,7 +192,7 @@ export default function Boards() {
                             </FormControl>
                             <SelectContent>
                               {(categories as Category[])
-                                .filter((cat: Category) => cat.name !== "all")
+                                .filter(isSelectablePostCategory)
                                 .map((category: Category) => (
                                   <SelectItem key={category.id} value={category.id.toString()}>
                                     {category.displayName}
