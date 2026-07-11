@@ -37,7 +37,7 @@ This is a full-stack web application for the Dongguk University Korean Medicine 
 
 ## User Preferences
 
-- **언어**: 영어 프롬프트를 받아도 항상 한국어로 응답
+- **언어**: 영어 프롬프트를 받아도 항상 한국어로 응답 (사용자가 영어에 약하므로 반드시 한국어로만 답변)
 - **로그 작성**: 모든 로그와 피드백을 한국어로 작성
 - **커뮤니케이션 스타일**: 간단하고 일상적인 언어 사용
 
