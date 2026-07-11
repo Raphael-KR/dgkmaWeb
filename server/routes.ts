@@ -5,6 +5,7 @@ import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendi
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
+import { createRequireAdmin } from "./auth-middleware";
 
 declare module "express-session" {
   interface SessionData {
@@ -21,6 +22,8 @@ function isKakaoDebugEnabled(): boolean {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const requireAdmin = createRequireAdmin((userId) => storage.getUser(userId));
+
   // 카카오 OAuth 환경변수 부팅 검증 — DEBUG_KAKAO_AUTH=true 일 때만 1회 출력.
   //  - restApiKeyPrefix 가 카카오 콘솔 [앱 설정 > 앱 키 > REST API 키] 앞 6자리와
   //    일치해야 token exchange 성공 (불일치 시 KOE114 / KOE303 발생).
@@ -746,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/payments", async (req, res) => {
+  app.post("/api/payments", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertPaymentSchema.parse(req.body);
       const payment = await storage.createPayment(validatedData);
@@ -760,6 +763,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes
+  app.use("/api/admin", requireAdmin);
+
   app.get("/api/admin/pending-registrations", async (req, res) => {
     try {
       const registrations = await storage.getPendingRegistrations();
@@ -806,8 +811,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/sync-alumni", async (req, res) => {
     try {
       console.log('Alumni sync API called');
-      
-      // TODO: 관리자 권한 확인 추가
       const syncStats = await storage.syncAlumniFromGoogleSheets();
       
       const response = { 
