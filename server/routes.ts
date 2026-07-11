@@ -5,7 +5,11 @@ import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendi
 import { z } from "zod";
 import { parseObituarySms } from "./obituary-parser";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
-import { createRequireAdmin, type AdminUserLookup } from "./auth-middleware";
+import {
+  createRequireAdmin,
+  requireAuthenticated,
+  type AdminUserLookup,
+} from "./auth-middleware";
 import { getErrorType } from "./safe-logging";
 
 declare module "express-session" {
@@ -661,6 +665,9 @@ export async function registerRoutes(
       res.status(500).json({ message: "댓글 삭제에 실패했습니다" });
     }
   });
+
+  app.use("/api/obituary", requireAuthenticated);
+  app.use("/api/obituaries", requireAuthenticated);
 
   // Obituary URL parsing route
   app.post("/api/obituary/parse", (req, res) => {
