@@ -139,6 +139,7 @@ test("community event APIs enforce member sessions and do not expose source text
         headers: { "content-type": "application/json" },
         body: JSON.stringify(draftPayload),
       }),
+      fetch(`${server.baseUrl}/api/events/1/preview`, { method: "POST" }),
     ];
 
     for (const response of await Promise.all(anonymousRequests)) {
@@ -195,6 +196,176 @@ test("community event APIs enforce member sessions and do not expose source text
     assert.equal(publish.status, 200);
     assert.equal(publishedAuthorId, memberId);
     assert.equal("authorId" in (publishedData ?? {}), false);
+  } finally {
+    await server.close();
+  }
+});
+
+test("obituary preview uses only server-sourced owner profile data", async (t) => {
+  const completeDraft = event({
+    eventType: "obituary",
+    title: "김동국 동문 부친상",
+    eventDate: "2026-08-01",
+    location: "동국병원 장례식장",
+    relatedMemberName: "본문 위조 이름",
+    contactNumber: "본문 위조 연락처",
+    accountInfo: "동국은행 123-456 김동국",
+    details: {
+      deceasedName: "김한의",
+      deceasedAge: 88,
+      relationship: "부친",
+      funeralDate: "2026년 8월 3일(월요일)",
+      funeralHome: "동국병원 장례식장 202호",
+      accountInfo: "동국은행 123-456 김동국",
+      sourceUrl: "https://example.com/obituary",
+      memberTitle: "초안 위조 직함",
+    },
+  });
+  const incompleteDraft = event({
+    id: 2,
+    eventType: "obituary",
+    details: { relationship: "부친" },
+  });
+  const missingProfileDraft = event({ ...completeDraft, id: 4, authorId: otherMemberId });
+  const user = {
+    id: memberId,
+    kakaoId: null,
+    email: "member@example.com",
+    name: "김동국",
+    graduationYear: null,
+    isVerified: true,
+    isAdmin: false,
+    kakaoSyncEnabled: false,
+    profileImage: null,
+    phoneNumber: null,
+    birthday: null,
+    birthdayType: null,
+    isLeapMonth: null,
+    activityRegion: "서울특별시",
+    createdAt: null,
+    updatedAt: null,
+  };
+  const alumni = {
+    id: 10,
+    department: "한의학과",
+    generation: "8기",
+    name: "동문 DB 이름",
+    admissionDate: "1986-03-02",
+    graduationDate: null,
+    address: null,
+    mobile: "010-1111-2222",
+    phone: null,
+    group: null,
+    status: null,
+    alumniPosition: "동국한의원 원장",
+    memo: null,
+    isMatched: true,
+    matchedUserId: memberId,
+  };
+
+  t.mock.method(storage, "getEventDraft", async (id, authorId) => {
+    if (id === 1 && authorId === memberId) return completeDraft;
+    if (id === 2 && authorId === memberId) return incompleteDraft;
+    if (id === 4 && authorId === otherMemberId) return missingProfileDraft;
+    return undefined;
+  });
+  t.mock.method(storage, "getUser", async (id) => {
+    if (id === memberId) return user;
+    if (id === otherMemberId) return { ...user, id, email: "other@example.com", name: "", phoneNumber: null };
+    return undefined;
+  });
+  t.mock.method(storage, "getAlumniRecordByUserId", async (id) => {
+    if (id === memberId) return alumni;
+    if (id === otherMemberId) {
+      return { ...alumni, generation: "", admissionDate: "1986-02-31", mobile: null, matchedUserId: id };
+    }
+    return undefined;
+  });
+  t.mock.method(storage, "getMembershipStatus", async () => ({
+    year: 2026,
+    tier: "권리회원",
+    isPaid: true,
+    paidAmount: 100_000,
+    annualDues: 100_000,
+    currentYearPayment: null,
+  }));
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
+
+  try {
+    const memberHeaders = { "content-type": "application/json", "x-test-user-id": String(memberId) };
+    const otherHeaders = { "content-type": "application/json", "x-test-user-id": String(otherMemberId) };
+    const forgedBody = {
+      memberName: "공격자 이름",
+      memberPhone: "010-9999-9999",
+      membershipTier: "최고회원",
+      memberTitle: "위조 직함",
+      graduationClass: "999기",
+      admissionYear: "99학번",
+      authorId: otherMemberId,
+    };
+
+    const otherMember = await fetch(`${server.baseUrl}/api/events/1/preview`, {
+      method: "POST",
+      headers: otherHeaders,
+      body: JSON.stringify(forgedBody),
+    });
+    assert.equal(otherMember.status, 404);
+
+    const missingProfile = await fetch(`${server.baseUrl}/api/events/4/preview`, {
+      method: "POST",
+      headers: otherHeaders,
+      body: JSON.stringify(forgedBody),
+    });
+    assert.equal(missingProfile.status, 400);
+    assert.deepEqual((await missingProfile.json()).missingFields, [
+      "graduationClass",
+      "admissionYear",
+      "memberName",
+      "memberPhone",
+    ]);
+
+    const published = await fetch(`${server.baseUrl}/api/events/3/preview`, {
+      method: "POST",
+      headers: memberHeaders,
+      body: JSON.stringify(forgedBody),
+    });
+    assert.equal(published.status, 404);
+
+    const incomplete = await fetch(`${server.baseUrl}/api/events/2/preview`, {
+      method: "POST",
+      headers: memberHeaders,
+      body: JSON.stringify(forgedBody),
+    });
+    assert.equal(incomplete.status, 400);
+    assert.deepEqual(await incomplete.json(), {
+      message: "부고문 미리보기에 필요한 정보가 부족합니다",
+      missingFields: ["deceasedName", "deceasedAge", "funeralHome", "funeralDate"],
+    });
+
+    const response = await fetch(`${server.baseUrl}/api/events/1/preview`, {
+      method: "POST",
+      headers: memberHeaders,
+      body: JSON.stringify(forgedBody),
+    });
+    assert.equal(response.status, 200);
+    const { text } = await response.json() as { text: string };
+    assert.equal(text, `#부고
+본회 졸업8기(86학번) 김동국 권리회원(동국한의원 원장) 부친상
+
+- 고인: 故김한의 (향년 88세)
+- 빈소: 동국병원 장례식장 202호
+- 발인: 2026년 8월 3일(월요일)
+
+- 연락처: 김동국 010-1111-2222
+- 마음 전하실 곳: 동국은행 123-456 김동국
+
+* 유가족 및 장례식장 위치 확인: https://example.com/obituary
+
+삼가 고인의 명복을 빕니다.
+-동국대학교 한의과대학 동문회-`);
+    for (const forgedValue of Object.values(forgedBody)) {
+      assert.doesNotMatch(text, new RegExp(String(forgedValue)));
+    }
   } finally {
     await server.close();
   }
@@ -273,6 +444,7 @@ test("community event APIs reject invalid input and hide owner-scoped drafts", a
         fetch(`${server.baseUrl}/api/events/drafts/${id}`, { method: "PATCH", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
         fetch(`${server.baseUrl}/api/events/drafts/${id}`, { method: "DELETE", headers: memberHeaders }),
         fetch(`${server.baseUrl}/api/events/${id}/publish`, { method: "POST", headers: jsonHeaders, body: JSON.stringify(draftPayload) }),
+        fetch(`${server.baseUrl}/api/events/${id}/preview`, { method: "POST", headers: memberHeaders }),
       ]) {
         assert.equal((await request).status, 400);
       }

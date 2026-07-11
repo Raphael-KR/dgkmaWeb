@@ -17,6 +17,8 @@ import {
 } from "./auth-middleware";
 import { getErrorType } from "./safe-logging";
 import { isSelectablePostCategory } from "@shared/category-policy";
+import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
+import { assembleObituaryPreview } from "./obituary-preview";
 
 declare module "express-session" {
   interface SessionData {
@@ -809,6 +811,37 @@ export async function registerRoutes(
       res.status(204).end();
     } catch (error) {
       res.status(500).json({ message: "임시 저장된 소식 삭제에 실패했습니다" });
+    }
+  });
+
+  app.post("/api/events/:id/preview", async (req, res) => {
+    try {
+      const id = parsePositiveInteger(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "잘못된 소식입니다" });
+      }
+      const userId = req.session.userId!;
+      const draft = await storage.getEventDraft(id, userId);
+      if (!draft || draft.eventType !== "obituary") {
+        return res.status(404).json({ message: "임시 저장된 부고를 찾을 수 없습니다" });
+      }
+
+      const [user, alumni, membership] = await Promise.all([
+        storage.getUser(userId),
+        storage.getAlumniRecordByUserId(userId),
+        storage.getMembershipStatus(userId),
+      ]);
+      const preview = assembleObituaryPreview({ draft, user, alumni, membership });
+      if (!preview.input) {
+        return res.status(400).json({
+          message: "부고문 미리보기에 필요한 정보가 부족합니다",
+          missingFields: preview.missingFields,
+        });
+      }
+
+      res.json({ text: renderObituaryAnnouncement(preview.input) });
+    } catch {
+      res.status(500).json({ message: "부고문 미리보기를 만들지 못했습니다" });
     }
   });
 

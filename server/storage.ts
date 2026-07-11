@@ -104,6 +104,7 @@ export interface IStorage {
   getMembershipStatus(userId: number): Promise<MembershipStatus>;
   
   // Alumni methods
+  getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
@@ -123,6 +124,7 @@ export interface IStorage {
   // Community event methods
   getPublishedEvents(eventType?: CommunityEventType): Promise<CommunityEvent[]>;
   getPublishedEvent(id: number): Promise<CommunityEvent | undefined>;
+  getEventDraft(id: number, authorId: number): Promise<CommunityEvent | undefined>;
   getLatestEventDraft(authorId: number, eventType: CommunityEventType): Promise<CommunityEvent | undefined>;
   createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent>;
   updateEventDraft(id: number, authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent | undefined>;
@@ -351,6 +353,12 @@ export class DatabaseStorage implements IStorage {
     
     // 로컬 데이터베이스에서 검색
     return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
+  }
+
+  async getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined> {
+    const [alumni] = await db.select().from(alumniDatabase)
+      .where(eq(alumniDatabase.matchedUserId, userId));
+    return alumni || undefined;
   }
 
   async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {
@@ -654,6 +662,16 @@ export class DatabaseStorage implements IStorage {
   async getPublishedEvent(id: number): Promise<CommunityEvent | undefined> {
     const [event] = await db.select().from(communityEvents)
       .where(and(eq(communityEvents.id, id), eq(communityEvents.status, "published")));
+    return event || undefined;
+  }
+
+  async getEventDraft(id: number, authorId: number): Promise<CommunityEvent | undefined> {
+    const [event] = await db.select().from(communityEvents)
+      .where(and(
+        eq(communityEvents.id, id),
+        eq(communityEvents.authorId, authorId),
+        eq(communityEvents.status, "draft"),
+      ));
     return event || undefined;
   }
 

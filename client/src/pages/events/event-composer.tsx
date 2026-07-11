@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type FieldErrors, type Path, type SubmitHandler, useForm } from "react-hook-form";
+import { type FieldErrors, type Path, type SubmitHandler, useForm, useWatch } from "react-hook-form";
 import { FileText, LoaderCircle, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,7 @@ import {
 import { canApplyParsedSource, collectFormErrorEntries, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
 import { EventFields } from "./event-fields";
 import { EVENT_TYPE_LABELS } from "./event-list";
+import { ObituaryPreview } from "./obituary-preview";
 
 type EventComposerProps = {
   onPublished: (eventType: CommunityEventType) => void;
@@ -106,6 +107,8 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     defaultValues: initialValues("obituary"),
   });
   const currentType = form.watch("eventType");
+  const previewValues = useWatch({ control: form.control });
+  const previewFingerprint = JSON.stringify(previewValues);
   const {
     draftId,
     errorMessage: draftError,
@@ -399,6 +402,16 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         </Button>
 
         <EventFields disabled={isBusy} eventType={currentType} form={form} publishErrors={publishErrors} />
+
+        {currentType === "obituary" && (
+          <ObituaryPreview
+            contentFingerprint={previewFingerprint}
+            draftId={draftId}
+            eventType={currentType}
+            isPaused={isBusy}
+            isSaved={isSaved}
+          />
+        )}
 
         <div className="flex flex-col gap-2 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500">게시 후 경조사 목록에서 바로 확인할 수 있습니다.</p>
