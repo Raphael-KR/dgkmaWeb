@@ -10,6 +10,12 @@ import {
 } from "./objectAcl";
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+const SAFE_INLINE_IMAGE_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
 
 // The object storage client is used to interact with the object storage service.
 export const objectStorageClient = new Storage({
@@ -105,7 +111,8 @@ export class ObjectStorageService {
       // 보안: 이미지가 아닌 파일은 octet-stream + 첨부 다운로드로 강제하고
       // nosniff 를 적용해 앱 오리진에서의 저장형 XSS(예: text/html 업로드) 를 차단.
       const rawContentType = metadata.contentType || "application/octet-stream";
-      const isImage = rawContentType.startsWith("image/");
+      const normalizedContentType = rawContentType.toLowerCase().split(";")[0].trim();
+      const isImage = SAFE_INLINE_IMAGE_CONTENT_TYPES.has(normalizedContentType);
       const safeContentType = isImage ? rawContentType : "application/octet-stream";
       // Set appropriate headers
       res.set({
@@ -304,4 +311,3 @@ async function signObjectURL({
   const { signed_url: signedURL } = await response.json();
   return signedURL;
 }
-

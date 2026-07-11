@@ -31,10 +31,10 @@ export default function Boards() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { uploadFile, isUploading } = useUpload({
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "사진 업로드 실패",
-        description: "사진 업로드 중 오류가 발생했습니다.",
+        description: error.message || "사진 업로드 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     },
