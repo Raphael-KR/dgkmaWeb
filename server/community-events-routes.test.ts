@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
+import type { CommunityEventDraftInput } from "@shared/community-events";
 import type { CommunityEvent } from "@shared/schema";
 import type { AdminUserLookup } from "./auth-middleware";
 import { registerRoutes } from "./routes";
@@ -696,6 +697,74 @@ test("obituary publish canonicalizes profile fields and retries idempotently for
     assert.equal(noAlumni.status, 400);
     assert.ok((await noAlumni.json() as { missingFields?: string[] }).missingFields?.includes("graduationClass"));
     assert.equal(publishCalls, 1);
+  } finally {
+    await server.close();
+  }
+});
+
+test("concurrent draft create routes preserve owner and type get-or-create results", async (t) => {
+  const drafts = new Map<string, CommunityEvent>();
+  const pending = new Map<string, Promise<CommunityEvent>>();
+  let nextId = 100;
+  let insertCount = 0;
+
+  t.mock.method(storage, "createEventDraft", async (authorId, data) => {
+    const key = `${authorId}:${data.eventType}`;
+    const existing = drafts.get(key);
+    if (existing) return existing;
+    const active = pending.get(key);
+    if (active) return active;
+
+    const creation = (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      insertCount += 1;
+      const created = event({
+        ...data,
+        id: nextId++,
+        authorId,
+        eventType: data.eventType,
+        title: data.title ?? null,
+        details: data.details,
+      });
+      drafts.set(key, created);
+      return created;
+    })();
+    pending.set(key, creation);
+    try {
+      return await creation;
+    } finally {
+      pending.delete(key);
+    }
+  });
+
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
+  const create = (userId: number, payload: CommunityEventDraftInput) => fetch(`${server.baseUrl}/api/events/drafts`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-test-user-id": String(userId) },
+    body: JSON.stringify(payload),
+  });
+
+  try {
+    const [first, competing, otherUser, otherType] = await Promise.all([
+      create(memberId, draftPayload),
+      create(memberId, { ...draftPayload, title: "경쟁 요청 제목" }),
+      create(otherMemberId, draftPayload),
+      create(memberId, { ...draftPayload, eventType: "opening" }),
+    ]);
+    const [firstBody, competingBody, otherUserBody, otherTypeBody] = await Promise.all([
+      first.json(), competing.json(), otherUser.json(), otherType.json(),
+    ]) as Array<CommunityEvent>;
+
+    assert.equal(first.status, 201);
+    assert.equal(competing.status, 201);
+    assert.equal(firstBody.id, competingBody.id);
+    assert.equal(firstBody.title, draftPayload.title);
+    assert.equal(competingBody.title, draftPayload.title);
+    assert.notEqual(firstBody.id, otherUserBody.id);
+    assert.notEqual(firstBody.id, otherTypeBody.id);
+    assert.equal(otherUserBody.authorId, otherMemberId);
+    assert.equal(otherTypeBody.eventType, "opening");
+    assert.equal(insertCount, 3);
   } finally {
     await server.close();
   }

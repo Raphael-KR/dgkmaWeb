@@ -48,7 +48,8 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(composer, /handleInvalidSubmit/);
   assert.match(composer, /collectFormErrorEntries/);
   assert.match(composer, /apiRequest\("POST", "\/api\/events\/drafts"/);
-  assert.match(composer, /apiRequest\("POST", `\/api\/events\/\$\{publishDraftId\}\/publish`/);
+  assert.match(composer, /requestEventPublish\(fetch, publishDraftId, payload\)/);
+  assert.match(composer, /conclusivePublishErrorMessage/);
   assert.match(composer, /apiRequest\("GET", `\/api\/events\/\$\{publishDraftId\}`/);
   assert.match(composer, /apiRequest\("POST", "\/api\/obituary\/parse"/);
   assert.match(composer, /링크 내용 수집은 준비 중이며 입력한 문자만 분석했습니다\./);
@@ -56,7 +57,7 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(composer, /form\.setError/);
   assert.match(composer, /form\.setFocus/);
   assert.match(composer, /onPublished/);
-  assert.match(composer, /disabled=\{isBusy\}/);
+  assert.match(composer, /disabled=\{!canSubmit\}/);
   assert.match(composer, /invalidateQueries\(\{ queryKey: \["\/api\/events"\] \}\)/);
   assert.match(composer, /removeQueries\(\{ queryKey: \["\/api\/events\/drafts\/latest"\] \}\)/);
   assert.doesNotMatch(composer, /\b(?:Dialog|Accordion|Collapsible)\b/);

@@ -40,6 +40,21 @@ test("storage exposes owner-scoped draft methods", async () => {
   assert.match(storage, /deleteEventDraft\(id: number, authorId: number\)/);
 });
 
+test("draft creation is transactionally locked before selecting or inserting", async () => {
+  const storage = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
+  const createMethod = storage.match(
+    /async createEventDraft\([\s\S]*?\n  }\n\n  async updateEventDraft/,
+  )?.[0];
+
+  assert.ok(createMethod, "createEventDraft 구현을 찾을 수 없습니다");
+  assert.match(createMethod, /db\.transaction/);
+  assert.match(createMethod, /pg_advisory_xact_lock/);
+  const lockIndex = createMethod.indexOf("pg_advisory_xact_lock");
+  const selectIndex = createMethod.indexOf("tx.select");
+  const insertIndex = createMethod.indexOf("tx.insert");
+  assert.ok(lockIndex >= 0 && selectIndex > lockIndex && insertIndex > selectIndex);
+});
+
 test("preview storage lookups stay owner and matched-user scoped", async () => {
   const [storage, alumniMatch] = await Promise.all([
     readFile(new URL("./storage.ts", import.meta.url), "utf8"),

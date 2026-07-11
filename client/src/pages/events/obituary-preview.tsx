@@ -9,6 +9,7 @@ import {
   isObituaryPreviewEligible,
   missingFieldLabel,
   type PreviewRequestIdentity,
+  type SuccessfulObituaryPreview,
 } from "./obituary-preview-logic";
 
 type ObituaryPreviewProps = {
@@ -17,6 +18,7 @@ type ObituaryPreviewProps = {
   draftStatus: "idle" | "recovered" | "saved" | "saving";
   eventType: CommunityEventType;
   isPaused: boolean;
+  onPreviewSuccessChange: (success?: SuccessfulObituaryPreview) => void;
 };
 
 type PreviewState =
@@ -34,6 +36,7 @@ export function ObituaryPreview({
   draftStatus,
   eventType,
   isPaused,
+  onPreviewSuccessChange,
 }: ObituaryPreviewProps) {
   const { toast } = useToast();
   const [state, setState] = useState<PreviewState>({ status: "idle" });
@@ -57,12 +60,14 @@ export function ObituaryPreview({
     isPaused,
   };
 
+  // Fingerprint changes only invalidate here; a save-status transition previews persisted values below.
   useEffect(() => {
+    onPreviewSuccessChange(undefined);
     requestVersionRef.current += 1;
     activeRef.current.requestVersion = requestVersionRef.current;
     controllerRef.current?.abort();
     setState({ status: "idle" });
-  }, [contentFingerprint, draftId, draftStatus, eventType, isPaused]);
+  }, [contentFingerprint, draftId, draftStatus, eventType, isPaused, onPreviewSuccessChange]);
 
   useEffect(() => {
     if (!isObituaryPreviewEligible(activeRef.current) || !draftId) return;
@@ -77,6 +82,7 @@ export function ObituaryPreview({
       requestVersion: ++requestVersionRef.current,
     };
     activeRef.current.requestVersion = request.requestVersion;
+    onPreviewSuccessChange(undefined);
     setState({ status: "loading" });
 
     void (async () => {
@@ -89,22 +95,29 @@ export function ObituaryPreview({
         const payload = await response.json() as { text?: unknown; missingFields?: unknown };
         if (!canApplyPreviewResponse(activeRef.current, request)) return;
         if (response.status === 400 && isMissingFields(payload.missingFields)) {
+          onPreviewSuccessChange(undefined);
           setState({ status: "incomplete", missingFields: payload.missingFields, request });
           return;
         }
         if (!response.ok || typeof payload.text !== "string") {
+          onPreviewSuccessChange(undefined);
           setState({ status: "error" });
           return;
         }
+        onPreviewSuccessChange({
+          contentFingerprint: request.contentFingerprint,
+          draftId: request.draftId,
+        });
         setState({ status: "success", text: payload.text, request });
       } catch (error) {
         if (controller.signal.aborted || !canApplyPreviewResponse(activeRef.current, request)) return;
+        onPreviewSuccessChange(undefined);
         setState({ status: "error" });
       }
     })();
 
     return () => controller.abort();
-  }, [draftId, draftStatus, eventType, isPaused, retryAttempt]);
+  }, [draftId, draftStatus, eventType, isPaused, onPreviewSuccessChange, retryAttempt]);
 
   const isCurrentRequest = "request" in state
     && canApplyPreviewResponse(activeRef.current, state.request);

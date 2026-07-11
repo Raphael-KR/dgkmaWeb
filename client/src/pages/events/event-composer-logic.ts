@@ -1,4 +1,5 @@
 import type { CommunityEventType } from "@shared/community-events";
+import { missingFieldLabel } from "./obituary-preview-logic";
 
 const URL_PATTERN = /https?:\/\/[^\s]+/g;
 
@@ -8,6 +9,24 @@ type DraftResultAcceptanceInput = {
   requestEventType: CommunityEventType;
   requestGeneration: number;
 };
+
+type SubmitGateInput = {
+  eventType: CommunityEventType;
+  isBusy: boolean;
+  isPreviewCurrent: boolean;
+  isPublishResolutionPending: boolean;
+};
+
+export function canSubmitCommunityEvent({
+  eventType,
+  isBusy,
+  isPreviewCurrent,
+  isPublishResolutionPending,
+}: SubmitGateInput): boolean {
+  if (isBusy) return false;
+  if (isPublishResolutionPending) return true;
+  return eventType !== "obituary" || isPreviewCurrent;
+}
 
 export function canApplyDraftResult(input: DraftResultAcceptanceInput) {
   return input.activeEventType === input.requestEventType
@@ -52,7 +71,60 @@ export function classifyPublishRecovery(event: { status?: unknown } | undefined)
   return event?.status === "published" ? "published" : "ambiguous";
 }
 
-export class ConclusivePublishError extends Error {}
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function publishErrorReason(body: unknown): string {
+  if (!isRecord(body) || typeof body.message !== "string" || !body.message.trim()) {
+    return "게시 요청이 거절되었습니다.";
+  }
+  return body.message.trim();
+}
+
+export class ConclusivePublishError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(publishErrorReason(body));
+  }
+}
+
+export function conclusivePublishErrorMessage(error: unknown): string | undefined {
+  if (!(error instanceof ConclusivePublishError)) return undefined;
+  const reason = publishErrorReason(error.body);
+  if (!isRecord(error.body) || !Array.isArray(error.body.missingFields)) return reason;
+  const labels = Array.from(new Set(error.body.missingFields
+    .filter((field): field is string => typeof field === "string")
+    .map(missingFieldLabel)));
+  return labels.length > 0 ? `${reason} (${labels.join(", ")})` : reason;
+}
+
+export async function requestEventPublish(
+  fetcher: (url: string, init?: RequestInit) => Promise<Response>,
+  draftId: number,
+  payload: unknown,
+): Promise<void> {
+  const response = await fetcher(`/api/events/${draftId}/publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    credentials: "include",
+  });
+  if (response.ok) return;
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = undefined;
+  }
+  if (response.status >= 400 && response.status < 500 && response.status !== 408) {
+    throw new ConclusivePublishError(response.status, body);
+  }
+  throw new Error(publishErrorReason(body));
+}
 
 export type FormErrorEntry = {
   message: string;

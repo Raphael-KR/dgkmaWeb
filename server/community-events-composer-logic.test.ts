@@ -3,11 +3,13 @@ import test from "node:test";
 import {
   canApplyDraftResult,
   canApplyParsedSource,
+  conclusivePublishErrorMessage,
   collectFormErrorEntries,
   classifyPublishRecovery,
   ConclusivePublishError,
   hasMeaningfulDraftInput,
   publishDraftWithRecovery,
+  requestEventPublish,
   splitEventSource,
 } from "../client/src/pages/events/event-composer-logic";
 
@@ -143,11 +145,44 @@ test("a conclusive publish rejection does not enter ambiguous recovery", async (
     },
     payload: { title: "부고" },
     publishDraft: async () => {
-      throw new ConclusivePublishError("게시 정보가 올바르지 않습니다.");
+      throw new ConclusivePublishError(400, { message: "게시 정보가 올바르지 않습니다." });
     },
     rememberDraftId: () => undefined,
   }), /올바르지 않습니다/);
   assert.equal(getCalls, 0);
+});
+
+test("conclusive publish errors preserve status and map missing fields to Korean", async () => {
+  let captured: unknown;
+  try {
+    await requestEventPublish(
+      async () => new Response(JSON.stringify({
+        message: "부고문 게시에 필요한 정보가 부족합니다",
+        missingFields: ["graduationClass", "internal.englishKey"],
+      }), { status: 400, headers: { "content-type": "application/json" } }),
+      17,
+      { eventType: "obituary" },
+    );
+  } catch (error) {
+    captured = error;
+  }
+
+  assert.ok(captured instanceof ConclusivePublishError);
+  assert.equal(captured.status, 400);
+  assert.deepEqual(captured.body, {
+    message: "부고문 게시에 필요한 정보가 부족합니다",
+    missingFields: ["graduationClass", "internal.englishKey"],
+  });
+  const message = conclusivePublishErrorMessage(captured);
+  assert.equal(message, "부고문 게시에 필요한 정보가 부족합니다 (졸업 기수, 입력값)");
+  assert.doesNotMatch(message, /graduationClass|internal|englishKey/);
+});
+
+test("publish error message uses a safe Korean fallback for malformed bodies", () => {
+  assert.equal(
+    conclusivePublishErrorMessage(new ConclusivePublishError(422, { missingFields: ["unknown"] })),
+    "게시 요청이 거절되었습니다. (입력값)",
+  );
 });
 
 test("collects nested resolver errors into focusable field paths", () => {

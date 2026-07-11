@@ -12,11 +12,15 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, sql, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
 import { uniqueAlumniMatch } from "./alumni-match";
+import {
+  eventDraftAdvisoryLockId,
+  getOrCreateEventDraft,
+} from "./event-draft-creation";
 
 // 동문 명부 노출 허용 필드 (개인정보 최소화 — 연락처·주소·메모 제외)
 export type DirectoryAlumni = {
@@ -692,10 +696,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent> {
-    const [event] = await db.insert(communityEvents)
-      .values({ ...data, authorId })
-      .returning();
-    return event;
+    return getOrCreateEventDraft(
+      (work) => db.transaction(async (tx) => work({
+        lock: async (lockedAuthorId, eventType) => {
+          await tx.execute(sql`
+            select pg_advisory_xact_lock(
+              ${lockedAuthorId},
+              ${eventDraftAdvisoryLockId(eventType)}
+            )
+          `);
+        },
+        find: async (draftAuthorId, eventType) => {
+          const [existing] = await tx.select().from(communityEvents)
+            .where(and(
+              eq(communityEvents.authorId, draftAuthorId),
+              eq(communityEvents.eventType, eventType),
+              eq(communityEvents.status, "draft"),
+            ))
+            .orderBy(desc(communityEvents.updatedAt))
+            .limit(1);
+          return existing || undefined;
+        },
+        insert: async (draftAuthorId, draftData) => {
+          const [created] = await tx.insert(communityEvents)
+            .values({ ...draftData, authorId: draftAuthorId })
+            .returning();
+          return created;
+        },
+      })),
+      authorId,
+      data,
+    );
   }
 
   async updateEventDraft(

@@ -18,10 +18,22 @@ import {
   type CommunityEventType,
   type ObituaryDetails,
 } from "@shared/community-events";
-import { canApplyParsedSource, collectFormErrorEntries, ConclusivePublishError, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
+import {
+  canApplyParsedSource,
+  canSubmitCommunityEvent,
+  collectFormErrorEntries,
+  conclusivePublishErrorMessage,
+  publishDraftWithRecovery,
+  requestEventPublish,
+  splitEventSource,
+} from "./event-composer-logic";
 import { EventFields } from "./event-fields";
 import { EVENT_TYPE_LABELS } from "./event-list";
 import { ObituaryPreview } from "./obituary-preview";
+import {
+  isCurrentObituaryPreview,
+  type SuccessfulObituaryPreview,
+} from "./obituary-preview-logic";
 
 type EventComposerProps = {
   onPublished: (eventType: CommunityEventType) => void;
@@ -100,6 +112,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
   const [isParsing, setIsParsing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishErrors, setPublishErrors] = useState<Record<string, string>>({});
+  const [previewSuccess, setPreviewSuccess] = useState<SuccessfulObituaryPreview>();
   const parseRequestRef = useRef(0);
   const publishingRef = useRef(false);
   const form = useForm<CommunityEventDraftInput>({
@@ -132,6 +145,19 @@ export function EventComposer({ onPublished }: EventComposerProps) {
   const sourceError = publishErrors.sourceText;
   const isBusy = isParsing || isPublishing || isDiscarding || isRecovering;
   const inputsDisabled = isBusy || isPublishResolutionPending;
+  const draftStatus = isRecovered ? "recovered" : isSaved ? "saved" : isSaving ? "saving" : "idle";
+  const isPreviewCurrent = isCurrentObituaryPreview({
+    contentFingerprint: previewFingerprint,
+    draftId,
+    draftStatus,
+    success: previewSuccess,
+  });
+  const canSubmit = canSubmitCommunityEvent({
+    eventType: currentType,
+    isBusy,
+    isPreviewCurrent,
+    isPublishResolutionPending,
+  });
 
   const changeType = (eventType: CommunityEventType) => {
     if (inputsDisabled || eventType === currentType) return;
@@ -140,6 +166,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     }
 
     const currentValues = form.getValues();
+    setPreviewSuccess(undefined);
     form.reset({ ...currentValues, eventType, details: {} } as CommunityEventDraftInput);
     form.clearErrors();
     setPublishErrors({});
@@ -270,6 +297,14 @@ export function EventComposer({ onPublished }: EventComposerProps) {
 
   const publish: SubmitHandler<CommunityEventDraftInput> = async (data) => {
     if (publishingRef.current || !applyPublishErrors(data)) return;
+    if (!canSubmit) {
+      toast({
+        title: "미리보기를 확인해주세요",
+        description: "현재 저장된 내용의 표준 부고문을 확인한 뒤 게시해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     publishingRef.current = true;
     setIsPublishing(true);
@@ -294,17 +329,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         },
         payload: publishSnapshot,
         publishDraft: async (publishDraftId, payload) => {
-          try {
-            await apiRequest("POST", `/api/events/${publishDraftId}/publish`, payload);
-          } catch (error) {
-            const status = error instanceof Error
-              ? Number(/^(\d{3}):/.exec(error.message)?.[1])
-              : undefined;
-            if (status && status >= 400 && status < 500 && status !== 408) {
-              throw new ConclusivePublishError(error instanceof Error ? error.message : "게시 요청이 거절되었습니다.");
-            }
-            throw error;
-          }
+          await requestEventPublish(fetch, publishDraftId, payload);
         },
         rememberDraftId: registerDraftId,
       });
@@ -319,9 +344,14 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           variant: "destructive",
         });
       }
-    } catch {
+    } catch (error) {
       if (!hasRecoveryError) {
-        toast({ title: "게시 실패", description: "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
+        toast({
+          title: "게시 실패",
+          description: conclusivePublishErrorMessage(error)
+            ?? "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.",
+          variant: "destructive",
+        });
       }
     } finally {
       resumeAutosave();
@@ -420,9 +450,10 @@ export function EventComposer({ onPublished }: EventComposerProps) {
           <ObituaryPreview
             contentFingerprint={previewFingerprint}
             draftId={draftId}
-            draftStatus={isRecovered ? "recovered" : isSaved ? "saved" : isSaving ? "saving" : "idle"}
+            draftStatus={draftStatus}
             eventType={currentType}
             isPaused={inputsDisabled}
+            onPreviewSuccessChange={setPreviewSuccess}
           />
         )}
 
@@ -434,7 +465,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
 
         <div className="flex flex-col gap-2 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500">게시 후 경조사 목록에서 바로 확인할 수 있습니다.</p>
-          <Button type="submit" disabled={isBusy} className="sm:min-w-28">
+          <Button type="submit" disabled={!canSubmit} className="sm:min-w-28">
             {isPublishing ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
             {isPublishResolutionPending ? "게시 결과 다시 확인" : "게시"}
           </Button>

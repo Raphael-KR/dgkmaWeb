@@ -40,6 +40,30 @@ export type PreviewRequestIdentity = {
   requestVersion: number;
 };
 
+export type SuccessfulObituaryPreview = Pick<
+  PreviewRequestIdentity,
+  "contentFingerprint" | "draftId"
+>;
+
+type CurrentObituaryPreviewInput = {
+  contentFingerprint: string;
+  draftId?: number;
+  draftStatus: ActivePreviewIdentity["draftStatus"];
+  success?: SuccessfulObituaryPreview;
+};
+
+export function isCurrentObituaryPreview({
+  contentFingerprint,
+  draftId,
+  draftStatus,
+  success,
+}: CurrentObituaryPreviewInput): boolean {
+  return (draftStatus === "saved" || draftStatus === "recovered")
+    && draftId !== undefined
+    && success?.draftId === draftId
+    && success.contentFingerprint === contentFingerprint;
+}
+
 export type ActivePreviewIdentity = {
   eventType: CommunityEventType;
   draftId?: number;
