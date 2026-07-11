@@ -485,6 +485,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/categories", async (req, res) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+
+      const viewer = await storage.getUser(userId);
+      if (!viewer?.isAdmin) {
+        return res.status(403).json({ message: "관리자 권한이 필요합니다" });
+      }
+
       const validatedData = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(validatedData);
       res.status(201).json(category);

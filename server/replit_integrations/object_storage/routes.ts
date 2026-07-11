@@ -1,6 +1,14 @@
 import type { Express } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const ALLOWED_IMAGE_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
 /**
  * Register object storage routes for file uploads.
  *
@@ -43,11 +51,25 @@ export function registerObjectStorageRoutes(app: Express): void {
       }
 
       const { name, size, contentType } = req.body;
+      const normalizedSize = typeof size === "number" ? size : Number(size);
+      const normalizedContentType =
+        typeof contentType === "string"
+          ? contentType.toLowerCase().split(";")[0].trim()
+          : "";
 
       if (!name) {
         return res.status(400).json({
           error: "Missing required field: name",
         });
+      }
+      if (!Number.isFinite(normalizedSize) || normalizedSize <= 0) {
+        return res.status(400).json({ error: "올바른 파일 크기가 필요합니다" });
+      }
+      if (normalizedSize > MAX_UPLOAD_BYTES) {
+        return res.status(400).json({ error: "사진은 10MB 이하만 업로드할 수 있습니다" });
+      }
+      if (!ALLOWED_IMAGE_CONTENT_TYPES.has(normalizedContentType)) {
+        return res.status(400).json({ error: "JPG, PNG, WebP, GIF 이미지만 업로드할 수 있습니다" });
       }
 
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
@@ -59,7 +81,7 @@ export function registerObjectStorageRoutes(app: Express): void {
         uploadURL,
         objectPath,
         // Echo back the metadata for client convenience
-        metadata: { name, size, contentType },
+        metadata: { name, size: normalizedSize, contentType: normalizedContentType },
       });
     } catch (error) {
       console.error("Error generating upload URL:", error);
@@ -93,4 +115,3 @@ export function registerObjectStorageRoutes(app: Express): void {
     }
   });
 }
-
