@@ -49,8 +49,40 @@ function DetailRow({ label, value }: DetailRowProps) {
   );
 }
 
-function getObituaryDetails(details: PublishedCommunityEvent["details"]): ObituaryDetails {
-  return details as ObituaryDetails;
+function isEventDetails(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function getDetailText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function getDetailAge(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 130
+    ? value
+    : undefined;
+}
+
+function getObituaryDetails(details: unknown): ObituaryDetails {
+  const safeDetails = isEventDetails(details) ? details : {};
+
+  return {
+    deceasedName: getDetailText(safeDetails.deceasedName),
+    deceasedAge: getDetailAge(safeDetails.deceasedAge),
+    relationship: getDetailText(safeDetails.relationship),
+    funeralDate: getDetailText(safeDetails.funeralDate),
+    funeralHome: getDetailText(safeDetails.funeralHome),
+    burialPlace: getDetailText(safeDetails.burialPlace),
+    chiefMourner: getDetailText(safeDetails.chiefMourner),
+    familyContact: getDetailText(safeDetails.familyContact),
+    accountInfo: getDetailText(safeDetails.accountInfo),
+    legacyDateOfDeath: getDetailText(safeDetails.legacyDateOfDeath),
+  };
+}
+
+function getMemo(details: unknown) {
+  const safeDetails = isEventDetails(details) ? details : {};
+  return getDetailText(safeDetails.memo);
 }
 
 export default function CommunityEventDetail() {
@@ -72,7 +104,6 @@ export default function CommunityEventDetail() {
 
   useSeo({
     ...COMMUNITY_EVENTS_SEO.detail,
-    title: event?.title || COMMUNITY_EVENTS_SEO.detail.title,
     path: id ? `/events/${id}` : "/events",
     type: "article",
   });
@@ -101,7 +132,7 @@ export default function CommunityEventDetail() {
   }
 
   const obituaryDetails = event.eventType === "obituary" ? getObituaryDetails(event.details) : undefined;
-  const memo = event.eventType === "obituary" ? undefined : (event.details as { memo?: string }).memo;
+  const memo = event.eventType === "obituary" ? undefined : getMemo(event.details);
   const backPath = `/events?type=${event.eventType}`;
 
   return (
