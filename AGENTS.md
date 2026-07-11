@@ -4,6 +4,10 @@ Project-specific instructions for Codex working in this repository.
 This repository is the web application for the Dongguk University Korean Medicine Alumni Association.
 The app is developed mainly through Replit and GitHub. The production app is published through Replit and uses environment variables from Replit Secrets.
 The current authentication flow uses Kakao Login v5 with REST OAuth authorization.
+## Communication rules
+Respond in Korean even when the prompt is written in English.
+Write logs and user-facing feedback in Korean.
+Use concise, everyday language for user communication.
 ## Environment rules
 This repository is primarily developed and deployed on Replit.
 Do not assume local Mac npm scripts are reliable. Local `node_modules`, `tsc`, build tools, or dev dependencies may be missing or stale.
