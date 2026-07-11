@@ -12,6 +12,8 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 권리회원 상태 및 당해 연회비 납부 표시
 - 게시판 댓글, 이미지 첨부, 부고 상세 화면
 - 운영 카테고리 기준을 재현하는 idempotent seed SQL
+- 부고문 필수 정보와 표준 게시문 작성 지침
+- 부고·결혼·개원·기타 경조사 통합 시스템 설계
 
 ### Changed
 

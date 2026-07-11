@@ -43,6 +43,8 @@ Replit 개발 DB와 프로덕션 DB는 분리되어 있습니다. 스키마와 �
 | [replit.md](./replit.md) | Replit 개발·배포·환경변수·DB 운영 절차 |
 | [CHANGELOG.md](./CHANGELOG.md) | 버전별 추가·변경·보안 이력 |
 | [AGENTS.md](./AGENTS.md) | Codex가 이 저장소에서 따르는 작업 규칙 |
+| [docs/obituary-writing-guide.md](./docs/obituary-writing-guide.md) | 부고 필수 정보, 표준 게시문, 초안·검증 규칙 |
+| [경조사 통합 시스템 설계](./docs/superpowers/specs/2026-07-11-community-events-design.md) | 부고·결혼·개원·기타 통합 모델과 파싱·보안·마이그레이션 설계 |
 
 문서 내용이 충돌하면 프로덕션에서 검증된 동작, 현재 `main` 코드와 Replit 설정, `AGENTS.md`, 기존 운영 문서, 과거 기획과 변경 이력 순서로 확인합니다.
 
