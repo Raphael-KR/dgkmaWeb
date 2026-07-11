@@ -1,4 +1,4 @@
-import type { Path, UseFormReturn } from "react-hook-form";
+import { Controller, type Path, type UseFormReturn } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +6,6 @@ import {
   OBITUARY_RELATIONSHIPS,
   type CommunityEventDraftInput,
   type CommunityEventType,
-  type ObituaryDetails,
 } from "@shared/community-events";
 
 type EventFieldName =
@@ -66,7 +65,6 @@ function fieldA11y(id: string, error?: string) {
 
 export function EventFields({ disabled, eventType, form, publishErrors }: EventFieldsProps) {
   const isObituary = eventType === "obituary";
-  const details = form.watch("details") as ObituaryDetails;
   const relationshipError = publishErrors["details.relationship"];
 
   return (
@@ -114,20 +112,24 @@ export function EventFields({ disabled, eventType, form, publishErrors }: EventF
               />
             </Field>
             <Field id="deceased-relationship" label="관계" error={relationshipError}>
-              <select
-                id="deceased-relationship"
-                disabled={disabled}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                value={details.relationship ?? ""}
-                {...fieldA11y("deceased-relationship", relationshipError)}
-                onChange={(event) => form.setValue("details", {
-                  ...details,
-                  relationship: event.target.value as ObituaryDetails["relationship"],
-                }, { shouldDirty: true, shouldValidate: true })}
-              >
-                <option value="">선택하세요</option>
-                {OBITUARY_RELATIONSHIPS.map((relationship) => <option key={relationship} value={relationship}>{relationship}</option>)}
-              </select>
+              <Controller
+                control={form.control}
+                name={toFormPath("details.relationship")}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    id="deceased-relationship"
+                    disabled={disabled}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    value={typeof field.value === "string" ? field.value : ""}
+                    {...fieldA11y("deceased-relationship", relationshipError)}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  >
+                    <option value="">선택하세요</option>
+                    {OBITUARY_RELATIONSHIPS.map((relationship) => <option key={relationship} value={relationship}>{relationship}</option>)}
+                  </select>
+                )}
+              />
             </Field>
             <Field id="funeral-date" label="발인 날짜와 요일" error={publishErrors["details.funeralDate"]}>
               <Input id="funeral-date" disabled={disabled} placeholder="예: 2026년 7월 12일(일)" {...fieldA11y("funeral-date", publishErrors["details.funeralDate"])} {...form.register(toFormPath("details.funeralDate"))} />

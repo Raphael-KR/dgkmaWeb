@@ -43,7 +43,9 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(composer, /문자와 공개 링크를 함께 붙여넣으세요/);
   assert.match(composer, /<EventFields/);
   assert.match(composer, /communityEventPublishSchema\.safeParse/);
-  assert.match(composer, /form\.handleSubmit\(publish\)/);
+  assert.match(composer, /form\.handleSubmit\(publish, handleInvalidSubmit\)/);
+  assert.match(composer, /handleInvalidSubmit/);
+  assert.match(composer, /collectFormErrorEntries/);
   assert.match(composer, /apiRequest\("POST", "\/api\/events\/drafts"/);
   assert.match(composer, /apiRequest\("POST", `\/api\/events\/\$\{publishDraftId\}\/publish`/);
   assert.match(composer, /apiRequest\("GET", `\/api\/events\/\$\{publishDraftId\}`/);
@@ -64,6 +66,8 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(fields, /details\.deceasedName/);
   assert.match(fields, /details\.deceasedAge/);
   assert.match(fields, /details\.relationship/);
+  assert.match(fields, /<Controller/);
+  assert.match(fields, /name=\{toFormPath\("details\.relationship"\)\}/);
   assert.match(fields, /details\.funeralDate/);
   assert.match(fields, /details\.funeralHome/);
   assert.match(fields, /details\.accountInfo/);

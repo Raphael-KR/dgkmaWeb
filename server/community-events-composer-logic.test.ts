@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   canApplyParsedSource,
+  collectFormErrorEntries,
   classifyPublishRecovery,
   publishDraftWithRecovery,
   splitEventSource,
@@ -72,4 +73,18 @@ test("confirms a publish when the publish response is lost", async () => {
   });
 
   assert.deepEqual(result, { draftId: 18, outcome: "published" });
+});
+
+test("collects nested resolver errors into focusable field paths", () => {
+  assert.deepEqual(collectFormErrorEntries({
+    details: {
+      memo: { message: "메모가 너무 깁니다" },
+      relationship: { message: "관계를 선택해주세요" },
+    },
+    sourceText: { message: "원문이 너무 깁니다" },
+  }), [
+    { message: "메모가 너무 깁니다", path: "details.memo" },
+    { message: "관계를 선택해주세요", path: "details.relationship" },
+    { message: "원문이 너무 깁니다", path: "sourceText" },
+  ]);
 });

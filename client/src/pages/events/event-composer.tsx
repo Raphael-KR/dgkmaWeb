@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type Path, type SubmitHandler, useForm } from "react-hook-form";
+import { type FieldErrors, type Path, type SubmitHandler, useForm } from "react-hook-form";
 import { FileText, LoaderCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ import {
   type CommunityEventType,
   type ObituaryDetails,
 } from "@shared/community-events";
-import { canApplyParsedSource, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
+import { canApplyParsedSource, collectFormErrorEntries, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
 import { EventFields } from "./event-fields";
 import { EVENT_TYPE_LABELS } from "./event-list";
 
@@ -25,6 +25,7 @@ type EventComposerProps = {
 };
 
 type ComposerFieldPath =
+  | "sourceText"
   | "title"
   | "eventDate"
   | "location"
@@ -35,7 +36,14 @@ type ComposerFieldPath =
   | "details.deceasedAge"
   | "details.relationship"
   | "details.funeralDate"
-  | "details.funeralHome";
+  | "details.funeralHome"
+  | "details.memo"
+  | "details.accountInfo"
+  | "details.sourceUrl"
+  | "details.memberTitle"
+  | "details.familyContact"
+  | "details.burialPlace"
+  | "details.chiefMourner";
 
 type ParsedObituary = {
   deceasedName?: string;
@@ -49,9 +57,35 @@ type ParsedObituary = {
 };
 
 const eventTypes: CommunityEventType[] = ["obituary", "wedding", "opening", "other"];
+const composerFieldPaths = new Set<ComposerFieldPath>([
+  "sourceText",
+  "title",
+  "eventDate",
+  "location",
+  "relatedMemberName",
+  "contactNumber",
+  "accountInfo",
+  "details.deceasedName",
+  "details.deceasedAge",
+  "details.relationship",
+  "details.funeralDate",
+  "details.funeralHome",
+  "details.memo",
+  "details.accountInfo",
+  "details.sourceUrl",
+  "details.memberTitle",
+  "details.familyContact",
+  "details.burialPlace",
+  "details.chiefMourner",
+]);
 
 function toFormPath(path: ComposerFieldPath): Path<CommunityEventDraftInput> {
   return path as Path<CommunityEventDraftInput>;
+}
+
+function toVisibleFieldPath(path: string): ComposerFieldPath | undefined {
+  const normalized = path === "sourceUrls" || path.startsWith("sourceUrls.") ? "sourceText" : path;
+  return composerFieldPaths.has(normalized as ComposerFieldPath) ? normalized as ComposerFieldPath : undefined;
 }
 
 function initialValues(eventType: CommunityEventType): CommunityEventDraftInput {
@@ -72,7 +106,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     defaultValues: initialValues("obituary"),
   });
   const currentType = form.watch("eventType");
-  const sourceText = form.watch("sourceText") ?? "";
+  const sourceError = publishErrors.sourceText;
   const isBusy = isParsing || isPublishing;
 
   const storeDraftId = (id: number | undefined) => {
@@ -182,7 +216,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     const errors: Record<string, string> = {};
     let firstPath: Path<CommunityEventDraftInput> | undefined;
     result.error.issues.forEach((issue) => {
-      const path = issue.path.join(".") as ComposerFieldPath;
+      const path = toVisibleFieldPath(issue.path.join("."));
       if (!path || errors[path]) return;
       const message = "게시 전에 입력해주세요.";
       errors[path] = message;
@@ -193,6 +227,23 @@ export function EventComposer({ onPublished }: EventComposerProps) {
     setPublishErrors(errors);
     if (firstPath) form.setFocus(firstPath);
     return false;
+  };
+
+  const handleInvalidSubmit = (resolverErrors: FieldErrors<CommunityEventDraftInput>) => {
+    const errors: Record<string, string> = {};
+    let firstPath: Path<CommunityEventDraftInput> | undefined;
+    collectFormErrorEntries(resolverErrors).forEach(({ path }) => {
+      const fieldPath = toVisibleFieldPath(path);
+      if (!fieldPath || errors[fieldPath]) return;
+      errors[fieldPath] = fieldPath === "sourceText" && path.startsWith("sourceUrls")
+        ? "공개 링크 형식을 확인해주세요."
+        : "입력값을 확인해주세요.";
+      const formPath = toFormPath(fieldPath);
+      firstPath ??= formPath;
+    });
+    setPublishErrors(errors);
+    if (firstPath) form.setFocus(firstPath);
+    toast({ title: "입력 내용을 확인해주세요", description: "표시된 항목을 고친 뒤 다시 게시해주세요.", variant: "destructive" });
   };
 
   const publish: SubmitHandler<CommunityEventDraftInput> = async (data) => {
@@ -248,7 +299,7 @@ export function EventComposer({ onPublished }: EventComposerProps) {
         </div>
       </div>
 
-      <form className="space-y-4" onSubmit={form.handleSubmit(publish)}>
+      <form className="space-y-4" onSubmit={form.handleSubmit(publish, handleInvalidSubmit)}>
         <div>
           <Label>유형</Label>
           <ToggleGroup
@@ -279,8 +330,11 @@ export function EventComposer({ onPublished }: EventComposerProps) {
             disabled={isBusy}
             className="mt-2 min-h-[96px] resize-none"
             placeholder="문자와 공개 링크를 함께 붙여넣으세요"
+            aria-describedby={sourceError ? "event-source-error" : undefined}
+            aria-invalid={Boolean(sourceError)}
             {...form.register("sourceText")}
           />
+          {sourceError && <p id="event-source-error" role="alert" className="mt-1 text-sm text-red-700">{sourceError}</p>}
         </div>
 
         <Button type="button" variant="outline" onClick={() => void loadSource()} disabled={isBusy} className="w-full sm:w-auto">
