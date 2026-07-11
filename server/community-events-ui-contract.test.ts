@@ -43,13 +43,21 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(composer, /문자와 공개 링크를 함께 붙여넣으세요/);
   assert.match(composer, /<EventFields/);
   assert.match(composer, /communityEventPublishSchema\.safeParse/);
+  assert.match(composer, /form\.handleSubmit\(publish\)/);
   assert.match(composer, /apiRequest\("POST", "\/api\/events\/drafts"/);
   assert.match(composer, /apiRequest\("POST", `\/api\/events\/\$\{publishDraftId\}\/publish`/);
+  assert.match(composer, /apiRequest\("GET", `\/api\/events\/\$\{publishDraftId\}`/);
   assert.match(composer, /apiRequest\("POST", "\/api\/obituary\/parse"/);
   assert.match(composer, /링크 내용 수집은 준비 중이며 입력한 문자만 분석했습니다\./);
+  assert.match(composer, /분석할 문자 내용이 없습니다/);
+  assert.match(composer, /form\.setError/);
+  assert.match(composer, /form\.setFocus/);
+  assert.match(composer, /onPublished/);
+  assert.match(composer, /disabled=\{isBusy\}/);
   assert.match(composer, /invalidateQueries\(\{ queryKey: \["\/api\/events"\] \}\)/);
   assert.match(composer, /removeQueries\(\{ queryKey: \["\/api\/events\/drafts\/latest"\] \}\)/);
   assert.doesNotMatch(composer, /\b(?:Dialog|Accordion|Collapsible)\b/);
+  assert.doesNotMatch(composer, /as never/);
   assert.doesNotMatch(composer, /authorId|membershipTier|memberName|memberPhone/);
 
   assert.match(fields, /details\.memo/);
@@ -60,7 +68,18 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(fields, /details\.funeralHome/);
   assert.match(fields, /details\.accountInfo/);
   assert.match(fields, /details\.sourceUrl/);
+  assert.match(fields, /details\.memberTitle/);
   assert.match(fields, /details\.familyContact/);
+  assert.match(fields, /aria-invalid/);
+  assert.match(fields, /aria-describedby/);
+  assert.match(fields, /role="alert"/);
+  assert.match(fields, /disabled=\{disabled\}/);
+});
+
+test("community events page switches the list to a newly published event type", async () => {
+  const page = await readFile(new URL("../client/src/pages/events/index.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /<EventComposer onPublished=\{\(eventType\) => setSelectedType\(eventType\)\}/);
 });
 
 test("community event detail guards malformed details and keeps fixed private SEO", async () => {

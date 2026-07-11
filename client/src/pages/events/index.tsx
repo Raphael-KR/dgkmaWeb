@@ -35,7 +35,7 @@ export default function CommunityEventsPage() {
           <p className="mt-1 text-sm text-gray-500">동문들의 경조사 소식을 확인합니다.</p>
         </header>
 
-        <EventComposer />
+        <EventComposer onPublished={(eventType) => setSelectedType(eventType)} />
 
         <Tabs value={selectedType} onValueChange={(value) => setSelectedType(value as EventFilterType)} className="mt-5">
           <TabsList className="grid h-10 w-full grid-cols-5">

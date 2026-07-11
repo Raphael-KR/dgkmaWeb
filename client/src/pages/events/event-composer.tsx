@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { type Path, type SubmitHandler, useForm } from "react-hook-form";
 import { FileText, LoaderCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,12 +14,28 @@ import {
   OBITUARY_RELATIONSHIPS,
   type CommunityEventDraftInput,
   type CommunityEventType,
+  type ObituaryDetails,
 } from "@shared/community-events";
-import { EVENT_TYPE_LABELS } from "./event-list";
+import { canApplyParsedSource, publishDraftWithRecovery, splitEventSource } from "./event-composer-logic";
 import { EventFields } from "./event-fields";
+import { EVENT_TYPE_LABELS } from "./event-list";
 
-const eventTypes: CommunityEventType[] = ["obituary", "wedding", "opening", "other"];
-const URL_PATTERN = /https?:\/\/[^\s]+/g;
+type EventComposerProps = {
+  onPublished: (eventType: CommunityEventType) => void;
+};
+
+type ComposerFieldPath =
+  | "title"
+  | "eventDate"
+  | "location"
+  | "relatedMemberName"
+  | "contactNumber"
+  | "accountInfo"
+  | "details.deceasedName"
+  | "details.deceasedAge"
+  | "details.relationship"
+  | "details.funeralDate"
+  | "details.funeralHome";
 
 type ParsedObituary = {
   deceasedName?: string;
@@ -32,75 +48,93 @@ type ParsedObituary = {
   contactNumber?: string;
 };
 
-function getSourceParts(sourceText: string) {
-  const sourceUrls = sourceText.match(URL_PATTERN)?.slice(0, 3) ?? [];
-  return {
-    sourceUrls,
-    textOnly: sourceText.replace(URL_PATTERN, " ").trim(),
-  };
+const eventTypes: CommunityEventType[] = ["obituary", "wedding", "opening", "other"];
+
+function toFormPath(path: ComposerFieldPath): Path<CommunityEventDraftInput> {
+  return path as Path<CommunityEventDraftInput>;
 }
 
-function getPublishErrors(data: CommunityEventDraftInput) {
-  const result = communityEventPublishSchema.safeParse(data);
-  if (result.success) return {};
-
-  return result.error.issues.reduce<Record<string, string>>((errors, issue) => {
-    const path = issue.path.join(".");
-    if (path && !errors[path]) errors[path] = "게시 전에 입력해주세요.";
-    return errors;
-  }, {});
+function initialValues(eventType: CommunityEventType): CommunityEventDraftInput {
+  return { eventType, sourceUrls: [], details: {} } as CommunityEventDraftInput;
 }
 
-export function EventComposer() {
+export function EventComposer({ onPublished }: EventComposerProps) {
   const { toast } = useToast();
   const [draftId, setDraftId] = useState<number>();
   const [isParsing, setIsParsing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishErrors, setPublishErrors] = useState<Record<string, string>>({});
+  const draftIdRef = useRef<number>();
+  const parseRequestRef = useRef(0);
   const publishingRef = useRef(false);
   const form = useForm<CommunityEventDraftInput>({
     resolver: zodResolver(communityEventDraftSchema),
-    defaultValues: { eventType: "obituary", sourceUrls: [], details: {} },
+    defaultValues: initialValues("obituary"),
   });
   const currentType = form.watch("eventType");
   const sourceText = form.watch("sourceText") ?? "";
+  const isBusy = isParsing || isPublishing;
+
+  const storeDraftId = (id: number | undefined) => {
+    draftIdRef.current = id;
+    setDraftId(id);
+  };
 
   const changeType = (eventType: CommunityEventType) => {
-    if (eventType === currentType) return;
+    if (isBusy || eventType === currentType) return;
     if (form.formState.isDirty && !window.confirm("유형을 변경하면 이전 유형의 상세 입력은 초기화됩니다. 원문과 공통 입력을 유지하고 변경할까요?")) {
       return;
     }
 
     const currentValues = form.getValues();
     form.reset({ ...currentValues, eventType, details: {} } as CommunityEventDraftInput);
+    form.clearErrors();
     setPublishErrors({});
   };
 
   const loadSource = async () => {
-    if (!sourceText.trim()) {
+    if (isBusy) return;
+    const snapshot = form.getValues();
+    const snapshotSourceText = snapshot.sourceText ?? "";
+    if (!snapshotSourceText.trim()) {
       toast({ title: "원문을 입력해주세요", description: "분석할 문자 내용을 붙여넣어주세요.", variant: "destructive" });
       return;
     }
 
-    const { sourceUrls, textOnly } = getSourceParts(sourceText);
+    const { sourceUrls, textOnly } = splitEventSource(snapshotSourceText);
     form.setValue("sourceUrls", sourceUrls, { shouldDirty: true });
     if (sourceUrls.length > 0) {
       toast({ title: "링크는 저장했습니다", description: "링크 내용 수집은 준비 중이며 입력한 문자만 분석했습니다." });
     }
-
-    if (currentType !== "obituary") {
-      form.setValue("details", { memo: textOnly }, { shouldDirty: true });
+    if (!textOnly) {
+      toast({ title: "분석할 문자 내용이 없습니다", description: "링크만 입력되어 문자 분석은 하지 않았습니다." });
       return;
     }
 
-    if (!textOnly) return;
+    if (snapshot.eventType !== "obituary") {
+      form.setValue("details", { memo: textOnly }, { shouldDirty: true, shouldValidate: true });
+      return;
+    }
+
+    const requestToken = ++parseRequestRef.current;
     setIsParsing(true);
     try {
       const response = await apiRequest("POST", "/api/obituary/parse", { text: textOnly });
       const parsed = await response.json() as ParsedObituary;
-      const obituaryDetails: Record<string, string> = {};
+      const currentValues = form.getValues();
+      if (!canApplyParsedSource({
+        activeToken: parseRequestRef.current,
+        currentEventType: currentValues.eventType,
+        currentSourceText: currentValues.sourceText ?? "",
+        requestEventType: snapshot.eventType,
+        requestSourceText: snapshotSourceText,
+        requestToken,
+      })) {
+        return;
+      }
+
+      const obituaryDetails: Partial<ObituaryDetails> = {};
       if (parsed.deceasedName) obituaryDetails.deceasedName = parsed.deceasedName;
-      if (parsed.dateOfDeath) form.setValue("eventDate", parsed.dateOfDeath, { shouldDirty: true });
       if (parsed.funeralHome) {
         form.setValue("location", parsed.funeralHome, { shouldDirty: true });
         obituaryDetails.funeralHome = parsed.funeralHome;
@@ -109,58 +143,96 @@ export function EventComposer() {
       if (parsed.chiefMourner) obituaryDetails.chiefMourner = parsed.chiefMourner;
       if (parsed.bankAccount) form.setValue("accountInfo", parsed.bankAccount, { shouldDirty: true });
       if (parsed.contactNumber) form.setValue("contactNumber", parsed.contactNumber, { shouldDirty: true });
-      if (parsed.deceasedRelation && OBITUARY_RELATIONSHIPS.includes(parsed.deceasedRelation as typeof OBITUARY_RELATIONSHIPS[number])) {
-        obituaryDetails.relationship = parsed.deceasedRelation;
+      if (parsed.dateOfDeath) form.setValue("eventDate", parsed.dateOfDeath, { shouldDirty: true });
+      if (parsed.deceasedRelation && OBITUARY_RELATIONSHIPS.includes(parsed.deceasedRelation as ObituaryDetails["relationship"] & string)) {
+        obituaryDetails.relationship = parsed.deceasedRelation as ObituaryDetails["relationship"];
       }
       if (sourceUrls[0]) obituaryDetails.sourceUrl = sourceUrls[0];
       form.setValue("details", {
-        ...form.getValues().details,
+        ...(currentValues.details as ObituaryDetails),
         ...obituaryDetails,
-      } as CommunityEventDraftInput["details"], { shouldDirty: true });
+      }, { shouldDirty: true, shouldValidate: true });
       toast({ title: "부고 문자 분석 완료", description: "입력된 내용을 확인하고 필요한 정보를 보완해주세요." });
     } catch {
       toast({ title: "분석 실패", description: "문자 내용을 분석하지 못했습니다. 직접 입력해주세요.", variant: "destructive" });
     } finally {
-      setIsParsing(false);
+      if (parseRequestRef.current === requestToken) setIsParsing(false);
     }
   };
 
-  const publish = async () => {
-    const draftResult = communityEventDraftSchema.safeParse(form.getValues());
-    if (!draftResult.success) {
-      toast({ title: "입력 내용을 확인해주세요", description: "초안 형식에 맞지 않는 항목이 있습니다.", variant: "destructive" });
-      return;
+  const completePublish = async (eventType: CommunityEventType) => {
+    await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+    queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest"] });
+    form.reset(initialValues(eventType));
+    form.clearErrors();
+    storeDraftId(undefined);
+    setPublishErrors({});
+    onPublished(eventType);
+    toast({ title: "경조사를 게시했습니다", description: "새 소식이 아래 목록에 반영되었습니다." });
+  };
+
+  const applyPublishErrors = (data: CommunityEventDraftInput) => {
+    const result = communityEventPublishSchema.safeParse(data);
+    if (result.success) {
+      form.clearErrors();
+      setPublishErrors({});
+      return true;
     }
 
-    const errors = getPublishErrors(draftResult.data);
+    const errors: Record<string, string> = {};
+    let firstPath: Path<CommunityEventDraftInput> | undefined;
+    result.error.issues.forEach((issue) => {
+      const path = issue.path.join(".") as ComposerFieldPath;
+      if (!path || errors[path]) return;
+      const message = "게시 전에 입력해주세요.";
+      errors[path] = message;
+      const formPath = toFormPath(path);
+      form.setError(formPath, { type: "publish", message });
+      firstPath ??= formPath;
+    });
     setPublishErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      toast({ title: "게시 정보를 보완해주세요", description: "표시된 필수 항목을 입력한 뒤 다시 게시해주세요.", variant: "destructive" });
-      return;
-    }
+    if (firstPath) form.setFocus(firstPath);
+    return false;
+  };
 
-    if (publishingRef.current) return;
+  const publish: SubmitHandler<CommunityEventDraftInput> = async (data) => {
+    if (publishingRef.current || !applyPublishErrors(data)) return;
+
     publishingRef.current = true;
     setIsPublishing(true);
+    const publishSnapshot = data;
     try {
-      let publishDraftId = draftId;
-      if (!publishDraftId) {
-        const response = await apiRequest("POST", "/api/events/drafts", draftResult.data);
-        const draft = await response.json() as { id?: number };
-        if (!draft.id) throw new Error("초안 ID를 받지 못했습니다.");
-        publishDraftId = draft.id;
-        setDraftId(publishDraftId);
-      }
+      const result = await publishDraftWithRecovery({
+        createDraft: async (payload) => {
+          const response = await apiRequest("POST", "/api/events/drafts", payload);
+          const draft = await response.json() as { id?: number };
+          if (!draft.id) throw new Error("초안 ID를 받지 못했습니다.");
+          return { id: draft.id };
+        },
+        draftId: draftIdRef.current ?? draftId,
+        getEvent: async (publishDraftId) => {
+          const response = await apiRequest("GET", `/api/events/${publishDraftId}`);
+          return response.json() as Promise<{ status?: unknown }>;
+        },
+        payload: publishSnapshot,
+        publishDraft: async (publishDraftId, payload) => {
+          await apiRequest("POST", `/api/events/${publishDraftId}/publish`, payload);
+        },
+        rememberDraftId: storeDraftId,
+      });
 
-      await apiRequest("POST", `/api/events/${publishDraftId}/publish`, draftResult.data);
-      await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      queryClient.removeQueries({ queryKey: ["/api/events/drafts/latest"] });
-      form.reset({ eventType: currentType, sourceUrls: [], details: {} } as CommunityEventDraftInput);
-      setDraftId(undefined);
-      setPublishErrors({});
-      toast({ title: "경조사를 게시했습니다", description: "새 소식이 아래 목록에 반영되었습니다." });
+      if (result.outcome === "published") {
+        await completePublish(publishSnapshot.eventType);
+      } else {
+        storeDraftId(result.draftId);
+        toast({
+          title: "게시 확인이 필요합니다",
+          description: "입력 내용은 유지했습니다. 게시를 다시 시도해주세요.",
+          variant: "destructive",
+        });
+      }
     } catch {
-      toast({ title: "게시 실패", description: "잠시 후 다시 시도해주세요.", variant: "destructive" });
+      toast({ title: "게시 실패", description: "초안을 만들지 못했습니다. 잠시 후 다시 시도해주세요.", variant: "destructive" });
     } finally {
       publishingRef.current = false;
       setIsPublishing(false);
@@ -176,7 +248,7 @@ export function EventComposer() {
         </div>
       </div>
 
-      <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void publish(); }}>
+      <form className="space-y-4" onSubmit={form.handleSubmit(publish)}>
         <div>
           <Label>유형</Label>
           <ToggleGroup
@@ -190,6 +262,7 @@ export function EventComposer() {
               <ToggleGroupItem
                 key={eventType}
                 value={eventType}
+                disabled={isBusy}
                 aria-label={EVENT_TYPE_LABELS[eventType]}
                 className="h-9 w-full px-2 text-sm"
               >
@@ -203,22 +276,23 @@ export function EventComposer() {
           <Label htmlFor="event-source">경조사 원문</Label>
           <Textarea
             id="event-source"
+            disabled={isBusy}
             className="mt-2 min-h-[96px] resize-none"
             placeholder="문자와 공개 링크를 함께 붙여넣으세요"
             {...form.register("sourceText")}
           />
         </div>
 
-        <Button type="button" variant="outline" onClick={() => void loadSource()} disabled={isParsing} className="w-full sm:w-auto">
+        <Button type="button" variant="outline" onClick={() => void loadSource()} disabled={isBusy} className="w-full sm:w-auto">
           {isParsing ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileText aria-hidden="true" />}
           경조사 내용 불러오기
         </Button>
 
-        <EventFields eventType={currentType} form={form} publishErrors={publishErrors} />
+        <EventFields disabled={isBusy} eventType={currentType} form={form} publishErrors={publishErrors} />
 
         <div className="flex flex-col gap-2 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500">게시 후 경조사 목록에서 바로 확인할 수 있습니다.</p>
-          <Button type="submit" disabled={isPublishing} className="sm:min-w-28">
+          <Button type="submit" disabled={isBusy} className="sm:min-w-28">
             {isPublishing ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
             게시
           </Button>

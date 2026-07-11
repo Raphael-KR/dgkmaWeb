@@ -1,6 +1,6 @@
 export interface ParsedObituary {
   deceasedName: string;
-  deceasedRelation: string;
+  deceasedRelation?: string;
   dateOfDeath: string;
   funeralHome: string;
   jangji: string;
@@ -40,11 +40,11 @@ function extractDeceasedName(text: string): string {
   return "";
 }
 
-function extractRelation(text: string): string {
+function extractRelation(text: string): string | undefined {
   for (const { pattern, relation } of RELATION_PATTERNS) {
     if (pattern.test(text)) return relation;
   }
-  return "본인";
+  return undefined;
 }
 
 function extractDateOfDeath(text: string): string {
@@ -84,9 +84,10 @@ function extractPhone(text: string): string {
 }
 
 export function parseObituarySms(text: string): Partial<ParsedObituary> {
+  const deceasedRelation = extractRelation(text);
   return {
     deceasedName: extractDeceasedName(text),
-    deceasedRelation: extractRelation(text),
+    ...(deceasedRelation ? { deceasedRelation } : {}),
     dateOfDeath: extractDateOfDeath(text),
     funeralHome: extractLabeled(text, ["빈소", "장례식장"]),
     jangji: extractLabeled(text, ["장지"]),
