@@ -18,6 +18,8 @@ import HeritagePage from "@/pages/heritage";
 import ObituaryList from "@/pages/obituary/list";
 import ObituaryCreate from "@/pages/obituary/create";
 import ObituaryDetail from "@/pages/obituary/detail";
+import CommunityEventsPage from "@/pages/events";
+import CommunityEventDetail from "@/pages/events/detail";
 import Search from "@/pages/search";
 import PostDetail from "@/pages/post-detail";
 import Terms from "@/pages/terms";
@@ -112,6 +114,12 @@ function Router() {
       </Route>
       <Route path="/o/:id">
         <AuthGate><ObituaryDetail /></AuthGate>
+      </Route>
+      <Route path="/events">
+        <AuthGate><CommunityEventsPage /></AuthGate>
+      </Route>
+      <Route path="/events/:id">
+        <AuthGate><CommunityEventDetail /></AuthGate>
       </Route>
 
       {/* Redirect old routes to /heritage */}

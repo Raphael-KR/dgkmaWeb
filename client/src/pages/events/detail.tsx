@@ -1,0 +1,158 @@
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, CalendarDays, MapPin, Phone, UserRound } from "lucide-react";
+import { useLocation, useRoute } from "wouter";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { COMMUNITY_EVENTS_SEO, useSeo } from "@/lib/seo";
+import { EVENT_TYPE_LABELS, type PublishedCommunityEvent } from "./event-list";
+import type { CommunityEventType } from "@shared/community-events";
+
+type DetailRowProps = {
+  label: string;
+  value: string | number;
+};
+
+type ObituaryDetails = {
+  deceasedName?: string;
+  deceasedAge?: number;
+  relationship?: string;
+  funeralDate?: string;
+  funeralHome?: string;
+  burialPlace?: string;
+  chiefMourner?: string;
+  familyContact?: string;
+  accountInfo?: string;
+  legacyDateOfDeath?: string;
+};
+
+const eventDateLabels: Record<CommunityEventType, string> = {
+  obituary: "별세",
+  wedding: "결혼 일시",
+  opening: "개원 일시",
+  other: "일시",
+};
+
+const locationLabels: Record<CommunityEventType, string> = {
+  obituary: "빈소",
+  wedding: "예식장",
+  opening: "장소",
+  other: "장소",
+};
+
+function DetailRow({ label, value }: DetailRowProps) {
+  return (
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 py-3 text-sm">
+      <dt className="font-medium text-gray-600">{label}</dt>
+      <dd className="break-words text-gray-900">{value}</dd>
+    </div>
+  );
+}
+
+function getObituaryDetails(details: PublishedCommunityEvent["details"]): ObituaryDetails {
+  return details as ObituaryDetails;
+}
+
+export default function CommunityEventDetail() {
+  const [, params] = useRoute("/events/:id");
+  const [, setLocation] = useLocation();
+  const id = params?.id;
+
+  const { data: event, isLoading, error } = useQuery<PublishedCommunityEvent>({
+    queryKey: ["/api/events", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/events/${id}`, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error("경조사 상세를 불러오지 못했습니다.");
+      }
+      return response.json();
+    },
+    enabled: Boolean(id),
+  });
+
+  useSeo({
+    ...COMMUNITY_EVENTS_SEO.detail,
+    title: event?.title || COMMUNITY_EVENTS_SEO.detail.title,
+    path: id ? `/events/${id}` : "/events",
+    type: "article",
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-lg font-semibold text-gray-900">경조사를 찾을 수 없습니다</h1>
+          <p className="mt-2 text-sm text-gray-600">요청하신 경조사가 존재하지 않거나 공개되지 않았습니다.</p>
+          <Button className="mt-5" variant="outline" onClick={() => setLocation("/events")}>
+            <ArrowLeft aria-hidden="true" />
+            경조사 목록으로
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const obituaryDetails = event.eventType === "obituary" ? getObituaryDetails(event.details) : undefined;
+  const memo = event.eventType === "obituary" ? undefined : (event.details as { memo?: string }).memo;
+  const backPath = `/events?type=${event.eventType}`;
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="mx-auto w-full max-w-2xl px-4 py-5 sm:px-6">
+        <Button variant="ghost" size="sm" onClick={() => setLocation(backPath)}>
+          <ArrowLeft aria-hidden="true" />
+          경조사 목록
+        </Button>
+
+        <article className="mt-4 border-y border-gray-200 bg-white py-5">
+          <div className="px-4 sm:px-5">
+            <Badge variant="outline">{EVENT_TYPE_LABELS[event.eventType]}</Badge>
+            <h1 className="mt-3 break-words text-xl font-semibold text-gray-900">
+              {event.title || "제목 없는 경조사"}
+            </h1>
+          </div>
+
+          <dl className="mt-5 divide-y divide-gray-100 border-y border-gray-100 px-4 sm:px-5">
+            <DetailRow label={eventDateLabels[event.eventType]} value={event.eventDate || "일정 미정"} />
+            {event.location && <DetailRow label={locationLabels[event.eventType]} value={event.location} />}
+            <DetailRow label="관련 동문" value={event.relatedMemberName || "관련 동문 미정"} />
+            {obituaryDetails?.deceasedName && (
+              <DetailRow
+                label="고인"
+                value={`${obituaryDetails.deceasedName}${obituaryDetails.deceasedAge ? ` (향년 ${obituaryDetails.deceasedAge}세)` : ""}`}
+              />
+            )}
+            {obituaryDetails?.relationship && <DetailRow label="관계" value={obituaryDetails.relationship} />}
+            {obituaryDetails?.funeralHome && <DetailRow label="빈소" value={obituaryDetails.funeralHome} />}
+            {obituaryDetails?.funeralDate && <DetailRow label="발인" value={obituaryDetails.funeralDate} />}
+            {obituaryDetails?.legacyDateOfDeath && <DetailRow label="별세" value={obituaryDetails.legacyDateOfDeath} />}
+            {obituaryDetails?.burialPlace && <DetailRow label="장지" value={obituaryDetails.burialPlace} />}
+            {obituaryDetails?.chiefMourner && <DetailRow label="상주" value={obituaryDetails.chiefMourner} />}
+            {(event.contactNumber || obituaryDetails?.familyContact) && (
+              <DetailRow label="연락처" value={event.contactNumber || obituaryDetails?.familyContact || ""} />
+            )}
+            {(event.accountInfo || obituaryDetails?.accountInfo) && (
+              <DetailRow label="마음 전하실 곳" value={event.accountInfo || obituaryDetails?.accountInfo || ""} />
+            )}
+            {memo && <DetailRow label="안내" value={memo} />}
+          </dl>
+
+          <div className="mt-5 flex flex-wrap gap-4 px-4 text-sm text-gray-500 sm:px-5">
+            <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" aria-hidden="true" />경조사 안내</span>
+            {event.location && <span className="inline-flex items-center gap-1.5"><MapPin className="size-4" aria-hidden="true" />장소 정보 포함</span>}
+            {(event.contactNumber || obituaryDetails?.familyContact) && <span className="inline-flex items-center gap-1.5"><Phone className="size-4" aria-hidden="true" />연락처 안내</span>}
+            <span className="inline-flex items-center gap-1.5"><UserRound className="size-4" aria-hidden="true" />동문 소식</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+}
