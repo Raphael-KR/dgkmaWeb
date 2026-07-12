@@ -1,6 +1,6 @@
-# 프로덕션 기능 검증 가이드
+# 개발·운영 기능 검증 가이드
 
-이 문서는 `https://dgkma.replit.app`에 배포된 현재 기능을 확인하는 수동 회귀 테스트 체크리스트입니다. 향후 기능과 우선순위는 [planning_proposal.md](./planning_proposal.md)와 [roadmap.md](./roadmap.md)를 참고합니다.
+이 문서는 Replit 개발 환경과 `https://dgkma.org` 운영 환경의 기능을 확인하는 수동 회귀 테스트 체크리스트입니다. 개발 중에는 `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`를 먼저 확인하고, Republish 후에만 운영 URL을 확인합니다. 향후 기능과 우선순위는 [planning_proposal.md](./planning_proposal.md)와 [roadmap.md](./roadmap.md)를 참고합니다.
 
 ## 검증 전 조건
 
@@ -31,6 +31,16 @@
 ## 카카오 로그인과 온보딩
 
 현재 로그인은 카카오 REST OAuth 방식이다.
+
+### 수집 항목과 동의 범위
+
+로그인 화면, 카카오 동의항목, 개인정보 처리방침의 설명이 아래 범위와 일치하는지 확인한다. 카카오 콘솔의 정확한 설정 문구와 제출 순서는 [카카오 동의항목 심사 가이드](./docs/kakao-consent-review-guide.md)를 따른다.
+
+- [ ] 필수: 이름, 카카오계정(전화번호), 카카오계정(이메일). 이름·전화번호는 졸업생 명부 일치와 동문 자격 인증에, 이메일은 회원 식별·계정 관리·동문회 공식 안내에 사용한다고 표시된다.
+- [ ] 선택: 프로필 사진과 생일. 선택하지 않아도 가입할 수 있고, 각각 프로필 표시와 본인 전용 생일 축하 화면만 제공되지 않는다고 표시된다.
+- [ ] 생일은 선택 동의이며, 생일 유형·윤달 여부가 전달될 때도 본인 전용 화면에만 사용된다.
+- [ ] CI(연계정보), 카카오 닉네임, 성별, 연령대, 출생 연도, 친구 목록, 채널 추가 상태, 접근권한을 수집하거나 요청하지 않는다.
+- [ ] 브라우저 주소·응답·로그에 OAuth access token, refresh token, 어드민 키, 전체 인가 코드, 카카오 원문 사용자 응답이 노출되지 않는다.
 
 ### 명부 일치 계정
 
@@ -193,6 +203,21 @@
 
 현재 권리회원 표시는 내부 납부 기록을 사용하며 실제 결제 승인이나 정기결제 기능을 의미하지 않는다.
 
+## 회원 탈퇴
+
+실제 개발 계정과 Development Database에서 수행한다. 탈퇴는 되돌릴 수 없으므로, 실행 전 대상 계정과 관련 데이터의 수를 기록하고 테스트 계정만 사용한다. 개발 환경의 `KAKAO_DEV_ADMIN_KEY`가 있어야 카카오 연결 해제를 포함한 실제 흐름을 확인할 수 있다.
+
+- [ ] 탈퇴 전 새 DB 연결에서 대상 사용자의 `users`, `session`, `alumni_database.matched_user_id`, `pending_registrations`, `community_events`, 게시글·댓글·부고, 결제 기록 연결 수를 기록한다.
+- [ ] 로그인한 상태에서 `내 정보 → 설정 → 회원 탈퇴`로 이동한다.
+- [ ] 삭제·보존 안내와 확인 입력이 표시되고, 정확히 `탈퇴`를 입력하기 전에는 최종 버튼이 비활성화된다.
+- [ ] `DELETE /api/users/me`가 세션의 사용자만 대상으로 하며, 비로그인 요청은 `401`, 다른 확인 문구는 `400`을 반환한다.
+- [ ] 정상 탈퇴에서 카카오 연결 해제 후 로컬 회원 개인정보가 삭제되고 세션과 `connect.sid` 쿠키가 정리된다. 카카오 연결 해제가 실패하면 로컬 삭제가 진행되지 않는다.
+- [ ] 탈퇴 직후 새 브라우저 세션에서 `GET /api/auth/me`가 `401`을 반환한다.
+- [ ] 새 DB 연결에서 대상 사용자와 대상 세션이 `0`건이고, 동문 명부 연결은 해제됐으며, 미발행 경조사 초안은 삭제됐는지 확인한다.
+- [ ] 게시글·댓글·발행된 경조사·기존 부고는 작성자 연결만 제거된 익명 상태로 유지되고, 결제 기록은 사용자 연결만 제거됐는지 확인한다.
+
+카카오 연결 해제 또는 로컬 삭제가 실패한 경우, 성공으로 기록하지 않는다. 안전한 오류 안내가 표시되고 대상 계정이 남아 있는지 확인한 뒤 원인을 해결하고 처음부터 재검증한다.
+
 ## 관리자 기능 주의사항
 
 관리자 화면과 `/api/admin/*`는 서버에서도 관리자 계정을 요구한다. 실제 결제 연동 전까지 결제 기록 생성도 관리자만 수행한다.
@@ -203,6 +228,13 @@
 - [ ] 비로그인 및 일반회원 `POST /api/payments` 요청이 각각 `401`, `403`을 반환하고 기록을 생성하지 않는다.
 - [ ] 관리자가 합의된 테스트 결제 기록을 생성하면 `201`을 반환한다.
 - [ ] Replit 실행 로그에 동문 원본 행, 이름, 전화번호, 주소, 이메일, 생일, 사용자 객체가 나타나지 않는다.
+
+## Task 6 검증 상태 (2026-07-12)
+
+- [ ] 현재 HEAD의 `npm test`, `npm run check`, `npm run build`를 Replit 개발 워크스페이스에서 재실행: 대기. 이 작업 시점에는 등록된 SSH 키로 개발 워크스페이스 인증에 실패해 실행 증거를 새로 만들지 못했다.
+- [ ] `/login`, `/privacy`, `/terms`의 데스크톱·모바일 실제 브라우저 스크린샷: 대기. 현재 HEAD의 Replit 개발 동기화가 확인된 뒤 개인정보 없는 테스트 화면으로 촬영한다.
+- [ ] 실제 개발 OAuth·온보딩·탈퇴 smoke: 대기. 개발 테스트 계정 로그인 협조, 현재 개발 배포 동기화, `KAKAO_DEV_ADMIN_KEY`가 필요하다.
+- [ ] 카카오 심사용 PDF: 대기. 실제 화면 검증 후 담당자가 `docs/review-assets/`에 별도로 생성하며, 이 문서는 PDF가 존재하거나 검토됐다고 주장하지 않는다.
 
 ## 배포 전후 기술 검증
 
@@ -219,16 +251,16 @@ git diff --check
 
 이 검증만으로 경조사 통합의 UI, 파싱, 초안 복구 화면 또는 실제 데이터 마이그레이션 완료를 의미하지 않는다. 배포와 DB 변경은 검토 후 별도 게이트를 통과해야 한다.
 
-Republish 후 실행한다.
+운영 Republish 후에만 운영 URL에서 실행한다.
 
 ```bash
-curl -I https://dgkma.replit.app/
-curl -sS https://dgkma.replit.app/api/categories
-curl -i https://dgkma.replit.app/api/admin/sync-progress
-curl -i -X POST https://dgkma.replit.app/api/payments \
+curl -I https://dgkma.org/
+curl -sS https://dgkma.org/api/categories
+curl -i https://dgkma.org/api/admin/sync-progress
+curl -i -X POST https://dgkma.org/api/payments \
   -H "Content-Type: application/json" \
   -d '{"userId":1,"amount":1,"year":2026,"type":"verification","status":"pending"}'
-curl -i -X POST https://dgkma.replit.app/api/categories \
+curl -i -X POST https://dgkma.org/api/categories \
   -H "Content-Type: application/json" \
   -d '{"name":"deployment-probe","displayName":"probe"}'
 ```
