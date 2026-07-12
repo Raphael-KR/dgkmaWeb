@@ -31,6 +31,7 @@ import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
 import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
 import { toClientUser } from "./client-user";
 import {
+  KakaoAdminConfigurationError,
   resolveKakaoAdminConfig,
   type KakaoAdminConfig,
 } from "./kakao-admin-config";
@@ -304,12 +305,23 @@ export async function registerRoutes(
         ? Boolean(account.is_leap_month)
         : hasBirthday ? false : null;
 
+      const completeKakaoLogin = async (authenticatedUser: User) => {
+        req.session.userId = authenticatedUser.id;
+        try {
+          await saveSession(req);
+        } catch (error) {
+          console.error("[Kakao Auth] session save failed:", getErrorType(error));
+          return res.status(500).json({ message: "세션 저장에 실패했습니다" });
+        }
+        return res.json({ user: toClientUser(authenticatedUser) });
+      };
+
       const createPendingReview = async (
         conflictReason: PendingRegistrationConflictReason,
         message: string,
         description: string,
       ) => {
-        await kakaoAuthStorage.createOrRefreshPendingRegistration({
+        const result = await kakaoAuthStorage.createOrRefreshPendingRegistration({
           kakaoId,
           email,
           name,
@@ -325,6 +337,9 @@ export async function registerRoutes(
             conflictReason,
           },
         });
+        if (result.kind === "registered") {
+          return completeKakaoLogin(result.user);
+        }
         return res.status(202).json({ message, description, requiresApproval: true });
       };
 
@@ -425,14 +440,7 @@ export async function registerRoutes(
         return res.status(500).json({ message: "사용자 생성에 실패했습니다" });
       }
 
-      req.session.userId = user.id;
-      try {
-        await saveSession(req);
-      } catch (error) {
-        console.error("[Kakao Auth] session save failed:", getErrorType(error));
-        return res.status(500).json({ message: "세션 저장에 실패했습니다" });
-      }
-      return res.json({ user: toClientUser(user) });
+      return completeKakaoLogin(user);
     } catch (error) {
       if (error instanceof KakaoOAuthConfigurationError) {
         const { missingVariables } = error;
@@ -539,6 +547,11 @@ export async function registerRoutes(
       } catch (error) {
         if (!(error instanceof KakaoUnlinkError && error.kind === "already_unlinked")) {
           console.error("Kakao unlink blocked account deletion:", getErrorType(error));
+          if (error instanceof KakaoAdminConfigurationError) {
+            return res.status(500).json({
+              message: "회원 탈퇴 설정 오류입니다. 관리자에게 문의해주세요",
+            });
+          }
           return res.status(502).json({
             message: "카카오 연결 해제에 실패했습니다. 잠시 후 다시 시도해주세요",
           });

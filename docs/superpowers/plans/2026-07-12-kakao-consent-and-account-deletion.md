@@ -442,3 +442,33 @@ Expected: 테스트·타입 검사·빌드가 모두 통과하고 문서와 PDF�
 5. 개인정보 국외이전 등록에 필요한 실제 업체·국가·연락처 확인
 
 카카오 개인정보 동의항목 심사 제출 버튼은 이 체크포인트와 운영 화면 일치 확인 후에만 누른다.
+
+### Task 7: 최종 리뷰 경쟁 조건 및 계약 보정
+
+**Files:**
+- Modify: `server/storage.ts`
+- Modify: `server/routes.ts`
+- Modify: `shared/schema.ts`
+- Modify: `server/client-user.ts`
+- Modify: `server/kakao-oauth-routes.test.ts`
+- Modify: `server/client-user.test.ts`
+- Modify: `server/account-deletion-routes.test.ts`
+- Create: `server/pending-registration-approval-race.test.ts`
+
+**완료 조건:**
+- `createOrRefreshPendingRegistration`은 identity lock 안에서 같은 `kakaoId` 사용자를 재확인하고 `pending`/`registered` discriminated union을 반환한다.
+- 승인 완료 사용자를 찾은 OAuth 요청은 세션 저장 후 성공하며, 같은 이메일·다른 Kakao ID는 자동 로그인이나 자동 연결 없이 `email_conflict` pending을 유지한다.
+- 실제 Development Database 경쟁 테스트는 승인 사용자 한 명과 새 pending 0건을 확인하고 `finally` 정리 뒤 관련 레코드 0건을 확인한다. 운영 환경에서는 skip한다.
+- `kakaoSyncEnabled`는 DB 컬럼에만 남기고 `ClientUser`, `toClientUser`, `updateProfileSchema` 계약에서 제거한다.
+- 카카오 어드민 키 누락은 HTTP 500, 실제 unlink 실패는 HTTP 502이며 두 경우 모두 로컬 삭제를 차단한다.
+
+**검증:**
+
+```bash
+npx tsx --test server/client-user.test.ts server/account-deletion-routes.test.ts server/kakao-oauth-routes.test.ts server/pending-registration-approval-race.test.ts
+npm test
+npm run check
+npm run build
+```
+
+전체 검증은 Replit 개발 workspace와 Development Database에서 수행하며 Production Database는 사용하지 않는다.

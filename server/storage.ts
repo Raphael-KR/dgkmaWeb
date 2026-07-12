@@ -45,6 +45,10 @@ export type PendingRegistrationReviewInput = Omit<InsertPendingRegistration, "us
   userData: PendingRegistrationUserData;
 };
 
+export type CreateOrRefreshPendingRegistrationResult =
+  | { kind: "pending"; registration: PendingRegistration }
+  | { kind: "registered"; user: User };
+
 // 명부 목록 반환 상한. 현재 전체 동문이 약 3,400명이므로 단일 기수/지역 범위는 물론
 // 관리자 전체 열람도 한 번에 담을 수 있는 여유값. (통계 수치는 별도 count 로 정확히 산출)
 const DIRECTORY_LIST_LIMIT = 5000;
@@ -247,7 +251,9 @@ export interface IStorage {
   
   // Pending registration methods
   getPendingRegistrations(): Promise<PendingRegistration[]>;
-  createOrRefreshPendingRegistration(registration: PendingRegistrationReviewInput): Promise<PendingRegistration>;
+  createOrRefreshPendingRegistration(
+    registration: PendingRegistrationReviewInput,
+  ): Promise<CreateOrRefreshPendingRegistrationResult>;
   updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined>;
 
   // Obituary methods
@@ -745,13 +751,20 @@ export class DatabaseStorage implements IStorage {
 
   async createOrRefreshPendingRegistration(
     insertRegistration: PendingRegistrationReviewInput,
-  ): Promise<PendingRegistration> {
+  ): Promise<CreateOrRefreshPendingRegistrationResult> {
     return db.transaction(async (tx) => {
       await lockRegistrationIdentities(
         tx,
         insertRegistration.kakaoId,
         insertRegistration.email,
       );
+
+      const [registeredUser] = await tx.select().from(users)
+        .where(eq(users.kakaoId, insertRegistration.kakaoId))
+        .limit(1);
+      if (registeredUser) {
+        return { kind: "registered", user: registeredUser };
+      }
 
       const matches = await tx.select().from(pendingRegistrations)
         .where(and(
@@ -778,13 +791,13 @@ export class DatabaseStorage implements IStorage {
           })
           .where(eq(pendingRegistrations.id, existing.id))
           .returning();
-        return refreshed;
+        return { kind: "pending", registration: refreshed };
       }
 
       const [created] = await tx.insert(pendingRegistrations)
         .values({ ...insertRegistration, status: "pending" })
         .returning();
-      return created;
+      return { kind: "pending", registration: created };
     });
   }
 

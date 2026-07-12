@@ -180,30 +180,43 @@ test("accounts without a Kakao id skip unlink and allow local deletion", async (
   }
 });
 
-for (const [name, unlinkError] of [
-  ["Kakao unlink errors", new KakaoUnlinkError("network_error")],
-  ["Kakao admin configuration errors", new KakaoAdminConfigurationError(["KAKAO_DEV_ADMIN_KEY"])],
-] as const) {
-  test(`${name} prevent local deletion and return a safe message`, async () => {
-    const { calls, dependencies } = deletionDependencies(
-      unlinkError instanceof KakaoUnlinkError
-        ? { unlinkKakaoUser: async () => { throw unlinkError; } }
-        : { getKakaoAdminConfig: () => { throw unlinkError; } },
-    );
-    const server = await startServer(dependencies);
-    try {
-      const cookie = await createSession(server);
-      const response = await deleteAccount(server, { confirmation: "탈퇴" }, cookie);
-      assert.equal(response.status, 502);
-      assert.deepEqual(await response.json(), {
-        message: "카카오 연결 해제에 실패했습니다. 잠시 후 다시 시도해주세요",
-      });
-      assert.equal(calls.deletedUsers.length, 0);
-    } finally {
-      await server.close();
-    }
+test("Kakao unlink failures return 502 and prevent local deletion", async () => {
+  const { calls, dependencies } = deletionDependencies({
+    unlinkKakaoUser: async () => { throw new KakaoUnlinkError("network_error"); },
   });
-}
+  const server = await startServer(dependencies);
+  try {
+    const cookie = await createSession(server);
+    const response = await deleteAccount(server, { confirmation: "탈퇴" }, cookie);
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), {
+      message: "카카오 연결 해제에 실패했습니다. 잠시 후 다시 시도해주세요",
+    });
+    assert.equal(calls.deletedUsers.length, 0);
+  } finally {
+    await server.close();
+  }
+});
+
+test("missing Kakao admin configuration returns 500 and prevents local deletion", async () => {
+  const { calls, dependencies } = deletionDependencies({
+    getKakaoAdminConfig: () => {
+      throw new KakaoAdminConfigurationError(["KAKAO_DEV_ADMIN_KEY"]);
+    },
+  });
+  const server = await startServer(dependencies);
+  try {
+    const cookie = await createSession(server);
+    const response = await deleteAccount(server, { confirmation: "탈퇴" }, cookie);
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), {
+      message: "회원 탈퇴 설정 오류입니다. 관리자에게 문의해주세요",
+    });
+    assert.equal(calls.deletedUsers.length, 0);
+  } finally {
+    await server.close();
+  }
+});
 
 test("local deletion failures keep the session and return a safe message", async () => {
   const { dependencies } = deletionDependencies({

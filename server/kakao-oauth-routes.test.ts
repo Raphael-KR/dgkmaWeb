@@ -88,10 +88,13 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
     updateUser: async () => createdUser,
     claimAlumniRecord: async () => undefined,
     createOrRefreshPendingRegistration: async (registration: any) => ({
-      id: 1,
-      ...registration,
-      status: "pending",
-      createdAt: new Date(),
+      kind: "pending" as const,
+      registration: {
+        id: 1,
+        ...registration,
+        status: "pending",
+        createdAt: new Date(),
+      },
     }),
     ...overrides,
   } as any;
@@ -416,7 +419,6 @@ test("authorization completes member update and session save without returning K
       graduationYear: 2004,
       isVerified: true,
       isAdmin: false,
-      kakaoSyncEnabled: true,
       profileImage: "https://cdn.example.com/profile.jpg",
       phoneNumber: "+82 10-1234-5678",
       birthday: "0101",
@@ -557,7 +559,10 @@ test("same email with a different or missing Kakao ID never auto-links and creat
       },
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
-        return { id: 1, ...registration, status: "pending", createdAt: new Date() };
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
       },
     }),
   });
@@ -573,6 +578,44 @@ test("same email with a different or missing Kakao ID never auto-links and creat
   }
 });
 
+test("pending refresh that finds an approved Kakao member logs that member in", async () => {
+  const approvedUser = {
+    ...createdUser,
+    id: 73,
+    activityRegion: "서울특별시",
+  };
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: kakaoAuthStorageDouble({
+      getUser: async (id: number) => id === approvedUser.id ? approvedUser : undefined,
+      createOrRefreshPendingRegistration: async () => ({
+        kind: "registered" as const,
+        user: approvedUser,
+      }),
+    }),
+  });
+  try {
+    const authorization = await beginKakaoAuthorization(server.baseUrl);
+    const response = await postKakaoAuthorize(
+      server.baseUrl,
+      { code: "test-code" },
+      authorization,
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).user.id, approvedUser.id);
+
+    const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie: authorization.cookie },
+    });
+    assert.equal(meResponse.status, 200);
+    assert.equal((await meResponse.json()).user.id, approvedUser.id);
+  } finally {
+    await server.close();
+  }
+});
+
 test("missing alumni match creates or refreshes pending review with not_found", async () => {
   let pendingUserData: Record<string, unknown> | undefined;
   const server = await startServer({
@@ -581,7 +624,10 @@ test("missing alumni match creates or refreshes pending review with not_found", 
     kakaoAuthStorage: kakaoAuthStorageDouble({
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
-        return { id: 1, ...registration, status: "pending", createdAt: new Date() };
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
       },
     }),
   });
@@ -604,7 +650,10 @@ test("alumni claim race creates or refreshes pending review with alumni_race", a
       createUserWithAlumniClaim: async () => undefined,
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
-        return { id: 1, ...registration, status: "pending", createdAt: new Date() };
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
       },
     }),
   });
@@ -648,7 +697,10 @@ test("normalized phone duplicate creates or refreshes one pending review without
       claimAlumniRecord: async () => alumniRecord,
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
-        return { id: 1, ...registration, status: "pending", createdAt: new Date() };
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
       },
     },
   };
@@ -690,7 +742,10 @@ test("already claimed alumni record requires approval without creating a member"
       claimAlumniRecord: async () => undefined,
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
-        return { id: 1, ...registration, status: "pending", createdAt: new Date() };
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
       },
     },
   };
@@ -764,7 +819,10 @@ test("transactional phone race creates or refreshes a pending review", async () 
       claimAlumniRecord: async () => undefined,
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
-        return { id: 1, ...registration, status: "pending", createdAt: new Date() };
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
       },
     },
   };

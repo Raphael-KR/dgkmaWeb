@@ -8,7 +8,6 @@ export function toClientUser(user: User): ClientUser {
     graduationYear: user.graduationYear,
     isVerified: user.isVerified,
     isAdmin: user.isAdmin,
-    kakaoSyncEnabled: user.kakaoSyncEnabled,
     profileImage: user.profileImage,
     phoneNumber: user.phoneNumber,
     birthday: user.birthday,
