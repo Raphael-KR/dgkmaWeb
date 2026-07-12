@@ -10,8 +10,24 @@ Write logs and user-facing feedback in Korean.
 Use concise, everyday language for user communication.
 ## Environment rules
 This repository is primarily developed and deployed on Replit.
+Development homepage:
+```text
+https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev
+```
+Production homepage:
+```text
+https://dgkma.org
+```
+Use the Replit development homepage as the default browser target during implementation and iterative verification. Do not require a Republish just to inspect an in-progress change.
+Use the production homepage only for post-Republish smoke checks and production-specific verification.
+Codex may use the configured Replit SSH connection to update and validate the development workspace and Development Database. Replit SSH does not connect to the Production Database or an autoscale production instance.
+When the temporary Replit Secret `PROD_DATABASE_URL` exists, SSH processes can connect directly to the Production Database. Follow `docs/database-operations.md` for every direct database operation.
+Keep Development Database as the default. Replit `PG*` variables take precedence over `DATABASE_URL` in `server/db.ts`; never unset them for normal development, app execution, or tests.
+Select Production Database only with an explicit production command. Verify `current_database()` and pre-change counts first, use a transaction where practical, then verify through a new connection.
+Treat owner-level `PROD_DATABASE_URL` as temporary and remove it after the approved production work. Prefer `PROD_DATABASE_READONLY_URL` for recurring production inspection.
+Never store either production URL in a local Mac `.env`, repository file, document, shell history, or chat.
 Do not assume local Mac npm scripts are reliable. Local `node_modules`, `tsc`, build tools, or dev dependencies may be missing or stale.
-When validation is needed, ask the user to run commands in Replit Shell unless the user explicitly asks you to run them elsewhere.
+When validation is needed, run it in the Replit development workspace through SSH when available. Ask the user to run commands only when Codex cannot access the required Replit surface.
 Preferred validation commands:
 ```bash
 npm run check
@@ -26,6 +42,12 @@ Make small, task-focused edits.
 Do not run codebase graph or indexing tools unless explicitly requested.
 Do not clean, rename, normalize, or delete files in `attached_assets/` unless explicitly instructed.
 Do not reintroduce Supabase client login unless explicitly requested.
+## Pre-launch data reset policy
+This project is still under development and has not formally opened.
+Until the user explicitly states that existing data must be preserved, records in both the Development Database and Production Database are disposable test data. Codex may delete or reset those records when development requires it without requesting repeated approval.
+Before resetting data, identify affected tables and foreign-key dependencies, use a transaction where practical, and verify counts afterward.
+This standing authorization does not include dropping schemas or tables, deleting Replit Secrets, rewriting Git history, deleting Object Storage files, or deleting local user files.
+Once the user declares that data must be preserved, stop treating existing records as disposable.
 ## Kakao login rules
 The current Kakao Login flow uses REST authorize URL navigation.
 Client-side authorize uses `VITE_KAKAO_REST_API_KEY` and `VITE_KAKAO_REDIRECT_URI`.
