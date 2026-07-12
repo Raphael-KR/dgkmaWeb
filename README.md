@@ -4,7 +4,8 @@
 
 ## 운영 주소
 
-- 프로덕션: [https://dgkma.replit.app](https://dgkma.replit.app)
+- 개발 서버: [https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev](https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev)
+- 프로덕션: [https://dgkma.org](https://dgkma.org)
 - 소스 저장소: [Raphael-KR/dgkmaWeb](https://github.com/Raphael-KR/dgkmaWeb)
 
 ## 기술 구성
@@ -27,11 +28,12 @@ GitHub main
   -> Replit 개발 워크스페이스 pull
   -> npm run check
   -> npm run build
+  -> 개발 서버에서 화면·기능 확인
   -> Replit Republish
-  -> 프로덕션 기능 점검
+  -> dgkma.org 프로덕션 기능 점검
 ```
 
-Replit 개발 DB와 프로덕션 DB는 분리되어 있습니다. 스키마와 운영 데이터 변경은 환경별로 적용하고 결과를 각각 확인해야 합니다. 상세 절차는 [replit.md](./replit.md)를 따릅니다.
+개발 중에는 Replit 개발 서버에서 반복 확인하며, 단순 확인을 위해 Republish하지 않습니다. Replit 개발 DB와 프로덕션 DB는 분리되어 있으므로 스키마와 운영 데이터 변경은 환경별로 적용하고 결과를 각각 확인해야 합니다. 상세 절차는 [replit.md](./replit.md)를 따릅니다.
 
 ## 개발 운영 문서
 
@@ -41,6 +43,7 @@ Replit 개발 DB와 프로덕션 DB는 분리되어 있습니다. 스키마와 �
 | [roadmap.md](./roadmap.md) | 개발 우선순위, 상태, 완료 조건, 선행 조건 |
 | [walkthrough.md](./walkthrough.md) | 현재 프로덕션 기능의 수동 회귀 테스트 |
 | [replit.md](./replit.md) | Replit 개발·배포·환경변수·DB 운영 절차 |
+| [docs/database-operations.md](./docs/database-operations.md) | 개발·운영 DB 선택, SSH 직접 연결, 변경·검증·Secret 수명 관리 |
 | [CHANGELOG.md](./CHANGELOG.md) | 버전별 추가·변경·보안 이력 |
 | [AGENTS.md](./AGENTS.md) | Codex가 이 저장소에서 따르는 작업 규칙 |
 | [docs/obituary-writing-guide.md](./docs/obituary-writing-guide.md) | 부고 필수 정보, 표준 게시문, 초안·검증 규칙 |

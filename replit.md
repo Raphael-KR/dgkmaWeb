@@ -4,17 +4,27 @@
 
 ## 환경 구분
 
-| 환경 | 역할 | 코드 반영 | 데이터베이스 |
-|---|---|---|---|
-| 로컬 Mac | Git 작업과 코드 편집 | GitHub와 pull/push | 운영 DB 작업에 사용하지 않음 |
-| Replit 개발 워크스페이스 | 개발 서버와 검증 | GitHub `main`을 pull | Development Database |
-| Replit 프로덕션 배포 | 공개 서비스 | Deployments에서 Republish | Production Database |
-| 프로덕션 SQL 콘솔 | 운영 데이터·스키마 확인 | 해당 없음 | Production Database에 직접 연결 |
+| 환경 | 역할 | 홈페이지 | 코드 반영 | 데이터베이스 |
+|---|---|---|---|---|
+| 로컬 Mac | Git 작업과 코드 편집 | 해당 없음 | GitHub와 pull/push | 운영 DB 작업에 사용하지 않음 |
+| Replit 개발 워크스페이스 | 개발 서버와 반복 검증 | `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev` | GitHub `main`을 pull | Development Database |
+| Replit 프로덕션 배포 | 공개 서비스 | `https://dgkma.org` | Deployments에서 Republish | Production Database |
+| 프로덕션 SQL 콘솔 | 운영 데이터·스키마 확인 | 해당 없음 | 해당 없음 | Production Database에 직접 연결 |
 
-- 공개 서비스: `https://dgkma.replit.app`
+- 개발 홈페이지: `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`
+- 운영 홈페이지: `https://dgkma.org`
+- 보조 접근 도메인 `https://dgkma.replit.app`은 공개 홈페이지 주소와 구분하며, 카카오 OAuth callback·redirect 설정에는 사용하지 않습니다.
 - Replit SSH는 `/home/runner/workspace` 개발 워크스페이스 접속입니다.
 - SSH로 접속한 셸은 autoscale 프로덕션 인스턴스의 셸이 아닙니다.
+- SSH 프로세스는 Replit Secret의 임시 `PROD_DATABASE_URL`을 명시적으로 선택할 때 Production Database에 직접 연결할 수 있습니다.
 - 개발 DB에 적용한 SQL과 seed는 프로덕션 DB에 자동 반영되지 않습니다.
+- 개발·운영 DB 직접 연결과 안전한 변경 절차는 [데이터베이스 운영 런북](./docs/database-operations.md)을 따릅니다.
+
+### 개발 중 확인 원칙
+
+구현 중에는 Replit 개발 워크스페이스에 코드를 반영하고 개발 서버를 실행한 뒤 개발 홈페이지에서 바로 확인합니다. 단순 화면·기능 확인을 위해 Republish하지 않습니다.
+
+Republish는 배포할 코드와 Production Database 준비가 끝난 뒤 수행합니다. Republish 후에만 운영 홈페이지에서 smoke check와 실제 운영 환경 검증을 진행합니다.
 
 ## GitHub 동기화
 
@@ -45,15 +55,15 @@ Replit 개발 워크스페이스도 같은 방식으로 GitHub 커밋을 가져�
 
 - `DATABASE_URL`
 - `SESSION_SECRET`
-- `KAKAO_REST_API_KEY`
-- `KAKAO_CLIENT_SECRET`
-- `KAKAO_REDIRECT_URI`
+- `KAKAO_DEV_REST_API_KEY`
+- `KAKAO_DEV_CLIENT_SECRET`
+- `KAKAO_DEV_REDIRECT_URI`
+- `KAKAO_PROD_REST_API_KEY`
+- `KAKAO_PROD_CLIENT_SECRET`
+- `KAKAO_PROD_REDIRECT_URI`
 - `PRIVATE_OBJECT_DIR`
 
-### 필수 클라이언트 설정
-
-- `VITE_KAKAO_REST_API_KEY`
-- `VITE_KAKAO_REDIRECT_URI`
+Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REPLIT_DEPLOYMENT="1"`이면 프로덕션 설정을 선택하고, 그 외 모든 값이면 개발 설정을 선택합니다. Secret 값 자체는 이 문서에 기록하지 않습니다.
 
 ### 현재 동문 명부 연동
 
@@ -61,7 +71,7 @@ Replit 개발 워크스페이스도 같은 방식으로 GitHub 커밋을 가져�
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-Google Sheets는 현재 신규 가입 매칭과 관리자 동기화에 사용됩니다. PostgreSQL을 기준 명부로 일원화한 뒤에는 명시적인 import 용도로 축소할 계획입니다.
+Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 로그인 매칭 코드는 PostgreSQL 기준으로 전환할 때까지 아직 Google Sheets 런타임 조회를 사용합니다. 전환 완료 후 Google Sheets와 관련 Secrets는 운영 의존성에서 제거합니다.
 
 ### 선택 운영 설정
 
@@ -70,19 +80,37 @@ Google Sheets는 현재 신규 가입 매칭과 관리자 동기화에 사용됩
 - `PUBLIC_OBJECT_SEARCH_PATHS`
 - `VITE_KAKAO_CHANNEL_URL`
 
+쓰기 권한이 있는 `PROD_DATABASE_URL`은 상시 설정이 아니라 명시적인 운영 변경 기간에만 두는 임시 Secret입니다. 반복적인 운영 조회가 필요하면 별도 읽기 전용 역할의 `PROD_DATABASE_READONLY_URL`을 사용합니다.
+
 `DEBUG_KAKAO_AUTH`를 활성화해도 전체 키, 토큰, 인가 코드, 개인 정보를 로그에 남기지 않습니다.
 
 ## 카카오 로그인
 
 현재 로그인은 카카오 REST authorize URL을 사용하며 브라우저 SDK 기반 로그인은 사용하지 않습니다.
 
-- 클라이언트 인가: `VITE_KAKAO_REST_API_KEY`, `VITE_KAKAO_REDIRECT_URI`
-- 서버 토큰 교환: `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`
-- 프로덕션 redirect URI: `https://dgkma.replit.app/kakao-callback`
+- 브라우저 로그인 시작: `/api/auth/kakao/start`
+- 서버가 선택하는 개발 설정: `KAKAO_DEV_REST_API_KEY`, `KAKAO_DEV_CLIENT_SECRET`, `KAKAO_DEV_REDIRECT_URI`
+- 서버가 선택하는 프로덕션 설정: `KAKAO_PROD_REST_API_KEY`, `KAKAO_PROD_CLIENT_SECRET`, `KAKAO_PROD_REDIRECT_URI`
+- 개발 callback: `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`
+- 프로덕션 callback: `https://dgkma.org/kakao-callback`
 
-클라이언트 인가 단계와 서버 토큰 교환 단계의 redirect URI는 문자열까지 정확히 같아야 합니다.
+브라우저는 Kakao Secret이나 redirect URI를 선택하지 않습니다. 서버만 `REPLIT_DEPLOYMENT` 값에 따라 REST API key, client secret, redirect URI를 선택하며, 선택된 callback은 해당 환경의 Kakao 설정과 문자열까지 정확히 같아야 합니다.
+
+기존 일반 Kakao Secret 5개는 deprecated 상태입니다. 개발과 프로덕션 smoke check가 모두 통과한 뒤에만 제거합니다.
+
+서버의 authorization request와 token exchange는 `REPLIT_DEPLOYMENT`로 선택한 동일한 환경 config의 REST API key와 redirect URI를 사용해야 합니다.
 
 ## 데이터베이스 운영
+
+상세 SSH 명령, `PG*` 우선순위, 개발·운영 DB 선택법, 변경 전후 검증과 Secret 제거 절차는 [데이터베이스 운영 런북](./docs/database-operations.md)을 기준으로 합니다.
+
+### 정식 오픈 전 데이터 정책
+
+현재 서비스는 정식 오픈 전 개발 단계입니다. 사용자가 데이터 보존을 별도로 선언하기 전까지 Development Database와 Production Database의 애플리케이션 레코드는 테스트 데이터로 간주하며, 개발에 필요한 경우 반복 승인 없이 초기화할 수 있습니다.
+
+초기화 전에는 대상 테이블과 외래키 의존 순서를 확인하고, 가능한 경우 트랜잭션으로 실행한 뒤 테이블별 건수를 다시 확인합니다. 이 정책은 스키마·테이블 삭제, Replit Secrets 삭제, Git 이력 변경, Object Storage 파일 삭제를 자동 승인하지 않습니다.
+
+사용자가 기존 데이터 보존을 선언하는 즉시 그 결정이 이 정책보다 우선합니다.
 
 ### 스키마 변경
 
@@ -99,7 +127,7 @@ npm run db:push
 카테고리 같은 운영 데이터 seed는 스키마 변경과 분리합니다. Development Database에서 검증한 SQL을 Production SQL 콘솔에서 다시 실행하고, 프로덕션 API로 결과를 확인합니다.
 
 ```bash
-curl -sS https://dgkma.replit.app/api/categories
+curl -sS https://dgkma.org/api/categories
 ```
 
 운영 DB 접속 문자열은 셸 기록, Git, 채팅 로그에 남기지 않습니다.
@@ -116,6 +144,8 @@ npm run build
 기대 결과는 두 명령 모두 종료 코드 `0`입니다. Browserslist 데이터 또는 번들 크기 경고는 빌드 실패와 구분해 기록합니다.
 
 데이터베이스 스키마가 바뀐 작업은 필요한 테이블과 컬럼을 Development Database에서 별도로 확인합니다.
+
+화면과 사용자 흐름은 Republish 전에 개발 홈페이지에서 먼저 확인합니다. 개발 검증이 끝난 변경만 배포 절차로 넘깁니다.
 
 ## 배포
 
@@ -134,8 +164,8 @@ npm run build
 기본 배포 점검:
 
 ```bash
-curl -I https://dgkma.replit.app/
-curl -sS https://dgkma.replit.app/api/categories
+curl -I https://dgkma.org/
+curl -sS https://dgkma.org/api/categories
 ```
 
 인증이 필요한 API는 비로그인 요청에서 `401`이 나오는지 먼저 확인한 뒤 실제 계정으로 성공 흐름을 검증합니다.
