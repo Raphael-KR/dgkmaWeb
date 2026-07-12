@@ -55,13 +55,13 @@ export function resolveKakaoOAuthConfig(
   return Object.freeze({ environment, ...values });
 }
 
-export function buildKakaoAuthorizeUrl(config: KakaoOAuthConfig): string {
+export function buildKakaoAuthorizeUrl(config: KakaoOAuthConfig, state: string): string {
   const params = new URLSearchParams({
     client_id: config.restApiKey,
     redirect_uri: config.redirectUri,
     response_type: "code",
     scope: KAKAO_SCOPE,
-    state: "kakao_login",
+    state,
   });
   return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 }

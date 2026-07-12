@@ -303,7 +303,6 @@ export default function Profile() {
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        user={user}
         onDeleteAccount={openDeleteAccount}
       />
       <DeleteAccountDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />

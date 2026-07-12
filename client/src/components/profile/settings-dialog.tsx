@@ -1,5 +1,4 @@
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -8,44 +7,19 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { FileText, Shield, Wallet, ChevronRight, UserRoundX } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import type { ClientUser } from "@shared/schema";
 
-// 가벼운 설정 항목: 카카오 알림 연동 토글 + 약관/회비 안내 바로가기.
 export function SettingsDialog({
   open,
   onOpenChange,
-  user,
   onDeleteAccount,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  user: ClientUser;
   onDeleteAccount: () => void;
 }) {
-  const { setUser } = useAuth();
-  const { toast } = useToast();
   const [, setLocation] = useLocation();
-
-  const mutation = useMutation({
-    mutationFn: async (kakaoSyncEnabled: boolean) => {
-      const res = await apiRequest("PATCH", "/api/users/me", { kakaoSyncEnabled });
-      const data = await res.json();
-      return data.user as ClientUser;
-    },
-    onSuccess: (updated) => {
-      setUser(updated);
-      toast({ title: "설정이 저장되었습니다" });
-    },
-    onError: () => {
-      toast({ title: "저장 실패", description: "다시 시도해주세요.", variant: "destructive" });
-    },
-  });
 
   const go = (path: string) => {
     onOpenChange(false);
@@ -57,27 +31,10 @@ export function SettingsDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>설정</DialogTitle>
-          <DialogDescription>알림과 안내 항목을 관리합니다.</DialogDescription>
+          <DialogDescription>서비스 안내와 계정을 관리합니다.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-1">
-          <div className="flex items-center justify-between py-3">
-            <div className="pr-4">
-              <p className="font-medium text-gray-800">카카오 알림 연동</p>
-              <p className="text-xs text-gray-500">
-                동문회 소식·경조사 안내를 카카오로 받아봅니다.
-              </p>
-            </div>
-            <Switch
-              checked={!!user.kakaoSyncEnabled}
-              onCheckedChange={(v) => mutation.mutate(v)}
-              disabled={mutation.isPending}
-              data-testid="switch-kakao-sync"
-            />
-          </div>
-
-          <Separator />
-
           <Button
             variant="ghost"
             className="w-full justify-between"

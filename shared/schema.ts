@@ -4,6 +4,29 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { CommunityEventDetails } from "@shared/community-events";
 
+export const PENDING_REGISTRATION_CONFLICT_REASONS = [
+  "email_conflict",
+  "phone_conflict",
+  "alumni_claimed",
+  "alumni_race",
+  "not_found",
+] as const;
+
+export type PendingRegistrationConflictReason =
+  typeof PENDING_REGISTRATION_CONFLICT_REASONS[number];
+
+export type PendingRegistrationUserData = {
+  kakaoId: string;
+  email: string;
+  name: string;
+  phoneNumber: string;
+  profileImage: string | null;
+  birthday: string | null;
+  birthdayType: "SOLAR" | "LUNAR" | null;
+  isLeapMonth: boolean | null;
+  conflictReason: PendingRegistrationConflictReason;
+};
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   kakaoId: text("kakao_id").unique(),
@@ -125,7 +148,7 @@ export const pendingRegistrations = pgTable("pending_registrations", {
   kakaoId: text("kakao_id").notNull(),
   email: text("email").notNull(),
   name: text("name").notNull(),
-  userData: jsonb("user_data"),
+  userData: jsonb("user_data").$type<PendingRegistrationUserData>(),
   status: text("status").default("pending"), // pending, approved, rejected
   createdAt: timestamp("created_at").defaultNow(),
 });

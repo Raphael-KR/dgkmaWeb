@@ -54,8 +54,7 @@ test("Kakao callback handles every explicit login result without remaining on th
 
   assert.match(profileEdit, /import \{ REGION_OPTIONS, type ClientUser \} from "@shared\/schema"/);
   assert.doesNotMatch(profileEdit, /type User/);
-  assert.match(settings, /import type \{ ClientUser \} from "@shared\/schema"/);
-  assert.doesNotMatch(settings, /type User/);
+  assert.doesNotMatch(settings, /ClientUser|kakaoSyncEnabled/);
 });
 
 test("member withdrawal uses a separate destructive confirmation dialog and clears client auth state", async () => {
@@ -82,6 +81,27 @@ test("member withdrawal uses a separate destructive confirmation dialog and clea
   assert.match(deletion, /queryClient\.clear\(\)/);
   assert.match(deletion, /setLocation\("\/"\)/);
   assert.match(deletion, /variant: "destructive"/);
+  assert.match(deletion, /회원 개인정보를 삭제/);
+  assert.match(deletion, /미발행 초안/);
+  assert.match(deletion, /게시글/);
+  assert.match(deletion, /댓글/);
+  assert.match(deletion, /발행된 경조사/);
+  assert.match(deletion, /결제 기록/);
+  assert.match(deletion, /익명으로 보존/);
 
   assert.match(auth, /setUser: \(user: ClientUser \| null\) => void/);
+});
+
+test("settings and terms do not claim an unimplemented Kakao notification service", async () => {
+  const [settings, terms] = await Promise.all([
+    source("components/profile/settings-dialog.tsx"),
+    source("pages/terms.tsx"),
+  ]);
+
+  assert.doesNotMatch(settings, /카카오 알림 연동|switch-kakao-sync|kakaoSyncEnabled/);
+  assert.doesNotMatch(settings, /동문회 소식·경조사 안내를 카카오로/);
+  assert.doesNotMatch(await source("hooks/use-auth.tsx"), /카카오톡으로 결과/);
+  assert.doesNotMatch(terms, /카카오톡을 통한 알림 서비스|동문회 소식 및 행사 알림|회비 납부 안내/);
+  assert.match(terms, /카카오 계정을 통한 로그인/);
+  assert.match(terms, /카카오 로그인 서비스/);
 });

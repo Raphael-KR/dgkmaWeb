@@ -119,3 +119,46 @@ test("admin approval delegates atomically and never calls createUser separately"
   assert.match(approvalRoute, /PhoneRegistrationConflictError/);
   assert.match(approvalRoute, /res\.status\(409\)/);
 });
+
+test("pending registration retries use identity advisory locks and refresh one pending row", async () => {
+  const storageSource = await readFile(storagePath, "utf8");
+  const identityLock = storageSource.slice(
+    storageSource.indexOf("async function lockRegistrationIdentities("),
+    storageSource.indexOf("function parsePendingUserData("),
+  );
+  const pendingMethod = storageSource.slice(
+    storageSource.indexOf("async createOrRefreshPendingRegistration("),
+    storageSource.indexOf("async updatePendingRegistrationStatus("),
+  );
+
+  assert.match(storageSource, /createOrRefreshPendingRegistration/);
+  assert.match(pendingMethod, /db\.transaction/);
+  assert.match(identityLock, /pg_advisory_xact_lock/);
+  assert.match(pendingMethod, /lockRegistrationIdentities/);
+  assert.match(pendingMethod, /pendingRegistrations\.kakaoId/);
+  assert.match(pendingMethod, /pendingRegistrations\.email/);
+  assert.match(pendingMethod, /tx\.update\(pendingRegistrations\)/);
+  assert.match(pendingMethod, /tx\.insert\(pendingRegistrations\)/);
+});
+
+test("admin approval rechecks identity and alumni ownership before creating a member", async () => {
+  const storageSource = await readFile(storagePath, "utf8");
+  const approvalMethod = storageSource.slice(
+    storageSource.indexOf("async updatePendingRegistrationStatus("),
+    storageSource.indexOf("async searchPosts("),
+  );
+  const routesSource = await readFile(routesPath, "utf8");
+  const approvalRoute = routesSource.slice(
+    routesSource.indexOf('app.patch("/api/admin/pending-registrations/:id"'),
+    routesSource.indexOf("// Google Sheets 동기화 API"),
+  );
+
+  assert.match(approvalMethod, /pendingRegistrations\.status, "pending"/);
+  assert.match(approvalMethod, /users\.kakaoId/);
+  assert.match(approvalMethod, /users\.email/);
+  assert.match(approvalMethod, /alumniDatabase\.matchedUserId/);
+  assert.match(approvalMethod, /isNull\(alumniDatabase\.matchedUserId\)/);
+  assert.match(approvalMethod, /PendingRegistrationConflictError/);
+  assert.match(approvalRoute, /PendingRegistrationConflictError/);
+  assert.match(approvalRoute, /res\.status\(409\)/);
+});

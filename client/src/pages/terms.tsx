@@ -51,7 +51,7 @@ export default function Terms() {
               <div className="space-y-2 text-gray-700">
                 <p>① "서비스"란 동문회가 제공하는 동문 네트워킹, 정보 공유, 회비 관리 등의 온라인 서비스를 의미합니다.</p>
                 <p>② "이용자"란 본 약관에 따라 서비스를 이용하는 동국대학교 한의과대학 졸업생을 의미합니다.</p>
-                <p>③ "카카오톡 연동"이란 카카오 계정을 통한 로그인 및 알림 서비스를 의미합니다.</p>
+                <p>③ "카카오 로그인"이란 카카오 계정을 통한 로그인 기능을 의미합니다.</p>
               </div>
             </section>
 
@@ -75,7 +75,6 @@ export default function Terms() {
                   <li>동문회 행사 안내 및 참여</li>
                   <li>회비 납부 및 관리</li>
                   <li>동문 네트워킹 및 연락처 서비스</li>
-                  <li>카카오톡을 통한 알림 서비스</li>
                 </ul>
                 <p>② 서비스는 연중무휴, 1일 24시간 제공함을 원칙으로 합니다.</p>
               </div>
@@ -108,18 +107,13 @@ export default function Terms() {
               </div>
             </section>
 
-            {/* 제7조 카카오톡 연동 서비스 */}
+            {/* 제7조 카카오 로그인 서비스 */}
             <section>
-              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제7조 (카카오톡 연동 서비스)</h3>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제7조 (카카오 로그인 서비스)</h3>
               <div className="space-y-2 text-gray-700">
-                <p>① 카카오톡 연동을 통해 다음 서비스를 제공합니다:</p>
-                <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>카카오 로그인 서비스</li>
-                  <li>동문회 소식 및 행사 알림</li>
-                  <li>회비 납부 안내</li>
-                </ul>
-                <p>② 카카오톡 연동은 이용자의 동의하에 이루어지며, 언제든지 연동을 해제할 수 있습니다.</p>
-                <p>③ 카카오톡 관련 서비스는 카카오의 서비스 정책에 따라 제한될 수 있습니다.</p>
+                <p>① 서비스는 카카오 계정을 통한 카카오 로그인 서비스를 제공합니다.</p>
+                <p>② 카카오 로그인은 이용자의 동의하에 이루어지며, 회원 탈퇴 시 앱과 카카오 계정의 연결을 해제합니다.</p>
+                <p>③ 카카오 로그인은 카카오의 서비스 정책에 따라 제한될 수 있습니다.</p>
               </div>
             </section>
 

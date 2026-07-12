@@ -4,7 +4,8 @@ import {
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
   type Obituary, type InsertObituary, type MembershipStatus, type Comment, ANNUAL_DUES,
-  type CommunityEvent
+  type CommunityEvent, type PendingRegistrationUserData,
+  PENDING_REGISTRATION_CONFLICT_REASONS,
 } from "@shared/schema";
 import type {
   CommunityEventDraftInput,
@@ -12,7 +13,7 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, inArray, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
@@ -40,6 +41,10 @@ export type DirectoryResult = {
   scope: { generation: string | null; region: string | null };
 };
 
+export type PendingRegistrationReviewInput = Omit<InsertPendingRegistration, "userData"> & {
+  userData: PendingRegistrationUserData;
+};
+
 // 명부 목록 반환 상한. 현재 전체 동문이 약 3,400명이므로 단일 기수/지역 범위는 물론
 // 관리자 전체 열람도 한 번에 담을 수 있는 여유값. (통계 수치는 별도 count 로 정확히 산출)
 const DIRECTORY_LIST_LIMIT = 5000;
@@ -65,6 +70,13 @@ export class PhoneRegistrationConflictError extends Error {
   }
 }
 
+export class PendingRegistrationConflictError extends Error {
+  constructor() {
+    super("The pending registration conflict is not resolved.");
+    this.name = "PendingRegistrationConflictError";
+  }
+}
+
 function normalizedPhoneSql(phoneColumn: AnyColumn | SQL): SQL<string> {
   const digits = sql`regexp_replace(coalesce(${phoneColumn}, ''), '[^0-9]', '', 'g')`;
   return sql<string>`
@@ -77,6 +89,58 @@ function normalizedPhoneSql(phoneColumn: AnyColumn | SQL): SQL<string> {
 }
 
 type RegistrationTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function lockRegistrationIdentities(
+  tx: RegistrationTransaction,
+  kakaoId: string,
+  email: string,
+): Promise<void> {
+  const lockKeys = [
+    kakaoId ? `kakao:${kakaoId}` : "",
+    email ? `email:${email.trim().toLowerCase()}` : "",
+  ].filter(Boolean).sort();
+
+  for (const lockKey of lockKeys) {
+    await tx.execute(sql`
+      select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    `);
+  }
+}
+
+function parsePendingUserData(
+  registration: PendingRegistration,
+): PendingRegistrationUserData | undefined {
+  const raw = registration.userData as unknown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const data = raw as Record<string, unknown>;
+  const kakaoId = typeof data.kakaoId === "string" ? data.kakaoId : registration.kakaoId;
+  const email = typeof data.email === "string" ? data.email : registration.email;
+  const name = typeof data.name === "string" ? data.name : registration.name;
+  const phoneNumber = typeof data.phoneNumber === "string" ? data.phoneNumber : "";
+  if (
+    data.conflictReason !== undefined
+    && (
+      typeof data.conflictReason !== "string"
+      || !PENDING_REGISTRATION_CONFLICT_REASONS.includes(data.conflictReason as any)
+    )
+  ) return undefined;
+  const conflictReason = (data.conflictReason ?? "not_found") as PendingRegistrationUserData["conflictReason"];
+  if (!kakaoId || !email || !name || !phoneNumber) return undefined;
+
+  return {
+    kakaoId,
+    email,
+    name,
+    phoneNumber,
+    profileImage: typeof data.profileImage === "string" ? data.profileImage : null,
+    birthday: typeof data.birthday === "string" ? data.birthday : null,
+    birthdayType: data.birthdayType === "SOLAR" || data.birthdayType === "LUNAR"
+      ? data.birthdayType
+      : null,
+    isLeapMonth: typeof data.isLeapMonth === "boolean" ? data.isLeapMonth : null,
+    conflictReason,
+  };
+}
 
 async function withPhoneRegistrationLock<T>(
   tx: RegistrationTransaction,
@@ -183,7 +247,7 @@ export interface IStorage {
   
   // Pending registration methods
   getPendingRegistrations(): Promise<PendingRegistration[]>;
-  createPendingRegistration(registration: InsertPendingRegistration): Promise<PendingRegistration>;
+  createOrRefreshPendingRegistration(registration: PendingRegistrationReviewInput): Promise<PendingRegistration>;
   updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined>;
 
   // Obituary methods
@@ -209,7 +273,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db.select().from(users)
+      .where(sql`lower(${users.email}) = ${email.trim().toLowerCase()}`);
     return user || undefined;
   }
 
@@ -229,14 +294,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    return db.transaction((tx) => withPhoneRegistrationLock(
-      tx,
-      insertUser.phoneNumber ?? "",
-      async () => {
-        const [user] = await tx.insert(users).values(insertUser).returning();
-        return user;
-      },
-    ));
+    return db.transaction(async (tx) => {
+      await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
+      return withPhoneRegistrationLock(
+        tx,
+        insertUser.phoneNumber ?? "",
+        async () => {
+          const [user] = await tx.insert(users).values(insertUser).returning();
+          return user;
+        },
+      );
+    });
   }
 
   async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
@@ -513,6 +581,7 @@ export class DatabaseStorage implements IStorage {
 
     try {
       return await db.transaction(async (tx) => {
+        await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
         return withPhoneRegistrationLock(tx, insertUser.phoneNumber ?? "", async (lockedPhone) => {
           const matches = await tx.select().from(alumniDatabase)
             .where(and(
@@ -674,19 +743,74 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(pendingRegistrations.createdAt));
   }
 
-  async createPendingRegistration(insertRegistration: InsertPendingRegistration): Promise<PendingRegistration> {
-    const [registration] = await db.insert(pendingRegistrations).values(insertRegistration).returning();
-    return registration;
+  async createOrRefreshPendingRegistration(
+    insertRegistration: PendingRegistrationReviewInput,
+  ): Promise<PendingRegistration> {
+    return db.transaction(async (tx) => {
+      await lockRegistrationIdentities(
+        tx,
+        insertRegistration.kakaoId,
+        insertRegistration.email,
+      );
+
+      const matches = await tx.select().from(pendingRegistrations)
+        .where(and(
+          eq(pendingRegistrations.status, "pending"),
+          or(
+            eq(pendingRegistrations.kakaoId, insertRegistration.kakaoId),
+            sql`lower(${pendingRegistrations.email}) = ${insertRegistration.email.trim().toLowerCase()}`,
+          ),
+        ))
+        .orderBy(asc(pendingRegistrations.id))
+        .for("update");
+
+      const [existing, ...duplicates] = matches;
+      if (existing) {
+        if (duplicates.length > 0) {
+          await tx.delete(pendingRegistrations)
+            .where(inArray(pendingRegistrations.id, duplicates.map(({ id }) => id)));
+        }
+        const [refreshed] = await tx.update(pendingRegistrations)
+          .set({
+            ...insertRegistration,
+            status: "pending",
+            createdAt: new Date(),
+          })
+          .where(eq(pendingRegistrations.id, existing.id))
+          .returning();
+        return refreshed;
+      }
+
+      const [created] = await tx.insert(pendingRegistrations)
+        .values({ ...insertRegistration, status: "pending" })
+        .returning();
+      return created;
+    });
   }
 
   async updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined> {
     return db.transaction(async (tx) => {
+      if (status === "approved") {
+        const [candidate] = await tx.select().from(pendingRegistrations)
+          .where(and(
+            eq(pendingRegistrations.id, id),
+            eq(pendingRegistrations.status, "pending"),
+          ));
+        if (!candidate) return undefined;
+        const candidateData = parsePendingUserData(candidate);
+        if (!candidateData) throw new PendingRegistrationConflictError();
+        await lockRegistrationIdentities(tx, candidateData.kakaoId, candidateData.email);
+      }
+
       const [registration] = await tx.select().from(pendingRegistrations)
-        .where(eq(pendingRegistrations.id, id))
+        .where(and(
+          eq(pendingRegistrations.id, id),
+          eq(pendingRegistrations.status, "pending"),
+        ))
         .for("update");
       if (!registration) return undefined;
 
-      if (status !== "approved" || !registration.userData) {
+      if (status !== "approved") {
         const [updated] = await tx.update(pendingRegistrations)
           .set({ status })
           .where(eq(pendingRegistrations.id, id))
@@ -694,23 +818,55 @@ export class DatabaseStorage implements IStorage {
         return updated || undefined;
       }
 
-      if (typeof registration.userData !== "object" || Array.isArray(registration.userData)) {
-        throw new Error("Pending registration user data is invalid.");
-      }
-      const userData = registration.userData as Record<string, unknown>;
-      const phoneNumber = typeof userData.phoneNumber === "string"
-        ? userData.phoneNumber
-        : "";
+      const userData = parsePendingUserData(registration);
+      if (!userData) throw new PendingRegistrationConflictError();
 
-      return withPhoneRegistrationLock(tx, phoneNumber, async () => {
-        await tx.insert(users).values({
-          kakaoId: typeof userData.kakaoId === "string" ? userData.kakaoId : registration.kakaoId,
-          email: typeof userData.email === "string" ? userData.email : registration.email,
-          name: typeof userData.name === "string" ? userData.name : registration.name,
-          profileImage: typeof userData.profileImage === "string" ? userData.profileImage : null,
-          phoneNumber,
+      return withPhoneRegistrationLock(tx, userData.phoneNumber, async (normalizedPhone) => {
+        const [identityConflict] = await tx.select({ id: users.id }).from(users)
+          .where(or(
+            eq(users.kakaoId, userData.kakaoId),
+            sql`lower(${users.email}) = ${userData.email.trim().toLowerCase()}`,
+          ))
+          .limit(1);
+        if (identityConflict) throw new PendingRegistrationConflictError();
+
+        const normalizedName = normalizeNameForComparison(userData.name);
+        const alumniMatches = await tx.select().from(alumniDatabase)
+          .where(and(
+            sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+            sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
+          ))
+          .orderBy(asc(alumniDatabase.id))
+          .limit(2);
+        const alumni = uniqueAlumniMatch(alumniMatches);
+        if (!alumni || alumni.matchedUserId !== null) {
+          throw new PendingRegistrationConflictError();
+        }
+
+        const [user] = await tx.insert(users).values({
+          kakaoId: userData.kakaoId,
+          email: userData.email,
+          name: userData.name,
+          profileImage: userData.profileImage,
+          phoneNumber: userData.phoneNumber,
+          birthday: userData.birthday,
+          birthdayType: userData.birthdayType,
+          isLeapMonth: userData.isLeapMonth,
+          graduationYear: alumni.graduationDate
+            ? parseInt(alumni.graduationDate.substring(0, 4), 10) || null
+            : null,
           isVerified: true,
-        });
+          kakaoSyncEnabled: true,
+        }).returning();
+        const [claimed] = await tx.update(alumniDatabase)
+          .set({ isMatched: true, matchedUserId: user.id })
+          .where(and(
+            eq(alumniDatabase.id, alumni.id),
+            isNull(alumniDatabase.matchedUserId),
+          ))
+          .returning();
+        if (!claimed) throw new PendingRegistrationConflictError();
+
         const [updated] = await tx.update(pendingRegistrations)
           .set({ status })
           .where(eq(pendingRegistrations.id, id))

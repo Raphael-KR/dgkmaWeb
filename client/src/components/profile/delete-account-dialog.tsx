@@ -76,8 +76,14 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle>회원 탈퇴</AlertDialogTitle>
-          <AlertDialogDescription>
-            카카오 연결을 해제하고 회원 개인정보를 삭제합니다. 계속하려면 아래에 탈퇴를 입력해주세요.
+          <AlertDialogDescription className="space-y-2">
+            <span className="block">
+              카카오 연결을 해제하고 회원 개인정보를 삭제하며 미발행 초안도 삭제합니다.
+            </span>
+            <span className="block">
+              게시글, 댓글, 발행된 경조사, 결제 기록은 작성자·회원 연결을 제거한 뒤 익명으로 보존됩니다.
+            </span>
+            <span className="block">계속하려면 아래에 탈퇴를 입력해주세요.</span>
           </AlertDialogDescription>
         </AlertDialogHeader>
 

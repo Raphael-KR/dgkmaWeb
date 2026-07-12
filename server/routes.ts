@@ -1,7 +1,8 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { normalizePhoneForComparison, PhoneRegistrationConflictError, storage } from "./storage";
-import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type User } from "@shared/schema";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { normalizePhoneForComparison, PendingRegistrationConflictError, PhoneRegistrationConflictError, storage } from "./storage";
+import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type PendingRegistrationConflictReason, type User } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
   communityEventDraftSchema,
@@ -41,6 +42,7 @@ import {
 declare module "express-session" {
   interface SessionData {
     userId?: number;
+    kakaoOAuthState?: string;
   }
 }
 
@@ -122,7 +124,7 @@ export type RouteDependencies = {
     | "createUserWithAlumniClaim"
     | "updateUser"
     | "claimAlumniRecord"
-    | "createPendingRegistration"
+    | "createOrRefreshPendingRegistration"
   >;
 };
 
@@ -130,6 +132,13 @@ function saveSession(req: Request): Promise<void> {
   return new Promise((resolve, reject) => {
     req.session.save((error) => error ? reject(error) : resolve());
   });
+}
+
+function oauthStatesMatch(expected: string, actual: string): boolean {
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const actualBuffer = Buffer.from(actual, "utf8");
+  return expectedBuffer.length === actualBuffer.length
+    && timingSafeEqual(expectedBuffer, actualBuffer);
 }
 
 export async function registerRoutes(
@@ -176,11 +185,15 @@ export async function registerRoutes(
     });
   });
 
-  app.get("/api/auth/kakao/start", (_req, res) => {
+  app.get("/api/auth/kakao/start", async (req, res) => {
     try {
       const config = getKakaoOAuthConfig();
-      return res.redirect(buildKakaoAuthorizeUrl(config));
+      const state = randomBytes(32).toString("hex");
+      req.session.kakaoOAuthState = state;
+      await saveSession(req);
+      return res.redirect(buildKakaoAuthorizeUrl(config, state));
     } catch (error) {
+      delete req.session.kakaoOAuthState;
       if (error instanceof KakaoOAuthConfigurationError) {
         const { missingVariables } = error;
         console.error("[Kakao OAuth] missing configuration:", missingVariables);
@@ -193,9 +206,24 @@ export async function registerRoutes(
 
   app.post("/api/auth/kakao/authorize", async (req, res) => {
     try {
-      const { code } = req.body;
+      const { code, state } = req.body;
       if (typeof code !== "string" || code.length === 0) {
         return res.status(400).json({ message: "카카오 인가 코드가 필요합니다" });
+      }
+      const expectedState = req.session.kakaoOAuthState;
+      if (
+        typeof state !== "string"
+        || typeof expectedState !== "string"
+        || !oauthStatesMatch(expectedState, state)
+      ) {
+        return res.status(400).json({ message: "유효하지 않은 카카오 로그인 요청입니다" });
+      }
+      delete req.session.kakaoOAuthState;
+      try {
+        await saveSession(req);
+      } catch (error) {
+        console.error("[Kakao OAuth] state consumption failed:", getErrorType(error));
+        return res.status(500).json({ message: "카카오 로그인 요청 처리에 실패했습니다" });
       }
       const config = getKakaoOAuthConfig();
       const params = buildKakaoTokenBody(config, code);
@@ -238,10 +266,10 @@ export async function registerRoutes(
 
       const account = userInfo?.kakao_account;
 
-      if (!account?.email) {
+      if (!account?.email || account.is_email_verified !== true) {
         return res.status(400).json({
-          message: "이메일 동의가 필요합니다",
-          description: "카카오 로그인 시 이메일 제공에 동의해주세요."
+          message: "검증된 이메일이 필요합니다",
+          description: "카카오 계정에서 검증된 이메일 제공에 동의해주세요."
         });
       }
 
@@ -276,30 +304,49 @@ export async function registerRoutes(
         ? Boolean(account.is_leap_month)
         : hasBirthday ? false : null;
 
+      const createPendingReview = async (
+        conflictReason: PendingRegistrationConflictReason,
+        message: string,
+        description: string,
+      ) => {
+        await kakaoAuthStorage.createOrRefreshPendingRegistration({
+          kakaoId,
+          email,
+          name,
+          userData: {
+            kakaoId,
+            email,
+            name,
+            profileImage,
+            phoneNumber,
+            birthday,
+            birthdayType,
+            isLeapMonth,
+            conflictReason,
+          },
+        });
+        return res.status(202).json({ message, description, requiresApproval: true });
+      };
+
       let user = await kakaoAuthStorage.getUserByKakaoId(kakaoId);
 
       if (!user) {
         const existingUserByEmail = await kakaoAuthStorage.getUserByEmail(email);
 
         if (existingUserByEmail) {
-          const updates: Partial<typeof existingUserByEmail> = {};
-          if (!existingUserByEmail.kakaoId) updates.kakaoId = kakaoId;
-          if (profileImage && !existingUserByEmail.profileImage) updates.profileImage = profileImage;
-          if (phoneNumber && !existingUserByEmail.phoneNumber) updates.phoneNumber = phoneNumber;
-          updates.birthday = birthday;
-          updates.birthdayType = birthdayType;
-          updates.isLeapMonth = isLeapMonth;
-          user = existingUserByEmail;
-          if (Object.keys(updates).length > 0) {
-            user = await kakaoAuthStorage.updateUser(existingUserByEmail.id, updates);
-          }
+          return createPendingReview(
+            "email_conflict",
+            "계정 정보 확인이 필요합니다",
+            "같은 이메일의 기존 회원 정보가 있어 관리자 확인 후 이용할 수 있습니다.",
+          );
         } else {
           const existingUserByPhone = await kakaoAuthStorage.getUserByNormalizedPhone(phoneNumber);
           if (existingUserByPhone) {
-            return res.status(409).json({
-              message: "이미 가입된 전화번호입니다",
-              description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
-            });
+            return createPendingReview(
+              "phone_conflict",
+              "동문 정보 확인이 필요합니다",
+              "같은 전화번호의 기존 회원 정보가 있어 관리자 확인 후 이용할 수 있습니다.",
+            );
           }
 
           const normalizedPhone = normalizePhoneForComparison(phoneNumber);
@@ -308,36 +355,19 @@ export async function registerRoutes(
           const alumniMatch = alumniMatches.length === 1 ? alumniMatches[0] : undefined;
 
           if (!alumniMatch) {
-            await kakaoAuthStorage.createPendingRegistration({
-              kakaoId,
-              email,
-              name,
-              userData: {
-                kakaoId,
-                email,
-                name,
-                profileImage,
-                phoneNumber,
-                birthday,
-                birthdayType,
-                isLeapMonth,
-                kakaoSync: true,
-              },
-            });
-
-            return res.status(202).json({
-              message: "가입 신청이 접수되었습니다",
-              description: "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
-              requiresApproval: true
-            });
+            return createPendingReview(
+              "not_found",
+              "가입 신청이 접수되었습니다",
+              "동문 정보를 확인한 뒤 관리자가 가입을 처리합니다.",
+            );
           }
 
           if (alumniMatch.matchedUserId !== null) {
-            return res.status(202).json({
-              message: "동문 정보 확인이 필요합니다",
-              description: "이미 연결된 동문 정보입니다. 관리자 확인 후 이용할 수 있습니다.",
-              requiresApproval: true,
-            });
+            return createPendingReview(
+              "alumni_claimed",
+              "동문 정보 확인이 필요합니다",
+              "이미 연결된 동문 정보입니다. 관리자 확인 후 이용할 수 있습니다.",
+            );
           }
 
           try {
@@ -362,25 +392,26 @@ export async function registerRoutes(
             );
           } catch (error) {
             if (error instanceof PhoneRegistrationConflictError) {
-              return res.status(409).json({
-                message: "이미 가입된 전화번호입니다",
-                description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
-              });
+              return createPendingReview(
+                "phone_conflict",
+                "동문 정보 확인이 필요합니다",
+                "가입 처리 중 같은 전화번호가 확인되어 관리자 확인이 필요합니다.",
+              );
             }
             throw error;
           }
           if (!user) {
-            return res.status(202).json({
-              message: "동문 정보 확인이 필요합니다",
-              description: "동문 정보 연결을 완료하지 못했습니다. 관리자 확인 후 이용할 수 있습니다.",
-              requiresApproval: true,
-            });
+            return createPendingReview(
+              "alumni_race",
+              "동문 정보 확인이 필요합니다",
+              "동문 정보 연결을 완료하지 못했습니다. 관리자 확인 후 이용할 수 있습니다.",
+            );
           }
         }
       } else {
         const updates: Partial<typeof user> = {};
         if (!user.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
-        if (profileImage && !user.profileImage) updates.profileImage = profileImage;
+        if (user.profileImage !== profileImage) updates.profileImage = profileImage;
         if (phoneNumber && !user.phoneNumber) updates.phoneNumber = phoneNumber;
         if (user.birthday !== birthday) updates.birthday = birthday;
         if (user.birthdayType !== birthdayType) updates.birthdayType = birthdayType;
@@ -455,7 +486,7 @@ export async function registerRoutes(
     return res.json({ user: toClientUser(user) });
   });
 
-  // 본인 프로필 수정 — 활동 지역과 카카오 알림 설정만 허용.
+  // 본인 프로필 수정 — 스키마에서 허용한 필드만 반영.
   // ⚠️ 대상은 항상 req.session.userId — body 로 userId 받지 않음(보안).
   app.patch("/api/users/me", async (req, res) => {
     try {
@@ -1076,6 +1107,12 @@ export async function registerRoutes(
       if (error instanceof PhoneRegistrationConflictError) {
         return res.status(409).json({
           message: "이미 가입된 전화번호입니다",
+          description: "승인 상태는 변경되지 않았습니다.",
+        });
+      }
+      if (error instanceof PendingRegistrationConflictError) {
+        return res.status(409).json({
+          message: "가입 충돌이 아직 해소되지 않았습니다",
           description: "승인 상태는 변경되지 않았습니다.",
         });
       }
