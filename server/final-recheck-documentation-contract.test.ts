@@ -70,9 +70,11 @@ test("termination marker purpose, retention, admin-key scope, and production sch
   }
 
   const productionSchema = replit.slice(replit.indexOf("프로덕션 선행 additive 스키마 순서"));
-  const markerTable = productionSchema.indexOf("kakao_identity_terminations");
+  const stateTable = productionSchema.indexOf("kakao_oauth_states");
   const startedAtColumn = productionSchema.indexOf("kakao_oauth_states.started_at");
-  const republish = productionSchema.indexOf("Republish", startedAtColumn);
-  assert.ok(markerTable >= 0 && markerTable < startedAtColumn);
-  assert.ok(startedAtColumn < republish);
+  const markerTable = productionSchema.indexOf("kakao_identity_terminations", startedAtColumn);
+  const republish = productionSchema.indexOf("Republish", markerTable);
+  assert.ok(stateTable >= 0 && stateTable <= startedAtColumn);
+  assert.ok(startedAtColumn < markerTable);
+  assert.ok(markerTable < republish);
 });

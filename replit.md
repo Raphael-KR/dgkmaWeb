@@ -134,12 +134,9 @@ npm run db:push
 
 #### 프로덕션 선행 additive 스키마 순서
 
-현재 Production Database에는 아래 순서를 Republish 전에 적용합니다. 이번 작업에서는 Production Database에 접근하거나 적용하지 않습니다.
+현재 Production Database에는 Republish 전에 [docs/database-operations.md](./docs/database-operations.md)의 조건부 additive SQL을 적용합니다. 이 SQL은 `kakao_oauth_states` 전체 테이블을 먼저 `CREATE TABLE IF NOT EXISTS`로 만들고, 초기 버전 테이블을 위해 `kakao_oauth_states.started_at`을 `ADD COLUMN IF NOT EXISTS`로 보완한 다음 `kakao_identity_terminations`를 생성합니다.
 
-1. `kakao_identity_terminations`를 `identity_hash text primary key`, `terminated_at timestamp with time zone not null default now()`로 생성합니다.
-2. 기존 `kakao_oauth_states.started_at`을 `timestamp with time zone not null default now()`로 추가합니다.
-3. 새 연결에서 두 변경과 기존 `session`, `session_expire_idx`가 모두 존재하는지 확인합니다.
-4. 위 additive 스키마 확인이 끝난 뒤에만 새 코드를 Republish합니다.
+새 연결에서 두 테이블의 전체 컬럼, 기본키, `session_binding_hash` 고유 제약과 기존 `session`, `session_expire_idx`가 모두 존재하는지 확인합니다. 이 확인이 끝난 뒤에만 새 코드를 Republish합니다. 이번 작업에서는 Production Database에 접근하거나 적용하지 않습니다.
 
 ### 운영 데이터와 seed
 

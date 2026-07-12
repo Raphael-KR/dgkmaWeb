@@ -156,7 +156,8 @@ export type RouteDependencies = {
     | "updateUser"
     | "claimAlumniRecord"
     | "createOrRefreshPendingRegistration"
-  > & Partial<Pick<typeof storage, "finalizeKakaoLogin">>;
+    | "finalizeKakaoLogin"
+  >;
 };
 
 function saveSession(req: Request): Promise<void> {
@@ -440,16 +441,11 @@ export async function registerRoutes(
             req.session.userId = synchronizedUser.id;
             await saveSession(req);
           };
-          const finalizedUser = kakaoAuthStorage.finalizeKakaoLogin
-            ? await kakaoAuthStorage.finalizeKakaoLogin(
-              synchronizedUser.id,
-              oauthGeneration,
-              saveAuthenticatedSession,
-            )
-            : await (async () => {
-              await saveAuthenticatedSession();
-              return synchronizedUser;
-            })();
+          const finalizedUser = await kakaoAuthStorage.finalizeKakaoLogin(
+            synchronizedUser.id,
+            oauthGeneration,
+            saveAuthenticatedSession,
+          );
           return res.json({ user: toClientUser(finalizedUser) });
         } catch (error) {
           delete req.session.userId;

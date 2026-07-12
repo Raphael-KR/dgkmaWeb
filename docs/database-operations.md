@@ -142,12 +142,27 @@ env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE \
 
 ### 카카오 종료 경쟁 스키마 선행 순서
 
-최종 종료 경쟁 조건 코드의 Production Republish 전에는 다음 additive 변경을 순서대로 적용한다.
+최종 종료 경쟁 조건 코드의 Production Republish 전에는 아래 additive SQL을 먼저 적용한다. `kakao_oauth_states`가 없는 운영 DB와 초기 버전 테이블만 있는 DB를 모두 지원한다.
 
-1. `kakao_identity_terminations(identity_hash text primary key, terminated_at timestamptz not null default now())` 생성
-2. `kakao_oauth_states.started_at timestamptz not null default now()` 추가
-3. 새 운영 연결에서 두 변경과 기존 `session`, `session_expire_idx` 확인
-4. 코드 Republish
+```sql
+CREATE TABLE IF NOT EXISTS kakao_oauth_states (
+  state_hash text PRIMARY KEY,
+  session_binding_hash text NOT NULL UNIQUE,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE kakao_oauth_states
+  ADD COLUMN IF NOT EXISTS started_at timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS kakao_identity_terminations (
+  identity_hash text PRIMARY KEY,
+  terminated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+새 운영 연결에서 두 테이블의 컬럼과 `kakao_oauth_states_pkey`, `kakao_oauth_states_session_binding_hash_unique`, `kakao_identity_terminations_pkey`, 기존 `session`, `session_expire_idx`를 확인한 뒤에만 코드를 Republish한다.
 
 Development Database에는 2026-07-13 적용했으며, Production Database에는 별도 승인 작업 전까지 적용하지 않는다. 종료 marker에는 카카오 회원번호와 소문자 이메일의 원문 대신 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 hash를 저장하며, 각 identity key별 종료 시각의 최신 marker 1건만 보유한다.
 

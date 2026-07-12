@@ -606,3 +606,99 @@ test("development PostgreSQL account deletion blocks an older OAuth callback wit
     });
   }
 });
+
+test("development PostgreSQL deletion waits for a finalizing login and removes its saved session", {
+  skip: databaseSkip,
+}, async () => {
+  const { pool } = await import("./db");
+  const { storage } = await import("./storage");
+  developmentPool = pool;
+  await assertDevelopmentDatabase(pool);
+
+  const token = randomUUID().replaceAll("-", "");
+  const kakaoId = String(
+    (BigInt(`0x${token.slice(0, 14)}`) % 900_000_000_000n) + 100_000_000_000n,
+  );
+  const email = `finalize-first-${token}@example.invalid`;
+  const raceToken = `finalize-first-session-${token}`;
+  const sid = `finalize-first-sid-${token}`;
+  const kakaoHash = identityHash("kakao", kakaoId);
+  const emailHash = identityHash("email", email);
+  let releaseFinalizer: (() => void) | undefined;
+  let markFinalizerEntered: (() => void) | undefined;
+  const finalizerEntered = new Promise<void>((resolve) => {
+    markFinalizerEntered = resolve;
+  });
+  const finalizerGate = new Promise<void>((resolve) => {
+    releaseFinalizer = resolve;
+  });
+  let finalizePromise: ReturnType<typeof storage.finalizeKakaoLogin> | undefined;
+  let deletePromise: ReturnType<typeof storage.deleteUserAccount> | undefined;
+
+  try {
+    const inserted = await pool.query<{ id: number }>(
+      `insert into users
+         (kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
+       values ($1, $2, '최종화우선', true, true, '+82 10-9000-0003')
+       returning id`,
+      [kakaoId, email],
+    );
+    const userId = inserted.rows[0].id;
+    const user = await storage.getUser(userId);
+    assert.ok(user);
+    const started = await pool.query<{ started_at: Date }>(
+      "select clock_timestamp() - interval '1 second' as started_at",
+    );
+
+    finalizePromise = storage.finalizeKakaoLogin(
+      userId,
+      { kakaoId, email, startedAt: started.rows[0].started_at },
+      async () => {
+        await pool.query(
+          `insert into "session" (sid, sess, expire)
+           values ($1, $2::json, now() + interval '1 hour')
+           on conflict (sid) do update set sess = excluded.sess, expire = excluded.expire`,
+          [sid, JSON.stringify({ userId, terminalRaceToken: raceToken })],
+        );
+        markFinalizerEntered?.();
+        await finalizerGate;
+      },
+    );
+    await within(finalizerEntered, "로그인 finalizer가 세션 저장 경계에 도달하지 않았습니다.");
+
+    deletePromise = storage.deleteUserAccount(user);
+    await wait(25);
+    releaseFinalizer?.();
+
+    const finalizedUser = await finalizePromise;
+    assert.equal(finalizedUser.id, userId);
+    await deletePromise;
+
+    const finalState = await pool.query<{
+      user_count: number;
+      session_count: number;
+      marker_count: number;
+    }>(
+      `select
+         (select count(*)::int from users where id = $1) as user_count,
+         (select count(*)::int from "session" where sid = $2) as session_count,
+         (select count(*)::int from kakao_identity_terminations
+           where identity_hash = any($3::text[])) as marker_count`,
+      [userId, sid, [kakaoHash, emailHash]],
+    );
+    assert.deepEqual(finalState.rows[0], {
+      user_count: 0,
+      session_count: 0,
+      marker_count: 2,
+    });
+  } finally {
+    releaseFinalizer?.();
+    await Promise.allSettled([finalizePromise, deletePromise].filter(Boolean));
+    await cleanupRaceRows(pool, {
+      kakaoIds: [kakaoId],
+      emails: [email],
+      identityHashes: [kakaoHash, emailHash],
+      terminalRaceToken: raceToken,
+    });
+  }
+});

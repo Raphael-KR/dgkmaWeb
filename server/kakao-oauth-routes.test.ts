@@ -81,6 +81,17 @@ const createdUser: User = {
   updatedAt: new Date("2026-07-12T00:00:00.000Z"),
 };
 
+function finalizeKakaoLoginDouble(user: User = createdUser) {
+  return async (
+    _userId: number,
+    _generation: unknown,
+    saveSession: () => Promise<void>,
+  ) => {
+    await saveSession();
+    return user;
+  };
+}
+
 function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
   return {
     getUser: async () => createdUser,
@@ -92,6 +103,7 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
     createUserWithAlumniClaim: async () => createdUser,
     updateUser: async () => createdUser,
     claimAlumniRecord: async () => undefined,
+    finalizeKakaoLogin: finalizeKakaoLoginDouble(),
     createOrRefreshPendingRegistration: async (registration: any) => ({
       kind: "pending" as const,
       registration: {
@@ -511,6 +523,7 @@ test("authorization completes member update and session save without returning K
         return updatedUser;
       },
       claimAlumniRecord: async () => undefined,
+      finalizeKakaoLogin: finalizeKakaoLoginDouble(updatedUser),
       createOrRefreshPendingRegistration: async () => {
         throw new Error("pending registration should not be created");
       },
@@ -613,6 +626,13 @@ test("missing optional Kakao birthday clears the existing saved birthday", async
         return { ...existingUser, ...updates };
       },
       claimAlumniRecord: async () => undefined,
+      finalizeKakaoLogin: finalizeKakaoLoginDouble({
+        ...existingUser,
+        profileImage: null,
+        birthday: null,
+        birthdayType: null,
+        isLeapMonth: null,
+      }),
       createOrRefreshPendingRegistration: async () => {
         throw new Error("pending registration should not be created");
       },
@@ -727,6 +747,14 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
       updateUser: async (_id: number, updates: Partial<User>) => {
         savedUpdates = updates;
         storedApprovedUser = { ...approvedUser, ...updates };
+        return storedApprovedUser;
+      },
+      finalizeKakaoLogin: async (
+        _userId: number,
+        _generation: unknown,
+        saveSession: () => Promise<void>,
+      ) => {
+        await saveSession();
         return storedApprovedUser;
       },
     }),
@@ -872,6 +900,7 @@ test("normalized phone duplicate creates or refreshes one pending review without
       },
       updateUser: async () => undefined,
       claimAlumniRecord: async () => alumniRecord,
+      finalizeKakaoLogin: finalizeKakaoLoginDouble(),
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
         return {
@@ -917,6 +946,7 @@ test("already claimed alumni record requires approval without creating a member"
       },
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
+      finalizeKakaoLogin: finalizeKakaoLoginDouble(),
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
         return {
@@ -961,6 +991,7 @@ test("unique unclaimed PostgreSQL alumni match creates and claims the member", a
       },
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
+      finalizeKakaoLogin: finalizeKakaoLoginDouble(),
       createOrRefreshPendingRegistration: async () => {
         throw new Error("pending registration should not be created");
       },
@@ -994,6 +1025,7 @@ test("transactional phone race creates or refreshes a pending review", async () 
       },
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
+      finalizeKakaoLogin: finalizeKakaoLoginDouble(),
       createOrRefreshPendingRegistration: async (registration: any) => {
         pendingUserData = registration.userData;
         return {
