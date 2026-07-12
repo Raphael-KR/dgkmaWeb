@@ -1,6 +1,6 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { normalizePhoneForComparison, storage } from "./storage";
+import { normalizePhoneForComparison, PhoneRegistrationConflictError, storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
@@ -319,25 +319,35 @@ export async function registerRoutes(
             });
           }
 
-          user = await kakaoAuthStorage.createUserWithAlumniClaim(
-            {
-              kakaoId,
-              email,
+          try {
+            user = await kakaoAuthStorage.createUserWithAlumniClaim(
+              {
+                kakaoId,
+                email,
+                name,
+                profileImage,
+                phoneNumber,
+                birthday,
+                birthdayType,
+                isLeapMonth,
+                graduationYear: alumniMatch.graduationDate
+                  ? parseInt(alumniMatch.graduationDate.substring(0, 4), 10) || null
+                  : null,
+                isVerified: true,
+                kakaoSyncEnabled: true,
+              },
               name,
-              profileImage,
               phoneNumber,
-              birthday,
-              birthdayType,
-              isLeapMonth,
-              graduationYear: alumniMatch.graduationDate
-                ? parseInt(alumniMatch.graduationDate.substring(0, 4), 10) || null
-                : null,
-              isVerified: true,
-              kakaoSyncEnabled: true,
-            },
-            name,
-            phoneNumber,
-          );
+            );
+          } catch (error) {
+            if (error instanceof PhoneRegistrationConflictError) {
+              return res.status(409).json({
+                message: "이미 가입된 전화번호입니다",
+                description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
+              });
+            }
+            throw error;
+          }
           if (!user) {
             return res.status(202).json({
               message: "동문 정보 확인이 필요합니다",

@@ -9,6 +9,7 @@ import {
   KakaoOAuthConfigurationError,
   type KakaoOAuthConfig,
 } from "./kakao-oauth-config";
+import { PhoneRegistrationConflictError } from "./storage";
 import { registerRoutes, type RouteDependencies } from "./routes";
 
 const clientAuthPath = new URL("../client/src/lib/auth.ts", import.meta.url);
@@ -489,6 +490,45 @@ test("unique unclaimed PostgreSQL alumni match creates and claims the member", a
 
     assert.equal(response.status, 200);
     assert.equal(atomicRegistrationCalled, true);
+  } finally {
+    await server.close();
+  }
+});
+
+test("transactional phone race returns the safe duplicate response", async () => {
+  const dependencies = {
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: {
+      getUser: async () => undefined,
+      getUserByEmail: async () => undefined,
+      getUserByKakaoId: async () => undefined,
+      getUserByNormalizedPhone: async () => undefined,
+      findAlumniByName: async () => [alumniRecord],
+      createUser: async () => createdUser,
+      createUserWithAlumniClaim: async () => {
+        throw new PhoneRegistrationConflictError();
+      },
+      updateUser: async () => undefined,
+      claimAlumniRecord: async () => undefined,
+      createPendingRegistration: async () => {
+        throw new Error("pending registration should not be created");
+      },
+    },
+  };
+  const server = await startServer(dependencies);
+  try {
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/authorize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "test-code" }),
+    });
+
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), {
+      message: "이미 가입된 전화번호입니다",
+      description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
+    });
   } finally {
     await server.close();
   }

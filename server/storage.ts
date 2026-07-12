@@ -12,7 +12,7 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, isNull, sql, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
@@ -57,6 +57,24 @@ function normalizeNameForComparison(name: string): string {
 }
 
 class AlumniClaimConflictError extends Error {}
+
+export class PhoneRegistrationConflictError extends Error {
+  constructor() {
+    super("A user with the same normalized phone number already exists.");
+    this.name = "PhoneRegistrationConflictError";
+  }
+}
+
+function normalizedPhoneSql(phoneColumn: AnyColumn | SQL): SQL<string> {
+  const digits = sql`regexp_replace(coalesce(${phoneColumn}, ''), '[^0-9]', '', 'g')`;
+  return sql<string>`
+    CASE
+      WHEN ${digits} LIKE '82%'
+      THEN regexp_replace(${digits}, '^82(0)?', '0')
+      ELSE ${digits}
+    END
+  `;
+}
 
 // 회원 활동지역(시/도) → 동문 DB 주소 텍스트 매칭 패턴.
 // 주소가 약칭/정식 혼재("충북 청주" vs "충청북도")이므로 가능한 표기를 함께 검사.
@@ -180,13 +198,7 @@ export class DatabaseStorage implements IStorage {
     if (!normalizedPhone) return undefined;
 
     const [user] = await db.select().from(users)
-      .where(sql`
-        CASE
-          WHEN regexp_replace(coalesce(${users.phoneNumber}, ''), '[^0-9]', '', 'g') LIKE '82%'
-          THEN '0' || substring(regexp_replace(coalesce(${users.phoneNumber}, ''), '[^0-9]', '', 'g') FROM 3)
-          ELSE regexp_replace(coalesce(${users.phoneNumber}, ''), '[^0-9]', '', 'g')
-        END = ${normalizedPhone}
-      `)
+      .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
       .limit(1);
     return user || undefined;
   }
@@ -400,7 +412,7 @@ export class DatabaseStorage implements IStorage {
       const matches = await tx.select().from(alumniDatabase)
         .where(and(
           sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
-          sql`regexp_replace(coalesce(${alumniDatabase.mobile}, ''), '[^0-9]', '', 'g') = ${normalizedPhone}`,
+          sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
         ))
         .orderBy(asc(alumniDatabase.id))
         .limit(2);
@@ -429,10 +441,19 @@ export class DatabaseStorage implements IStorage {
 
     try {
       return await db.transaction(async (tx) => {
+        await tx.execute(sql`
+          select pg_advisory_xact_lock(hashtextextended(${normalizedPhone}, 0))
+        `);
+
+        const [existingUser] = await tx.select().from(users)
+          .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
+          .limit(1);
+        if (existingUser) throw new PhoneRegistrationConflictError();
+
         const matches = await tx.select().from(alumniDatabase)
           .where(and(
             sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
-            sql`regexp_replace(coalesce(${alumniDatabase.mobile}, ''), '[^0-9]', '', 'g') = ${normalizedPhone}`,
+            sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
           ))
           .orderBy(asc(alumniDatabase.id))
           .limit(2);
