@@ -67,6 +67,11 @@ export default function Profile() {
   const currentYear = membership?.year ?? new Date().getFullYear();
   // 당해년도 연회비 완납 여부는 membership API 결과만 사용(완료된 연회비 합계 기준).
   const currentYearPayment = membership?.isPaid ? membership.currentYearPayment : null;
+  const birthdayLabel = user.birthday && user.birthdayType
+    ? `${user.birthday.slice(0, 2)}월 ${user.birthday.slice(2, 4)}일 (${
+      user.birthdayType === "SOLAR" ? "양력" : user.isLeapMonth ? "음력 윤달" : "음력"
+    })`
+    : null;
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -114,6 +119,12 @@ export default function Profile() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">연락처</p>
                   <p className="font-medium">{user.phoneNumber}</p>
+                </div>
+              )}
+              {birthdayLabel && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">생일</p>
+                  <p className="font-medium">{birthdayLabel}</p>
                 </div>
               )}
               <div>

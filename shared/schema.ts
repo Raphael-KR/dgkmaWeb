@@ -241,6 +241,23 @@ export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistr
 
 // Types
 export type User = typeof users.$inferSelect;
+export type ClientUser = Pick<
+  User,
+  | "id"
+  | "email"
+  | "name"
+  | "graduationYear"
+  | "isVerified"
+  | "isAdmin"
+  | "kakaoSyncEnabled"
+  | "profileImage"
+  | "phoneNumber"
+  | "birthday"
+  | "birthdayType"
+  | "isLeapMonth"
+  | "activityRegion"
+  | "createdAt"
+>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;

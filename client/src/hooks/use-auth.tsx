@@ -4,22 +4,10 @@ import { useToast } from "@/hooks/use-toast";
 // Note: Using Supabase for database only, not for authentication
 import type { User } from "@shared/schema";
 
-// v5 — login은 카카오 응답 5개 추가 필드 포함. 성공 시 user 반환 → 호출자가 activityRegion 검사 후 분기.
-interface KakaoLoginPayload {
-  kakaoId: string;
-  email: string;
-  name: string;
-  profileImage?: string | null;
-  phoneNumber: string;
-  birthday?: string | null;
-  birthdayType?: 'SOLAR' | 'LUNAR' | null;
-  isLeapMonth?: boolean | null;
-}
-
 interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
-  login: (kakaoData: KakaoLoginPayload) => Promise<{ user: User } | { requiresApproval: true } | null>;
+  login: (code: string, state: string | null) => Promise<{ user: User } | { requiresApproval: true } | null>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -62,14 +50,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (kakaoData: KakaoLoginPayload): Promise<{ user: User } | { requiresApproval: true } | null> => {
+  const login = async (code: string, state: string | null): Promise<{ user: User } | { requiresApproval: true } | null> => {
     try {
       setIsLoading(true);
-      const response = await fetch("/api/auth/kakao", {
+      const response = await fetch("/api/auth/kakao/authorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(kakaoData),
+        body: JSON.stringify({ code, state }),
       });
 
       const data = await response.json();
@@ -85,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok && data.user) {
         setUser(data.user);
         toast({
-          title: "카카오싱크 로그인 성공",
-          description: `${data.user.name}님, 환영합니다! 카카오싱크가 연결되었습니다.`,
+          title: "카카오 로그인 성공",
+          description: `${data.user.name}님, 환영합니다!`,
         });
         // ⚠️ setLocation은 호출자(kakao-callback)에서 activityRegion 검사 후 분기 — 여기서 직접 이동하지 않음
         return { user: data.user };

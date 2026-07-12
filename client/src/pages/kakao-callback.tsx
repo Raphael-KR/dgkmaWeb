@@ -33,32 +33,12 @@ export default function KakaoCallback() {
       }
 
       try {
-        const response = await fetch("/api/auth/kakao/authorize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, state }),
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || "카카오 인증에 실패했습니다.");
-        }
-
-        // v5 — 카카오 응답 5개 추가 필드 함께 전달.
-        const result = await login({
-          kakaoId: data.kakaoId,
-          email: data.email,
-          name: data.name,
-          profileImage: data.profileImage,
-          phoneNumber: data.phoneNumber,
-          birthday: data.birthday,
-          birthdayType: data.birthdayType,
-          isLeapMonth: data.isLeapMonth,
-        });
+        const result = await login(code, state);
 
         // 로그인 성공 후 분기:
         //  - activityRegion 미설정 → /onboarding/region 강제 리다이렉트
         //  - 설정됨 → returnTo 또는 홈
-        //  - requiresApproval 또는 null → useAuth가 toast 처리, 아무 이동 없음
+        //  - requiresApproval 또는 null → useAuth가 안내하고 현재 화면 유지
         if (result && "user" in result) {
           if (!result.user.activityRegion) {
             setLocation("/onboarding/region");

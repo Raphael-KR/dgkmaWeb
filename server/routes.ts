@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent } from "@shared/schema";
@@ -28,6 +28,7 @@ import {
 import { isSelectablePostCategory } from "@shared/category-policy";
 import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
 import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
+import { toClientUser } from "./client-user";
 
 declare module "express-session" {
   interface SessionData {
@@ -97,7 +98,26 @@ export type RouteDependencies = {
   getUserForAdmin?: AdminUserLookup;
   getKakaoOAuthConfig?: () => KakaoOAuthConfig;
   kakaoFetch?: typeof fetch;
+  kakaoAuthStorage?: Pick<
+    typeof storage,
+    | "getUser"
+    | "getUserByEmail"
+    | "getUserByKakaoId"
+    | "createUser"
+    | "updateUser"
+    | "createPendingRegistration"
+  >;
+  findAlumniByPhoneAndName?: (
+    phoneNumber: string,
+    name: string,
+  ) => Promise<Array<{ graduationDate?: string | null }>>;
 };
+
+function saveSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.save((error) => error ? reject(error) : resolve());
+  });
+}
 
 export async function registerRoutes(
   app: Express,
@@ -109,6 +129,12 @@ export async function registerRoutes(
   const getKakaoOAuthConfig =
     dependencies.getKakaoOAuthConfig ?? (() => resolveKakaoOAuthConfig());
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
+  const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
+  const findAlumniByPhoneAndName = dependencies.findAlumniByPhoneAndName
+    ?? (async (phoneNumber: string, name: string) => {
+      const { googleSheetsService } = await import("./google-sheets");
+      return googleSheetsService.findAlumniByPhoneAndName(phoneNumber, name);
+    });
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -152,13 +178,15 @@ export async function registerRoutes(
   app.post("/api/auth/kakao/authorize", async (req, res) => {
     try {
       const { code } = req.body;
+      if (typeof code !== "string" || code.length === 0) {
+        return res.status(400).json({ message: "카카오 인가 코드가 필요합니다" });
+      }
       const config = getKakaoOAuthConfig();
-      const params = buildKakaoTokenBody(config, String(code ?? ""));
+      const params = buildKakaoTokenBody(config, code);
 
       if (isKakaoDebugEnabled()) {
         console.log("[Kakao OAuth] configuration:", {
           environment: config.environment,
-          restApiKeyPrefix: `${config.restApiKey.substring(0, 6)}...`,
           redirectUri: config.redirectUri,
           hasClientSecret: true,
         });
@@ -171,164 +199,105 @@ export async function registerRoutes(
       });
       const tokenData = await tokenRes.json();
       if (!tokenRes.ok) {
-        // 카카오 응답 error/error_description/error_code 그대로 전달 (디버깅용)
         console.error('[Kakao OAuth] token exchange failed:', {
-          redirectUri: config.redirectUri,
           status: tokenRes.status,
-          error: tokenData?.error,
-          error_description: tokenData?.error_description,
-          error_code: tokenData?.error_code,
         });
         return res.status(400).json({
           message: '카카오 토큰 교환에 실패했습니다',
-          error: tokenData?.error,
-          error_description: tokenData?.error_description,
-          error_code: tokenData?.error_code,
-          kakao: tokenData,
         });
       }
 
-      // ⚠️ HTTPS 응답 보장은 요청 단계에서 박음 — 수신값은 변형 ❌ (카카오 원본 보존 원칙)
+      if (typeof tokenData?.access_token !== "string") {
+        return res.status(400).json({ message: "카카오 토큰 교환에 실패했습니다" });
+      }
+
       const userRes = await kakaoFetch('https://kapi.kakao.com/v2/user/me?secure_resource=true', {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const userInfo = await userRes.json();
       if (!userRes.ok) {
-        return res.status(400).json(userInfo);
+        console.error("[Kakao OAuth] user info request failed:", { status: userRes.status });
+        return res.status(400).json({ message: "카카오 회원정보 조회에 실패했습니다" });
       }
 
-      // 이메일 동의 검증 (fallback 제거 — 가짜 user${id}@example.com 제거)
-      if (!userInfo.kakao_account?.email) {
+      const account = userInfo?.kakao_account;
+
+      if (!account?.email) {
         return res.status(400).json({
           message: "이메일 동의가 필요합니다",
           description: "카카오 로그인 시 이메일 제공에 동의해주세요."
         });
       }
 
-      // 휴대전화번호 동의 검증 (휴대전화번호 제공 동의 기반 가입 제한 — 권리회원 카카오톡 팀채팅방 단일 채널 운영 정책)
-      if (!userInfo.kakao_account?.phone_number) {
+      if (!account?.phone_number) {
         return res.status(400).json({
           message: "휴대전화번호 동의가 필요합니다",
           description: "본 서비스는 휴대전화번호 제공에 동의한 카카오계정 사용자만 가입 가능합니다. 카카오 로그인 시 휴대전화번호 제공에 동의해주세요."
         });
       }
 
-      // 성명(이름) 동의 검증 — fallback 금지 (kakao_account.profile.nickname / properties.nickname / "카카오 사용자" 모두 ❌)
-      if (!userInfo.kakao_account?.name) {
+      if (!account?.name) {
         return res.status(400).json({
           message: "성명 동의가 필요합니다",
           description: "카카오 로그인 시 이름 제공에 동의해주세요."
         });
       }
 
-      // ⚠️ 카카오 응답 원본 보존 원칙
-      //  - phone_number를 "01012345678"로 정규화 ❌ → 명부 매칭은 server/google-sheets.ts에서 단방향 변환
-      //  - kakao_account.name이 성명 원본 (profile.nickname / properties.nickname / "카카오 사용자" fallback 모두 ❌)
-      //  - profile_image_url의 http/https 임의 변경 ❌ (HTTPS는 1단계 secure_resource=true로 보장)
-      res.json({
-        kakaoId: userInfo.id.toString(),
-        email: userInfo.kakao_account.email,                                    // 원본 보존 (lowercase 변환 ❌)
-        name: userInfo.kakao_account.name,                                      // ⚠️ kakao_account.name 원본
-        profileImage: userInfo.kakao_account.profile?.profile_image_url || null, // 원본 그대로 (http/https 치환 ❌)
-        phoneNumber: userInfo.kakao_account.phone_number,                       // ⚠️ 카카오 응답 원본 그대로
-      });
-    } catch (error) {
-      if (error instanceof KakaoOAuthConfigurationError) {
-        const { missingVariables } = error;
-        console.error("[Kakao OAuth] missing configuration:", missingVariables);
-        return res.status(500).json({ message: "Kakao 앱 설정 오류" });
+      const kakaoId = String(userInfo?.id ?? "");
+      if (!kakaoId) {
+        return res.status(400).json({ message: "카카오 회원정보 조회에 실패했습니다" });
       }
-      console.error('Kakao OAuth authorize error:', getErrorType(error));
-      res.status(500).json({ message: 'Kakao authorization failed' });
-    }
-  });
+      const email = account.email as string;
+      const name = account.name as string;
+      const phoneNumber = account.phone_number as string;
+      const profileImage = account.profile?.profile_image_url || null;
+      const hasBirthday = typeof account.birthday === "string";
+      const birthday = hasBirthday ? account.birthday : null;
+      const birthdayType = hasBirthday && ["SOLAR", "LUNAR"].includes(account.birthday_type)
+        ? account.birthday_type as "SOLAR" | "LUNAR"
+        : null;
+      const isLeapMonth = hasBirthday && birthdayType === "LUNAR"
+        ? Boolean(account.is_leap_month)
+        : hasBirthday ? false : null;
 
-  app.post("/api/auth/kakao", async (req, res) => {
-    try {
-      const { kakaoId, email, name, profileImage, phoneNumber } = req.body;
-
-      console.log("Kakao authentication request received");
-
-      // Check if user exists
-      let user = await storage.getUserByKakaoId(kakaoId);
+      let user = await kakaoAuthStorage.getUserByKakaoId(kakaoId);
 
       if (!user) {
-        // v5: 휴대전화번호 1순위 + 이름 1건일 때만 매칭. 동명이인은 자동 등록 차단.
-        const { googleSheetsService } = await import("./google-sheets");
-        const alumniMatches = await googleSheetsService.findAlumniByPhoneAndName(phoneNumber, name);
+        const alumniMatches = await findAlumniByPhoneAndName(phoneNumber, name);
 
         if (alumniMatches.length > 0) {
-          console.log("Auto-registering verified alumni");
-
-          // Check if user already exists with this email or kakaoId
-          const existingUserByEmail = await storage.getUserByEmail?.(email);
-          const existingUserByKakao = await storage.getUserByKakaoId?.(kakaoId);
+          const existingUserByEmail = await kakaoAuthStorage.getUserByEmail(email);
 
           if (existingUserByEmail) {
-            console.log("User already exists with this email, logging in");
-            // ⚠️ updateUser 반환값을 사용 — stale 응답 방지
             const updates: Partial<typeof existingUserByEmail> = {};
             if (profileImage && !existingUserByEmail.profileImage) updates.profileImage = profileImage;
             if (phoneNumber && !existingUserByEmail.phoneNumber) updates.phoneNumber = phoneNumber;
-            let finalUser = existingUserByEmail;
+            updates.birthday = birthday;
+            updates.birthdayType = birthdayType;
+            updates.isLeapMonth = isLeapMonth;
+            user = existingUserByEmail;
             if (Object.keys(updates).length > 0) {
-              const updatedUser = await storage.updateUser(existingUserByEmail.id, updates);
-              if (updatedUser) {
-                finalUser = updatedUser;
-              }
+              user = await kakaoAuthStorage.updateUser(existingUserByEmail.id, updates);
             }
-            // ⚠️ session save 완료 후 응답 — 비동기 DB write 가 끝나기 전에 클라이언트가
-            //    다음 요청을 보내면 세션 인식 실패(401) 발생.
-            req.session.userId = finalUser.id;
-            req.session.save((err) => {
-              if (err) {
-                console.error("[Kakao Auth] session save failed:", getErrorType(err));
-                return res.status(500).json({ message: "세션 저장에 실패했습니다" });
-              }
-              return res.json({ user: finalUser });
+          } else {
+            user = await kakaoAuthStorage.createUser({
+              kakaoId,
+              email,
+              name,
+              profileImage,
+              phoneNumber,
+              birthday,
+              birthdayType,
+              isLeapMonth,
+              graduationYear: alumniMatches[0]?.graduationDate
+                ? parseInt(alumniMatches[0].graduationDate.substring(0, 4), 10) || null
+                : null,
+              isVerified: true,
+              kakaoSyncEnabled: true,
             });
-            return;
           }
-
-          if (existingUserByKakao) {
-            console.log("User already exists with this KakaoId, logging in");
-            const updates: Partial<typeof existingUserByKakao> = {};
-            if (profileImage && !existingUserByKakao.profileImage) updates.profileImage = profileImage;
-            if (phoneNumber && !existingUserByKakao.phoneNumber) updates.phoneNumber = phoneNumber;
-            let finalUser = existingUserByKakao;
-            if (Object.keys(updates).length > 0) {
-              const updatedUser = await storage.updateUser(existingUserByKakao.id, updates);
-              if (updatedUser) {
-                finalUser = updatedUser;
-              }
-            }
-            req.session.userId = finalUser.id;
-            req.session.save((err) => {
-              if (err) {
-                console.error("[Kakao Auth] session save failed:", getErrorType(err));
-                return res.status(500).json({ message: "세션 저장에 실패했습니다" });
-              }
-              return res.json({ user: finalUser });
-            });
-            return;
-          }
-
-          user = await storage.createUser({
-            kakaoId,
-            email,
-            name,
-            profileImage,
-            phoneNumber,
-            graduationYear: alumniMatches[0]?.graduationDate
-              ? parseInt(alumniMatches[0].graduationDate.substring(0, 4), 10) || null
-              : null,
-            isVerified: true,
-            kakaoSyncEnabled: true,
-          });
-          console.log("Auto-registered verified alumni");
         } else {
-          // For non-alumni, still create pending registration but indicate KakaoSync
-          await storage.createPendingRegistration({
+          await kakaoAuthStorage.createPendingRegistration({
             kakaoId,
             email,
             name,
@@ -338,6 +307,9 @@ export async function registerRoutes(
               name,
               profileImage,
               phoneNumber,
+              birthday,
+              birthdayType,
+              isLeapMonth,
               kakaoSync: true,
             },
           });
@@ -349,34 +321,38 @@ export async function registerRoutes(
           });
         }
       } else {
-        // Existing user — fill missing v5 fields opportunistically (finalUser 패턴)
         const updates: Partial<typeof user> = {};
         if (!user.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
         if (profileImage && !user.profileImage) updates.profileImage = profileImage;
         if (phoneNumber && !user.phoneNumber) updates.phoneNumber = phoneNumber;
+        if (user.birthday !== birthday) updates.birthday = birthday;
+        if (user.birthdayType !== birthdayType) updates.birthdayType = birthdayType;
+        if (user.isLeapMonth !== isLeapMonth) updates.isLeapMonth = isLeapMonth;
         if (Object.keys(updates).length > 0) {
-          user = await storage.updateUser(user.id, updates);
+          user = await kakaoAuthStorage.updateUser(user.id, updates);
         }
-        console.log("Existing user login completed");
       }
 
       if (!user) {
         return res.status(500).json({ message: "사용자 생성에 실패했습니다" });
       }
 
-      const finalUser = user;
-      req.session.userId = finalUser.id;
-      req.session.save((err) => {
-        if (err) {
-          console.error("[Kakao Auth] session save failed:", getErrorType(err));
-          return res.status(500).json({ message: "세션 저장에 실패했습니다" });
-        }
-        return res.json({ user: finalUser });
-      });
+      req.session.userId = user.id;
+      try {
+        await saveSession(req);
+      } catch (error) {
+        console.error("[Kakao Auth] session save failed:", getErrorType(error));
+        return res.status(500).json({ message: "세션 저장에 실패했습니다" });
+      }
+      return res.json({ user: toClientUser(user) });
     } catch (error) {
-      console.error("Kakao auth error:", getErrorType(error));
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      res.status(500).json({ message: "Authentication failed", error: errorMessage });
+      if (error instanceof KakaoOAuthConfigurationError) {
+        const { missingVariables } = error;
+        console.error("[Kakao OAuth] missing configuration:", missingVariables);
+        return res.status(500).json({ message: "Kakao 앱 설정 오류" });
+      }
+      console.error('Kakao OAuth authorize error:', getErrorType(error));
+      return res.status(500).json({ message: 'Kakao authorization failed' });
     }
   });
 
@@ -407,7 +383,7 @@ export async function registerRoutes(
     if (!updated) {
       return res.status(500).json({ message: "지역 저장에 실패했습니다" });
     }
-    res.json({ user: updated });
+    res.json({ user: toClientUser(updated) });
   });
 
   app.get("/api/auth/me", async (req, res) => {
@@ -415,11 +391,11 @@ export async function registerRoutes(
     if (!userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
-    const user = await storage.getUser(userId);
+    const user = await kakaoAuthStorage.getUser(userId);
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-    return res.json({ user });
+    return res.json({ user: toClientUser(user) });
   });
 
   // 본인 프로필 수정 — 활동 지역과 카카오 알림 설정만 허용.
@@ -437,7 +413,7 @@ export async function registerRoutes(
       if (!updated) {
         return res.status(404).json({ message: "사용자를 찾을 수 없습니다" });
       }
-      res.json({ user: updated });
+      res.json({ user: toClientUser(updated) });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "입력값이 올바르지 않습니다", errors: error.errors });
@@ -467,7 +443,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Debug user not found" });
       }
       req.session.userId = 1;
-      res.json({ user });
+      res.json({ user: toClientUser(user) });
     });
   }
 

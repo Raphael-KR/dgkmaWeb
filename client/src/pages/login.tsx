@@ -59,8 +59,9 @@ export default function Login() {
 
               <div aria-label="카카오 로그인 개인정보 안내" className="text-sm text-gray-600 leading-relaxed mb-4 text-left">
                 <p><strong>필수</strong> 이름, 이메일, 전화번호</p>
-                <p><strong>선택</strong> 프로필 사진</p>
-                <p>이름과 전화번호는 동문 자격 확인, 이메일은 계정 관리와 공식 안내, 프로필 사진은 내 정보 표시에 사용합니다.</p>
+                <p><strong>선택</strong> 프로필 사진, 생일</p>
+                <p>이름과 전화번호는 동문 자격 확인, 이메일은 계정 관리와 공식 안내, 프로필 사진은 내 정보 표시, 생일은 본인 전용 축하 화면에 사용합니다.</p>
+                <p>선택 항목에 동의하지 않아도 가입할 수 있으며, 해당 표시와 축하 화면만 제공되지 않습니다.</p>
               </div>
 
               <div className="text-xs text-gray-400 space-y-1">
