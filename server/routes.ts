@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "node:crypto";
 import { normalizePhoneForComparison, PendingRegistrationConflictError, PhoneRegistrationConflictError, storage } from "./storage";
-import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type InsertUser, type PendingRegistrationConflictReason, type User } from "@shared/schema";
+import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type InsertUser, type PendingRegistration, type PendingRegistrationConflictReason, type User } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
   communityEventDraftSchema,
@@ -123,7 +123,10 @@ export type RouteDependencies = {
   getAccountDeletionUser?: (userId: number) => Promise<User | undefined>;
   deleteUserAccount?: (user: Pick<User, "id" | "kakaoId" | "email">) => Promise<void>;
   unlinkKakaoUser?: typeof unlinkKakaoUserFromKakao;
-  pendingRegistrationStorage?: Pick<typeof storage, "updatePendingRegistrationStatus">;
+  pendingRegistrationStorage?: Partial<Pick<
+    typeof storage,
+    "rejectPendingRegistration" | "updatePendingRegistrationStatus"
+  >>;
   kakaoOAuthStateStore?: KakaoOAuthStateStore;
   kakaoAuthStorage?: Pick<
     typeof storage,
@@ -146,6 +149,29 @@ function saveSession(req: Request): Promise<void> {
   });
 }
 
+class InvalidPendingKakaoIdError extends Error {
+  constructor() {
+    super("The pending registration has no trustworthy Kakao user id.");
+    this.name = "InvalidPendingKakaoIdError";
+  }
+}
+
+function getPendingKakaoId(registration: PendingRegistration): string {
+  const userData = registration.userData;
+  if (!userData || typeof userData !== "object" || Array.isArray(userData)) {
+    throw new InvalidPendingKakaoIdError();
+  }
+  const kakaoId = (userData as Record<string, unknown>).kakaoId;
+  if (
+    typeof kakaoId !== "string"
+    || !/^[1-9]\d*$/.test(kakaoId)
+    || kakaoId !== registration.kakaoId
+  ) {
+    throw new InvalidPendingKakaoIdError();
+  }
+  return kakaoId;
+}
+
 export async function registerRoutes(
   app: Express,
   dependencies: RouteDependencies = {},
@@ -157,7 +183,12 @@ export async function registerRoutes(
     dependencies.getKakaoOAuthConfig ?? (() => resolveKakaoOAuthConfig());
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
   const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
-  const pendingRegistrationStorage = dependencies.pendingRegistrationStorage ?? storage;
+  const pendingRegistrationStorage = {
+    rejectPendingRegistration: dependencies.pendingRegistrationStorage?.rejectPendingRegistration
+      ?? storage.rejectPendingRegistration.bind(storage),
+    updatePendingRegistrationStatus: dependencies.pendingRegistrationStorage?.updatePendingRegistrationStatus
+      ?? storage.updatePendingRegistrationStatus.bind(storage),
+  };
   const kakaoOAuthStateStore = dependencies.kakaoOAuthStateStore
     ?? postgresKakaoOAuthStateStore;
   const getKakaoAdminConfig = dependencies.getKakaoAdminConfig
@@ -1167,6 +1198,27 @@ export async function registerRoutes(
     try {
       const { status } = req.body;
       const id = parseInt(req.params.id);
+
+      if (status === "rejected") {
+        const deleted = await pendingRegistrationStorage.rejectPendingRegistration(
+          id,
+          async (registration) => {
+            const kakaoId = getPendingKakaoId(registration);
+            const { adminKey } = getKakaoAdminConfig();
+            try {
+              await unlinkKakaoUser({ adminKey, kakaoId });
+            } catch (error) {
+              if (!(error instanceof KakaoUnlinkError && error.kind === "already_unlinked")) {
+                throw error;
+              }
+            }
+          },
+        );
+        if (!deleted) {
+          return res.status(404).json({ message: "Registration not found" });
+        }
+        return res.json({ deleted: true, id: deleted.id });
+      }
       
       const registration = await pendingRegistrationStorage.updatePendingRegistrationStatus(id, status);
       
@@ -1176,6 +1228,23 @@ export async function registerRoutes(
       
       res.json(toAdminPendingRegistrationDto(registration));
     } catch (error) {
+      if (error instanceof InvalidPendingKakaoIdError) {
+        return res.status(409).json({
+          message: "가입 신청의 카카오 식별정보를 확인할 수 없어 거절할 수 없습니다",
+        });
+      }
+      if (error instanceof KakaoAdminConfigurationError) {
+        console.error("Kakao unlink blocked pending rejection:", getErrorType(error));
+        return res.status(500).json({
+          message: "가입 거절 설정 오류입니다. 관리자에게 문의해주세요",
+        });
+      }
+      if (error instanceof KakaoUnlinkError) {
+        console.error("Kakao unlink blocked pending rejection:", getErrorType(error));
+        return res.status(502).json({
+          message: "카카오 연결 해제에 실패해 가입 거절을 완료하지 못했습니다. 잠시 후 다시 시도해주세요",
+        });
+      }
       if (error instanceof PhoneRegistrationConflictError) {
         return res.status(409).json({
           message: "이미 가입된 전화번호입니다",

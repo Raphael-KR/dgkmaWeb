@@ -14,6 +14,6 @@ export function toClientUser(user: User): ClientUser {
     birthdayType: user.birthdayType,
     isLeapMonth: user.isLeapMonth,
     activityRegion: user.activityRegion,
-    createdAt: user.createdAt,
+    createdAt: user.createdAt?.toISOString() ?? null,
   };
 }

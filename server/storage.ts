@@ -254,6 +254,10 @@ export interface IStorage {
   createOrRefreshPendingRegistration(
     registration: PendingRegistrationReviewInput,
   ): Promise<CreateOrRefreshPendingRegistrationResult>;
+  rejectPendingRegistration(
+    id: number,
+    beforeDelete: (registration: PendingRegistration) => Promise<void>,
+  ): Promise<{ id: number } | undefined>;
   updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined>;
 
   // Obituary methods
@@ -826,6 +830,31 @@ export class DatabaseStorage implements IStorage {
         .values({ ...reviewedRegistration, status: "pending" })
         .returning();
       return { kind: "pending", registration: created };
+    });
+  }
+
+  async rejectPendingRegistration(
+    id: number,
+    beforeDelete: (registration: PendingRegistration) => Promise<void>,
+  ): Promise<{ id: number } | undefined> {
+    return db.transaction(async (tx) => {
+      const [registration] = await tx.select().from(pendingRegistrations)
+        .where(and(
+          eq(pendingRegistrations.id, id),
+          eq(pendingRegistrations.status, "pending"),
+        ))
+        .for("update");
+      if (!registration) return undefined;
+
+      await beforeDelete(registration);
+
+      const [deleted] = await tx.delete(pendingRegistrations)
+        .where(and(
+          eq(pendingRegistrations.id, id),
+          eq(pendingRegistrations.status, "pending"),
+        ))
+        .returning({ id: pendingRegistrations.id });
+      return deleted || undefined;
     });
   }
 

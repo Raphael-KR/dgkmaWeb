@@ -512,3 +512,42 @@ npm run build
 ```
 
 `npm run db:push`는 Development Database에서 `current_database() = 'heliumdb'`를 먼저 확인한 뒤 실행한다. `session`은 `tablesFilter: ["!session"]`로 제외한다. `kakao_oauth_states`는 Development Database에 먼저 적용하고, Production Database에는 별도로 적용한다. 이 최종 리뷰에서는 Production Database에 접근하거나 스키마를 적용하지 않는다.
+
+### Task 9: 최종 재검토 findings 보정
+
+**Files:**
+- Modify: `server/storage.ts`
+- Modify: `server/routes.ts`
+- Create: `server/admin-pending-rejection-routes.test.ts`
+- Modify: `server/admin-pending-registration-contract.test.ts`
+- Modify: `client/src/pages/admin.tsx`
+- Modify: `shared/schema.ts`
+- Modify: `server/client-user.ts`
+- Modify: `server/client-user.test.ts`
+- Modify: `client/src/pages/privacy.tsx`
+- Modify: `docs/kakao-consent-review-guide.md`
+- Modify: `walkthrough.md`
+- Modify: `planning_proposal.md`
+- Modify: `docs/superpowers/specs/2026-07-12-kakao-consent-and-account-deletion-design.md`
+- Create: `server/final-recheck-documentation-contract.test.ts`
+
+**완료 조건:**
+- 가입 거절 시 즉시 카카오 연결을 해제한 후 신청정보를 파기하며, 연결 해제 실패 시 거절 미완료로 처리하고 신청정보를 보존한다.
+- pending 행을 잠근 트랜잭션 안에서 `userData.kakaoId`를 검증하고 unlink 성공 또는 `already_unlinked` 뒤에만 행 전체를 삭제한다.
+- 어드민 키 누락은 `500`, 실제 unlink 실패는 `502`, 누락·형식 오류·열 불일치로 신뢰할 수 없는 legacy 카카오 ID는 `409`이며 pending은 보존한다.
+- 거절 성공 응답은 `{ deleted: true, id }`, 승인 응답은 기존 최소 DTO를 유지하고 클라이언트 mutation 타입은 두 결과를 모두 반영한다.
+- 관리자 pending 목록 query는 HTTP 오류의 `message`를 `Error`로 전달하고 성공 body가 배열인지 확인한다.
+- `ClientUser.createdAt`은 DB `User`의 Date 타입과 분리한 `string | null` JSON 계약이며 `toClientUser`가 ISO 문자열로 직렬화한다.
+- callback 문서는 카카오 query 전달, 브라우저의 단일 서버 전달, 서버 응답·앱 로그의 전체 코드·토큰 비기록을 실제 SPA 흐름대로 설명한다.
+- 기획서는 카카오 REST OAuth와 1회 이관된 PostgreSQL `alumni_database`를 현재 인증 런타임 원본으로 설명한다.
+
+**검증:**
+
+```bash
+npx tsx --test server/admin-pending-rejection-routes.test.ts server/admin-pending-registration-contract.test.ts server/client-user.test.ts server/final-recheck-documentation-contract.test.ts
+npm test
+npm run check
+npm run build
+```
+
+전체 검증은 Replit Development의 격리된 workspace 복사본과 Development Database에서 수행한다. Production Database와 실제 Kakao API에는 접근하지 않으며 스키마 변경과 `npm run db:push`는 수행하지 않는다.

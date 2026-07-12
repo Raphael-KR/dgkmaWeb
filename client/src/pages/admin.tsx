@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, RefreshCw, FileSpreadsheet, Users, AlertCircle } from "lucide-react";
-import type { AdminPendingRegistrationDto } from "@shared/schema";
+import type { AdminPendingRegistrationDto, AdminPendingRegistrationUpdateResult } from "@shared/schema";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -96,12 +96,28 @@ export default function Admin() {
     queryKey: ["/api/admin/pending-registrations"],
     queryFn: async () => {
       const response = await fetch("/api/admin/pending-registrations", { credentials: "include" });
-      return response.json() as Promise<AdminPendingRegistrationDto[]>;
+      const responseBody = await response.json().catch(() => ({})) as
+        | AdminPendingRegistrationDto[]
+        | { message?: unknown };
+      if (!response.ok) {
+        if (!Array.isArray(responseBody) && typeof responseBody.message === "string") {
+          throw new Error(responseBody.message);
+        }
+        throw new Error("가입 대기 목록을 불러오지 못했습니다.");
+      }
+      if (!Array.isArray(responseBody)) {
+        throw new Error("가입 대기 목록 응답 형식이 올바르지 않습니다.");
+      }
+      return responseBody;
     },
     enabled: !!user?.isAdmin,
   });
 
-  const updateRegistrationMutation = useMutation({
+  const updateRegistrationMutation = useMutation<
+    AdminPendingRegistrationUpdateResult,
+    Error,
+    { id: number; status: string }
+  >({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const response = await fetch(`/api/admin/pending-registrations/${id}`, {
         method: "PATCH",
@@ -118,7 +134,7 @@ export default function Admin() {
         }
         throw new Error("처리 중 오류가 발생했습니다.");
       }
-      return responseBody as AdminPendingRegistrationDto;
+      return responseBody as AdminPendingRegistrationUpdateResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-registrations"] });

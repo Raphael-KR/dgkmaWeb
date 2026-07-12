@@ -24,10 +24,28 @@ test("admin approval mutation rejects non-OK responses with the server message",
   assert.match(mutation, /description:\s*error instanceof Error \? error\.message/);
 });
 
+test("admin pending query rejects HTTP errors and non-array payloads", async () => {
+  const source = await readFile(adminPagePath, "utf8");
+  const query = source.slice(
+    source.indexOf("const { data: pendingRegistrations"),
+    source.indexOf("const updateRegistrationMutation"),
+  );
+
+  assert.match(query, /if\s*\(!response\.ok\)/);
+  assert.match(query, /typeof\s+responseBody\.message\s*===\s*["']string["']/);
+  assert.match(query, /throw new Error\(responseBody\.message\)/);
+  assert.match(query, /Array\.isArray\(responseBody\)/);
+  assert.match(query, /throw new Error\(["']가입 대기 목록 응답 형식이 올바르지 않습니다\.["']\)/);
+});
+
 test("admin pending list and approval responses expose only the approved DTO", async (t) => {
   const adminSource = await readFile(adminPagePath, "utf8");
-  assert.match(adminSource, /import type \{ AdminPendingRegistrationDto \} from "@shared\/schema"/);
+  assert.match(
+    adminSource,
+    /import type \{ AdminPendingRegistrationDto, AdminPendingRegistrationUpdateResult \} from "@shared\/schema"/,
+  );
   assert.match(adminSource, /useQuery<AdminPendingRegistrationDto\[]>/);
+  assert.match(adminSource, /useMutation<\s*AdminPendingRegistrationUpdateResult/);
   assert.doesNotMatch(adminSource, /map\(\(registration:\s*any\)/);
 
   const createdAt = new Date("2026-07-13T01:02:03.000Z");

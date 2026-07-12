@@ -31,7 +31,7 @@ export default function Privacy() {
               개인정보 처리방침
             </CardTitle>
             <p className="text-sm text-gray-600">
-              최종 개정일: 2026년 7월 12일
+              최종 개정일: 2026년 7월 13일
             </p>
           </CardHeader>
           
@@ -62,13 +62,14 @@ export default function Privacy() {
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제2조 (개인정보의 처리 및 보유기간)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 회원 개인정보는 회원 탈퇴 시 지체없이 삭제합니다.</p>
-                <p>② 다만, 다음의 정보에 대해서는 아래의 이유로 명시한 기간 동안 보존합니다:</p>
+                <p>② 가입 거절 시 즉시 카카오 연결을 해제한 후 신청정보를 파기하며, 연결 해제 실패 시 거절 미완료로 처리하고 신청정보를 보존합니다.</p>
+                <p>③ 다만, 다음의 정보에 대해서는 아래의 이유로 명시한 기간 동안 보존합니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
                   <li>게시글·댓글·발행된 경조사: 서비스 기록의 연속성을 위해 작성자 연결을 제거한 뒤 콘텐츠를 유지합니다.</li>
                   <li>미발행 경조사 초안: 회원 탈퇴 시 삭제합니다.</li>
                   <li>결제 기록: 사용자 연결을 제거하고 법령상 또는 회계상 필요한 기간 동안 보관할 수 있습니다.</li>
                 </ul>
-                <p>③ 회원 탈퇴는 내 정보의 설정 화면에서 신청할 수 있으며, 카카오 연결 해제와 회원 개인정보 삭제를 함께 처리합니다.</p>
+                <p>④ 회원 탈퇴는 내 정보의 설정 화면에서 신청할 수 있으며, 카카오 연결 해제와 회원 개인정보 삭제를 함께 처리합니다.</p>
               </div>
             </section>
 
@@ -152,7 +153,8 @@ export default function Privacy() {
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제7조 (개인정보의 파기)</h3>
               <div className="space-y-2 text-gray-700">
                 <p>① 개인정보는 보유기간의 경과, 처리목적 달성 등 그 개인정보가 불필요하게 되었을 때에는 지체없이 파기합니다.</p>
-                <p>② 파기의 절차 및 방법은 다음과 같습니다:</p>
+                <p>② 가입 거절에서는 카카오 연결 해제 성공 또는 이미 해제된 상태가 확인된 경우에만 전화번호, 프로필 사진, 생일, 카카오 회원번호, 이메일을 포함한 신청정보를 즉시 삭제합니다.</p>
+                <p>③ 파기의 절차 및 방법은 다음과 같습니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
                   <li>파기절차: 선정된 개인정보는 개인정보 보호책임자의 승인을 받아 파기합니다.</li>
                   <li>파기방법: 전자적 파일형태의 정보는 기록을 재생할 수 없는 기술적 방법을 사용합니다.</li>
@@ -186,7 +188,7 @@ export default function Privacy() {
             <section>
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">부칙</h3>
               <div className="space-y-2 text-gray-700">
-                <p>본 방침은 2026년 7월 12일부터 시행됩니다.</p>
+                <p>본 방침은 2026년 7월 13일부터 시행됩니다.</p>
               </div>
             </section>
 

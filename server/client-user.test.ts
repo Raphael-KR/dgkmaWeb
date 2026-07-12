@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { updateProfileSchema, type User } from "@shared/schema";
+import { updateProfileSchema, type ClientUser, type User } from "@shared/schema";
 import { toClientUser } from "./client-user";
 
 test("toClientUser returns only fields required by the signed-in member UI", () => {
@@ -23,7 +23,8 @@ test("toClientUser returns only fields required by the signed-in member UI", () 
     updatedAt: new Date("2024-01-02T00:00:00.000Z"),
   };
 
-  assert.deepEqual(toClientUser(user), {
+  const clientUser: ClientUser = toClientUser(user);
+  assert.deepEqual(clientUser, {
     id: 7,
     email: "member@example.com",
     name: "홍길동",
@@ -36,12 +37,35 @@ test("toClientUser returns only fields required by the signed-in member UI", () 
     birthdayType: "SOLAR",
     isLeapMonth: false,
     activityRegion: "서울특별시",
-    createdAt: new Date("2024-01-01T00:00:00.000Z"),
+    createdAt: "2024-01-01T00:00:00.000Z",
   });
   assert.doesNotMatch(
     JSON.stringify(toClientUser(user)),
     /kakaoId|kakaoSyncEnabled|updatedAt|private-kakao-id/,
   );
+});
+
+test("toClientUser keeps a missing creation time as JSON null", () => {
+  const user: User = {
+    id: 8,
+    kakaoId: null,
+    email: "legacy@example.com",
+    name: "레거시 회원",
+    graduationYear: null,
+    isVerified: false,
+    isAdmin: false,
+    kakaoSyncEnabled: false,
+    profileImage: null,
+    phoneNumber: null,
+    birthday: null,
+    birthdayType: null,
+    isLeapMonth: null,
+    activityRegion: null,
+    createdAt: null,
+    updatedAt: null,
+  };
+
+  assert.equal(toClientUser(user).createdAt, null);
 });
 
 test("profile updates do not expose the unused Kakao sync setting", () => {

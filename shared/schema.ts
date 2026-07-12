@@ -271,7 +271,7 @@ export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistr
 
 // Types
 export type User = typeof users.$inferSelect;
-export type ClientUser = Pick<
+export type ClientUser = Omit<Pick<
   User,
   | "id"
   | "email"
@@ -286,7 +286,9 @@ export type ClientUser = Pick<
   | "isLeapMonth"
   | "activityRegion"
   | "createdAt"
->;
+>, "createdAt"> & {
+  createdAt: string | null;
+};
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
@@ -307,6 +309,9 @@ export type AdminPendingRegistrationDto = {
   status: string | null;
   createdAt: string | null;
 };
+export type AdminPendingRegistrationUpdateResult =
+  | AdminPendingRegistrationDto
+  | { deleted: true; id: number };
 export type Obituary = typeof obituaries.$inferSelect;
 export type CommunityEvent = typeof communityEvents.$inferSelect;
 export type InsertCommunityEvent = typeof communityEvents.$inferInsert;
