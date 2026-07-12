@@ -76,6 +76,30 @@ function normalizedPhoneSql(phoneColumn: AnyColumn | SQL): SQL<string> {
   `;
 }
 
+type RegistrationTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function withPhoneRegistrationLock<T>(
+  tx: RegistrationTransaction,
+  phoneNumber: string,
+  register: (normalizedPhone: string) => Promise<T>,
+): Promise<T> {
+  const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+  if (!normalizedPhone) {
+    throw new Error("Phone number is required for member registration.");
+  }
+
+  await tx.execute(sql`
+    select pg_advisory_xact_lock(hashtextextended(${normalizedPhone}, 0))
+  `);
+
+  const [existingUser] = await tx.select().from(users)
+    .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
+    .limit(1);
+  if (existingUser) throw new PhoneRegistrationConflictError();
+
+  return register(normalizedPhone);
+}
+
 // 회원 활동지역(시/도) → 동문 DB 주소 텍스트 매칭 패턴.
 // 주소가 약칭/정식 혼재("충북 청주" vs "충청북도")이므로 가능한 표기를 함께 검사.
 // '해외'는 주소 형식이 일정치 않아 매칭 불가(빈 배열).
@@ -204,8 +228,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+    return db.transaction((tx) => withPhoneRegistrationLock(
+      tx,
+      insertUser.phoneNumber ?? "",
+      async () => {
+        const [user] = await tx.insert(users).values(insertUser).returning();
+        return user;
+      },
+    ));
   }
 
   async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
@@ -437,39 +467,37 @@ export class DatabaseStorage implements IStorage {
   ): Promise<User | undefined> {
     const normalizedName = normalizeNameForComparison(name);
     const normalizedPhone = normalizePhoneForComparison(phoneNumber);
-    if (!normalizedName || !normalizedPhone) return undefined;
+    const normalizedStoredPhone = normalizePhoneForComparison(insertUser.phoneNumber ?? "");
+    if (
+      !normalizedName
+      || !normalizedPhone
+      || normalizedStoredPhone !== normalizedPhone
+    ) return undefined;
 
     try {
       return await db.transaction(async (tx) => {
-        await tx.execute(sql`
-          select pg_advisory_xact_lock(hashtextextended(${normalizedPhone}, 0))
-        `);
+        return withPhoneRegistrationLock(tx, insertUser.phoneNumber ?? "", async (lockedPhone) => {
+          const matches = await tx.select().from(alumniDatabase)
+            .where(and(
+              sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+              sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${lockedPhone}`,
+            ))
+            .orderBy(asc(alumniDatabase.id))
+            .limit(2);
+          const alumni = uniqueAlumniMatch(matches);
+          if (!alumni || alumni.matchedUserId !== null) return undefined;
 
-        const [existingUser] = await tx.select().from(users)
-          .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
-          .limit(1);
-        if (existingUser) throw new PhoneRegistrationConflictError();
-
-        const matches = await tx.select().from(alumniDatabase)
-          .where(and(
-            sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
-            sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
-          ))
-          .orderBy(asc(alumniDatabase.id))
-          .limit(2);
-        const alumni = uniqueAlumniMatch(matches);
-        if (!alumni || alumni.matchedUserId !== null) return undefined;
-
-        const [user] = await tx.insert(users).values(insertUser).returning();
-        const [claimed] = await tx.update(alumniDatabase)
-          .set({ isMatched: true, matchedUserId: user.id })
-          .where(and(
-            eq(alumniDatabase.id, alumni.id),
-            isNull(alumniDatabase.matchedUserId),
-          ))
-          .returning();
-        if (!claimed) throw new AlumniClaimConflictError();
-        return user;
+          const [user] = await tx.insert(users).values(insertUser).returning();
+          const [claimed] = await tx.update(alumniDatabase)
+            .set({ isMatched: true, matchedUserId: user.id })
+            .where(and(
+              eq(alumniDatabase.id, alumni.id),
+              isNull(alumniDatabase.matchedUserId),
+            ))
+            .returning();
+          if (!claimed) throw new AlumniClaimConflictError();
+          return user;
+        });
       });
     } catch (error) {
       if (error instanceof AlumniClaimConflictError) return undefined;
@@ -615,11 +643,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined> {
-    const [registration] = await db.update(pendingRegistrations)
-      .set({ status })
-      .where(eq(pendingRegistrations.id, id))
-      .returning();
-    return registration || undefined;
+    return db.transaction(async (tx) => {
+      const [registration] = await tx.select().from(pendingRegistrations)
+        .where(eq(pendingRegistrations.id, id))
+        .for("update");
+      if (!registration) return undefined;
+
+      if (status !== "approved" || !registration.userData) {
+        const [updated] = await tx.update(pendingRegistrations)
+          .set({ status })
+          .where(eq(pendingRegistrations.id, id))
+          .returning();
+        return updated || undefined;
+      }
+
+      if (typeof registration.userData !== "object" || Array.isArray(registration.userData)) {
+        throw new Error("Pending registration user data is invalid.");
+      }
+      const userData = registration.userData as Record<string, unknown>;
+      const phoneNumber = typeof userData.phoneNumber === "string"
+        ? userData.phoneNumber
+        : "";
+
+      return withPhoneRegistrationLock(tx, phoneNumber, async () => {
+        await tx.insert(users).values({
+          kakaoId: typeof userData.kakaoId === "string" ? userData.kakaoId : registration.kakaoId,
+          email: typeof userData.email === "string" ? userData.email : registration.email,
+          name: typeof userData.name === "string" ? userData.name : registration.name,
+          profileImage: typeof userData.profileImage === "string" ? userData.profileImage : null,
+          phoneNumber,
+          isVerified: true,
+        });
+        const [updated] = await tx.update(pendingRegistrations)
+          .set({ status })
+          .where(eq(pendingRegistrations.id, id))
+          .returning();
+        return updated || undefined;
+      });
+    });
   }
 
   async searchPosts(query: string): Promise<(Post & { category: Category })[]> {

@@ -98,6 +98,7 @@ export type RouteDependencies = {
   getUserForAdmin?: AdminUserLookup;
   getKakaoOAuthConfig?: () => KakaoOAuthConfig;
   kakaoFetch?: typeof fetch;
+  pendingRegistrationStorage?: Pick<typeof storage, "updatePendingRegistrationStatus">;
   kakaoAuthStorage?: Pick<
     typeof storage,
     | "getUser"
@@ -130,6 +131,7 @@ export async function registerRoutes(
     dependencies.getKakaoOAuthConfig ?? (() => resolveKakaoOAuthConfig());
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
   const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
+  const pendingRegistrationStorage = dependencies.pendingRegistrationStorage ?? storage;
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -990,27 +992,20 @@ export async function registerRoutes(
       const { status } = req.body;
       const id = parseInt(req.params.id);
       
-      const registration = await storage.updatePendingRegistrationStatus(id, status);
+      const registration = await pendingRegistrationStorage.updatePendingRegistrationStatus(id, status);
       
       if (!registration) {
         return res.status(404).json({ message: "Registration not found" });
       }
       
-      // If approved, create user account with the consented Kakao profile fields.
-      if (status === "approved" && registration.userData) {
-        const userData = registration.userData as any;
-        await storage.createUser({
-          kakaoId: userData.kakaoId,
-          email: userData.email,
-          name: userData.name,
-          profileImage: userData.profileImage,
-          phoneNumber: userData.phoneNumber,
-          isVerified: true,
-        });
-      }
-      
       res.json(registration);
     } catch (error) {
+      if (error instanceof PhoneRegistrationConflictError) {
+        return res.status(409).json({
+          message: "이미 가입된 전화번호입니다",
+          description: "승인 상태는 변경되지 않았습니다.",
+        });
+      }
       res.status(500).json({ message: "Failed to update registration" });
     }
   });

@@ -79,6 +79,10 @@ async function startServer(dependencies: RouteDependencies) {
   const app = express();
   app.use(express.json());
   app.use(session({ secret: "test-session-secret", resave: false, saveUninitialized: false }));
+  app.post("/__test/admin-session", (req, res) => {
+    req.session.userId = 1;
+    res.json({ ok: true });
+  });
   const server = await registerRoutes(app, dependencies);
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -91,6 +95,14 @@ async function startServer(dependencies: RouteDependencies) {
       server.close((error) => error ? reject(error) : resolve());
     }),
   };
+}
+
+async function createAdminSession(baseUrl: string): Promise<string> {
+  const response = await fetch(`${baseUrl}/__test/admin-session`, { method: "POST" });
+  assert.equal(response.status, 200);
+  const cookie = response.headers.get("set-cookie");
+  assert.ok(cookie);
+  return cookie;
 }
 
 test("authorization start redirects with the selected configuration", async () => {
@@ -528,6 +540,39 @@ test("transactional phone race returns the safe duplicate response", async () =>
     assert.deepEqual(await response.json(), {
       message: "이미 가입된 전화번호입니다",
       description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("admin approval phone conflict returns 409 without changing pending status", async () => {
+  let pendingStatus = "pending";
+  const adminUser = { ...createdUser, id: 1, isAdmin: true };
+  const server = await startServer({
+    getUserForAdmin: async () => adminUser,
+    pendingRegistrationStorage: {
+      updatePendingRegistrationStatus: async () => {
+        throw new PhoneRegistrationConflictError();
+      },
+    },
+  });
+  try {
+    const cookie = await createAdminSession(server.baseUrl);
+    const response = await fetch(`${server.baseUrl}/api/admin/pending-registrations/7`, {
+      method: "PATCH",
+      headers: {
+        cookie,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ status: "approved" }),
+    });
+
+    assert.equal(response.status, 409);
+    assert.equal(pendingStatus, "pending");
+    assert.deepEqual(await response.json(), {
+      message: "이미 가입된 전화번호입니다",
+      description: "승인 상태는 변경되지 않았습니다.",
     });
   } finally {
     await server.close();

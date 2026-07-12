@@ -69,18 +69,53 @@ test("transactional alumni lookup uses the same normalized phone SQL expression"
   );
 });
 
-test("atomic registration locks the phone before rechecking users and inserting", async () => {
+test("atomic registration locks the phone before rechecking users", async () => {
   const storageSource = await readFile(storagePath, "utf8");
+  const sharedRegistration = storageSource.slice(
+    storageSource.indexOf("async function withPhoneRegistrationLock"),
+    storageSource.indexOf("// 회원 활동지역"),
+  );
+  const lockIndex = sharedRegistration.indexOf("pg_advisory_xact_lock");
+  const userRecheckIndex = sharedRegistration.indexOf("tx.select().from(users)");
+
+  assert.ok(lockIndex >= 0, "normalized phone advisory lock is required");
+  assert.ok(userRecheckIndex > lockIndex, "existing users must be checked after the lock");
+  assert.match(sharedRegistration, /throw new PhoneRegistrationConflictError/);
+});
+
+test("every member creation path uses the shared phone registration transaction", async () => {
+  const storageSource = await readFile(storagePath, "utf8");
+  const createMethod = storageSource.slice(
+    storageSource.indexOf("async createUser("),
+    storageSource.indexOf("async updateUser("),
+  );
   const registrationMethod = storageSource.slice(
     storageSource.indexOf("async createUserWithAlumniClaim("),
     storageSource.indexOf("async getAlumniRecordByUserId("),
   );
-  const lockIndex = registrationMethod.indexOf("pg_advisory_xact_lock");
-  const userRecheckIndex = registrationMethod.indexOf("tx.select().from(users)");
-  const insertIndex = registrationMethod.indexOf("tx.insert(users)");
+  const pendingMethod = storageSource.slice(
+    storageSource.indexOf("async updatePendingRegistrationStatus("),
+    storageSource.indexOf("async searchPosts("),
+  );
 
-  assert.ok(lockIndex >= 0, "normalized phone advisory lock is required");
-  assert.ok(userRecheckIndex > lockIndex, "existing users must be checked after the lock");
-  assert.ok(insertIndex > userRecheckIndex, "insert must happen after the locked user check");
-  assert.match(registrationMethod, /throw new PhoneRegistrationConflictError/);
+  assert.match(storageSource, /async function withPhoneRegistrationLock/);
+  assert.match(createMethod, /withPhoneRegistrationLock/);
+  assert.match(registrationMethod, /withPhoneRegistrationLock/);
+  assert.match(registrationMethod, /normalizedStoredPhone !== normalizedPhone/);
+  assert.match(registrationMethod, /insertUser\.phoneNumber \?\? ""/);
+  assert.match(pendingMethod, /withPhoneRegistrationLock/);
+  assert.match(pendingMethod, /tx\.update\(pendingRegistrations\)/);
+});
+
+test("admin approval delegates atomically and never calls createUser separately", async () => {
+  const routesSource = await readFile(routesPath, "utf8");
+  const approvalRoute = routesSource.slice(
+    routesSource.indexOf('app.patch("/api/admin/pending-registrations/:id"'),
+    routesSource.indexOf("// Google Sheets 동기화 API"),
+  );
+
+  assert.match(approvalRoute, /updatePendingRegistrationStatus/);
+  assert.doesNotMatch(approvalRoute, /storage\.createUser\(/);
+  assert.match(approvalRoute, /PhoneRegistrationConflictError/);
+  assert.match(approvalRoute, /res\.status\(409\)/);
 });
