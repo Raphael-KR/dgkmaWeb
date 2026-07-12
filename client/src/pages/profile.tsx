@@ -12,6 +12,7 @@ import { LogOut, Edit, Settings, Shield, Receipt } from "lucide-react";
 import { MembershipBadge } from "@/components/membership-badge";
 import { ProfileEditDialog } from "@/components/profile/profile-edit-dialog";
 import { SettingsDialog } from "@/components/profile/settings-dialog";
+import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { MembershipStatus } from "@shared/schema";
 
@@ -21,6 +22,12 @@ export default function Profile() {
   const [location, setLocation] = useLocation();
   const [editOpen, setEditOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  const openDeleteAccount = () => {
+    setSettingsOpen(false);
+    setDeleteAccountOpen(true);
+  };
 
   const { data: payments, isLoading: paymentsLoading } = useQuery({
     queryKey: ["/api/payments/user", user?.id],
@@ -293,7 +300,13 @@ export default function Profile() {
       </div>
 
       <ProfileEditDialog open={editOpen} onOpenChange={setEditOpen} user={user} />
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} user={user} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        user={user}
+        onDeleteAccount={openDeleteAccount}
+      />
+      <DeleteAccountDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />
     </div>
   );
 }

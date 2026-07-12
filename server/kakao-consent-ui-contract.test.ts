@@ -56,3 +56,31 @@ test("Kakao callback handles every explicit login result without remaining on th
   assert.match(settings, /import type \{ ClientUser \} from "@shared\/schema"/);
   assert.doesNotMatch(settings, /type User/);
 });
+
+test("member withdrawal uses a separate destructive confirmation dialog and clears client auth state", async () => {
+  const [settings, deletion, profile, auth] = await Promise.all([
+    source("components/profile/settings-dialog.tsx"),
+    source("components/profile/delete-account-dialog.tsx"),
+    source("pages/profile.tsx"),
+    source("hooks/use-auth.tsx"),
+  ]);
+
+  assert.match(settings, /회원 탈퇴/);
+  assert.match(settings, /onDeleteAccount/);
+  assert.match(profile, /setSettingsOpen\(false\)/);
+  assert.match(profile, /setDeleteAccountOpen\(true\)/);
+  assert.match(profile, /<DeleteAccountDialog/);
+
+  assert.match(deletion, /AlertDialog/);
+  assert.match(deletion, /confirmation === "탈퇴"/);
+  assert.match(deletion, /DELETE/);
+  assert.match(deletion, /\/api\/users\/me/);
+  assert.match(deletion, /variant="destructive"/);
+  assert.match(deletion, /disabled=\{!isConfirmed/);
+  assert.match(deletion, /setUser\(null\)/);
+  assert.match(deletion, /queryClient\.clear\(\)/);
+  assert.match(deletion, /setLocation\("\/"\)/);
+  assert.match(deletion, /variant: "destructive"/);
+
+  assert.match(auth, /setUser: \(user: ClientUser \| null\) => void/);
+});

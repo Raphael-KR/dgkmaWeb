@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Shield, Wallet, ChevronRight } from "lucide-react";
+import { FileText, Shield, Wallet, ChevronRight, UserRoundX } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,10 +21,12 @@ export function SettingsDialog({
   open,
   onOpenChange,
   user,
+  onDeleteAccount,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: ClientUser;
+  onDeleteAccount: () => void;
 }) {
   const { setUser } = useAuth();
   const { toast } = useToast();
@@ -113,6 +115,21 @@ export function SettingsDialog({
               개인정보처리방침
             </span>
             <ChevronRight size={16} className="text-gray-400" />
+          </Button>
+
+          <Separator />
+
+          <Button
+            variant="ghost"
+            className="w-full justify-between text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={onDeleteAccount}
+            data-testid="button-settings-delete-account"
+          >
+            <span className="flex items-center">
+              <UserRoundX className="mr-3" size={18} />
+              회원 탈퇴
+            </span>
+            <ChevronRight size={16} className="text-red-400" />
           </Button>
         </div>
       </DialogContent>

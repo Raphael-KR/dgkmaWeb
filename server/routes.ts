@@ -1,7 +1,7 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { normalizePhoneForComparison, PhoneRegistrationConflictError, storage } from "./storage";
-import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent } from "@shared/schema";
+import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type User } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
   communityEventDraftSchema,
@@ -29,6 +29,14 @@ import { isSelectablePostCategory } from "@shared/category-policy";
 import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
 import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
 import { toClientUser } from "./client-user";
+import {
+  resolveKakaoAdminConfig,
+  type KakaoAdminConfig,
+} from "./kakao-admin-config";
+import {
+  KakaoUnlinkError,
+  unlinkKakaoUser as unlinkKakaoUserFromKakao,
+} from "./kakao-unlink";
 
 declare module "express-session" {
   interface SessionData {
@@ -98,6 +106,10 @@ export type RouteDependencies = {
   getUserForAdmin?: AdminUserLookup;
   getKakaoOAuthConfig?: () => KakaoOAuthConfig;
   kakaoFetch?: typeof fetch;
+  getKakaoAdminConfig?: () => KakaoAdminConfig;
+  getAccountDeletionUser?: (userId: number) => Promise<User | undefined>;
+  deleteUserAccount?: (user: Pick<User, "id" | "kakaoId" | "email">) => Promise<void>;
+  unlinkKakaoUser?: typeof unlinkKakaoUserFromKakao;
   pendingRegistrationStorage?: Pick<typeof storage, "updatePendingRegistrationStatus">;
   kakaoAuthStorage?: Pick<
     typeof storage,
@@ -132,6 +144,13 @@ export async function registerRoutes(
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
   const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
   const pendingRegistrationStorage = dependencies.pendingRegistrationStorage ?? storage;
+  const getKakaoAdminConfig = dependencies.getKakaoAdminConfig
+    ?? (() => resolveKakaoAdminConfig());
+  const getAccountDeletionUser = dependencies.getAccountDeletionUser
+    ?? ((userId: number) => storage.getUser(userId));
+  const deleteUserAccount = dependencies.deleteUserAccount
+    ?? ((user: Pick<User, "id" | "kakaoId" | "email">) => storage.deleteUserAccount(user));
+  const unlinkKakaoUser = dependencies.unlinkKakaoUser ?? unlinkKakaoUserFromKakao;
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -458,6 +477,60 @@ export async function registerRoutes(
       }
       res.status(500).json({ message: "프로필 저장에 실패했습니다" });
     }
+  });
+
+  app.delete("/api/users/me", async (req, res) => {
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "로그인이 필요합니다" });
+    }
+    if (req.body?.confirmation !== "탈퇴") {
+      return res.status(400).json({ message: "확인 문구로 '탈퇴'를 입력해주세요" });
+    }
+
+    let user: User | undefined;
+    try {
+      user = await getAccountDeletionUser(userId);
+    } catch (error) {
+      console.error("Account deletion user lookup failed:", getErrorType(error));
+      return res.status(500).json({
+        message: "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요",
+      });
+    }
+    if (!user) {
+      return res.status(401).json({ message: "로그인이 필요합니다" });
+    }
+
+    if (user.kakaoId) {
+      try {
+        const { adminKey } = getKakaoAdminConfig();
+        await unlinkKakaoUser({ adminKey, kakaoId: user.kakaoId });
+      } catch (error) {
+        if (!(error instanceof KakaoUnlinkError && error.kind === "already_unlinked")) {
+          console.error("Kakao unlink blocked account deletion:", getErrorType(error));
+          return res.status(502).json({
+            message: "카카오 연결 해제에 실패했습니다. 잠시 후 다시 시도해주세요",
+          });
+        }
+      }
+    }
+
+    try {
+      await deleteUserAccount(user);
+    } catch (error) {
+      console.error("Local account deletion failed:", getErrorType(error));
+      return res.status(500).json({
+        message: "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요",
+      });
+    }
+
+    req.session.destroy((error) => {
+      if (error) {
+        console.error("Account deletion session cleanup failed:", getErrorType(error));
+      }
+      res.clearCookie("connect.sid");
+      return res.json({ success: true });
+    });
   });
 
   // 권리회원 등급/회비 납부 현황 — 세션 기준 본인만 조회.

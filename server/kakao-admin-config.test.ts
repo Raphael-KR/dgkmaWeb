@@ -46,3 +46,19 @@ test("missing selected administrator key reports its variable name without its v
     },
   );
 });
+
+test("missing production administrator key reports the production variable only", () => {
+  assert.throws(
+    () => resolveKakaoAdminConfig({
+      REPLIT_DEPLOYMENT: "1",
+      KAKAO_DEV_ADMIN_KEY: "development-admin-secret",
+      KAKAO_PROD_ADMIN_KEY: "  ",
+    }),
+    (error) => {
+      assert.ok(error instanceof KakaoAdminConfigurationError);
+      assert.deepEqual(error.missingVariables, ["KAKAO_PROD_ADMIN_KEY"]);
+      assert.doesNotMatch(error.message, /development-admin-secret/);
+      return true;
+    },
+  );
+});

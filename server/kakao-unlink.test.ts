@@ -90,3 +90,31 @@ test("a successful response with a different user id stops local deletion", asyn
   assert.equal(error.httpStatus, 200);
   assert.doesNotMatch(error.message, /admin-secret|123456789|987654321/);
 });
+
+test("a non-JSON response becomes a safe invalid-response error", async () => {
+  const error = await expectUnlinkError(
+    unlinkKakaoUser({
+      adminKey,
+      kakaoId,
+      kakaoFetch: async () => new Response("not-json", { status: 502 }),
+    }),
+  );
+
+  assert.equal(error.kind, "invalid_response");
+  assert.equal(error.httpStatus, 502);
+  assert.doesNotMatch(error.message, /admin-secret|123456789|not-json/);
+});
+
+test("a successful JSON response without an id becomes invalid-response", async () => {
+  const error = await expectUnlinkError(
+    unlinkKakaoUser({
+      adminKey,
+      kakaoId,
+      kakaoFetch: async () => Response.json({ ok: true }),
+    }),
+  );
+
+  assert.equal(error.kind, "invalid_response");
+  assert.equal(error.httpStatus, 200);
+  assert.doesNotMatch(error.message, /admin-secret|123456789/);
+});
