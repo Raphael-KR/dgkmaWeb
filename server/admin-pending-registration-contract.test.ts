@@ -38,6 +38,30 @@ test("admin pending query rejects HTTP errors and non-array payloads", async () 
   assert.match(query, /throw new Error\(["']가입 대기 목록 응답 형식이 올바르지 않습니다\.["']\)/);
 });
 
+test("admin pending component renders a destructive query error instead of the empty state", async () => {
+  const source = await readFile(adminPagePath, "utf8");
+  const query = source.slice(
+    source.indexOf("const { data: pendingRegistrations"),
+    source.indexOf("const updateRegistrationMutation"),
+  );
+  const pendingTab = source.slice(
+    source.indexOf('<TabsContent value="pending"'),
+    source.indexOf('<TabsContent value="alumni"'),
+  );
+
+  assert.match(query, /isError/);
+  assert.match(query, /\berror\b/);
+  assert.match(source, /import \{ Alert, AlertDescription, AlertTitle \} from "@\/components\/ui\/alert"/);
+  assert.match(pendingTab, /isError\s*\?/);
+  assert.match(pendingTab, /<Alert variant="destructive">/);
+  assert.match(pendingTab, /<AlertTitle>가입 대기 목록 조회 실패<\/AlertTitle>/);
+  assert.match(pendingTab, /error instanceof Error \? error\.message/);
+
+  const errorBranch = pendingTab.indexOf("isError ?");
+  const emptyBranch = pendingTab.indexOf("pendingRegistrations?.length === 0");
+  assert.ok(errorBranch >= 0 && errorBranch < emptyBranch);
+});
+
 test("admin pending list and approval responses expose only the approved DTO", async (t) => {
   const adminSource = await readFile(adminPagePath, "utf8");
   assert.match(

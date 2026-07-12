@@ -38,6 +38,7 @@ async function startRejectionServer(options: {
 } = {}) {
   let storedRegistration: PendingRegistration | undefined = options.registration ?? pendingRegistration;
   const unlinkCalls: Array<{ adminKey: string; kakaoId: string }> = [];
+  const storageCalls = { reject: 0, update: 0 };
   const app = express();
   app.use(express.json());
   app.use(session({ secret: "pending-rejection-secret", resave: false, saveUninitialized: false }));
@@ -55,10 +56,14 @@ async function startRejectionServer(options: {
       await options.unlinkKakaoUser?.(args);
     },
     pendingRegistrationStorage: {
-      updatePendingRegistrationStatus: async () => {
-        throw new Error("rejection must not update and retain personal data");
+      updatePendingRegistrationStatus: async (id, status) => {
+        storageCalls.update += 1;
+        if (!storedRegistration || storedRegistration.id !== id) return undefined;
+        storedRegistration = { ...storedRegistration, status };
+        return storedRegistration;
       },
       rejectPendingRegistration: async (id, beforeDelete) => {
+        storageCalls.reject += 1;
         if (!storedRegistration || storedRegistration.id !== id) return undefined;
         await beforeDelete(storedRegistration);
         const deleted = { id: storedRegistration.id };
@@ -81,6 +86,7 @@ async function startRejectionServer(options: {
     baseUrl,
     cookie,
     unlinkCalls,
+    storageCalls,
     hasPending: () => Boolean(storedRegistration),
     close: () => new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
@@ -88,7 +94,7 @@ async function startRejectionServer(options: {
   };
 }
 
-test("pending rejection storage locks the pending row and deletes only after its callback", async () => {
+test("pending rejection storage locks the identity, marks termination, and purges matching personal data", async () => {
   const source = await readFile(storagePath, "utf8");
   const start = source.indexOf("async rejectPendingRegistration");
   const end = source.indexOf("async updatePendingRegistrationStatus", start);
@@ -99,9 +105,42 @@ test("pending rejection storage locks the pending row and deletes only after its
   assert.match(method, /db\.transaction/);
   assert.match(method, /pendingRegistrations\.status, "pending"/);
   assert.match(method, /\.for\("update"\)/);
-  assert.ok(method.indexOf("await beforeDelete(registration)") < method.indexOf("tx.delete(pendingRegistrations)"));
-  assert.match(method, /returning\(\{ id: pendingRegistrations\.id \}\)/);
+  assert.ok(method.indexOf("lockRegistrationIdentities") < method.indexOf('.for("update")'));
+  assert.ok(method.indexOf("await beforeDelete(registration)") < method.indexOf("markKakaoIdentityTerminated"));
+  assert.ok(method.indexOf("markKakaoIdentityTerminated") < method.indexOf("removeLocalUsers"));
+  assert.match(method, /eq\(pendingRegistrations\.kakaoId, registration\.kakaoId\)/);
+  assert.match(method, /lower\(\$\{pendingRegistrations\.email\}\)/);
 });
+
+for (const [label, id, body] of [
+  ["partial numeric id", "27abc", { status: "approved" }],
+  ["zero id", "0", { status: "approved" }],
+  ["negative id", "-27", { status: "approved" }],
+  ["whitespace-padded status", "27", { status: "rejected " }],
+  ["unknown status", "27", { status: "foo" }],
+  ["extra body field", "27", { status: "approved", unexpected: true }],
+] as const) {
+  test(`admin pending PATCH rejects ${label} before storage or Kakao unlink`, async () => {
+    const server = await startRejectionServer();
+    try {
+      const response = await fetch(
+        `${server.baseUrl}/api/admin/pending-registrations/${id}`,
+        {
+          method: "PATCH",
+          headers: { cookie: server.cookie, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+
+      assert.equal(response.status, 400);
+      assert.deepEqual(server.storageCalls, { reject: 0, update: 0 });
+      assert.equal(server.unlinkCalls.length, 0);
+      assert.equal(server.hasPending(), true);
+    } finally {
+      await server.close();
+    }
+  });
+}
 
 async function rejectPending(baseUrl: string, cookie: string) {
   return fetch(`${baseUrl}/api/admin/pending-registrations/27`, {

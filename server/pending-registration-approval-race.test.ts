@@ -161,22 +161,25 @@ test("development PostgreSQL returns the approved member when approval wins a pe
     }
     assert.equal(approvalBlocked, true, "승인 트랜잭션이 phone lock에서 대기하지 않았습니다.");
 
-    refreshPromise = storage.createOrRefreshPendingRegistration({
-      kakaoId,
-      email,
-      name,
-      userData: {
+    refreshPromise = storage.createOrRefreshPendingRegistration(
+      {
         kakaoId,
         email,
         name,
-        phoneNumber: kakaoPhone,
-        profileImage: null,
-        birthday: null,
-        birthdayType: null,
-        isLeapMonth: null,
-        conflictReason: "not_found",
+        userData: {
+          kakaoId,
+          email,
+          name,
+          phoneNumber: kakaoPhone,
+          profileImage: null,
+          birthday: null,
+          birthdayType: null,
+          isLeapMonth: null,
+          conflictReason: "not_found",
+        },
       },
-    });
+      new Date(),
+    );
     await wait(25);
 
     await blocker.query("commit");
@@ -351,22 +354,25 @@ test("development PostgreSQL keeps a different Kakao ID with an approved email i
       (user) => ({ user, error: undefined }),
       (error: unknown) => ({ user: undefined, error }),
     );
-    const refreshResult = await storage.createOrRefreshPendingRegistration({
-      kakaoId: competingKakaoId,
-      email: sharedEmail,
-      name: competingName,
-      userData: {
+    const refreshResult = await storage.createOrRefreshPendingRegistration(
+      {
         kakaoId: competingKakaoId,
         email: sharedEmail,
         name: competingName,
-        phoneNumber: secondKakaoPhone,
-        profileImage: null,
-        birthday: null,
-        birthdayType: null,
-        isLeapMonth: null,
-        conflictReason: "alumni_race",
+        userData: {
+          kakaoId: competingKakaoId,
+          email: sharedEmail,
+          name: competingName,
+          phoneNumber: secondKakaoPhone,
+          profileImage: null,
+          birthday: null,
+          birthdayType: null,
+          isLeapMonth: null,
+          conflictReason: "alumni_race",
+        },
       },
-    });
+      new Date(),
+    );
 
     assert.equal(approvedRegistration?.status, "approved");
     assert.equal(competingCreation.user, undefined);

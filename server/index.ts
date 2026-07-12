@@ -4,6 +4,7 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { resolveSessionSecret } from "./session-secret";
 
 const app = express();
 
@@ -15,10 +16,14 @@ app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
-  console.error("FATAL: SESSION_SECRET environment variable is required in production");
-  process.exit(1);
-}
+const sessionSecret = (() => {
+  try {
+    return resolveSessionSecret();
+  } catch {
+    console.error("FATAL: SESSION_SECRET environment variable is required in production");
+    process.exit(1);
+  }
+})();
 
 const PgSession = connectPgSimple(session);
 
@@ -30,7 +35,7 @@ app.use(
       createTableIfMissing: true,
       pruneSessionInterval: 60,
     }),
-    secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {

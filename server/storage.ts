@@ -1,5 +1,6 @@
 import {
   users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries, comments, communityEvents,
+  kakaoIdentityTerminations,
   type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
@@ -13,7 +14,7 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, inArray, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, gte, inArray, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
@@ -22,6 +23,12 @@ import {
   eventDraftAdvisoryLockId,
   getOrCreateEventDraft,
 } from "./event-draft-creation";
+import {
+  KakaoOAuthTerminatedError,
+  hashKakaoEmailIdentity,
+  hashKakaoIdentity,
+  type KakaoOAuthGeneration,
+} from "./kakao-identity";
 
 // 동문 명부 노출 허용 필드 (개인정보 최소화 — 연락처·주소·메모 제외)
 export type DirectoryAlumni = {
@@ -110,6 +117,92 @@ async function lockRegistrationIdentities(
     `);
   }
 }
+
+async function assertKakaoOAuthGenerationActive(
+  tx: RegistrationTransaction,
+  generation: KakaoOAuthGeneration,
+): Promise<void> {
+  if (Number.isNaN(generation.startedAt.getTime())) {
+    throw new KakaoOAuthTerminatedError();
+  }
+  const [termination] = await tx.select({
+    identityHash: kakaoIdentityTerminations.identityHash,
+  }).from(kakaoIdentityTerminations)
+    .where(and(
+      inArray(kakaoIdentityTerminations.identityHash, [
+        hashKakaoIdentity(generation.kakaoId),
+        hashKakaoEmailIdentity(generation.email),
+      ]),
+      gte(kakaoIdentityTerminations.terminatedAt, generation.startedAt),
+    ))
+    .limit(1);
+  if (termination) throw new KakaoOAuthTerminatedError();
+}
+
+async function markKakaoIdentityTerminated(
+  tx: RegistrationTransaction,
+  kakaoId: string,
+  email: string,
+): Promise<void> {
+  const identityHashes = [
+    hashKakaoIdentity(kakaoId),
+    hashKakaoEmailIdentity(email),
+  ];
+  const terminatedAt = sql<Date>`date_trunc('milliseconds', clock_timestamp())`;
+  await tx.insert(kakaoIdentityTerminations)
+    .values(identityHashes.map((identityHash) => ({ identityHash, terminatedAt })))
+    .onConflictDoUpdate({
+      target: kakaoIdentityTerminations.identityHash,
+      set: { terminatedAt },
+    });
+}
+
+async function removeLocalUsers(
+  tx: RegistrationTransaction,
+  userIds: number[],
+  deletePendingPersonalData: () => Promise<unknown>,
+): Promise<void> {
+  if (userIds.length > 0) {
+    const userCondition = inArray(users.id, userIds);
+    await tx.delete(communityEvents).where(and(
+      inArray(communityEvents.authorId, userIds),
+      eq(communityEvents.status, "draft"),
+    ));
+    await tx.update(communityEvents)
+      .set({ authorId: null })
+      .where(inArray(communityEvents.authorId, userIds));
+    await tx.update(posts)
+      .set({ authorId: null })
+      .where(inArray(posts.authorId, userIds));
+    await tx.update(comments)
+      .set({ authorId: null })
+      .where(inArray(comments.authorId, userIds));
+    await tx.update(obituaries)
+      .set({ authorId: null })
+      .where(inArray(obituaries.authorId, userIds));
+    await tx.update(payments)
+      .set({ userId: null })
+      .where(inArray(payments.userId, userIds));
+    await tx.update(alumniDatabase)
+      .set({ isMatched: false, matchedUserId: null })
+      .where(inArray(alumniDatabase.matchedUserId, userIds));
+
+    await deletePendingPersonalData();
+
+    for (const userId of userIds) {
+      await tx.execute(sql`
+        delete from "session"
+        where sess ->> 'userId' = ${String(userId)}
+      `);
+    }
+    await tx.delete(users).where(userCondition);
+    return;
+  }
+
+  await deletePendingPersonalData();
+}
+
+class RetryPendingIdentityLockError extends Error {}
 
 function parsePendingUserData(
   registration: PendingRegistration,
@@ -208,9 +301,22 @@ export interface IStorage {
     user: InsertUser,
     name: string,
     phoneNumber: string,
+    oauthStartedAt?: Date,
   ): Promise<User | undefined>;
-  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
-  deleteUserAccount(user: Pick<User, "id" | "kakaoId" | "email">): Promise<void>;
+  updateUser(
+    id: number,
+    user: Partial<InsertUser>,
+    oauthGeneration?: KakaoOAuthGeneration,
+  ): Promise<User | undefined>;
+  finalizeKakaoLogin(
+    userId: number,
+    generation: KakaoOAuthGeneration,
+    saveSession: () => Promise<void>,
+  ): Promise<User>;
+  deleteUserAccount(
+    user: Pick<User, "id" | "kakaoId" | "email">,
+    beforeDelete?: (user: User) => Promise<void>,
+  ): Promise<void>;
   
   // Category methods
   getCategories(): Promise<Category[]>;
@@ -253,6 +359,7 @@ export interface IStorage {
   getPendingRegistrations(): Promise<PendingRegistration[]>;
   createOrRefreshPendingRegistration(
     registration: PendingRegistrationReviewInput,
+    oauthStartedAt: Date,
   ): Promise<CreateOrRefreshPendingRegistrationResult>;
   rejectPendingRegistration(
     id: number,
@@ -317,7 +424,34 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(
+    id: number,
+    updateData: Partial<InsertUser>,
+    oauthGeneration?: KakaoOAuthGeneration,
+  ): Promise<User | undefined> {
+    if (oauthGeneration) {
+      return db.transaction(async (tx) => {
+        await lockRegistrationIdentities(
+          tx,
+          oauthGeneration.kakaoId,
+          oauthGeneration.email,
+        );
+        await assertKakaoOAuthGenerationActive(tx, oauthGeneration);
+        const [currentUser] = await tx.select().from(users)
+          .where(and(
+            eq(users.id, id),
+            eq(users.kakaoId, oauthGeneration.kakaoId),
+          ))
+          .limit(1);
+        if (!currentUser) throw new KakaoOAuthTerminatedError();
+        const [updatedUser] = await tx.update(users)
+          .set({ ...updateData, updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning();
+        return updatedUser || undefined;
+      });
+    }
+
     const [user] = await db.update(users)
       .set({ ...updateData, updatedAt: new Date() })
       .where(eq(users.id, id))
@@ -325,39 +459,49 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async deleteUserAccount(user: Pick<User, "id" | "kakaoId" | "email">): Promise<void> {
+  async finalizeKakaoLogin(
+    userId: number,
+    generation: KakaoOAuthGeneration,
+    saveSession: () => Promise<void>,
+  ): Promise<User> {
+    return db.transaction(async (tx) => {
+      await lockRegistrationIdentities(tx, generation.kakaoId, generation.email);
+      await assertKakaoOAuthGenerationActive(tx, generation);
+      const [user] = await tx.select().from(users)
+        .where(and(
+          eq(users.id, userId),
+          eq(users.kakaoId, generation.kakaoId),
+        ))
+        .limit(1);
+      if (!user) throw new KakaoOAuthTerminatedError();
+      await saveSession();
+      return user;
+    });
+  }
+
+  async deleteUserAccount(
+    user: Pick<User, "id" | "kakaoId" | "email">,
+    beforeDelete: (user: User) => Promise<void> = async () => {},
+  ): Promise<void> {
     await db.transaction(async (tx) => {
-      await tx.delete(communityEvents).where(and(
-        eq(communityEvents.authorId, user.id),
-        eq(communityEvents.status, "draft"),
-      ));
-      await tx.update(communityEvents)
-        .set({ authorId: null })
-        .where(eq(communityEvents.authorId, user.id));
-      await tx.update(posts)
-        .set({ authorId: null })
-        .where(eq(posts.authorId, user.id));
-      await tx.update(comments)
-        .set({ authorId: null })
-        .where(eq(comments.authorId, user.id));
-      await tx.update(obituaries)
-        .set({ authorId: null })
-        .where(eq(obituaries.authorId, user.id));
-      await tx.update(payments)
-        .set({ userId: null })
-        .where(eq(payments.userId, user.id));
-      await tx.update(alumniDatabase)
-        .set({ isMatched: false, matchedUserId: null })
-        .where(eq(alumniDatabase.matchedUserId, user.id));
-      await tx.delete(pendingRegistrations).where(or(
-        user.kakaoId ? eq(pendingRegistrations.kakaoId, user.kakaoId) : undefined,
-        sql`lower(${pendingRegistrations.email}) = ${user.email.trim().toLowerCase()}`,
-      ));
-      await tx.execute(sql`
-        delete from "session"
-        where sess ->> 'userId' = ${String(user.id)}
-      `);
-      await tx.delete(users).where(eq(users.id, user.id));
+      await lockRegistrationIdentities(tx, user.kakaoId ?? "", user.email);
+      const [lockedUser] = await tx.select().from(users)
+        .where(eq(users.id, user.id))
+        .for("update");
+      if (!lockedUser) return;
+
+      await beforeDelete(lockedUser);
+      if (lockedUser.kakaoId) {
+        await markKakaoIdentityTerminated(tx, lockedUser.kakaoId, lockedUser.email);
+      }
+      await removeLocalUsers(tx, [lockedUser.id], () =>
+        tx.delete(pendingRegistrations).where(or(
+          lockedUser.kakaoId
+            ? eq(pendingRegistrations.kakaoId, lockedUser.kakaoId)
+            : undefined,
+          sql`lower(${pendingRegistrations.email}) = ${lockedUser.email.trim().toLowerCase()}`,
+        )),
+      );
     });
   }
 
@@ -579,6 +723,7 @@ export class DatabaseStorage implements IStorage {
     insertUser: InsertUser,
     name: string,
     phoneNumber: string,
+    oauthStartedAt?: Date,
   ): Promise<User | undefined> {
     const normalizedName = normalizeNameForComparison(name);
     const normalizedPhone = normalizePhoneForComparison(phoneNumber);
@@ -592,6 +737,13 @@ export class DatabaseStorage implements IStorage {
     try {
       return await db.transaction(async (tx) => {
         await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
+        if (oauthStartedAt && insertUser.kakaoId) {
+          await assertKakaoOAuthGenerationActive(tx, {
+            kakaoId: insertUser.kakaoId,
+            email: insertUser.email,
+            startedAt: oauthStartedAt,
+          });
+        }
 
         if (insertUser.kakaoId) {
           const [registeredUser] = await tx.select().from(users)
@@ -770,6 +922,7 @@ export class DatabaseStorage implements IStorage {
 
   async createOrRefreshPendingRegistration(
     insertRegistration: PendingRegistrationReviewInput,
+    oauthStartedAt: Date,
   ): Promise<CreateOrRefreshPendingRegistrationResult> {
     return db.transaction(async (tx) => {
       await lockRegistrationIdentities(
@@ -777,6 +930,11 @@ export class DatabaseStorage implements IStorage {
         insertRegistration.kakaoId,
         insertRegistration.email,
       );
+      await assertKakaoOAuthGenerationActive(tx, {
+        kakaoId: insertRegistration.kakaoId,
+        email: insertRegistration.email,
+        startedAt: oauthStartedAt,
+      });
 
       const [registeredUser] = await tx.select().from(users)
         .where(eq(users.kakaoId, insertRegistration.kakaoId))
@@ -837,25 +995,57 @@ export class DatabaseStorage implements IStorage {
     id: number,
     beforeDelete: (registration: PendingRegistration) => Promise<void>,
   ): Promise<{ id: number } | undefined> {
-    return db.transaction(async (tx) => {
-      const [registration] = await tx.select().from(pendingRegistrations)
-        .where(and(
-          eq(pendingRegistrations.id, id),
-          eq(pendingRegistrations.status, "pending"),
-        ))
-        .for("update");
-      if (!registration) return undefined;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await db.transaction(async (tx) => {
+          const [candidate] = await tx.select().from(pendingRegistrations)
+            .where(and(
+              eq(pendingRegistrations.id, id),
+              eq(pendingRegistrations.status, "pending"),
+            ));
+          if (!candidate) return undefined;
 
-      await beforeDelete(registration);
+          await lockRegistrationIdentities(tx, candidate.kakaoId, candidate.email);
+          const [registration] = await tx.select().from(pendingRegistrations)
+            .where(and(
+              eq(pendingRegistrations.id, id),
+              eq(pendingRegistrations.status, "pending"),
+            ))
+            .for("update");
+          if (!registration) return undefined;
+          if (
+            registration.kakaoId !== candidate.kakaoId
+            || registration.email.trim().toLowerCase()
+              !== candidate.email.trim().toLowerCase()
+          ) {
+            throw new RetryPendingIdentityLockError();
+          }
 
-      const [deleted] = await tx.delete(pendingRegistrations)
-        .where(and(
-          eq(pendingRegistrations.id, id),
-          eq(pendingRegistrations.status, "pending"),
-        ))
-        .returning({ id: pendingRegistrations.id });
-      return deleted || undefined;
-    });
+          await beforeDelete(registration);
+          await markKakaoIdentityTerminated(
+            tx,
+            registration.kakaoId,
+            registration.email,
+          );
+
+          const matchingUsers = await tx.select({ id: users.id }).from(users)
+            .where(eq(users.kakaoId, registration.kakaoId));
+          await removeLocalUsers(
+            tx,
+            matchingUsers.map(({ id: userId }) => userId),
+            () => tx.delete(pendingRegistrations).where(or(
+              eq(pendingRegistrations.kakaoId, registration.kakaoId),
+              sql`lower(${pendingRegistrations.email}) = ${registration.email.trim().toLowerCase()}`,
+            )),
+          );
+          return { id: registration.id };
+        });
+      } catch (error) {
+        if (error instanceof RetryPendingIdentityLockError && attempt < 2) continue;
+        throw error;
+      }
+    }
+    throw new RetryPendingIdentityLockError();
   }
 
   async updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined> {

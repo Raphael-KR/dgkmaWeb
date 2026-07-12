@@ -551,3 +551,50 @@ npm run build
 ```
 
 전체 검증은 Replit Development의 격리된 workspace 복사본과 Development Database에서 수행한다. Production Database와 실제 Kakao API에는 접근하지 않으며 스키마 변경과 `npm run db:push`는 수행하지 않는다.
+
+### Task 10: 최종 종료 경쟁 조건 보정
+
+**Files:**
+- Modify: `shared/schema.ts`
+- Create: `server/session-secret.ts`
+- Create: `server/kakao-identity.ts`
+- Modify: `server/kakao-oauth-state.ts`
+- Modify: `server/storage.ts`
+- Modify: `server/routes.ts`
+- Create: `server/kakao-termination-race.test.ts`
+- Modify: `server/kakao-oauth-state.test.ts`
+- Modify: `server/admin-pending-rejection-routes.test.ts`
+- Modify: `server/admin-pending-registration-contract.test.ts`
+- Modify: `client/src/pages/admin.tsx`
+- Modify: `AGENTS.md`, `replit.md`, `client/src/pages/privacy.tsx`, 설계·심사 문서
+
+**완료 조건:**
+- 관리자 pending PATCH는 id 전체가 양의 정수이고 body가 `status: z.enum(["approved", "rejected"])`만 포함할 때만 저장소에 진입한다. `27abc`, 0, 음수, 공백이 붙은 `rejected`, `foo`와 추가 body 필드는 `400`이며 DB·unlink 무호출이다.
+- OAuth state에는 PostgreSQL 시작 시각을 세션·state hash·세션 binding hash와 함께 바인딩한다.
+- 회원 탈퇴와 가입 거절은 동일 identity advisory lock 안에서 로컬 개인정보 삭제와 종료 marker를 원자적으로 기록한다.
+- 종료 marker는 카카오 회원번호와 소문자 이메일을 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 identity hash와 종료 시각만 저장하고, 각 identity key별 최신 marker 1건만 upsert한다.
+- 종료보다 먼저 시작된 OAuth는 사용자 갱신·생성, pending 생성·갱신, 세션 저장을 완료하지 못한다. 종료 이후 새로 시작한 OAuth는 marker보다 새 세대로 판정해 허용한다.
+- 가입 거절은 선택 행뿐 아니라 같은 Kakao ID 또는 소문자 기준 같은 이메일의 모든 가입대기 개인정보를 파기한다.
+- 관리자 목록 query 실패는 destructive Alert로 표시하고 빈 목록 문구를 렌더링하지 않는다.
+- 실제 Development Database에서 reject-refresh와 delete-callback을 경쟁시키며 각 종료 응답 뒤 관련 user/pending/session 0건, finally 새 연결 잔여 0건을 확인한다. Kakao API는 주입 mock만 사용하고 Production에서는 skip한다.
+
+**Development 스키마 및 검증:**
+
+```bash
+npm run db:push
+npx tsx --test server/kakao-termination-race.test.ts server/kakao-oauth-state.test.ts server/account-deletion-storage.test.ts server/admin-pending-rejection-routes.test.ts server/admin-pending-registration-contract.test.ts
+npm test
+npm run check
+npm run build
+```
+
+`npm run db:push` 전 `current_database() = 'heliumdb'`를 확인한다. 적용 뒤 `session`, `session_expire_idx`, `kakao_identity_terminations`, `kakao_oauth_states.started_at`과 경쟁 테스트 잔여 0건을 새 연결로 확인한다. Production Database와 실제 Kakao API에는 접근하지 않는다.
+
+**Production 선행 additive 스키마 순서:**
+
+1. `kakao_identity_terminations` 생성
+2. `kakao_oauth_states.started_at` 추가
+3. 새 연결에서 두 변경과 기존 `session`, `session_expire_idx` 확인
+4. 코드 Republish
+
+Production Database에는 이 작업에서 적용하지 않는다.

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, RefreshCw, FileSpreadsheet, Users, AlertCircle } from "lucide-react";
@@ -92,7 +93,8 @@ export default function Admin() {
     };
   }, [isPolling]);
 
-  const { data: pendingRegistrations = [], isLoading } = useQuery<AdminPendingRegistrationDto[]>({
+  const { data: pendingRegistrations = [], isLoading, isError, error } =
+    useQuery<AdminPendingRegistrationDto[]>({
     queryKey: ["/api/admin/pending-registrations"],
     queryFn: async () => {
       const response = await fetch("/api/admin/pending-registrations", { credentials: "include" });
@@ -290,6 +292,14 @@ export default function Admin() {
                     <div className="flex justify-center py-4">
                       <LoadingSpinner />
                     </div>
+                  ) : isError ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>가입 대기 목록 조회 실패</AlertTitle>
+                      <AlertDescription>
+                        {error instanceof Error ? error.message : "가입 대기 목록을 불러오지 못했습니다."}
+                      </AlertDescription>
+                    </Alert>
                   ) : pendingRegistrations?.length === 0 ? (
                     <p className="text-center text-gray-500 py-4">
                       승인 대기 중인 요청이 없습니다.

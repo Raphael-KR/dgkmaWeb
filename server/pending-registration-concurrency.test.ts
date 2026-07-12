@@ -41,22 +41,25 @@ test("development PostgreSQL keeps one pending row across concurrent login retri
   try {
     await Promise.all(Array.from({ length: 12 }, (_, index) => {
       const attemptKakaoId = index % 2 === 0 ? kakaoId : `${kakaoId}-alternate`;
-      return storage.createOrRefreshPendingRegistration({
-        kakaoId: attemptKakaoId,
-        email,
-        name: "pending concurrency test",
-        userData: {
+      return storage.createOrRefreshPendingRegistration(
+        {
           kakaoId: attemptKakaoId,
           email,
           name: "pending concurrency test",
-          phoneNumber: "+82 10-0000-0000",
-          profileImage: null,
-          birthday: null,
-          birthdayType: null,
-          isLeapMonth: null,
-          conflictReason: reasons[index % reasons.length],
+          userData: {
+            kakaoId: attemptKakaoId,
+            email,
+            name: "pending concurrency test",
+            phoneNumber: "+82 10-0000-0000",
+            profileImage: null,
+            birthday: null,
+            birthdayType: null,
+            isLeapMonth: null,
+            conflictReason: reasons[index % reasons.length],
+          },
         },
-      });
+        new Date(),
+      );
     }));
 
     const rows = await pool.query<{ count: number; status: string }>(

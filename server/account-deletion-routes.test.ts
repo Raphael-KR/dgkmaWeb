@@ -97,7 +97,10 @@ function deletionDependencies(overrides: Partial<RouteDependencies> = {}) {
   const dependencies: RouteDependencies = {
     getKakaoAdminConfig: () => ({ environment: "development", adminKey: "admin-secret" }),
     getAccountDeletionUser: async () => sessionUser,
-    deleteUserAccount: async (user) => { calls.deletedUsers.push(user as User); },
+    deleteUserAccount: async (user, beforeDelete) => {
+      await beforeDelete?.(user as User);
+      calls.deletedUsers.push(user as User);
+    },
     unlinkKakaoUser: async (args) => { calls.unlinkArgs.push(args); },
     ...overrides,
   };
@@ -220,7 +223,10 @@ test("missing Kakao admin configuration returns 500 and prevents local deletion"
 
 test("local deletion failures keep the session and return a safe message", async () => {
   const { dependencies } = deletionDependencies({
-    deleteUserAccount: async () => { throw new Error("private database details"); },
+    deleteUserAccount: async (user, beforeDelete) => {
+      await beforeDelete?.(user as User);
+      throw new Error("private database details");
+    },
   });
   const server = await startServer(dependencies);
   try {

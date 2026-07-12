@@ -52,6 +52,20 @@ test("OAuth state schema rollout preserves the session store and is documented",
   assert.match(replitGuide, /Development Database에 적용/);
 });
 
+test("OAuth state binds a database generation and termination markers keep only an HMAC identity", async () => {
+  const [schema, routes] = await Promise.all([
+    readFile(new URL("../shared/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("./routes.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(schema, /startedAt:\s*timestamp\("started_at", \{ withTimezone: true \}\)/);
+  assert.match(schema, /pgTable\("kakao_identity_terminations"/);
+  assert.match(schema, /identityHash:\s*text\("identity_hash"\)\.primaryKey\(\)/);
+  assert.match(schema, /terminatedAt:\s*timestamp\("terminated_at", \{ withTimezone: true \}\)/);
+  assert.match(routes, /kakaoOAuthStartedAt\?: number/);
+  assert.match(routes, /startedAt:\s*new Date\(oauthStartedAt\)/);
+});
+
 test("development PostgreSQL atomically consumes one unexpired OAuth state", {
   skip: isProduction
     ? "운영 환경에서는 OAuth state 통합 테스트를 실행하지 않습니다."
@@ -76,18 +90,26 @@ test("development PostgreSQL atomically consumes one unexpired OAuth state", {
   const expiredSessionBindingHash = hashKakaoOAuthSessionBinding(`expired-session-${token}`);
 
   try {
-    await kakaoOAuthStateStore.issue({
+    const issued = await kakaoOAuthStateStore.issue({
       stateHash,
       sessionBindingHash,
       expiresAt: new Date(Date.now() + 60_000),
     });
     const outcomes = await Promise.all([
-      kakaoOAuthStateStore.consume({ stateHash, sessionBindingHash }),
-      kakaoOAuthStateStore.consume({ stateHash, sessionBindingHash }),
+      kakaoOAuthStateStore.consume({
+        stateHash,
+        sessionBindingHash,
+        startedAt: issued.startedAt,
+      }),
+      kakaoOAuthStateStore.consume({
+        stateHash,
+        sessionBindingHash,
+        startedAt: issued.startedAt,
+      }),
     ]);
     assert.deepEqual(outcomes.sort(), [false, true]);
 
-    await kakaoOAuthStateStore.issue({
+    const expired = await kakaoOAuthStateStore.issue({
       stateHash: expiredStateHash,
       sessionBindingHash: expiredSessionBindingHash,
       expiresAt: new Date(Date.now() - 1_000),
@@ -95,6 +117,7 @@ test("development PostgreSQL atomically consumes one unexpired OAuth state", {
     assert.equal(await kakaoOAuthStateStore.consume({
       stateHash: expiredStateHash,
       sessionBindingHash: expiredSessionBindingHash,
+      startedAt: expired.startedAt,
     }), false);
   } finally {
     await pool.query(

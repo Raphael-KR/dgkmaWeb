@@ -156,8 +156,14 @@ export const pendingRegistrations = pgTable("pending_registrations", {
 export const kakaoOAuthStates = pgTable("kakao_oauth_states", {
   stateHash: text("state_hash").primaryKey(),
   sessionBindingHash: text("session_binding_hash").notNull().unique(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const kakaoIdentityTerminations = pgTable("kakao_identity_terminations", {
+  identityHash: text("identity_hash").primaryKey(),
+  terminatedAt: timestamp("terminated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Relations

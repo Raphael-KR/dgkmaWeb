@@ -102,11 +102,21 @@ CI는 카카오의 제휴형 회원 비교식별 정보이며 본인인증 수�
 
 ### OAuth state 원자 소비
 
-로그인 시작 시 생성한 32바이트 무작위 state 원문은 카카오 authorization URL로만 전달한다. 서버 세션과 PostgreSQL `kakao_oauth_states`에는 state의 SHA-256 hash만 저장하며, 테이블 행은 세션 ID의 SHA-256 hash와 10분 만료 시각에 함께 바인딩한다. 세션에는 동일한 state hash와 만료 시각을 저장해 다른 세션의 callback을 거부한다.
+로그인 시작 시 생성한 32바이트 무작위 state 원문은 카카오 authorization URL로만 전달한다. 서버 세션과 PostgreSQL `kakao_oauth_states`에는 state의 SHA-256 hash만 저장하며, 테이블 행은 세션 ID의 SHA-256 hash, PostgreSQL이 밀리초 단위로 발급한 `started_at`, 10분 만료 시각에 함께 바인딩한다. 세션에는 동일한 state hash, 시작 시각, 만료 시각을 저장해 다른 세션이나 다른 세대의 callback을 거부한다.
 
 callback은 전달받은 state를 hash한 뒤 세션 hash와 고정 길이 timing-safe 비교를 수행한다. 그 다음 `state_hash`, `session_binding_hash`, 만료 조건이 모두 일치하는 행을 `DELETE ... RETURNING`으로 원자 소비한다. 여러 프로세스나 인스턴스가 같은 session/state callback을 동시에 처리해도 삭제된 행을 반환받은 정확히 한 요청만 카카오 token exchange로 진행한다. 원자 소비에 실패한 loser 요청은 오래된 session snapshot으로 winner의 로그인 세션을 덮어쓰지 않도록 세션을 수정하거나 저장하지 않고 즉시 거부한다. 이미 소비됐거나 만료된 state, DB 소비 오류, 소비 후 세션 저장 오류는 token exchange 전에 종료한다.
 
-`kakao_oauth_states`는 `shared/schema.ts`가 관리하는 additive 테이블이다. `session` 테이블은 `connect-pg-simple`과 `server/index.ts`가 관리하므로 `drizzle.config.ts`의 `tablesFilter: ["!session"]`로 `db:push` 대상에서 제외한다. Development Database에서 먼저 `npm run db:push`와 원자 소비 통합 테스트를 실행하며, Production Database에는 별도 승인된 additive 스키마 작업으로 적용한다.
+`kakao_oauth_states`는 `shared/schema.ts`가 관리하는 additive 테이블이다. `session` 테이블은 `connect-pg-simple`과 `server/index.ts`가 관리하므로 `drizzle.config.ts`의 `tablesFilter: ["!session"]`로 `db:push` 대상에서 제외한다. Development Database에서 먼저 `npm run db:push`와 원자 소비 통합 테스트를 실행하며, Production Database에는 아래 선행 순서대로 별도 적용한다.
+
+## OAuth 종료 세대 marker
+
+회원 탈퇴와 가입 거절은 `kakao_identity_terminations`에 카카오 회원번호와 소문자 이메일을 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 identity hash 및 종료 시각을 기록한다. 카카오 회원번호 원문, 이메일, 프로필이나 OAuth 토큰은 marker 테이블에 저장하지 않는다. 동일 identity key의 과거 이력은 누적하지 않고 각 key별 최신 marker 1건만 upsert해 경쟁 종료에 필요한 최소 상태만 보유한다.
+
+OAuth callback의 모든 로컬 쓰기는 카카오 회원번호와 소문자 이메일 identity advisory lock을 잡은 트랜잭션에서 marker를 확인한다. marker의 종료 시각이 state에 바인딩된 시작 시각보다 같거나 새로우면 `users` 갱신·생성, pending 생성·갱신을 거부한다. 로그인 세션 저장은 같은 identity lock을 유지한 finalizer 안에서 수행한다. 종료 transaction이 먼저 lock을 잡으면 callback은 marker 확인 후 중단되고, callback이 먼저 최종화되면 뒤이은 종료 transaction이 사용자·pending·세션을 모두 정리한다.
+
+종료보다 먼저 시작된 OAuth는 기존 사용자 로그인, 신규 사용자 생성, pending 생성, 세션 저장을 완료할 수 없다. 종료 이후 새로 시작한 OAuth는 `started_at`이 marker보다 새로우므로 영구 차단하지 않는다.
+
+Production Database 선행 additive 스키마는 1) `kakao_identity_terminations` 생성, 2) `kakao_oauth_states.started_at` 추가, 3) 새 연결에서 두 변경과 기존 `session`/`session_expire_idx` 확인, 4) 코드 Republish 순서다.
 
 ## 중복가입 방지
 
@@ -125,7 +135,9 @@ callback은 전달받은 state를 hash한 뒤 세션 hash와 고정 길이 timin
 
 가입 거절 시 즉시 카카오 연결을 해제한 후 신청정보를 파기하며, 연결 해제 실패 시 거절 미완료로 처리하고 신청정보를 보존한다.
 
-관리자 `PATCH /api/admin/pending-registrations/:id`의 `status="rejected"` 경로는 pending 행을 `FOR UPDATE`로 잠근 트랜잭션 안에서 `userData.kakaoId`를 검증한다. 현재 환경의 서버 전용 어드민 키로 카카오 연결 해제를 호출하고, 성공 또는 카카오가 `already_unlinked`를 명확히 반환한 경우에만 pending 행 전체를 삭제한다. 응답은 개인정보 DTO 대신 `{ deleted: true, id }`만 반환한다.
+관리자 `PATCH /api/admin/pending-registrations/:id`는 params와 body를 Zod로 엄격 검증한다. `id`는 전체 문자열이 PostgreSQL serial 범위의 양의 정수여야 하고, body는 `status: z.enum(["approved", "rejected"])`만 허용한다. 검증 실패는 `400`이며 저장소와 카카오 연결 해제를 호출하지 않는다.
+
+`status="rejected"` 경로는 선택 행의 identity를 읽은 뒤 가입대기 생성·갱신과 동일한 카카오 회원번호·소문자 이메일 advisory lock을 먼저 잡고 pending 행을 `FOR UPDATE`로 재확인한다. 트랜잭션이 lock을 유지한 상태에서 `userData.kakaoId`를 검증하고 현재 환경의 서버 전용 어드민 키로 카카오 연결 해제를 호출한다. 성공 또는 `already_unlinked`가 확인되면 종료 marker를 원자적으로 기록하고, 같은 `kakao_id` 또는 `lower(email)`의 모든 가입대기 개인정보와 경쟁 중 생성된 동일 Kakao 사용자를 정리한다. 응답은 개인정보 DTO 대신 `{ deleted: true, id }`만 반환한다.
 
 어드민 키 누락은 `500`, 실제 카카오 연결 해제 실패는 `502`를 반환하며 콜백 실패로 트랜잭션을 롤백해 pending을 보존한다. `userData.kakaoId`가 없거나 양의 정수 문자열이 아니거나 `kakao_id` 열과 불일치하는 legacy pending은 외부 연결 해제를 확인할 수 없으므로 `409`를 반환하고 연결 해제와 삭제를 모두 수행하지 않는다. 승인 경로의 기존 identity·동문 충돌 처리와 승인 DTO 계약은 변경하지 않는다.
 
@@ -174,15 +186,16 @@ OAuth 토큰 교환 응답의 액세스 토큰은 브라우저에 반환하지 �
 
 ### 로컬 데이터 처리
 
-카카오 연결 해제 성공 후 하나의 DB 트랜잭션에서 다음 순서로 처리한다.
+회원 탈퇴 저장소는 identity advisory lock을 잡은 하나의 DB 트랜잭션 안에서 카카오 연결 해제와 로컬 종료를 직렬화한다. 연결 해제 성공 후 다음 순서로 처리한다.
 
-1. 동문 명부의 `matched_user_id`를 `NULL`, `is_matched`를 `false`로 변경
-2. 미발행 `community_events` 초안 삭제
-3. 게시글, 댓글, 발행 경조사, 기존 부고의 작성자 연결을 `NULL`로 변경
-4. 결제 기록의 사용자 연결을 `NULL`로 변경
-5. 같은 카카오 회원번호 또는 이메일의 가입대기 기록 삭제
-6. 해당 사용자의 모든 서버 세션 삭제
-7. `users` 행 삭제
+1. 카카오 회원번호와 소문자 이메일 HMAC identity hash의 종료 marker를 현재 종료 시각으로 upsert
+2. 동문 명부의 `matched_user_id`를 `NULL`, `is_matched`를 `false`로 변경
+3. 미발행 `community_events` 초안 삭제
+4. 게시글, 댓글, 발행 경조사, 기존 부고의 작성자 연결을 `NULL`로 변경
+5. 결제 기록의 사용자 연결을 `NULL`로 변경
+6. 같은 카카오 회원번호 또는 이메일의 가입대기 기록 삭제
+7. 해당 사용자의 모든 서버 세션 삭제
+8. `users` 행 삭제
 
 트랜잭션이 실패하면 로컬 변경을 전부 롤백하고 오류를 반환한다. 카카오 연결 해제는 이미 완료됐을 수 있으므로 오류 메시지는 재로그인 대신 운영자 문의가 필요할 수 있음을 안내하고, 서버에는 개인정보가 아닌 오류 종류와 처리 단계만 기록한다.
 
@@ -238,6 +251,9 @@ OAuth 토큰 교환 응답의 액세스 토큰은 브라우저에 반환하지 �
 - 카카오 연결 해제 실패 시 로컬 삭제 미호출
 - 가입 거절의 카카오 연결 해제 성공·이미 해제 성공, 설정 누락 `500`, 외부 실패 `502`, legacy ID `409`, 실패 시 pending 보존
 - 가입 거절 성공 응답이 `{ deleted: true, id }`만 포함하고 pending 행의 전화번호·프로필·생일·카카오 회원번호·이메일을 모두 삭제함
+- 관리자 pending PATCH의 부분 숫자·0·음수 id와 허용 목록 밖 status가 `400`이고 DB·unlink를 호출하지 않음
+- 실제 Development Database에서 거절과 pending refresh를 경쟁시켜 거절 `200` 뒤 동일 identity pending/user 0건, marker 확인, finally 새 연결 잔여 0건을 확인함
+- 실제 Development Database에서 회원 탈퇴와 먼저 시작된 OAuth callback을 경쟁시켜 탈퇴 `200` 뒤 user/pending/인증 session 0건과 callback `409`를 확인하고, 종료 이후 새 OAuth 세대는 허용함
 - 성공 시 세션 사용자만 삭제하고 쿠키 정리
 - 저장소 탈퇴 처리의 관계 해제·초안 삭제·회원 삭제 순서
 - 로그인·약관·개인정보 화면에 필수/선택 조건과 탈퇴 경로가 존재함

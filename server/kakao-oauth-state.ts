@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, sql } from "drizzle-orm";
 import { kakaoOAuthStates } from "@shared/schema";
 import { db } from "./db";
 
@@ -8,12 +8,21 @@ export const KAKAO_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 export type KakaoOAuthStateBinding = {
   stateHash: string;
   sessionBindingHash: string;
+  startedAt: Date;
   expiresAt: Date;
 };
 
+export type KakaoOAuthStateIssue = Pick<
+  KakaoOAuthStateBinding,
+  "stateHash" | "sessionBindingHash"
+> & Partial<Pick<KakaoOAuthStateBinding, "startedAt" | "expiresAt">>;
+
 export interface KakaoOAuthStateStore {
-  issue(binding: KakaoOAuthStateBinding): Promise<void>;
-  consume(binding: Pick<KakaoOAuthStateBinding, "stateHash" | "sessionBindingHash">): Promise<boolean>;
+  issue(binding: KakaoOAuthStateIssue): Promise<KakaoOAuthStateBinding>;
+  consume(binding: Pick<
+    KakaoOAuthStateBinding,
+    "stateHash" | "sessionBindingHash" | "startedAt"
+  >): Promise<boolean>;
 }
 
 function hashOAuthValue(value: string): string {
@@ -39,30 +48,52 @@ export function oauthStateHashesMatch(expectedHash: string, actualHash: string):
 }
 
 class PostgresKakaoOAuthStateStore implements KakaoOAuthStateStore {
-  async issue(binding: KakaoOAuthStateBinding): Promise<void> {
+  async issue(binding: KakaoOAuthStateIssue): Promise<KakaoOAuthStateBinding> {
     const now = new Date();
-    await db.transaction(async (tx) => {
+    return db.transaction(async (tx) => {
       await tx.delete(kakaoOAuthStates).where(lt(kakaoOAuthStates.expiresAt, now));
-      await tx.insert(kakaoOAuthStates)
-        .values({ ...binding, createdAt: now })
+      const startedAt = binding.startedAt
+        ?? sql<Date>`date_trunc('milliseconds', clock_timestamp())`;
+      const expiresAt = binding.expiresAt
+        ?? sql<Date>`date_trunc('milliseconds', clock_timestamp()) + interval '10 minutes'`;
+      const [issued] = await tx.insert(kakaoOAuthStates)
+        .values({
+          stateHash: binding.stateHash,
+          sessionBindingHash: binding.sessionBindingHash,
+          startedAt,
+          expiresAt,
+          createdAt: now,
+        })
         .onConflictDoUpdate({
           target: kakaoOAuthStates.sessionBindingHash,
           set: {
             stateHash: binding.stateHash,
-            expiresAt: binding.expiresAt,
+            startedAt,
+            expiresAt,
             createdAt: now,
           },
+        })
+        .returning({
+          stateHash: kakaoOAuthStates.stateHash,
+          sessionBindingHash: kakaoOAuthStates.sessionBindingHash,
+          startedAt: kakaoOAuthStates.startedAt,
+          expiresAt: kakaoOAuthStates.expiresAt,
         });
+      return issued;
     });
   }
 
   async consume(
-    binding: Pick<KakaoOAuthStateBinding, "stateHash" | "sessionBindingHash">,
+    binding: Pick<
+      KakaoOAuthStateBinding,
+      "stateHash" | "sessionBindingHash" | "startedAt"
+    >,
   ): Promise<boolean> {
     const consumed = await db.delete(kakaoOAuthStates)
       .where(and(
         eq(kakaoOAuthStates.stateHash, binding.stateHash),
         eq(kakaoOAuthStates.sessionBindingHash, binding.sessionBindingHash),
+        eq(kakaoOAuthStates.startedAt, binding.startedAt),
         gt(kakaoOAuthStates.expiresAt, new Date()),
       ))
       .returning({ stateHash: kakaoOAuthStates.stateHash });

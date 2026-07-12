@@ -102,7 +102,7 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 
 서버의 authorization request와 token exchange는 `REPLIT_DEPLOYMENT`로 선택한 동일한 환경 config의 REST API key와 redirect URI를 사용해야 합니다.
 
-카카오 어드민 키는 서버의 회원 탈퇴 처리에서만 `/v1/user/unlink` 호출에 사용합니다. `KAKAO_DEV_ADMIN_KEY`와 `KAKAO_PROD_ADMIN_KEY`도 `REPLIT_DEPLOYMENT="1"` 규칙으로 선택하며, 브라우저·`VITE_` 변수·로그·오류 메시지·저장소 파일에 노출하지 않습니다.
+카카오 어드민 키는 서버의 회원 탈퇴 및 가입 거절의 카카오 연결 해제에서만 `/v1/user/unlink` 호출에 사용합니다. `KAKAO_DEV_ADMIN_KEY`와 `KAKAO_PROD_ADMIN_KEY`도 `REPLIT_DEPLOYMENT="1"` 규칙으로 선택하며, 브라우저·`VITE_` 변수·로그·오류 메시지·저장소 파일에 노출하지 않습니다.
 
 ## 데이터베이스 운영
 
@@ -124,11 +124,22 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 npm run db:push
 ```
 
-2026-07-13 전체 브랜치 최종 리뷰에서 OAuth state의 다중 인스턴스 일회성 소비를 위해 `kakao_oauth_states` additive 테이블을 추가했습니다. 이 테이블에는 state 원문이 아니라 SHA-256 hash, 세션 binding hash, 만료 시각만 저장합니다. Development Database에 적용하고 원자 소비 통합 테스트를 실행했으며, Production Database에는 별도로 적용해야 합니다.
+2026-07-13 전체 브랜치 최종 리뷰에서 OAuth state의 다중 인스턴스 일회성 소비를 위해 `kakao_oauth_states` additive 테이블을 추가했습니다. 이 테이블에는 state 원문이 아니라 SHA-256 hash, 세션 binding hash, PostgreSQL이 발급한 시작 시각과 만료 시각만 저장합니다.
+
+최종 경쟁 조건 수정에서는 `kakao_identity_terminations` additive 테이블과 `kakao_oauth_states.started_at`을 Development Database에 적용했습니다. 종료 테이블은 카카오 회원번호 원문이나 이메일을 저장하지 않고, 카카오 회원번호와 소문자 이메일을 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 identity hash 및 종료 시각만 저장합니다. 같은 identity key의 종료 이력은 누적하지 않고 각 key별 최신 marker 1건만 upsert해, 종료보다 먼저 시작된 OAuth callback을 차단하는 용도로만 사용합니다. 종료 이후 새로 시작한 OAuth는 marker 시각보다 새 세대이므로 차단하지 않습니다.
 
 `session` 테이블은 `connect-pg-simple`과 앱 시작 코드가 관리합니다. `drizzle.config.ts`의 `tablesFilter: ["!session"]`는 `db:push`가 이 테이블을 삭제나 rename 대상으로 해석하지 않도록 제외합니다.
 
 프로덕션에는 생성 SQL을 확인한 후 Production SQL 콘솔에서 additive SQL만 수동 적용합니다. 적용 결과를 확인하기 전에는 Republish하지 않습니다. 기존 컬럼·테이블 삭제처럼 되돌리기 어려운 SQL은 별도 백업과 복구 절차 없이 실행하지 않습니다.
+
+#### 프로덕션 선행 additive 스키마 순서
+
+현재 Production Database에는 아래 순서를 Republish 전에 적용합니다. 이번 작업에서는 Production Database에 접근하거나 적용하지 않습니다.
+
+1. `kakao_identity_terminations`를 `identity_hash text primary key`, `terminated_at timestamp with time zone not null default now()`로 생성합니다.
+2. 기존 `kakao_oauth_states.started_at`을 `timestamp with time zone not null default now()`로 추가합니다.
+3. 새 연결에서 두 변경과 기존 `session`, `session_expire_idx`가 모두 존재하는지 확인합니다.
+4. 위 additive 스키마 확인이 끝난 뒤에만 새 코드를 Republish합니다.
 
 ### 운영 데이터와 seed
 

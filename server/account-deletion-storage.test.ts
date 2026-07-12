@@ -16,10 +16,20 @@ const hasDatabaseEnvironment = Boolean(
 );
 
 test("deleteUserAccount processes every approved relation in one transaction", () => {
-  assert.match(storageSource, /deleteUserAccount\(user: Pick<User, "id" \| "kakaoId" \| "email">\): Promise<void>/);
+  assert.match(storageSource, /async deleteUserAccount\([\s\S]*beforeDelete:[\s\S]*Promise<void>/);
 
-  const method = storageSource.slice(storageSource.indexOf("async deleteUserAccount"));
+  const helper = storageSource.slice(
+    storageSource.indexOf("async function removeLocalUsers"),
+    storageSource.indexOf("class RetryPendingIdentityLockError"),
+  );
+  const method = storageSource.slice(
+    storageSource.indexOf("async deleteUserAccount"),
+    storageSource.indexOf("async getCategories"),
+  );
   assert.match(method, /db\.transaction/);
+  assert.match(method, /lockRegistrationIdentities/);
+  assert.match(method, /markKakaoIdentityTerminated/);
+  assert.match(method, /removeLocalUsers/);
   for (const table of [
     "alumniDatabase",
     "communityEvents",
@@ -30,10 +40,10 @@ test("deleteUserAccount processes every approved relation in one transaction", (
     "obituaries",
     "users",
   ]) {
-    assert.match(method, new RegExp(table));
+    assert.match(`${helper}\n${method}`, new RegExp(table));
   }
-  assert.match(method, /isMatched:\s*false/);
-  assert.match(method, /matchedUserId:\s*null/);
+  assert.match(helper, /isMatched:\s*false/);
+  assert.match(helper, /matchedUserId:\s*null/);
 
   const orderedOperations = [
     "tx.delete(communityEvents)",
@@ -43,20 +53,20 @@ test("deleteUserAccount processes every approved relation in one transaction", (
     "tx.update(obituaries)",
     "tx.update(payments)",
     "tx.update(alumniDatabase)",
-    "tx.delete(pendingRegistrations)",
     'delete from "session"',
     "tx.delete(users)",
   ];
   let previousIndex = -1;
   for (const operation of orderedOperations) {
-    const operationIndex = method.indexOf(operation);
+    const operationIndex = helper.indexOf(operation);
     assert.ok(operationIndex > previousIndex, `${operation} 처리 순서가 올바르지 않습니다.`);
     previousIndex = operationIndex;
   }
 
-  assert.match(method, /eq\(communityEvents\.status, "draft"\)/);
-  assert.match(method, /sql`[\s\S]*delete from "session"[\s\S]*sess\s*->>\s*'userId'\s*=\s*\$\{String\(user\.id\)\}[\s\S]*`/);
-  assert.doesNotMatch(method, /delete from "session"[^`]*\+[^`]*user\.id/);
+  assert.match(helper, /eq\(communityEvents\.status, "draft"\)/);
+  assert.match(helper, /sql`[\s\S]*delete from "session"[\s\S]*sess\s*->>\s*'userId'\s*=\s*\$\{String\(userId\)\}[\s\S]*`/);
+  assert.doesNotMatch(helper, /delete from "session"[^`]*\+[^`]*userId/);
+  assert.match(method, /tx\.delete\(pendingRegistrations\)/);
 });
 
 test("development PostgreSQL deletes one member while preserving public content", {
@@ -77,12 +87,17 @@ test("development PostgreSQL deletes one member while preserving public content"
   );
 
   const { storage } = await import("./storage");
+  const { hashKakaoEmailIdentity, hashKakaoIdentity } = await import("./kakao-identity");
   const token = randomUUID().replaceAll("-", "");
   const email = `task4-${token}@example.invalid`;
   const mixedCaseEmail = email.toUpperCase();
   const kakaoId = `task4-${token}`;
   const otherEmail = `task4-other-${token}@example.invalid`;
   const otherKakaoId = `task4-other-${token}`;
+  const terminationHashes = [
+    hashKakaoIdentity(kakaoId),
+    hashKakaoEmailIdentity(email),
+  ];
   const marker = `TASK4-${token}`;
   const targetSessionIds = [`task4-${token}-session-a`, `task4-${token}-session-b`];
   const otherSessionId = `task4-${token}-session-other`;
@@ -181,6 +196,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       pending_count: number;
       target_session_count: number;
       other_session_count: number;
+      termination_count: number;
     }>(
       `select
          (select count(*)::int from users where id = $1) as users_count,
@@ -193,7 +209,9 @@ test("development PostgreSQL deletes one member while preserving public content"
          (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id is null) as alumni_unmatched_count,
          (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
          (select count(*)::int from "session" where sid = any($7::text[])) as target_session_count,
-         (select count(*)::int from "session" where sid = $8) as other_session_count`,
+         (select count(*)::int from "session" where sid = $8) as other_session_count,
+         (select count(*)::int from kakao_identity_terminations
+           where identity_hash = any($9::text[])) as termination_count`,
       [
         userId,
         `${marker}-draft`,
@@ -203,6 +221,7 @@ test("development PostgreSQL deletes one member while preserving public content"
         email,
         targetSessionIds,
         otherSessionId,
+        terminationHashes,
       ],
     );
     assert.deepEqual(state.rows[0], {
@@ -217,6 +236,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       pending_count: 0,
       target_session_count: 0,
       other_session_count: 1,
+      termination_count: 2,
     });
   } finally {
     try {
@@ -234,6 +254,10 @@ test("development PostgreSQL deletes one member while preserving public content"
       await pool.query("delete from alumni_database where generation = $1", [marker]);
       await pool.query("delete from pending_registrations where name = $1", [marker]);
       await pool.query("delete from users where email = any($1::text[])", [[email, otherEmail]]);
+      await pool.query(
+        "delete from kakao_identity_terminations where identity_hash = any($1::text[])",
+        [terminationHashes],
+      );
       await pool.query("commit");
     } catch (error) {
       await pool.query("rollback");
@@ -250,6 +274,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       events_count: number;
       pending_count: number;
       sessions_count: number;
+      terminations_count: number;
     }>(
       `select
          (select count(*)::int from users where email = any($1::text[])) as users_count,
@@ -260,12 +285,15 @@ test("development PostgreSQL deletes one member while preserving public content"
          (select count(*)::int from obituaries where title = $2) as obituaries_count,
          (select count(*)::int from community_events where title = any($3::text[])) as events_count,
          (select count(*)::int from pending_registrations where name = $2) as pending_count,
-         (select count(*)::int from "session" where sid = any($4::text[])) as sessions_count`,
+         (select count(*)::int from "session" where sid = any($4::text[])) as sessions_count,
+         (select count(*)::int from kakao_identity_terminations
+           where identity_hash = any($5::text[])) as terminations_count`,
       [
         [email, otherEmail],
         marker,
         [`${marker}-draft`, `${marker}-published`],
         [...targetSessionIds, otherSessionId],
+        terminationHashes,
       ],
     );
     assert.deepEqual(residue.rows[0], {
@@ -278,6 +306,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       events_count: 0,
       pending_count: 0,
       sessions_count: 0,
+      terminations_count: 0,
     });
     await pool.end();
   }

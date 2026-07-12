@@ -40,7 +40,6 @@ import {
   unlinkKakaoUser as unlinkKakaoUserFromKakao,
 } from "./kakao-unlink";
 import {
-  KAKAO_OAUTH_STATE_TTL_MS,
   hashKakaoOAuthSessionBinding,
   hashKakaoOAuthState,
   kakaoOAuthStateStore as postgresKakaoOAuthStateStore,
@@ -48,11 +47,16 @@ import {
   type KakaoOAuthStateStore,
 } from "./kakao-oauth-state";
 import { toAdminPendingRegistrationDto } from "./admin-pending-registration";
+import {
+  KakaoOAuthTerminatedError,
+  type KakaoOAuthGeneration,
+} from "./kakao-identity";
 
 declare module "express-session" {
   interface SessionData {
     userId?: number;
     kakaoOAuthStateHash?: string;
+    kakaoOAuthStartedAt?: number;
     kakaoOAuthStateExpiresAt?: number;
   }
 }
@@ -66,6 +70,15 @@ function parsePositiveInteger(value: string): number | undefined {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed <= POSTGRES_SERIAL_MAX ? parsed : undefined;
 }
+
+const adminPendingRegistrationUpdateSchema = z.object({
+  params: z.object({
+    id: z.string().refine((value) => parsePositiveInteger(value) !== undefined),
+  }).strict(),
+  body: z.object({
+    status: z.enum(["approved", "rejected"]),
+  }).strict(),
+});
 
 function sanitizePublishedEvent(event: CommunityEvent) {
   const { sourceText: _sourceText, ...publishedEvent } = event;
@@ -121,7 +134,10 @@ export type RouteDependencies = {
   kakaoFetch?: typeof fetch;
   getKakaoAdminConfig?: () => KakaoAdminConfig;
   getAccountDeletionUser?: (userId: number) => Promise<User | undefined>;
-  deleteUserAccount?: (user: Pick<User, "id" | "kakaoId" | "email">) => Promise<void>;
+  deleteUserAccount?: (
+    user: Pick<User, "id" | "kakaoId" | "email">,
+    beforeDelete?: (user: User) => Promise<void>,
+  ) => Promise<void>;
   unlinkKakaoUser?: typeof unlinkKakaoUserFromKakao;
   pendingRegistrationStorage?: Partial<Pick<
     typeof storage,
@@ -140,7 +156,7 @@ export type RouteDependencies = {
     | "updateUser"
     | "claimAlumniRecord"
     | "createOrRefreshPendingRegistration"
-  >;
+  > & Partial<Pick<typeof storage, "finalizeKakaoLogin">>;
 };
 
 function saveSession(req: Request): Promise<void> {
@@ -196,7 +212,10 @@ export async function registerRoutes(
   const getAccountDeletionUser = dependencies.getAccountDeletionUser
     ?? ((userId: number) => storage.getUser(userId));
   const deleteUserAccount = dependencies.deleteUserAccount
-    ?? ((user: Pick<User, "id" | "kakaoId" | "email">) => storage.deleteUserAccount(user));
+    ?? ((
+      user: Pick<User, "id" | "kakaoId" | "email">,
+      beforeDelete?: (user: User) => Promise<void>,
+    ) => storage.deleteUserAccount(user, beforeDelete));
   const unlinkKakaoUser = dependencies.unlinkKakaoUser ?? unlinkKakaoUserFromKakao;
 
   // Auth routes
@@ -229,17 +248,22 @@ export async function registerRoutes(
       const state = randomBytes(32).toString("hex");
       const stateHash = hashKakaoOAuthState(state);
       const sessionBindingHash = hashKakaoOAuthSessionBinding(req.sessionID);
-      const expiresAt = new Date(Date.now() + KAKAO_OAUTH_STATE_TTL_MS);
-      req.session.kakaoOAuthStateHash = stateHash;
-      req.session.kakaoOAuthStateExpiresAt = expiresAt.getTime();
-      await saveSession(req);
+      const issued = await kakaoOAuthStateStore.issue({ stateHash, sessionBindingHash });
+      req.session.kakaoOAuthStateHash = issued.stateHash;
+      req.session.kakaoOAuthStartedAt = issued.startedAt.getTime();
+      req.session.kakaoOAuthStateExpiresAt = issued.expiresAt.getTime();
       try {
-        await kakaoOAuthStateStore.issue({ stateHash, sessionBindingHash, expiresAt });
+        await saveSession(req);
       } catch (error) {
         delete req.session.kakaoOAuthStateHash;
+        delete req.session.kakaoOAuthStartedAt;
         delete req.session.kakaoOAuthStateExpiresAt;
         try {
-          await saveSession(req);
+          await kakaoOAuthStateStore.consume({
+            stateHash: issued.stateHash,
+            sessionBindingHash: issued.sessionBindingHash,
+            startedAt: issued.startedAt,
+          });
         } catch (cleanupError) {
           console.error("[Kakao OAuth] state cleanup failed:", getErrorType(cleanupError));
         }
@@ -248,6 +272,7 @@ export async function registerRoutes(
       return res.redirect(buildKakaoAuthorizeUrl(config, state));
     } catch (error) {
       delete req.session.kakaoOAuthStateHash;
+      delete req.session.kakaoOAuthStartedAt;
       delete req.session.kakaoOAuthStateExpiresAt;
       if (error instanceof KakaoOAuthConfigurationError) {
         const { missingVariables } = error;
@@ -266,6 +291,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "카카오 인가 코드가 필요합니다" });
       }
       const expectedStateHash = req.session.kakaoOAuthStateHash;
+      const oauthStartedAt = req.session.kakaoOAuthStartedAt;
       const stateExpiresAt = req.session.kakaoOAuthStateExpiresAt;
       const actualStateHash = typeof state === "string"
         ? hashKakaoOAuthState(state)
@@ -274,6 +300,7 @@ export async function registerRoutes(
         && oauthStateHashesMatch(expectedStateHash, actualStateHash);
       if (
         !stateMatches
+        || typeof oauthStartedAt !== "number"
         || typeof stateExpiresAt !== "number"
         || stateExpiresAt <= Date.now()
       ) {
@@ -284,6 +311,7 @@ export async function registerRoutes(
         stateConsumed = await kakaoOAuthStateStore.consume({
           stateHash: actualStateHash,
           sessionBindingHash: hashKakaoOAuthSessionBinding(req.sessionID),
+          startedAt: new Date(oauthStartedAt),
         });
       } catch (error) {
         console.error("[Kakao OAuth] atomic state consumption failed:", getErrorType(error));
@@ -293,6 +321,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "유효하지 않은 카카오 로그인 요청입니다" });
       }
       delete req.session.kakaoOAuthStateHash;
+      delete req.session.kakaoOAuthStartedAt;
       delete req.session.kakaoOAuthStateExpiresAt;
       try {
         await saveSession(req);
@@ -363,7 +392,7 @@ export async function registerRoutes(
       }
 
       const kakaoId = String(userInfo?.id ?? "");
-      if (!kakaoId) {
+      if (!/^[1-9]\d*$/.test(kakaoId)) {
         return res.status(400).json({ message: "카카오 회원정보 조회에 실패했습니다" });
       }
       const email = account.email as string;
@@ -378,6 +407,11 @@ export async function registerRoutes(
       const isLeapMonth = hasBirthday && birthdayType === "LUNAR"
         ? Boolean(account.is_leap_month)
         : hasBirthday ? false : null;
+      const oauthGeneration: KakaoOAuthGeneration = {
+        kakaoId,
+        email,
+        startedAt: new Date(oauthStartedAt),
+      };
 
       const synchronizeKakaoUser = async (authenticatedUser: User): Promise<User | undefined> => {
         const updates: Partial<InsertUser> = {};
@@ -388,7 +422,11 @@ export async function registerRoutes(
         if (authenticatedUser.birthdayType !== birthdayType) updates.birthdayType = birthdayType;
         if (authenticatedUser.isLeapMonth !== isLeapMonth) updates.isLeapMonth = isLeapMonth;
         if (Object.keys(updates).length === 0) return authenticatedUser;
-        return kakaoAuthStorage.updateUser(authenticatedUser.id, updates);
+        return kakaoAuthStorage.updateUser(
+          authenticatedUser.id,
+          updates,
+          oauthGeneration,
+        );
       };
 
       const completeKakaoLogin = async (authenticatedUser: User) => {
@@ -397,14 +435,27 @@ export async function registerRoutes(
           return res.status(500).json({ message: "사용자 정보 갱신에 실패했습니다" });
         }
 
-        req.session.userId = synchronizedUser.id;
         try {
-          await saveSession(req);
+          const saveAuthenticatedSession = async () => {
+            req.session.userId = synchronizedUser.id;
+            await saveSession(req);
+          };
+          const finalizedUser = kakaoAuthStorage.finalizeKakaoLogin
+            ? await kakaoAuthStorage.finalizeKakaoLogin(
+              synchronizedUser.id,
+              oauthGeneration,
+              saveAuthenticatedSession,
+            )
+            : await (async () => {
+              await saveAuthenticatedSession();
+              return synchronizedUser;
+            })();
+          return res.json({ user: toClientUser(finalizedUser) });
         } catch (error) {
+          delete req.session.userId;
           console.error("[Kakao Auth] session save failed:", getErrorType(error));
-          return res.status(500).json({ message: "세션 저장에 실패했습니다" });
+          throw error;
         }
-        return res.json({ user: toClientUser(synchronizedUser) });
       };
 
       const createPendingReview = async (
@@ -412,24 +463,27 @@ export async function registerRoutes(
         message: string,
         description: string,
       ) => {
-        const result = await kakaoAuthStorage.createOrRefreshPendingRegistration({
-          kakaoId,
-          email,
-          name,
-          userData: {
+        const result = await kakaoAuthStorage.createOrRefreshPendingRegistration(
+          {
             kakaoId,
             email,
             name,
-            profileImage,
-            phoneNumber,
-            birthday,
-            birthdayType,
-            isLeapMonth,
-            conflictReason,
+            userData: {
+              kakaoId,
+              email,
+              name,
+              profileImage,
+              phoneNumber,
+              birthday,
+              birthdayType,
+              isLeapMonth,
+              conflictReason,
+            },
           },
-        });
+          oauthGeneration.startedAt,
+        );
         if (result.kind === "registered") {
-          return completeKakaoLogin(result.user);
+          return await completeKakaoLogin(result.user);
         }
         return res.status(202).json({ message, description, requiresApproval: true });
       };
@@ -440,7 +494,7 @@ export async function registerRoutes(
         const existingUserByEmail = await kakaoAuthStorage.getUserByEmail(email);
 
         if (existingUserByEmail) {
-          return createPendingReview(
+          return await createPendingReview(
             "email_conflict",
             "계정 정보 확인이 필요합니다",
             "같은 이메일의 기존 회원 정보가 있어 관리자 확인 후 이용할 수 있습니다.",
@@ -448,7 +502,7 @@ export async function registerRoutes(
         } else {
           const existingUserByPhone = await kakaoAuthStorage.getUserByNormalizedPhone(phoneNumber);
           if (existingUserByPhone) {
-            return createPendingReview(
+            return await createPendingReview(
               "phone_conflict",
               "동문 정보 확인이 필요합니다",
               "같은 전화번호의 기존 회원 정보가 있어 관리자 확인 후 이용할 수 있습니다.",
@@ -461,7 +515,7 @@ export async function registerRoutes(
           const alumniMatch = alumniMatches.length === 1 ? alumniMatches[0] : undefined;
 
           if (!alumniMatch) {
-            return createPendingReview(
+            return await createPendingReview(
               "not_found",
               "가입 신청이 접수되었습니다",
               "동문 정보를 확인한 뒤 관리자가 가입을 처리합니다.",
@@ -469,7 +523,7 @@ export async function registerRoutes(
           }
 
           if (alumniMatch.matchedUserId !== null) {
-            return createPendingReview(
+            return await createPendingReview(
               "alumni_claimed",
               "동문 정보 확인이 필요합니다",
               "이미 연결된 동문 정보입니다. 관리자 확인 후 이용할 수 있습니다.",
@@ -495,20 +549,21 @@ export async function registerRoutes(
               },
               name,
               phoneNumber,
+              oauthGeneration.startedAt,
             );
           } catch (error) {
             if (
               error instanceof PendingRegistrationConflictError
               && error.conflictReason === "email_conflict"
             ) {
-              return createPendingReview(
+              return await createPendingReview(
                 "email_conflict",
                 "계정 정보 확인이 필요합니다",
                 "가입 처리 중 같은 이메일의 기존 회원 정보가 확인되어 관리자 확인이 필요합니다.",
               );
             }
             if (error instanceof PhoneRegistrationConflictError) {
-              return createPendingReview(
+              return await createPendingReview(
                 "phone_conflict",
                 "동문 정보 확인이 필요합니다",
                 "가입 처리 중 같은 전화번호가 확인되어 관리자 확인이 필요합니다.",
@@ -517,7 +572,7 @@ export async function registerRoutes(
             throw error;
           }
           if (!user) {
-            return createPendingReview(
+            return await createPendingReview(
               "alumni_race",
               "동문 정보 확인이 필요합니다",
               "동문 정보 연결을 완료하지 못했습니다. 관리자 확인 후 이용할 수 있습니다.",
@@ -530,8 +585,14 @@ export async function registerRoutes(
         return res.status(500).json({ message: "사용자 생성에 실패했습니다" });
       }
 
-      return completeKakaoLogin(user);
+      return await completeKakaoLogin(user);
     } catch (error) {
+      if (error instanceof KakaoOAuthTerminatedError) {
+        delete req.session.userId;
+        return res.status(409).json({
+          message: "종료된 로그인 요청입니다. 카카오 로그인을 다시 시작해주세요",
+        });
+      }
       if (error instanceof KakaoOAuthConfigurationError) {
         const { missingVariables } = error;
         console.error("[Kakao OAuth] missing configuration:", missingVariables);
@@ -630,28 +691,31 @@ export async function registerRoutes(
       return res.status(401).json({ message: "로그인이 필요합니다" });
     }
 
-    if (user.kakaoId) {
-      try {
-        const { adminKey } = getKakaoAdminConfig();
-        await unlinkKakaoUser({ adminKey, kakaoId: user.kakaoId });
-      } catch (error) {
-        if (!(error instanceof KakaoUnlinkError && error.kind === "already_unlinked")) {
-          console.error("Kakao unlink blocked account deletion:", getErrorType(error));
-          if (error instanceof KakaoAdminConfigurationError) {
-            return res.status(500).json({
-              message: "회원 탈퇴 설정 오류입니다. 관리자에게 문의해주세요",
-            });
-          }
-          return res.status(502).json({
-            message: "카카오 연결 해제에 실패했습니다. 잠시 후 다시 시도해주세요",
-          });
-        }
-      }
-    }
-
     try {
-      await deleteUserAccount(user);
+      await deleteUserAccount(user, async (lockedUser) => {
+        if (!lockedUser.kakaoId) return;
+        const { adminKey } = getKakaoAdminConfig();
+        try {
+          await unlinkKakaoUser({ adminKey, kakaoId: lockedUser.kakaoId });
+        } catch (error) {
+          if (!(error instanceof KakaoUnlinkError && error.kind === "already_unlinked")) {
+            throw error;
+          }
+        }
+      });
     } catch (error) {
+      if (error instanceof KakaoAdminConfigurationError) {
+        console.error("Kakao unlink blocked account deletion:", getErrorType(error));
+        return res.status(500).json({
+          message: "회원 탈퇴 설정 오류입니다. 관리자에게 문의해주세요",
+        });
+      }
+      if (error instanceof KakaoUnlinkError) {
+        console.error("Kakao unlink blocked account deletion:", getErrorType(error));
+        return res.status(502).json({
+          message: "카카오 연결 해제에 실패했습니다. 잠시 후 다시 시도해주세요",
+        });
+      }
       console.error("Local account deletion failed:", getErrorType(error));
       return res.status(500).json({
         message: "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요",
@@ -1196,8 +1260,15 @@ export async function registerRoutes(
 
   app.patch("/api/admin/pending-registrations/:id", async (req, res) => {
     try {
-      const { status } = req.body;
-      const id = parseInt(req.params.id);
+      const parsedRequest = adminPendingRegistrationUpdateSchema.safeParse({
+        params: req.params,
+        body: req.body,
+      });
+      if (!parsedRequest.success) {
+        return res.status(400).json({ message: "Invalid data" });
+      }
+      const { status } = parsedRequest.data.body;
+      const id = parsePositiveInteger(parsedRequest.data.params.id)!;
 
       if (status === "rejected") {
         const deleted = await pendingRegistrationStorage.rejectPendingRegistration(

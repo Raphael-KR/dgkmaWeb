@@ -68,7 +68,7 @@ The development and production callback values must be registered exactly as sho
 Do not use Kakao JavaScript SDK login for the current v5 flow.
 Do not expose server-only secrets through `VITE_`.
 Never log full secrets, access tokens, refresh tokens, or full authorization codes.
-The Kakao admin keys are server-only and may be used only to unlink a member during account deletion. Never use them for login or expose them to browsers, logs, errors, repository files, or client environment variables.
+The Kakao admin keys are server-only and may be used only for 회원 탈퇴 및 가입 거절의 카카오 연결 해제. Never use them for login or expose them to browsers, logs, errors, repository files, or client environment variables.
 ## Session and onboarding rules
 Use `req.session.userId` consistently across auth routes.
 After Kakao login, save the session before responding.

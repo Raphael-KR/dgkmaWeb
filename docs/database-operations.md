@@ -140,6 +140,17 @@ env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE \
 
 스키마 변경과 데이터 마이그레이션은 별도 작업으로 취급한다. Production Database에 개발 DB 변경이 자동 전파된다고 가정하지 않는다.
 
+### 카카오 종료 경쟁 스키마 선행 순서
+
+최종 종료 경쟁 조건 코드의 Production Republish 전에는 다음 additive 변경을 순서대로 적용한다.
+
+1. `kakao_identity_terminations(identity_hash text primary key, terminated_at timestamptz not null default now())` 생성
+2. `kakao_oauth_states.started_at timestamptz not null default now()` 추가
+3. 새 운영 연결에서 두 변경과 기존 `session`, `session_expire_idx` 확인
+4. 코드 Republish
+
+Development Database에는 2026-07-13 적용했으며, Production Database에는 별도 승인 작업 전까지 적용하지 않는다. 종료 marker에는 카카오 회원번호와 소문자 이메일의 원문 대신 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 hash를 저장하며, 각 identity key별 종료 시각의 최신 marker 1건만 보유한다.
+
 ## 정식 오픈 전 초기화
 
 사용자가 데이터 보존을 선언하기 전까지 양쪽 DB의 애플리케이션 레코드는 테스트 데이터이며 개발 목적에 따라 초기화할 수 있다. 초기화할 때는 외래키 의존 순서를 확인하고 카테고리처럼 유지할 기준 데이터를 명시한다.
@@ -156,6 +167,8 @@ alumni_database
 pending_registrations
 users
 session
+kakao_oauth_states
+kakao_identity_terminations
 ```
 
 스키마·테이블 삭제, Replit Secrets 삭제, Git 이력 변경, Object Storage 파일 삭제는 이 자동 승인 범위에 포함되지 않는다.

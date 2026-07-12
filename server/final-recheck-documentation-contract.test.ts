@@ -47,3 +47,32 @@ test("privacy policy and approved design record the pending rejection destructio
     );
   }
 });
+
+test("termination marker purpose, retention, admin-key scope, and production schema order are documented", async () => {
+  const [agents, replit, privacy, design, plan] = await Promise.all([
+    read("AGENTS.md"),
+    read("replit.md"),
+    read("client/src/pages/privacy.tsx"),
+    read("docs/superpowers/specs/2026-07-12-kakao-consent-and-account-deletion-design.md"),
+    read("docs/superpowers/plans/2026-07-12-kakao-consent-and-account-deletion.md"),
+  ]);
+
+  for (const document of [agents, replit]) {
+    assert.match(document, /회원 탈퇴 및 가입 거절의 카카오 연결 해제/);
+  }
+  for (const document of [privacy, design, plan]) {
+    assert.match(document, /HMAC-SHA-256/);
+    assert.match(document, /SESSION_SECRET/);
+    assert.match(document, /종료 시각/);
+    assert.match(document, /최신 marker 1건/);
+    assert.match(document, /종료보다 먼저 시작된 OAuth/);
+    assert.match(document, /종료 이후 새로 시작한 OAuth/);
+  }
+
+  const productionSchema = replit.slice(replit.indexOf("프로덕션 선행 additive 스키마 순서"));
+  const markerTable = productionSchema.indexOf("kakao_identity_terminations");
+  const startedAtColumn = productionSchema.indexOf("kakao_oauth_states.started_at");
+  const republish = productionSchema.indexOf("Republish", startedAtColumn);
+  assert.ok(markerTable >= 0 && markerTable < startedAtColumn);
+  assert.ok(startedAtColumn < republish);
+});

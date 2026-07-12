@@ -15,6 +15,7 @@ import type {
   KakaoOAuthStateBinding,
   KakaoOAuthStateStore,
 } from "./kakao-oauth-state";
+import { KAKAO_OAUTH_STATE_TTL_MS } from "./kakao-oauth-state";
 
 const clientAuthPath = new URL("../client/src/lib/auth.ts", import.meta.url);
 const routesPath = new URL("./routes.ts", import.meta.url);
@@ -108,13 +109,22 @@ function kakaoOAuthStateStoreDouble(): KakaoOAuthStateStore {
   const bindings = new Map<string, KakaoOAuthStateBinding>();
   return {
     issue: async (binding) => {
-      bindings.set(binding.sessionBindingHash, binding);
+      const startedAt = binding.startedAt ?? new Date();
+      const issued = {
+        ...binding,
+        startedAt,
+        expiresAt: binding.expiresAt
+          ?? new Date(startedAt.getTime() + KAKAO_OAUTH_STATE_TTL_MS),
+      };
+      bindings.set(binding.sessionBindingHash, issued);
+      return issued;
     },
-    consume: async ({ stateHash, sessionBindingHash }) => {
+    consume: async ({ stateHash, sessionBindingHash, startedAt }) => {
       const binding = bindings.get(sessionBindingHash);
       if (
         !binding
         || binding.stateHash !== stateHash
+        || binding.startedAt.getTime() !== startedAt.getTime()
         || binding.expiresAt.getTime() <= Date.now()
       ) {
         return false;
@@ -317,8 +327,14 @@ test("a concurrent callback loser cannot overwrite the winner login session", as
   let consumed = false;
   let tokenExchangeCalls = 0;
   const stateStore: KakaoOAuthStateStore = {
-    issue: async () => {
+    issue: async (binding) => {
       issued = true;
+      const startedAt = new Date();
+      return {
+        ...binding,
+        startedAt,
+        expiresAt: new Date(startedAt.getTime() + KAKAO_OAUTH_STATE_TTL_MS),
+      };
     },
     consume: async () => {
       if (!issued) return false;
