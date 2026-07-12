@@ -2,12 +2,17 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 // Note: Using Supabase for database only, not for authentication
-import type { User } from "@shared/schema";
+import type { ClientUser } from "@shared/schema";
+
+export type LoginResult =
+  | { status: "success"; user: ClientUser }
+  | { status: "requiresApproval" }
+  | { status: "failure" };
 
 interface AuthContextType {
-  user: User | null;
-  setUser: (user: User | null) => void;
-  login: (code: string, state: string | null) => Promise<{ user: User } | { requiresApproval: true } | null>;
+  user: ClientUser | null;
+  setUser: (user: ClientUser | null) => void;
+  login: (code: string, state: string | null) => Promise<LoginResult>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -15,7 +20,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ClientUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -50,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (code: string, state: string | null): Promise<{ user: User } | { requiresApproval: true } | null> => {
+  const login = async (code: string, state: string | null): Promise<LoginResult> => {
     try {
       setIsLoading(true);
       const response = await fetch("/api/auth/kakao/authorize", {
@@ -67,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           title: data.message || "가입 신청 완료",
           description: data.description || "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
         });
-        return { requiresApproval: true };
+        return { status: "requiresApproval" };
       }
 
       if (response.ok && data.user) {
@@ -77,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: `${data.user.name}님, 환영합니다!`,
         });
         // ⚠️ setLocation은 호출자(kakao-callback)에서 activityRegion 검사 후 분기 — 여기서 직접 이동하지 않음
-        return { user: data.user };
+        return { status: "success", user: data.user };
       }
 
       throw new Error(data.message || "로그인에 실패했습니다.");
@@ -87,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
         variant: "destructive",
       });
-      return null;
+      return { status: "failure" };
     } finally {
       setIsLoading(false);
     }

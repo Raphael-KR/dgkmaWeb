@@ -14,7 +14,7 @@ import { FileText, Shield, Wallet, ChevronRight } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import type { User } from "@shared/schema";
+import type { ClientUser } from "@shared/schema";
 
 // 가벼운 설정 항목: 카카오 알림 연동 토글 + 약관/회비 안내 바로가기.
 export function SettingsDialog({
@@ -24,7 +24,7 @@ export function SettingsDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  user: User;
+  user: ClientUser;
 }) {
   const { setUser } = useAuth();
   const { toast } = useToast();
@@ -34,7 +34,7 @@ export function SettingsDialog({
     mutationFn: async (kakaoSyncEnabled: boolean) => {
       const res = await apiRequest("PATCH", "/api/users/me", { kakaoSyncEnabled });
       const data = await res.json();
-      return data.user as User;
+      return data.user as ClientUser;
     },
     onSuccess: (updated) => {
       setUser(updated);

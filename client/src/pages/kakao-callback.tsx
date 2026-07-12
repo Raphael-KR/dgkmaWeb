@@ -35,11 +35,7 @@ export default function KakaoCallback() {
       try {
         const result = await login(code, state);
 
-        // 로그인 성공 후 분기:
-        //  - activityRegion 미설정 → /onboarding/region 강제 리다이렉트
-        //  - 설정됨 → returnTo 또는 홈
-        //  - requiresApproval 또는 null → useAuth가 안내하고 현재 화면 유지
-        if (result && "user" in result) {
+        if (result.status === "success") {
           if (!result.user.activityRegion) {
             setLocation("/onboarding/region");
           } else {
@@ -53,6 +49,10 @@ export default function KakaoCallback() {
             } catch {}
             setLocation(dest);
           }
+        } else if (result.status === "requiresApproval") {
+          setLocation("/login");
+        } else if (result.status === "failure") {
+          setLocation("/login");
         }
       } catch (error) {
         console.error("Kakao callback error:", error);

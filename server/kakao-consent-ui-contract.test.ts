@@ -30,3 +30,29 @@ test("public Kakao consent copy and birthday UI match the approved contract", as
   assert.match(home, /isBirthdayToday/);
   assert.doesNotMatch(callback, /phoneNumber|profileImage|birthdayType|isLeapMonth/);
 });
+
+test("Kakao callback handles every explicit login result without remaining on the loading screen", async () => {
+  const [auth, callback, profileEdit, settings] = await Promise.all([
+    source("hooks/use-auth.tsx"),
+    source("pages/kakao-callback.tsx"),
+    source("components/profile/profile-edit-dialog.tsx"),
+    source("components/profile/settings-dialog.tsx"),
+  ]);
+
+  assert.match(auth, /import type \{ ClientUser \} from "@shared\/schema"/);
+  assert.doesNotMatch(auth, /import type \{ User \} from "@shared\/schema"/);
+  assert.match(auth, /export type LoginResult =/);
+  assert.match(auth, /status: "success"; user: ClientUser/);
+  assert.match(auth, /status: "requiresApproval"/);
+  assert.match(auth, /status: "failure"/);
+
+  assert.match(callback, /result\.status === "success"/);
+  assert.match(callback, /result\.status === "requiresApproval"/);
+  assert.match(callback, /result\.status === "failure"/);
+  assert.match(callback, /setLocation\("\/login"\)/);
+
+  assert.match(profileEdit, /import \{ REGION_OPTIONS, type ClientUser \} from "@shared\/schema"/);
+  assert.doesNotMatch(profileEdit, /type User/);
+  assert.match(settings, /import type \{ ClientUser \} from "@shared\/schema"/);
+  assert.doesNotMatch(settings, /type User/);
+});

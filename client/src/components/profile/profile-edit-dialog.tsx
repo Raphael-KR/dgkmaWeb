@@ -27,13 +27,13 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { REGION_OPTIONS, type User } from "@shared/schema";
+import { REGION_OPTIONS, type ClientUser } from "@shared/schema";
 
 type FormValues = {
   activityRegion: string;
 };
 
-function toFormValues(user: User): FormValues {
+function toFormValues(user: ClientUser): FormValues {
   return {
     activityRegion: user.activityRegion ?? "",
   };
@@ -47,7 +47,7 @@ export function ProfileEditDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  user: User;
+  user: ClientUser;
 }) {
   const { setUser } = useAuth();
   const { toast } = useToast();
@@ -67,7 +67,7 @@ export function ProfileEditDialog({
         : {};
       const res = await apiRequest("PATCH", "/api/users/me", payload);
       const data = await res.json();
-      return data.user as User;
+      return data.user as ClientUser;
     },
     onSuccess: (updated) => {
       setUser(updated);

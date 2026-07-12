@@ -1,10 +1,11 @@
 # Task 1 보고서
 
-## 결과
+## 최종 결과
 
 - 상태: DONE
-- 커밋: `a0ddb2f Align Kakao consent data with actual use`
-- 작업 범위: Task 1에 지정된 11개 소스·테스트 파일만 커밋했다.
+- 기준: `1d26e0e Keep Kakao login data server owned` 이후 리뷰 수정까지 반영했다.
+- 작업 범위: 서버 소유 Kakao 로그인, `ClientUser` 허용 목록 직렬화, 양력·음력·윤달 생일 MVP, 공개 동의 안내와 이번 콜백 회귀 수정을 포함한다.
+- 생일: `birthday`, `birthdayType`, `isLeapMonth`는 허용된 클라이언트 회원 필드이며, 내 정보 표시와 생일 당일 본인 전용 홈 배너에 사용한다.
 - 보존: `KIKcd_B.20250701.txt`, `KIKcd_B.20250701.xlsx`는 수정·stage·커밋하지 않았다.
 
 ## 구현
@@ -47,3 +48,23 @@
 
 - 실제 카카오 계정을 사용한 OAuth smoke check는 수행하지 않았다.
 - 빌드는 기존 500 kB 초과 번들 크기 경고와 Browserslist 데이터 갱신 권고를 출력했지만 실패는 없었다.
+
+## 최종 리뷰 수정 (2026-07-12)
+
+### 구현
+
+- `login()`의 반환값을 `success`, `requiresApproval`, `failure` 판별 유니온으로 명시했다. 성공은 기존 활동 지역 분기를 따르고, 승인 대기와 실패는 `login()`의 toast 후 콜백에서 모두 `/login`으로 이동한다.
+- AuthContext와 프로필 편집·설정 컴포넌트의 사용자 타입을 DB 전체 `User`가 아닌 `ClientUser`로 정합화했다.
+- 소스 계약 테스트가 세 로그인 결과의 콜백 분기와 `ClientUser` 사용을 고정해, 실패 또는 승인 대기에서 로딩 화면에 남는 회귀를 막는다.
+
+### 테스트 및 검증
+
+1. RED: 로컬에서 `npx tsx --test server/kakao-consent-ui-contract.test.ts`를 실행해 기존 `User` 타입과 결과 분기 누락으로 1개 실패를 확인했다.
+2. GREEN: 같은 소스 계약 테스트는 2개 통과, 0개 실패다.
+3. Replit 격리 복사본에서 `npx tsx --test server/kakao-oauth-config.test.ts server/kakao-oauth-routes.test.ts server/client-user.test.ts server/birthday.test.ts server/kakao-consent-ui-contract.test.ts` 결과 19개 통과, 0개 실패다.
+4. 같은 Replit 격리 복사본에서 `npm run check`와 `npm run build`를 실행해 모두 exit 0을 확인했다.
+5. Self-review: 변경 범위, 판별 유니온의 모든 콜백 분기, `ClientUser` 경계, `git diff --check`, 보호 대상 KIK 파일의 미추적 상태를 확인했다.
+
+### 우려사항
+
+- Replit 기본 워크스페이스에 별도 변경이 있어 격리 복사본에서 검증했다. 해당 복사본의 `npm ci`는 기존 전이 의존성 `shell-quote@1.8.3` 보안 정책 차단(403)으로 실패하여, 원본 워크스페이스의 기존 의존성과 잠금 파일에 고정된 `korean-lunar-calendar@0.4.0`만 사용해 검증했다.
