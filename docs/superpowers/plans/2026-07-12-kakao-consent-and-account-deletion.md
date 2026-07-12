@@ -10,10 +10,10 @@
 
 ## Global Constraints
 
-- 카카오 수집항목은 이름·이메일·전화번호 필수와 프로필 사진 선택으로 제한한다.
-- 생일·CI·성별·연령대·출생 연도·친구 목록·접근권한을 요청하지 않는다.
+- 카카오 수집항목은 이름·이메일·전화번호 필수와 프로필 사진·생일 선택으로 제한한다.
+- CI·성별·연령대·출생 연도·친구 목록·접근권한을 요청하지 않는다.
 - `REPLIT_DEPLOYMENT="1"`이면 운영 설정, 그 외에는 개발 설정을 사용한다.
-- 어드민 키·토큰·카카오 전체 응답·개인정보를 브라우저나 로그에 노출하지 않는다.
+- 어드민 키·토큰·카카오 원본 응답·오류 원문·불필요한 개인정보를 브라우저나 로그에 노출하지 않는다. 로그인한 본인의 화면에 필요한 허용 목록 회원정보는 브라우저에 전달할 수 있다.
 - 본인 탈퇴 대상은 항상 `req.session.userId`로 결정한다.
 - 카카오 연결 해제가 일시 실패하면 로컬 계정을 삭제하지 않는다.
 - 회원 삭제는 하나의 DB 트랜잭션에서 수행한다.
@@ -23,7 +23,7 @@
 
 ---
 
-### Task 1: 개인정보 범위와 공개 안내 정합성
+### Task 1: 서버 소유 로그인, 생일 MVP, 공개 안내 정합성
 
 **Files:**
 - Modify: `server/kakao-oauth-config.ts`
@@ -31,30 +31,43 @@
 - Modify: `server/routes.ts`
 - Modify: `server/kakao-oauth-routes.test.ts`
 - Modify: `shared/schema.ts`
+- Create: `server/client-user.ts`
+- Create: `server/client-user.test.ts`
+- Create: `shared/birthday.ts`
+- Create: `server/birthday.test.ts`
 - Modify: `client/src/pages/login.tsx`
 - Modify: `client/src/pages/profile.tsx`
+- Modify: `client/src/pages/home.tsx`
+- Modify: `client/src/pages/kakao-callback.tsx`
+- Modify: `client/src/hooks/use-auth.tsx`
+- Modify: `client/src/lib/auth.ts`
 - Modify: `client/src/components/profile/profile-edit-dialog.tsx`
 - Modify: `client/src/pages/privacy.tsx`
 - Modify: `client/src/pages/terms.tsx`
+- Modify: `package.json`
+- Modify: `package-lock.json`
 - Create: `server/kakao-consent-ui-contract.test.ts`
 
 **Interfaces:**
-- Produces: OAuth scope `name,profile_image,account_email,phone_number`
-- Produces: 로그인 응답에서 토큰과 생일 필드를 제외한 회원가입 데이터
-- Produces: 공개 화면의 필수·선택 수집항목 및 실제 탈퇴 정책 문구
+- Produces: OAuth scope `name,profile_image,account_email,birthday,phone_number`
+- Produces: 인가 코드만 받아 서버에서 회원 처리와 세션 저장까지 끝내는 `/api/auth/kakao/authorize`
+- Produces: `toClientUser(user: User): ClientUser` 허용 목록 직렬화
+- Produces: `isBirthdayToday(args, now): boolean` 양력·음력 생일 판정
+- Produces: 공개 화면의 필수·선택 수집항목, 생일 MVP 및 실제 탈퇴 정책 문구
 
 - [ ] **Step 1: OAuth 범위와 공개 화면 계약의 실패 테스트 작성**
 
-`server/kakao-oauth-config.test.ts`에서 authorize URL의 `scope`를 배열로 분해해 네 항목만 존재하고 `birthday`가 없음을 검증한다. `server/kakao-consent-ui-contract.test.ts`는 로그인·개인정보·약관·프로필 소스를 읽어 다음 문자열과 금지 문자열을 검증한다.
+`server/kakao-oauth-config.test.ts`에서 authorize URL의 `scope`를 배열로 분해해 다섯 항목만 존재하고 `account_ci`가 없음을 검증한다. `server/kakao-consent-ui-contract.test.ts`는 로그인·개인정보·약관·프로필·홈·콜백 소스를 읽어 다음 문자열과 금지 문자열을 검증한다.
 
 ```ts
 assert.deepEqual(scope.split(",").sort(), [
   "account_email",
+  "birthday",
   "name",
   "phone_number",
   "profile_image",
 ]);
-assert.doesNotMatch(scope, /birthday/);
+assert.doesNotMatch(scope, /account_ci|ci/);
 
 assert.match(login, /필수/);
 assert.match(login, /이름/);
@@ -62,10 +75,13 @@ assert.match(login, /이메일/);
 assert.match(login, /전화번호/);
 assert.match(login, /선택/);
 assert.match(login, /프로필 사진/);
+assert.match(login, /생일/);
 assert.doesNotMatch(login, /카카오싱크/);
 assert.doesNotMatch(privacy, /CI\(연계정보\)|생일 축하 쿠폰/);
 assert.doesNotMatch(terms, /근무지 정보/);
 assert.match(profile, /profileImage/);
+assert.match(home, /isBirthdayToday/);
+assert.doesNotMatch(callback, /phoneNumber|profileImage|birthdayType|isLeapMonth/);
 ```
 
 - [ ] **Step 2: 집중 테스트가 실패하는지 확인**
@@ -73,31 +89,35 @@ assert.match(profile, /profileImage/);
 Run on Replit:
 
 ```bash
-npx tsx --test server/kakao-oauth-config.test.ts server/kakao-consent-ui-contract.test.ts
+npx tsx --test server/kakao-oauth-config.test.ts server/kakao-oauth-routes.test.ts server/client-user.test.ts server/birthday.test.ts server/kakao-consent-ui-contract.test.ts
 ```
 
-Expected: 기존 scope의 `birthday`, 누락된 UI 문구, 남아 있는 CI·카카오싱크·근무지 문구 때문에 FAIL.
+Expected: 서버 소유 로그인, 안전한 직렬화, 생일 판정, 새 UI 계약이 아직 없어 FAIL.
 
 - [ ] **Step 3: 최소 구현 적용**
 
-`KAKAO_SCOPE`에서 `birthday`를 제거한다. `/api/auth/kakao/authorize` 응답과 `/api/auth/kakao` 입력·저장 갱신에서 액세스 토큰 및 생일 필드를 제거한다. `updateProfileSchema`에서는 생일 관련 필드를 제거하고 활동 지역과 카카오 알림 설정만 허용한다. 프로필 편집 폼은 활동 지역만 수정하도록 축소한다.
+`KAKAO_SCOPE`는 승인된 다섯 항목만 포함한다. `/api/auth/kakao/authorize`는 토큰 교환과 사용자 정보 조회 뒤 기존 `/api/auth/kakao`의 회원 확인·생성·갱신·세션 저장을 서버 안에서 직접 수행한다. 카카오 원본 사용자 정보나 액세스 토큰을 브라우저에 반환하고 다시 POST하는 `/api/auth/kakao` 왕복 경로와 클라이언트 payload 타입을 제거한다. 토큰 실패 응답은 카카오 원문 객체 대신 안전한 서비스 메시지만 반환한다.
+
+`ClientUser`는 화면에서 실제 사용하는 필드만 명시하고 `toClientUser`를 `/api/auth/me`, 로그인, 프로필 갱신 등 모든 회원 응답에 적용한다. DB에 남은 허용 목록 밖 필드는 직렬화하지 않는다. 생일은 실제 기능에 사용하므로 `birthday`, `birthdayType`, `isLeapMonth`를 허용 목록에 포함한다.
+
+`korean-lunar-calendar`를 설치하고 `shared/birthday.ts`에서 한국 시간 기준 양력·음력·윤달 생일을 계산한다. 내 정보에는 본인의 생일과 유형을 표시하고 생일 당일 홈에 본인 전용 축하 배너를 표시한다. 카카오 사용자 정보에 생일이 없으면 기존 저장값을 `NULL`로 갱신해 선택 동의 철회를 반영한다.
 
 로그인 화면에는 다음 정보를 한 번에 읽을 수 있는 비중으로 표시한다.
 
 ```tsx
 <div aria-label="카카오 로그인 개인정보 안내">
   <p><strong>필수</strong> 이름, 이메일, 전화번호</p>
-  <p><strong>선택</strong> 프로필 사진</p>
-  <p>이름과 전화번호는 동문 자격 확인, 이메일은 계정 관리와 공식 안내, 프로필 사진은 내 정보 표시에 사용합니다.</p>
+  <p><strong>선택</strong> 프로필 사진, 생일</p>
+  <p>이름과 전화번호는 동문 자격 확인, 이메일은 계정 관리와 공식 안내, 프로필 사진은 내 정보 표시, 생일은 본인 전용 축하 화면에 사용합니다.</p>
 </div>
 ```
 
-프로필은 `AvatarImage`와 `AvatarFallback`을 사용해 선택 사진과 이름 첫 글자 대체 표시를 함께 제공한다. 개인정보 처리방침과 약관은 승인된 설계의 수집 범위·목적·보유 정책으로 갱신하고 시행일을 `2026년 7월 12일`로 맞춘다.
+프로필은 `AvatarImage`와 `AvatarFallback`을 사용해 선택 사진과 이름 첫 글자 대체 표시를 함께 제공한다. 개인정보 처리방침은 카카오 회원번호를 동의항목이 아닌 내부 연결 식별자로 구분한다. 개인정보 처리방침과 약관은 승인된 설계의 수집 범위·목적·보유 정책으로 갱신하고 시행일을 `2026년 7월 12일`로 맞춘다.
 
 - [ ] **Step 4: 집중 테스트 통과 확인**
 
 ```bash
-npx tsx --test server/kakao-oauth-config.test.ts server/kakao-oauth-routes.test.ts server/kakao-consent-ui-contract.test.ts
+npx tsx --test server/kakao-oauth-config.test.ts server/kakao-oauth-routes.test.ts server/client-user.test.ts server/birthday.test.ts server/kakao-consent-ui-contract.test.ts
 ```
 
 Expected: PASS.
@@ -105,11 +125,55 @@ Expected: PASS.
 - [ ] **Step 5: 커밋**
 
 ```bash
-git add server/kakao-oauth-config.ts server/kakao-oauth-config.test.ts server/routes.ts server/kakao-oauth-routes.test.ts server/kakao-consent-ui-contract.test.ts shared/schema.ts client/src/pages/login.tsx client/src/pages/profile.tsx client/src/components/profile/profile-edit-dialog.tsx client/src/pages/privacy.tsx client/src/pages/terms.tsx
-git commit -m "Align Kakao consent data with actual use"
+git add server/kakao-oauth-config.ts server/kakao-oauth-config.test.ts server/routes.ts server/kakao-oauth-routes.test.ts server/client-user.ts server/client-user.test.ts server/birthday.test.ts server/kakao-consent-ui-contract.test.ts shared/schema.ts shared/birthday.ts client/src/pages/login.tsx client/src/pages/profile.tsx client/src/pages/home.tsx client/src/pages/kakao-callback.tsx client/src/hooks/use-auth.tsx client/src/lib/auth.ts client/src/components/profile/profile-edit-dialog.tsx client/src/pages/privacy.tsx client/src/pages/terms.tsx package.json package-lock.json
+git commit -m "Keep Kakao login data server owned"
 ```
 
-### Task 2: 환경별 카카오 연결 해제 모듈
+### Task 2: PostgreSQL 동문 매칭과 중복가입 방지
+
+**Files:**
+- Modify: `server/storage.ts`
+- Modify: `server/routes.ts`
+- Create: `server/member-deduplication.test.ts`
+- Modify: `server/kakao-oauth-routes.test.ts`
+
+**Interfaces:**
+- Produces: `IStorage.getUserByNormalizedPhone(phoneNumber: string): Promise<User | undefined>`
+- Produces: `IStorage.claimAlumniRecord(name: string, phoneNumber: string, userId: number): Promise<AlumniRecord | undefined>`
+- Consumes: `normalizePhoneForComparison` from existing alumni matching utilities
+
+- [ ] **Step 1: 중복 방지 실패 테스트 작성**
+
+테스트는 Google Sheets 조회가 로그인 라우트에서 제거되고, 같은 정규화 전화번호의 기존 회원이나 이미 연결된 동문 행이 있으면 새 회원 생성이 호출되지 않는지 검증한다. PostgreSQL 명부의 이름·전화번호가 유일하게 일치하고 미연결 상태일 때만 회원 생성과 명부 연결이 함께 완료돼야 한다.
+
+- [ ] **Step 2: 실패 확인**
+
+```bash
+npx tsx --test server/member-deduplication.test.ts server/kakao-oauth-routes.test.ts
+```
+
+Expected: 현재 로그인 경로가 Google Sheets를 사용하고 중복 전화번호·명부 연결을 원자적으로 막지 못해 FAIL.
+
+- [ ] **Step 3: PostgreSQL 원본 매칭 구현**
+
+비교 시에만 카카오와 명부 전화번호를 숫자 문자열로 정규화한다. 기존 회원의 정규화 전화번호가 일치하면 새 회원을 만들지 않는다. 동문 행 연결은 트랜잭션에서 `matched_user_id IS NULL` 조건으로 갱신해 동시에 두 계정이 같은 동문을 점유하지 못하게 한다. 이미 다른 회원에게 연결된 행은 관리자 확인 응답으로 처리한다. 로그인 경로에서 `googleSheetsService.findAlumniByPhoneAndName` 호출과 동적 import를 제거한다.
+
+- [ ] **Step 4: 테스트 통과 확인**
+
+```bash
+npx tsx --test server/member-deduplication.test.ts server/kakao-oauth-routes.test.ts server/community-events-storage-contract.test.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add server/storage.ts server/routes.ts server/member-deduplication.test.ts server/kakao-oauth-routes.test.ts
+git commit -m "Prevent duplicate alumni registrations"
+```
+
+### Task 3: 환경별 카카오 연결 해제 모듈
 
 **Files:**
 - Create: `server/kakao-admin-config.ts`
@@ -169,7 +233,7 @@ git add server/kakao-admin-config.ts server/kakao-admin-config.test.ts server/ka
 git commit -m "Add environment-safe Kakao unlink support"
 ```
 
-### Task 3: 트랜잭션 기반 회원 데이터 제거
+### Task 4: 트랜잭션 기반 회원 데이터 제거
 
 **Files:**
 - Modify: `server/storage.ts`
@@ -231,7 +295,7 @@ git add server/storage.ts server/account-deletion-storage.test.ts
 git commit -m "Delete member data transactionally"
 ```
 
-### Task 4: 본인 탈퇴 API와 확인 화면
+### Task 5: 본인 탈퇴 API와 확인 화면
 
 **Files:**
 - Modify: `server/routes.ts`
@@ -303,7 +367,7 @@ git add server/routes.ts server/account-deletion-routes.test.ts client/src/compo
 git commit -m "Add Kakao-aware member withdrawal"
 ```
 
-### Task 5: 전체 검증, 운영 문서, 심사용 자료
+### Task 6: 전체 검증, 운영 문서, 심사용 자료
 
 **Files:**
 - Modify: `walkthrough.md`
@@ -347,7 +411,8 @@ Expected: 모든 명령 exit code 0.
 카카오계정(전화번호): 필수 — 졸업생 명부와의 일치 여부 확인 및 동문 자격 인증
 카카오계정(이메일): 필수 — 회원 식별, 계정 관리 및 동문회 공식 안내
 프로필 사진: 선택 — 회원 프로필 화면에 프로필 사진 표시
-생일: 사용 안 함
+생일: 선택 — 회원 맞춤형 생일 축하 화면 제공
+CI(연계정보): 사용 안 함
 ```
 
 - [ ] **Step 5: 심사용 PDF 제작 및 시각 검증**
@@ -371,7 +436,7 @@ Expected: 테스트·타입 검사·빌드가 모두 통과하고 문서와 PDF�
 한 번의 요청으로 다음 작업을 안내한다.
 
 1. Replit Secrets에 `KAKAO_DEV_ADMIN_KEY`, `KAKAO_PROD_ADMIN_KEY` 추가
-2. 카카오 운영 앱의 생일 동의항목을 `사용 안 함`으로 유지
+2. 카카오 운영 앱의 생일 동의항목을 `선택 동의`, 동의 목적을 `회원 맞춤형 생일 축하 화면 제공`으로 설정하고 CI는 `사용 안 함` 유지
 3. 개발 로그인 및 실제 탈퇴 테스트에 사용할 계정으로 로그인
 4. 운영 Republish 후 운영 로그인·탈퇴 전 별도 최종 확인
 5. 개인정보 국외이전 등록에 필요한 실제 업체·국가·연락처 확인
