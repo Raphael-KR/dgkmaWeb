@@ -4,6 +4,29 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { CommunityEventDetails } from "@shared/community-events";
 
+export const PENDING_REGISTRATION_CONFLICT_REASONS = [
+  "email_conflict",
+  "phone_conflict",
+  "alumni_claimed",
+  "alumni_race",
+  "not_found",
+] as const;
+
+export type PendingRegistrationConflictReason =
+  typeof PENDING_REGISTRATION_CONFLICT_REASONS[number];
+
+export type PendingRegistrationUserData = {
+  kakaoId: string;
+  email: string;
+  name: string;
+  phoneNumber: string;
+  profileImage: string | null;
+  birthday: string | null;
+  birthdayType: "SOLAR" | "LUNAR" | null;
+  isLeapMonth: boolean | null;
+  conflictReason: PendingRegistrationConflictReason;
+};
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   kakaoId: text("kakao_id").unique(),
@@ -125,9 +148,22 @@ export const pendingRegistrations = pgTable("pending_registrations", {
   kakaoId: text("kakao_id").notNull(),
   email: text("email").notNull(),
   name: text("name").notNull(),
-  userData: jsonb("user_data"),
+  userData: jsonb("user_data").$type<PendingRegistrationUserData>(),
   status: text("status").default("pending"), // pending, approved, rejected
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const kakaoOAuthStates = pgTable("kakao_oauth_states", {
+  stateHash: text("state_hash").primaryKey(),
+  sessionBindingHash: text("session_binding_hash").notNull().unique(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const kakaoIdentityTerminations = pgTable("kakao_identity_terminations", {
+  identityHash: text("identity_hash").primaryKey(),
+  terminatedAt: timestamp("terminated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Relations
@@ -241,6 +277,24 @@ export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistr
 
 // Types
 export type User = typeof users.$inferSelect;
+export type ClientUser = Omit<Pick<
+  User,
+  | "id"
+  | "email"
+  | "name"
+  | "graduationYear"
+  | "isVerified"
+  | "isAdmin"
+  | "profileImage"
+  | "phoneNumber"
+  | "birthday"
+  | "birthdayType"
+  | "isLeapMonth"
+  | "activityRegion"
+  | "createdAt"
+>, "createdAt"> & {
+  createdAt: string | null;
+};
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
@@ -254,6 +308,16 @@ export type AlumniRecord = typeof alumniDatabase.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
+export type AdminPendingRegistrationDto = {
+  id: number;
+  name: string;
+  email: string;
+  status: string | null;
+  createdAt: string | null;
+};
+export type AdminPendingRegistrationUpdateResult =
+  | AdminPendingRegistrationDto
+  | { deleted: true; id: number };
 export type Obituary = typeof obituaries.$inferSelect;
 export type CommunityEvent = typeof communityEvents.$inferSelect;
 export type InsertCommunityEvent = typeof communityEvents.$inferInsert;
@@ -299,16 +363,6 @@ export type MembershipStatus = {
 
 // 프로필에서 본인이 수정 가능한 항목만 허용 (이름·졸업년도 등 검증 항목 제외).
 export const updateProfileSchema = insertUserSchema
-  .pick({
-    activityRegion: true,
-    birthday: true,
-    birthdayType: true,
-    isLeapMonth: true,
-    kakaoSyncEnabled: true,
-  })
-  .partial()
-  .extend({
-    // 양력/음력만 허용 (클라이언트 값 제약을 서버에서도 강제).
-    birthdayType: z.enum(["SOLAR", "LUNAR"]).nullable().optional(),
-  });
+  .pick({ activityRegion: true })
+  .partial();
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;

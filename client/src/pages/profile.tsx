@@ -12,6 +12,8 @@ import { LogOut, Edit, Settings, Shield, Receipt } from "lucide-react";
 import { MembershipBadge } from "@/components/membership-badge";
 import { ProfileEditDialog } from "@/components/profile/profile-edit-dialog";
 import { SettingsDialog } from "@/components/profile/settings-dialog";
+import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { MembershipStatus } from "@shared/schema";
 
 export default function Profile() {
@@ -20,6 +22,12 @@ export default function Profile() {
   const [location, setLocation] = useLocation();
   const [editOpen, setEditOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  const openDeleteAccount = () => {
+    setSettingsOpen(false);
+    setDeleteAccountOpen(true);
+  };
 
   const { data: payments, isLoading: paymentsLoading } = useQuery({
     queryKey: ["/api/payments/user", user?.id],
@@ -66,6 +74,11 @@ export default function Profile() {
   const currentYear = membership?.year ?? new Date().getFullYear();
   // 당해년도 연회비 완납 여부는 membership API 결과만 사용(완료된 연회비 합계 기준).
   const currentYearPayment = membership?.isPaid ? membership.currentYearPayment : null;
+  const birthdayLabel = user.birthday && user.birthdayType
+    ? `${user.birthday.slice(0, 2)}월 ${user.birthday.slice(2, 4)}일 (${
+      user.birthdayType === "SOLAR" ? "양력" : user.isLeapMonth ? "음력 윤달" : "음력"
+    })`
+    : null;
 
   return (
     <div className="min-h-screen bg-kakao-gray">
@@ -78,11 +91,14 @@ export default function Profile() {
           {/* Profile Card */}
           <Card className="shadow-sm mb-6">
             <CardHeader className="text-center">
-              <div className="w-20 h-20 kakao rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span className="kakao-brown font-bold text-2xl">
+              <Avatar className="w-20 h-20 mx-auto mb-4">
+                {user.profileImage && (
+                  <AvatarImage src={user.profileImage} alt={`${user.name} 프로필 사진`} />
+                )}
+                <AvatarFallback className="kakao kakao-brown font-bold text-2xl">
                   {user.name?.charAt(0) || "?"}
-                </span>
-              </div>
+                </AvatarFallback>
+              </Avatar>
               <CardTitle className="text-xl">{user.name}</CardTitle>
               <p className="text-gray-600">
                 {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
@@ -110,6 +126,12 @@ export default function Profile() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">연락처</p>
                   <p className="font-medium">{user.phoneNumber}</p>
+                </div>
+              )}
+              {birthdayLabel && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">생일</p>
+                  <p className="font-medium">{birthdayLabel}</p>
                 </div>
               )}
               <div>
@@ -278,7 +300,12 @@ export default function Profile() {
       </div>
 
       <ProfileEditDialog open={editOpen} onOpenChange={setEditOpen} user={user} />
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} user={user} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onDeleteAccount={openDeleteAccount}
+      />
+      <DeleteAccountDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import {
   users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries, comments, communityEvents,
+  kakaoIdentityTerminations,
   type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
   type Obituary, type InsertObituary, type MembershipStatus, type Comment, ANNUAL_DUES,
-  type CommunityEvent
+  type CommunityEvent, type PendingRegistrationConflictReason, type PendingRegistrationUserData,
+  PENDING_REGISTRATION_CONFLICT_REASONS,
 } from "@shared/schema";
 import type {
   CommunityEventDraftInput,
@@ -12,7 +14,7 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, sql, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, gte, inArray, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
@@ -21,6 +23,12 @@ import {
   eventDraftAdvisoryLockId,
   getOrCreateEventDraft,
 } from "./event-draft-creation";
+import {
+  KakaoOAuthTerminatedError,
+  hashKakaoEmailIdentity,
+  hashKakaoIdentity,
+  type KakaoOAuthGeneration,
+} from "./kakao-identity";
 
 // 동문 명부 노출 허용 필드 (개인정보 최소화 — 연락처·주소·메모 제외)
 export type DirectoryAlumni = {
@@ -40,9 +48,218 @@ export type DirectoryResult = {
   scope: { generation: string | null; region: string | null };
 };
 
+export type PendingRegistrationReviewInput = Omit<InsertPendingRegistration, "userData"> & {
+  userData: PendingRegistrationUserData;
+};
+
+export type CreateOrRefreshPendingRegistrationResult =
+  | { kind: "pending"; registration: PendingRegistration }
+  | { kind: "registered"; user: User };
+
 // 명부 목록 반환 상한. 현재 전체 동문이 약 3,400명이므로 단일 기수/지역 범위는 물론
 // 관리자 전체 열람도 한 번에 담을 수 있는 여유값. (통계 수치는 별도 count 로 정확히 산출)
 const DIRECTORY_LIST_LIMIT = 5000;
+
+export function normalizePhoneForComparison(phoneNumber: string): string {
+  const digits = phoneNumber.replace(/\D/g, "");
+  if (!digits.startsWith("82")) return digits;
+
+  const domesticNumber = digits.slice(2);
+  return domesticNumber.startsWith("0") ? domesticNumber : `0${domesticNumber}`;
+}
+
+function normalizeNameForComparison(name: string): string {
+  return name.replace(/\s/g, "");
+}
+
+class AlumniClaimConflictError extends Error {}
+
+export class PhoneRegistrationConflictError extends Error {
+  constructor() {
+    super("A user with the same normalized phone number already exists.");
+    this.name = "PhoneRegistrationConflictError";
+  }
+}
+
+export class PendingRegistrationConflictError extends Error {
+  constructor(public readonly conflictReason?: PendingRegistrationConflictReason) {
+    super("The pending registration conflict is not resolved.");
+    this.name = "PendingRegistrationConflictError";
+  }
+}
+
+function normalizedPhoneSql(phoneColumn: AnyColumn | SQL): SQL<string> {
+  const digits = sql`regexp_replace(coalesce(${phoneColumn}, ''), '[^0-9]', '', 'g')`;
+  return sql<string>`
+    CASE
+      WHEN ${digits} LIKE '82%'
+      THEN regexp_replace(${digits}, '^82(0)?', '0')
+      ELSE ${digits}
+    END
+  `;
+}
+
+type RegistrationTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function lockRegistrationIdentities(
+  tx: RegistrationTransaction,
+  kakaoId: string,
+  email: string,
+): Promise<void> {
+  const lockKeys = [
+    kakaoId ? `kakao:${kakaoId}` : "",
+    email ? `email:${email.trim().toLowerCase()}` : "",
+  ].filter(Boolean).sort();
+
+  for (const lockKey of lockKeys) {
+    await tx.execute(sql`
+      select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    `);
+  }
+}
+
+async function assertKakaoOAuthGenerationActive(
+  tx: RegistrationTransaction,
+  generation: KakaoOAuthGeneration,
+): Promise<void> {
+  if (Number.isNaN(generation.startedAt.getTime())) {
+    throw new KakaoOAuthTerminatedError();
+  }
+  const [termination] = await tx.select({
+    identityHash: kakaoIdentityTerminations.identityHash,
+  }).from(kakaoIdentityTerminations)
+    .where(and(
+      inArray(kakaoIdentityTerminations.identityHash, [
+        hashKakaoIdentity(generation.kakaoId),
+        hashKakaoEmailIdentity(generation.email),
+      ]),
+      gte(kakaoIdentityTerminations.terminatedAt, generation.startedAt),
+    ))
+    .limit(1);
+  if (termination) throw new KakaoOAuthTerminatedError();
+}
+
+async function markKakaoIdentityTerminated(
+  tx: RegistrationTransaction,
+  kakaoId: string,
+  email: string,
+): Promise<void> {
+  const identityHashes = [
+    hashKakaoIdentity(kakaoId),
+    hashKakaoEmailIdentity(email),
+  ];
+  const terminatedAt = sql<Date>`date_trunc('milliseconds', clock_timestamp())`;
+  await tx.insert(kakaoIdentityTerminations)
+    .values(identityHashes.map((identityHash) => ({ identityHash, terminatedAt })))
+    .onConflictDoUpdate({
+      target: kakaoIdentityTerminations.identityHash,
+      set: { terminatedAt },
+    });
+}
+
+async function removeLocalUsers(
+  tx: RegistrationTransaction,
+  userIds: number[],
+  deletePendingPersonalData: () => Promise<unknown>,
+): Promise<void> {
+  if (userIds.length > 0) {
+    const userCondition = inArray(users.id, userIds);
+    await tx.delete(communityEvents).where(and(
+      inArray(communityEvents.authorId, userIds),
+      eq(communityEvents.status, "draft"),
+    ));
+    await tx.update(communityEvents)
+      .set({ authorId: null })
+      .where(inArray(communityEvents.authorId, userIds));
+    await tx.update(posts)
+      .set({ authorId: null })
+      .where(inArray(posts.authorId, userIds));
+    await tx.update(comments)
+      .set({ authorId: null })
+      .where(inArray(comments.authorId, userIds));
+    await tx.update(obituaries)
+      .set({ authorId: null })
+      .where(inArray(obituaries.authorId, userIds));
+    await tx.update(payments)
+      .set({ userId: null })
+      .where(inArray(payments.userId, userIds));
+    await tx.update(alumniDatabase)
+      .set({ isMatched: false, matchedUserId: null })
+      .where(inArray(alumniDatabase.matchedUserId, userIds));
+
+    await deletePendingPersonalData();
+
+    for (const userId of userIds) {
+      await tx.execute(sql`
+        delete from "session"
+        where sess ->> 'userId' = ${String(userId)}
+      `);
+    }
+    await tx.delete(users).where(userCondition);
+    return;
+  }
+
+  await deletePendingPersonalData();
+}
+
+class RetryPendingIdentityLockError extends Error {}
+
+function parsePendingUserData(
+  registration: PendingRegistration,
+): PendingRegistrationUserData | undefined {
+  const raw = registration.userData as unknown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const data = raw as Record<string, unknown>;
+  const kakaoId = typeof data.kakaoId === "string" ? data.kakaoId : registration.kakaoId;
+  const email = typeof data.email === "string" ? data.email : registration.email;
+  const name = typeof data.name === "string" ? data.name : registration.name;
+  const phoneNumber = typeof data.phoneNumber === "string" ? data.phoneNumber : "";
+  if (
+    data.conflictReason !== undefined
+    && (
+      typeof data.conflictReason !== "string"
+      || !PENDING_REGISTRATION_CONFLICT_REASONS.includes(data.conflictReason as any)
+    )
+  ) return undefined;
+  const conflictReason = (data.conflictReason ?? "not_found") as PendingRegistrationUserData["conflictReason"];
+  if (!kakaoId || !email || !name || !phoneNumber) return undefined;
+
+  return {
+    kakaoId,
+    email,
+    name,
+    phoneNumber,
+    profileImage: typeof data.profileImage === "string" ? data.profileImage : null,
+    birthday: typeof data.birthday === "string" ? data.birthday : null,
+    birthdayType: data.birthdayType === "SOLAR" || data.birthdayType === "LUNAR"
+      ? data.birthdayType
+      : null,
+    isLeapMonth: typeof data.isLeapMonth === "boolean" ? data.isLeapMonth : null,
+    conflictReason,
+  };
+}
+
+async function withPhoneRegistrationLock<T>(
+  tx: RegistrationTransaction,
+  phoneNumber: string,
+  register: (normalizedPhone: string) => Promise<T>,
+): Promise<T> {
+  const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+  if (!normalizedPhone) {
+    throw new Error("Phone number is required for member registration.");
+  }
+
+  await tx.execute(sql`
+    select pg_advisory_xact_lock(hashtextextended(${normalizedPhone}, 0))
+  `);
+
+  const [existingUser] = await tx.select().from(users)
+    .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
+    .limit(1);
+  if (existingUser) throw new PhoneRegistrationConflictError();
+
+  return register(normalizedPhone);
+}
 
 // 회원 활동지역(시/도) → 동문 DB 주소 텍스트 매칭 패턴.
 // 주소가 약칭/정식 혼재("충북 청주" vs "충청북도")이므로 가능한 표기를 함께 검사.
@@ -78,8 +295,28 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByKakaoId(kakaoId: string): Promise<User | undefined>;
+  getUserByNormalizedPhone(phoneNumber: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  createUserWithAlumniClaim(
+    user: InsertUser,
+    name: string,
+    phoneNumber: string,
+    oauthStartedAt?: Date,
+  ): Promise<User | undefined>;
+  updateUser(
+    id: number,
+    user: Partial<InsertUser>,
+    oauthGeneration?: KakaoOAuthGeneration,
+  ): Promise<User | undefined>;
+  finalizeKakaoLogin(
+    userId: number,
+    generation: KakaoOAuthGeneration,
+    saveSession: () => Promise<void>,
+  ): Promise<User>;
+  deleteUserAccount(
+    user: Pick<User, "id" | "kakaoId" | "email">,
+    beforeDelete?: (user: User) => Promise<void>,
+  ): Promise<void>;
   
   // Category methods
   getCategories(): Promise<Category[]>;
@@ -112,6 +349,7 @@ export interface IStorage {
   // Alumni methods
   getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
+  claimAlumniRecord(name: string, phoneNumber: string, userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
   syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }>;
@@ -119,7 +357,14 @@ export interface IStorage {
   
   // Pending registration methods
   getPendingRegistrations(): Promise<PendingRegistration[]>;
-  createPendingRegistration(registration: InsertPendingRegistration): Promise<PendingRegistration>;
+  createOrRefreshPendingRegistration(
+    registration: PendingRegistrationReviewInput,
+    oauthStartedAt: Date,
+  ): Promise<CreateOrRefreshPendingRegistrationResult>;
+  rejectPendingRegistration(
+    id: number,
+    beforeDelete: (registration: PendingRegistration) => Promise<void>,
+  ): Promise<{ id: number } | undefined>;
   updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined>;
 
   // Obituary methods
@@ -145,7 +390,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db.select().from(users)
+      .where(sql`lower(${users.email}) = ${email.trim().toLowerCase()}`);
     return user || undefined;
   }
 
@@ -154,17 +400,109 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+  async getUserByNormalizedPhone(phoneNumber: string): Promise<User | undefined> {
+    const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+    if (!normalizedPhone) return undefined;
+
+    const [user] = await db.select().from(users)
+      .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
+      .limit(1);
+    return user || undefined;
   }
 
-  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User | undefined> {
+  async createUser(insertUser: InsertUser): Promise<User> {
+    return db.transaction(async (tx) => {
+      await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
+      return withPhoneRegistrationLock(
+        tx,
+        insertUser.phoneNumber ?? "",
+        async () => {
+          const [user] = await tx.insert(users).values(insertUser).returning();
+          return user;
+        },
+      );
+    });
+  }
+
+  async updateUser(
+    id: number,
+    updateData: Partial<InsertUser>,
+    oauthGeneration?: KakaoOAuthGeneration,
+  ): Promise<User | undefined> {
+    if (oauthGeneration) {
+      return db.transaction(async (tx) => {
+        await lockRegistrationIdentities(
+          tx,
+          oauthGeneration.kakaoId,
+          oauthGeneration.email,
+        );
+        await assertKakaoOAuthGenerationActive(tx, oauthGeneration);
+        const [currentUser] = await tx.select().from(users)
+          .where(and(
+            eq(users.id, id),
+            eq(users.kakaoId, oauthGeneration.kakaoId),
+          ))
+          .limit(1);
+        if (!currentUser) throw new KakaoOAuthTerminatedError();
+        const [updatedUser] = await tx.update(users)
+          .set({ ...updateData, updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning();
+        return updatedUser || undefined;
+      });
+    }
+
     const [user] = await db.update(users)
       .set({ ...updateData, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
+  }
+
+  async finalizeKakaoLogin(
+    userId: number,
+    generation: KakaoOAuthGeneration,
+    saveSession: () => Promise<void>,
+  ): Promise<User> {
+    return db.transaction(async (tx) => {
+      await lockRegistrationIdentities(tx, generation.kakaoId, generation.email);
+      await assertKakaoOAuthGenerationActive(tx, generation);
+      const [user] = await tx.select().from(users)
+        .where(and(
+          eq(users.id, userId),
+          eq(users.kakaoId, generation.kakaoId),
+        ))
+        .limit(1);
+      if (!user) throw new KakaoOAuthTerminatedError();
+      await saveSession();
+      return user;
+    });
+  }
+
+  async deleteUserAccount(
+    user: Pick<User, "id" | "kakaoId" | "email">,
+    beforeDelete: (user: User) => Promise<void> = async () => {},
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      await lockRegistrationIdentities(tx, user.kakaoId ?? "", user.email);
+      const [lockedUser] = await tx.select().from(users)
+        .where(eq(users.id, user.id))
+        .for("update");
+      if (!lockedUser) return;
+
+      await beforeDelete(lockedUser);
+      if (lockedUser.kakaoId) {
+        await markKakaoIdentityTerminated(tx, lockedUser.kakaoId, lockedUser.email);
+      }
+      await removeLocalUsers(tx, [lockedUser.id], () =>
+        tx.delete(pendingRegistrations).where(or(
+          lockedUser.kakaoId
+            ? eq(pendingRegistrations.kakaoId, lockedUser.kakaoId)
+            : undefined,
+          sql`lower(${pendingRegistrations.email}) = ${lockedUser.email.trim().toLowerCase()}`,
+        )),
+      );
+    });
   }
 
   async getCategories(): Promise<Category[]> {
@@ -342,23 +680,112 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async findAlumniByName(name: string): Promise<any[]> {
-    // Google Sheets에서 먼저 검색
+  async findAlumniByName(name: string): Promise<AlumniRecord[]> {
+    const normalizedName = normalizeNameForComparison(name);
+    if (!normalizedName) return [];
+
+    return await db.select().from(alumniDatabase)
+      .where(sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`);
+  }
+
+  async claimAlumniRecord(
+    name: string,
+    phoneNumber: string,
+    userId: number,
+  ): Promise<AlumniRecord | undefined> {
+    const normalizedName = normalizeNameForComparison(name);
+    const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+    if (!normalizedName || !normalizedPhone) return undefined;
+
+    return await db.transaction(async (tx) => {
+      const matches = await tx.select().from(alumniDatabase)
+        .where(and(
+          sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+          sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
+        ))
+        .orderBy(asc(alumniDatabase.id))
+        .limit(2);
+      const alumni = uniqueAlumniMatch(matches);
+      if (!alumni || alumni.matchedUserId !== null) return undefined;
+
+      const [claimed] = await tx.update(alumniDatabase)
+        .set({ isMatched: true, matchedUserId: userId })
+        .where(and(
+          eq(alumniDatabase.id, alumni.id),
+          isNull(alumniDatabase.matchedUserId),
+        ))
+        .returning();
+      return claimed || undefined;
+    });
+  }
+
+  async createUserWithAlumniClaim(
+    insertUser: InsertUser,
+    name: string,
+    phoneNumber: string,
+    oauthStartedAt?: Date,
+  ): Promise<User | undefined> {
+    const normalizedName = normalizeNameForComparison(name);
+    const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+    const normalizedStoredPhone = normalizePhoneForComparison(insertUser.phoneNumber ?? "");
+    if (
+      !normalizedName
+      || !normalizedPhone
+      || normalizedStoredPhone !== normalizedPhone
+    ) return undefined;
+
     try {
-      const googleResults = await googleSheetsService.findAlumniByName(name);
-      if (googleResults.length > 0) {
-        console.log(`Found ${googleResults.length} Google Sheets match record(s)`);
-        return googleResults;
-      }
+      return await db.transaction(async (tx) => {
+        await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
+        if (oauthStartedAt && insertUser.kakaoId) {
+          await assertKakaoOAuthGenerationActive(tx, {
+            kakaoId: insertUser.kakaoId,
+            email: insertUser.email,
+            startedAt: oauthStartedAt,
+          });
+        }
+
+        if (insertUser.kakaoId) {
+          const [registeredUser] = await tx.select().from(users)
+            .where(eq(users.kakaoId, insertUser.kakaoId))
+            .limit(1);
+          if (registeredUser) return registeredUser;
+        }
+
+        const [emailConflict] = await tx.select({ id: users.id }).from(users)
+          .where(sql`lower(${users.email}) = ${insertUser.email.trim().toLowerCase()}`)
+          .limit(1);
+        if (emailConflict) {
+          throw new PendingRegistrationConflictError("email_conflict");
+        }
+
+        return withPhoneRegistrationLock(tx, insertUser.phoneNumber ?? "", async (lockedPhone) => {
+          const matches = await tx.select().from(alumniDatabase)
+            .where(and(
+              sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+              sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${lockedPhone}`,
+            ))
+            .orderBy(asc(alumniDatabase.id))
+            .limit(2);
+          const alumni = uniqueAlumniMatch(matches);
+          if (!alumni || alumni.matchedUserId !== null) return undefined;
+
+          const [user] = await tx.insert(users).values(insertUser).returning();
+          const [claimed] = await tx.update(alumniDatabase)
+            .set({ isMatched: true, matchedUserId: user.id })
+            .where(and(
+              eq(alumniDatabase.id, alumni.id),
+              isNull(alumniDatabase.matchedUserId),
+            ))
+            .returning();
+          if (!claimed) throw new AlumniClaimConflictError();
+          return user;
+        });
+      });
     } catch (error) {
-      console.error(
-        'Error searching Google Sheets, falling back to local database:',
-        getErrorType(error),
-      );
+      if (error instanceof AlumniClaimConflictError) return undefined;
+      throw error;
     }
-    
-    // 로컬 데이터베이스에서 검색
-    return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
   }
 
   async getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined> {
@@ -493,17 +920,220 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(pendingRegistrations.createdAt));
   }
 
-  async createPendingRegistration(insertRegistration: InsertPendingRegistration): Promise<PendingRegistration> {
-    const [registration] = await db.insert(pendingRegistrations).values(insertRegistration).returning();
-    return registration;
+  async createOrRefreshPendingRegistration(
+    insertRegistration: PendingRegistrationReviewInput,
+    oauthStartedAt: Date,
+  ): Promise<CreateOrRefreshPendingRegistrationResult> {
+    return db.transaction(async (tx) => {
+      await lockRegistrationIdentities(
+        tx,
+        insertRegistration.kakaoId,
+        insertRegistration.email,
+      );
+      await assertKakaoOAuthGenerationActive(tx, {
+        kakaoId: insertRegistration.kakaoId,
+        email: insertRegistration.email,
+        startedAt: oauthStartedAt,
+      });
+
+      const [registeredUser] = await tx.select().from(users)
+        .where(eq(users.kakaoId, insertRegistration.kakaoId))
+        .limit(1);
+      if (registeredUser) {
+        return { kind: "registered", user: registeredUser };
+      }
+
+      const [emailConflict] = await tx.select({ id: users.id }).from(users)
+        .where(sql`lower(${users.email}) = ${insertRegistration.email.trim().toLowerCase()}`)
+        .limit(1);
+      const reviewedRegistration = emailConflict
+        ? {
+          ...insertRegistration,
+          userData: {
+            ...insertRegistration.userData,
+            conflictReason: "email_conflict" as const,
+          },
+        }
+        : insertRegistration;
+
+      const matches = await tx.select().from(pendingRegistrations)
+        .where(and(
+          eq(pendingRegistrations.status, "pending"),
+          or(
+            eq(pendingRegistrations.kakaoId, reviewedRegistration.kakaoId),
+            sql`lower(${pendingRegistrations.email}) = ${reviewedRegistration.email.trim().toLowerCase()}`,
+          ),
+        ))
+        .orderBy(asc(pendingRegistrations.id))
+        .for("update");
+
+      const [existing, ...duplicates] = matches;
+      if (existing) {
+        if (duplicates.length > 0) {
+          await tx.delete(pendingRegistrations)
+            .where(inArray(pendingRegistrations.id, duplicates.map(({ id }) => id)));
+        }
+        const [refreshed] = await tx.update(pendingRegistrations)
+          .set({
+            ...reviewedRegistration,
+            status: "pending",
+            createdAt: new Date(),
+          })
+          .where(eq(pendingRegistrations.id, existing.id))
+          .returning();
+        return { kind: "pending", registration: refreshed };
+      }
+
+      const [created] = await tx.insert(pendingRegistrations)
+        .values({ ...reviewedRegistration, status: "pending" })
+        .returning();
+      return { kind: "pending", registration: created };
+    });
+  }
+
+  async rejectPendingRegistration(
+    id: number,
+    beforeDelete: (registration: PendingRegistration) => Promise<void>,
+  ): Promise<{ id: number } | undefined> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await db.transaction(async (tx) => {
+          const [candidate] = await tx.select().from(pendingRegistrations)
+            .where(and(
+              eq(pendingRegistrations.id, id),
+              eq(pendingRegistrations.status, "pending"),
+            ));
+          if (!candidate) return undefined;
+
+          await lockRegistrationIdentities(tx, candidate.kakaoId, candidate.email);
+          const [registration] = await tx.select().from(pendingRegistrations)
+            .where(and(
+              eq(pendingRegistrations.id, id),
+              eq(pendingRegistrations.status, "pending"),
+            ))
+            .for("update");
+          if (!registration) return undefined;
+          if (
+            registration.kakaoId !== candidate.kakaoId
+            || registration.email.trim().toLowerCase()
+              !== candidate.email.trim().toLowerCase()
+          ) {
+            throw new RetryPendingIdentityLockError();
+          }
+
+          await beforeDelete(registration);
+          await markKakaoIdentityTerminated(
+            tx,
+            registration.kakaoId,
+            registration.email,
+          );
+
+          const matchingUsers = await tx.select({ id: users.id }).from(users)
+            .where(eq(users.kakaoId, registration.kakaoId));
+          await removeLocalUsers(
+            tx,
+            matchingUsers.map(({ id: userId }) => userId),
+            () => tx.delete(pendingRegistrations).where(or(
+              eq(pendingRegistrations.kakaoId, registration.kakaoId),
+              sql`lower(${pendingRegistrations.email}) = ${registration.email.trim().toLowerCase()}`,
+            )),
+          );
+          return { id: registration.id };
+        });
+      } catch (error) {
+        if (error instanceof RetryPendingIdentityLockError && attempt < 2) continue;
+        throw error;
+      }
+    }
+    throw new RetryPendingIdentityLockError();
   }
 
   async updatePendingRegistrationStatus(id: number, status: string): Promise<PendingRegistration | undefined> {
-    const [registration] = await db.update(pendingRegistrations)
-      .set({ status })
-      .where(eq(pendingRegistrations.id, id))
-      .returning();
-    return registration || undefined;
+    return db.transaction(async (tx) => {
+      if (status === "approved") {
+        const [candidate] = await tx.select().from(pendingRegistrations)
+          .where(and(
+            eq(pendingRegistrations.id, id),
+            eq(pendingRegistrations.status, "pending"),
+          ));
+        if (!candidate) return undefined;
+        const candidateData = parsePendingUserData(candidate);
+        if (!candidateData) throw new PendingRegistrationConflictError();
+        await lockRegistrationIdentities(tx, candidateData.kakaoId, candidateData.email);
+      }
+
+      const [registration] = await tx.select().from(pendingRegistrations)
+        .where(and(
+          eq(pendingRegistrations.id, id),
+          eq(pendingRegistrations.status, "pending"),
+        ))
+        .for("update");
+      if (!registration) return undefined;
+
+      if (status !== "approved") {
+        const [updated] = await tx.update(pendingRegistrations)
+          .set({ status })
+          .where(eq(pendingRegistrations.id, id))
+          .returning();
+        return updated || undefined;
+      }
+
+      const userData = parsePendingUserData(registration);
+      if (!userData) throw new PendingRegistrationConflictError();
+
+      return withPhoneRegistrationLock(tx, userData.phoneNumber, async (normalizedPhone) => {
+        const [identityConflict] = await tx.select({ id: users.id }).from(users)
+          .where(or(
+            eq(users.kakaoId, userData.kakaoId),
+            sql`lower(${users.email}) = ${userData.email.trim().toLowerCase()}`,
+          ))
+          .limit(1);
+        if (identityConflict) throw new PendingRegistrationConflictError();
+
+        const normalizedName = normalizeNameForComparison(userData.name);
+        const alumniMatches = await tx.select().from(alumniDatabase)
+          .where(and(
+            sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+            sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
+          ))
+          .orderBy(asc(alumniDatabase.id))
+          .limit(2);
+        const alumni = uniqueAlumniMatch(alumniMatches);
+        if (!alumni || alumni.matchedUserId !== null) {
+          throw new PendingRegistrationConflictError();
+        }
+
+        const [user] = await tx.insert(users).values({
+          kakaoId: userData.kakaoId,
+          email: userData.email,
+          name: userData.name,
+          profileImage: userData.profileImage,
+          phoneNumber: userData.phoneNumber,
+          birthday: userData.birthday,
+          birthdayType: userData.birthdayType,
+          isLeapMonth: userData.isLeapMonth,
+          graduationYear: alumni.graduationDate
+            ? parseInt(alumni.graduationDate.substring(0, 4), 10) || null
+            : null,
+          isVerified: true,
+          kakaoSyncEnabled: true,
+        }).returning();
+        const [claimed] = await tx.update(alumniDatabase)
+          .set({ isMatched: true, matchedUserId: user.id })
+          .where(and(
+            eq(alumniDatabase.id, alumni.id),
+            isNull(alumniDatabase.matchedUserId),
+          ))
+          .returning();
+        if (!claimed) throw new PendingRegistrationConflictError();
+
+        const [updated] = await tx.update(pendingRegistrations)
+          .set({ status })
+          .where(eq(pendingRegistrations.id, id))
+          .returning();
+        return updated || undefined;
+      });
+    });
   }
 
   async searchPosts(query: string): Promise<(Post & { category: Category })[]> {

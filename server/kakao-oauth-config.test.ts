@@ -61,7 +61,8 @@ test("missing selected variables are reported by name only", () => {
 
 test("authorization and token requests use one configuration", () => {
   const config = resolveKakaoOAuthConfig({ ...completeEnv });
-  const authorizeUrl = new URL(buildKakaoAuthorizeUrl(config));
+  const state = "request-specific-oauth-state";
+  const authorizeUrl = new URL(buildKakaoAuthorizeUrl(config, state));
   assert.equal(authorizeUrl.origin, "https://kauth.kakao.com");
   assert.equal(authorizeUrl.pathname, "/oauth/authorize");
   assert.equal(authorizeUrl.searchParams.get("client_id"), "dev-rest");
@@ -70,8 +71,17 @@ test("authorization and token requests use one configuration", () => {
     "https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback",
   );
   assert.equal(authorizeUrl.searchParams.get("response_type"), "code");
-  assert.equal(authorizeUrl.searchParams.get("state"), "kakao_login");
+  assert.equal(authorizeUrl.searchParams.get("state"), state);
   assert.equal(authorizeUrl.searchParams.has("client_secret"), false);
+  const scope = authorizeUrl.searchParams.get("scope") ?? "";
+  assert.deepEqual(scope.split(",").sort(), [
+    "account_email",
+    "birthday",
+    "name",
+    "phone_number",
+    "profile_image",
+  ]);
+  assert.doesNotMatch(scope, /account_ci|ci/);
 
   const tokenBody = buildKakaoTokenBody(config, "authorization-code");
   assert.equal(tokenBody.get("client_id"), "dev-rest");

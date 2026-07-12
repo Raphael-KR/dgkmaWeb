@@ -14,6 +14,7 @@ import { HeartHandshake, Users, Calendar } from "lucide-react";
 import { MembershipBadge } from "@/components/membership-badge";
 import { KAKAO_CHANNEL_URL } from "@/lib/config";
 import type { MembershipStatus } from "@shared/schema";
+import { isBirthdayToday } from "@shared/birthday";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -71,6 +72,13 @@ export default function Home() {
 
 
       <div className="max-w-md mx-auto px-4 pb-20 pt-4">
+
+        {isBirthdayToday(user) && (
+          <div className="mb-4 border-l-4 border-kakao-yellow bg-white px-4 py-3 shadow-sm" role="status">
+            <p className="font-bold text-gray-900">{user.name}님, 생일을 축하합니다!</p>
+            <p className="text-sm text-gray-600">행복하고 건강한 하루 보내세요.</p>
+          </div>
+        )}
 
         {/* User Info Section */}
         <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
