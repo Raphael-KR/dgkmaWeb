@@ -51,7 +51,7 @@ export default function Terms() {
               <div className="space-y-2 text-gray-700">
                 <p>① "서비스"란 동문회가 제공하는 동문 네트워킹, 정보 공유, 회비 관리 등의 온라인 서비스를 의미합니다.</p>
                 <p>② "이용자"란 본 약관에 따라 서비스를 이용하는 동국대학교 한의과대학 졸업생을 의미합니다.</p>
-                <p>③ "카카오톡 연동"이란 카카오 계정을 통한 간편 로그인 및 알림 서비스를 의미합니다.</p>
+                <p>③ "카카오톡 연동"이란 카카오 계정을 통한 로그인 및 알림 서비스를 의미합니다.</p>
               </div>
             </section>
 
@@ -87,7 +87,7 @@ export default function Terms() {
               <div className="space-y-2 text-gray-700">
                 <p>① 서비스 이용을 위해서는 동국대학교 한의과대학 졸업생임을 인증받아야 합니다.</p>
                 <p>② 가입 신청 시 졸업생 데이터베이스와 자동 매칭되며, 매칭되지 않는 경우 관리자 승인을 거칩니다.</p>
-                <p>③ 카카오 계정을 통한 간편 가입을 지원하며, 이때 카카오 서비스 약관도 함께 적용됩니다.</p>
+                <p>③ 카카오 로그인을 통한 가입을 지원하며, 이때 카카오 서비스 약관도 함께 적용됩니다.</p>
               </div>
             </section>
 
@@ -114,7 +114,7 @@ export default function Terms() {
               <div className="space-y-2 text-gray-700">
                 <p>① 카카오톡 연동을 통해 다음 서비스를 제공합니다:</p>
                 <ul className="list-disc list-inside ml-4 space-y-1">
-                  <li>간편 로그인 서비스</li>
+                  <li>카카오 로그인 서비스</li>
                   <li>동문회 소식 및 행사 알림</li>
                   <li>회비 납부 안내</li>
                 </ul>
