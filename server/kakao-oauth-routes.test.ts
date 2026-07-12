@@ -80,17 +80,85 @@ test("token exchange uses the same selected configuration", async () => {
   }
 });
 
-test("missing configuration returns a generic error", async () => {
+test("successful token exchange fetches secure user info and maps the Kakao response", async () => {
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+  const userInfo = {
+    id: 123456789,
+    kakao_account: {
+      email: "member@example.com",
+      name: "홍길동",
+      profile: { profile_image_url: "https://cdn.example.com/profile.jpg" },
+      phone_number: "+82 10-1234-5678",
+      birthday: "0101",
+      birthday_type: "SOLAR",
+      is_leap_month: false,
+    },
+  };
+  const responses = [
+    new Response(JSON.stringify({ access_token: "test-access-token" }), {
+      headers: { "content-type": "application/json" },
+    }),
+    new Response(JSON.stringify(userInfo), {
+      headers: { "content-type": "application/json" },
+    }),
+  ];
+  const kakaoFetch: typeof fetch = async (input, init) => {
+    requests.push({ input: String(input), init });
+    const response = responses.shift();
+    assert.ok(response, "unexpected Kakao fetch call");
+    return response;
+  };
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch,
+  });
+  try {
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/authorize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "test-code" }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(requests.length, 2);
+    assert.equal(requests[1]?.input, "https://kapi.kakao.com/v2/user/me?secure_resource=true");
+    assert.equal(
+      new Headers(requests[1]?.init?.headers).get("Authorization"),
+      "Bearer test-access-token",
+    );
+    assert.deepEqual(await response.json(), {
+      kakaoId: "123456789",
+      email: "member@example.com",
+      name: "홍길동",
+      profileImage: "https://cdn.example.com/profile.jpg",
+      phoneNumber: "+82 10-1234-5678",
+      birthday: "0101",
+      birthdayType: "SOLAR",
+      isLeapMonth: false,
+      accessToken: "test-access-token",
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("authorization request hides configuration error details", async () => {
   const server = await startServer({
     getKakaoOAuthConfig: () => {
       throw new KakaoOAuthConfigurationError(["KAKAO_DEV_CLIENT_SECRET"]);
     },
   });
   try {
-    const response = await fetch(`${server.baseUrl}/api/auth/kakao/start`);
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/authorize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "test-code" }),
+    });
     assert.equal(response.status, 500);
     const body = JSON.stringify(await response.json());
-    assert.doesNotMatch(body, /KAKAO_DEV_CLIENT_SECRET|route-client-secret/);
+    assert.doesNotMatch(
+      body,
+      /KAKAO_DEV_CLIENT_SECRET|route-rest-key|route-client-secret/,
+    );
   } finally {
     await server.close();
   }
