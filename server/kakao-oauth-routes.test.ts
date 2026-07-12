@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
 import session from "express-session";
-import type { User } from "@shared/schema";
+import type { AlumniRecord, User } from "@shared/schema";
 import {
   KakaoOAuthConfigurationError,
   type KakaoOAuthConfig,
@@ -18,6 +18,60 @@ const config: KakaoOAuthConfig = {
   restApiKey: "route-rest-key",
   clientSecret: "route-client-secret",
   redirectUri: "https://dev.example/kakao-callback",
+};
+
+const newKakaoUserInfo = {
+  id: 987654321,
+  kakao_account: {
+    email: "new-member@example.com",
+    name: "김동문",
+    phone_number: "+82 10-9876-5432",
+  },
+};
+
+function kakaoResponses(userInfo = newKakaoUserInfo) {
+  const responses = [
+    new Response(JSON.stringify({ access_token: "test-access-token" })),
+    new Response(JSON.stringify(userInfo)),
+  ];
+  return async () => responses.shift()!;
+}
+
+const alumniRecord: AlumniRecord = {
+  id: 31,
+  department: "한의학과",
+  generation: "20",
+  name: "김동문",
+  admissionDate: "1999-03-01",
+  graduationDate: "2005-02-28",
+  address: null,
+  mobile: "010-9876-5432",
+  phone: null,
+  group: null,
+  status: null,
+  alumniPosition: null,
+  memo: null,
+  isMatched: false,
+  matchedUserId: null,
+};
+
+const createdUser: User = {
+  id: 41,
+  kakaoId: "987654321",
+  email: "new-member@example.com",
+  name: "김동문",
+  graduationYear: 2005,
+  isVerified: true,
+  isAdmin: false,
+  kakaoSyncEnabled: true,
+  profileImage: null,
+  phoneNumber: "+82 10-9876-5432",
+  birthday: null,
+  birthdayType: null,
+  isLeapMonth: null,
+  activityRegion: null,
+  createdAt: new Date("2026-07-12T00:00:00.000Z"),
+  updatedAt: new Date("2026-07-12T00:00:00.000Z"),
 };
 
 async function startServer(dependencies: RouteDependencies) {
@@ -169,11 +223,15 @@ test("authorization completes member update and session save without returning K
       getUser: async () => updatedUser,
       getUserByEmail: async () => undefined,
       getUserByKakaoId: async () => existingUser,
+      getUserByNormalizedPhone: async () => undefined,
+      findAlumniByName: async () => [],
       createUser: async () => updatedUser,
+      createUserWithAlumniClaim: async () => updatedUser,
       updateUser: async (_id, updates) => {
         savedUpdates = updates;
         return updatedUser;
       },
+      claimAlumniRecord: async () => undefined,
       createPendingRegistration: async () => {
         throw new Error("pending registration should not be created");
       },
@@ -268,11 +326,15 @@ test("missing optional Kakao birthday clears the existing saved birthday", async
       getUser: async () => existingUser,
       getUserByEmail: async () => undefined,
       getUserByKakaoId: async () => existingUser,
+      getUserByNormalizedPhone: async () => undefined,
+      findAlumniByName: async () => [],
       createUser: async () => existingUser,
+      createUserWithAlumniClaim: async () => existingUser,
       updateUser: async (_id, updates) => {
         savedUpdates = updates;
         return { ...existingUser, ...updates };
       },
+      claimAlumniRecord: async () => undefined,
       createPendingRegistration: async () => {
         throw new Error("pending registration should not be created");
       },
@@ -290,6 +352,143 @@ test("missing optional Kakao birthday clears the existing saved birthday", async
       birthdayType: null,
       isLeapMonth: null,
     });
+  } finally {
+    await server.close();
+  }
+});
+
+test("normalized phone duplicate does not create another member", async () => {
+  let createUserCalled = false;
+  const existingPhoneUser = {
+    ...createdUser,
+    id: 17,
+    kakaoId: "existing-kakao-id",
+    email: "existing@example.com",
+    phoneNumber: "010-9876-5432",
+  };
+  const dependencies = {
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: {
+      getUser: async () => existingPhoneUser,
+      getUserByEmail: async () => undefined,
+      getUserByKakaoId: async () => undefined,
+      getUserByNormalizedPhone: async () => existingPhoneUser,
+      findAlumniByName: async () => [alumniRecord],
+      createUser: async () => {
+        createUserCalled = true;
+        return createdUser;
+      },
+      createUserWithAlumniClaim: async () => {
+        createUserCalled = true;
+        return createdUser;
+      },
+      updateUser: async () => undefined,
+      claimAlumniRecord: async () => alumniRecord,
+      createPendingRegistration: async () => {
+        throw new Error("pending registration should not be created");
+      },
+    },
+  };
+  const server = await startServer(dependencies);
+  try {
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/authorize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "test-code" }),
+    });
+
+    assert.equal(response.status, 409);
+    assert.equal(createUserCalled, false);
+    assert.deepEqual(await response.json(), {
+      message: "이미 가입된 전화번호입니다",
+      description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("already claimed alumni record requires approval without creating a member", async () => {
+  let createUserCalled = false;
+  const claimedAlumni = { ...alumniRecord, isMatched: true, matchedUserId: 17 };
+  const dependencies = {
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: {
+      getUser: async () => undefined,
+      getUserByEmail: async () => undefined,
+      getUserByKakaoId: async () => undefined,
+      getUserByNormalizedPhone: async () => undefined,
+      findAlumniByName: async () => [claimedAlumni],
+      createUser: async () => {
+        createUserCalled = true;
+        return createdUser;
+      },
+      createUserWithAlumniClaim: async () => {
+        createUserCalled = true;
+        return createdUser;
+      },
+      updateUser: async () => undefined,
+      claimAlumniRecord: async () => undefined,
+      createPendingRegistration: async () => {
+        throw new Error("pending registration should not be created");
+      },
+    },
+  };
+  const server = await startServer(dependencies);
+  try {
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/authorize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "test-code" }),
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(createUserCalled, false);
+    assert.deepEqual(await response.json(), {
+      message: "동문 정보 확인이 필요합니다",
+      description: "이미 연결된 동문 정보입니다. 관리자 확인 후 이용할 수 있습니다.",
+      requiresApproval: true,
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("unique unclaimed PostgreSQL alumni match creates and claims the member", async () => {
+  let atomicRegistrationCalled = false;
+  const dependencies = {
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: {
+      getUser: async () => createdUser,
+      getUserByEmail: async () => undefined,
+      getUserByKakaoId: async () => undefined,
+      getUserByNormalizedPhone: async () => undefined,
+      findAlumniByName: async () => [alumniRecord],
+      createUser: async () => createdUser,
+      createUserWithAlumniClaim: async () => {
+        atomicRegistrationCalled = true;
+        return createdUser;
+      },
+      updateUser: async () => undefined,
+      claimAlumniRecord: async () => undefined,
+      createPendingRegistration: async () => {
+        throw new Error("pending registration should not be created");
+      },
+    },
+  };
+  const server = await startServer(dependencies);
+  try {
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/authorize`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code: "test-code" }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(atomicRegistrationCalled, true);
   } finally {
     await server.close();
   }

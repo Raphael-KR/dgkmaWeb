@@ -1,6 +1,6 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { normalizePhoneForComparison, storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertPendingRegistrationSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
@@ -103,14 +103,14 @@ export type RouteDependencies = {
     | "getUser"
     | "getUserByEmail"
     | "getUserByKakaoId"
+    | "getUserByNormalizedPhone"
+    | "findAlumniByName"
     | "createUser"
+    | "createUserWithAlumniClaim"
     | "updateUser"
+    | "claimAlumniRecord"
     | "createPendingRegistration"
   >;
-  findAlumniByPhoneAndName?: (
-    phoneNumber: string,
-    name: string,
-  ) => Promise<Array<{ graduationDate?: string | null }>>;
 };
 
 function saveSession(req: Request): Promise<void> {
@@ -130,11 +130,6 @@ export async function registerRoutes(
     dependencies.getKakaoOAuthConfig ?? (() => resolveKakaoOAuthConfig());
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
   const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
-  const findAlumniByPhoneAndName = dependencies.findAlumniByPhoneAndName
-    ?? (async (phoneNumber: string, name: string) => {
-      const { googleSheetsService } = await import("./google-sheets");
-      return googleSheetsService.findAlumniByPhoneAndName(phoneNumber, name);
-    });
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -263,24 +258,69 @@ export async function registerRoutes(
       let user = await kakaoAuthStorage.getUserByKakaoId(kakaoId);
 
       if (!user) {
-        const alumniMatches = await findAlumniByPhoneAndName(phoneNumber, name);
+        const existingUserByEmail = await kakaoAuthStorage.getUserByEmail(email);
 
-        if (alumniMatches.length > 0) {
-          const existingUserByEmail = await kakaoAuthStorage.getUserByEmail(email);
+        if (existingUserByEmail) {
+          const updates: Partial<typeof existingUserByEmail> = {};
+          if (!existingUserByEmail.kakaoId) updates.kakaoId = kakaoId;
+          if (profileImage && !existingUserByEmail.profileImage) updates.profileImage = profileImage;
+          if (phoneNumber && !existingUserByEmail.phoneNumber) updates.phoneNumber = phoneNumber;
+          updates.birthday = birthday;
+          updates.birthdayType = birthdayType;
+          updates.isLeapMonth = isLeapMonth;
+          user = existingUserByEmail;
+          if (Object.keys(updates).length > 0) {
+            user = await kakaoAuthStorage.updateUser(existingUserByEmail.id, updates);
+          }
+        } else {
+          const existingUserByPhone = await kakaoAuthStorage.getUserByNormalizedPhone(phoneNumber);
+          if (existingUserByPhone) {
+            return res.status(409).json({
+              message: "이미 가입된 전화번호입니다",
+              description: "기존 계정으로 로그인하거나 관리자에게 문의해주세요.",
+            });
+          }
 
-          if (existingUserByEmail) {
-            const updates: Partial<typeof existingUserByEmail> = {};
-            if (profileImage && !existingUserByEmail.profileImage) updates.profileImage = profileImage;
-            if (phoneNumber && !existingUserByEmail.phoneNumber) updates.phoneNumber = phoneNumber;
-            updates.birthday = birthday;
-            updates.birthdayType = birthdayType;
-            updates.isLeapMonth = isLeapMonth;
-            user = existingUserByEmail;
-            if (Object.keys(updates).length > 0) {
-              user = await kakaoAuthStorage.updateUser(existingUserByEmail.id, updates);
-            }
-          } else {
-            user = await kakaoAuthStorage.createUser({
+          const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+          const alumniMatches = (await kakaoAuthStorage.findAlumniByName(name))
+            .filter((alumni) => normalizePhoneForComparison(alumni.mobile ?? "") === normalizedPhone);
+          const alumniMatch = alumniMatches.length === 1 ? alumniMatches[0] : undefined;
+
+          if (!alumniMatch) {
+            await kakaoAuthStorage.createPendingRegistration({
+              kakaoId,
+              email,
+              name,
+              userData: {
+                kakaoId,
+                email,
+                name,
+                profileImage,
+                phoneNumber,
+                birthday,
+                birthdayType,
+                isLeapMonth,
+                kakaoSync: true,
+              },
+            });
+
+            return res.status(202).json({
+              message: "가입 신청이 접수되었습니다",
+              description: "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
+              requiresApproval: true
+            });
+          }
+
+          if (alumniMatch.matchedUserId !== null) {
+            return res.status(202).json({
+              message: "동문 정보 확인이 필요합니다",
+              description: "이미 연결된 동문 정보입니다. 관리자 확인 후 이용할 수 있습니다.",
+              requiresApproval: true,
+            });
+          }
+
+          user = await kakaoAuthStorage.createUserWithAlumniClaim(
+            {
               kakaoId,
               email,
               name,
@@ -289,36 +329,22 @@ export async function registerRoutes(
               birthday,
               birthdayType,
               isLeapMonth,
-              graduationYear: alumniMatches[0]?.graduationDate
-                ? parseInt(alumniMatches[0].graduationDate.substring(0, 4), 10) || null
+              graduationYear: alumniMatch.graduationDate
+                ? parseInt(alumniMatch.graduationDate.substring(0, 4), 10) || null
                 : null,
               isVerified: true,
               kakaoSyncEnabled: true,
+            },
+            name,
+            phoneNumber,
+          );
+          if (!user) {
+            return res.status(202).json({
+              message: "동문 정보 확인이 필요합니다",
+              description: "동문 정보 연결을 완료하지 못했습니다. 관리자 확인 후 이용할 수 있습니다.",
+              requiresApproval: true,
             });
           }
-        } else {
-          await kakaoAuthStorage.createPendingRegistration({
-            kakaoId,
-            email,
-            name,
-            userData: {
-              kakaoId,
-              email,
-              name,
-              profileImage,
-              phoneNumber,
-              birthday,
-              birthdayType,
-              isLeapMonth,
-              kakaoSync: true,
-            },
-          });
-
-          return res.status(202).json({
-            message: "가입 신청이 접수되었습니다",
-            description: "관리자 승인 후 이용 가능합니다. 카카오톡으로 결과를 알려드리겠습니다.",
-            requiresApproval: true
-          });
         }
       } else {
         const updates: Partial<typeof user> = {};

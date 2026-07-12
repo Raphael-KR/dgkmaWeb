@@ -12,7 +12,7 @@ import type {
   CommunityEventType,
 } from "@shared/community-events";
 import { db } from "./db";
-import { eq, desc, and, like, or, asc, count, sql, type SQL } from "drizzle-orm";
+import { eq, desc, and, like, or, asc, count, isNull, sql, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
 import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
@@ -43,6 +43,20 @@ export type DirectoryResult = {
 // 명부 목록 반환 상한. 현재 전체 동문이 약 3,400명이므로 단일 기수/지역 범위는 물론
 // 관리자 전체 열람도 한 번에 담을 수 있는 여유값. (통계 수치는 별도 count 로 정확히 산출)
 const DIRECTORY_LIST_LIMIT = 5000;
+
+export function normalizePhoneForComparison(phoneNumber: string): string {
+  const digits = phoneNumber.replace(/\D/g, "");
+  if (!digits.startsWith("82")) return digits;
+
+  const domesticNumber = digits.slice(2);
+  return domesticNumber.startsWith("0") ? domesticNumber : `0${domesticNumber}`;
+}
+
+function normalizeNameForComparison(name: string): string {
+  return name.replace(/\s/g, "");
+}
+
+class AlumniClaimConflictError extends Error {}
 
 // 회원 활동지역(시/도) → 동문 DB 주소 텍스트 매칭 패턴.
 // 주소가 약칭/정식 혼재("충북 청주" vs "충청북도")이므로 가능한 표기를 함께 검사.
@@ -78,7 +92,13 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByKakaoId(kakaoId: string): Promise<User | undefined>;
+  getUserByNormalizedPhone(phoneNumber: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithAlumniClaim(
+    user: InsertUser,
+    name: string,
+    phoneNumber: string,
+  ): Promise<User | undefined>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
   
   // Category methods
@@ -112,6 +132,7 @@ export interface IStorage {
   // Alumni methods
   getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
+  claimAlumniRecord(name: string, phoneNumber: string, userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
   syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }>;
@@ -151,6 +172,22 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByKakaoId(kakaoId: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.kakaoId, kakaoId));
+    return user || undefined;
+  }
+
+  async getUserByNormalizedPhone(phoneNumber: string): Promise<User | undefined> {
+    const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+    if (!normalizedPhone) return undefined;
+
+    const [user] = await db.select().from(users)
+      .where(sql`
+        CASE
+          WHEN regexp_replace(coalesce(${users.phoneNumber}, ''), '[^0-9]', '', 'g') LIKE '82%'
+          THEN '0' || substring(regexp_replace(coalesce(${users.phoneNumber}, ''), '[^0-9]', '', 'g') FROM 3)
+          ELSE regexp_replace(coalesce(${users.phoneNumber}, ''), '[^0-9]', '', 'g')
+        END = ${normalizedPhone}
+      `)
+      .limit(1);
     return user || undefined;
   }
 
@@ -342,23 +379,81 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async findAlumniByName(name: string): Promise<any[]> {
-    // Google Sheets에서 먼저 검색
+  async findAlumniByName(name: string): Promise<AlumniRecord[]> {
+    const normalizedName = normalizeNameForComparison(name);
+    if (!normalizedName) return [];
+
+    return await db.select().from(alumniDatabase)
+      .where(sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`);
+  }
+
+  async claimAlumniRecord(
+    name: string,
+    phoneNumber: string,
+    userId: number,
+  ): Promise<AlumniRecord | undefined> {
+    const normalizedName = normalizeNameForComparison(name);
+    const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+    if (!normalizedName || !normalizedPhone) return undefined;
+
+    return await db.transaction(async (tx) => {
+      const matches = await tx.select().from(alumniDatabase)
+        .where(and(
+          sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+          sql`regexp_replace(coalesce(${alumniDatabase.mobile}, ''), '[^0-9]', '', 'g') = ${normalizedPhone}`,
+        ))
+        .orderBy(asc(alumniDatabase.id))
+        .limit(2);
+      const alumni = uniqueAlumniMatch(matches);
+      if (!alumni || alumni.matchedUserId !== null) return undefined;
+
+      const [claimed] = await tx.update(alumniDatabase)
+        .set({ isMatched: true, matchedUserId: userId })
+        .where(and(
+          eq(alumniDatabase.id, alumni.id),
+          isNull(alumniDatabase.matchedUserId),
+        ))
+        .returning();
+      return claimed || undefined;
+    });
+  }
+
+  async createUserWithAlumniClaim(
+    insertUser: InsertUser,
+    name: string,
+    phoneNumber: string,
+  ): Promise<User | undefined> {
+    const normalizedName = normalizeNameForComparison(name);
+    const normalizedPhone = normalizePhoneForComparison(phoneNumber);
+    if (!normalizedName || !normalizedPhone) return undefined;
+
     try {
-      const googleResults = await googleSheetsService.findAlumniByName(name);
-      if (googleResults.length > 0) {
-        console.log(`Found ${googleResults.length} Google Sheets match record(s)`);
-        return googleResults;
-      }
+      return await db.transaction(async (tx) => {
+        const matches = await tx.select().from(alumniDatabase)
+          .where(and(
+            sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+            sql`regexp_replace(coalesce(${alumniDatabase.mobile}, ''), '[^0-9]', '', 'g') = ${normalizedPhone}`,
+          ))
+          .orderBy(asc(alumniDatabase.id))
+          .limit(2);
+        const alumni = uniqueAlumniMatch(matches);
+        if (!alumni || alumni.matchedUserId !== null) return undefined;
+
+        const [user] = await tx.insert(users).values(insertUser).returning();
+        const [claimed] = await tx.update(alumniDatabase)
+          .set({ isMatched: true, matchedUserId: user.id })
+          .where(and(
+            eq(alumniDatabase.id, alumni.id),
+            isNull(alumniDatabase.matchedUserId),
+          ))
+          .returning();
+        if (!claimed) throw new AlumniClaimConflictError();
+        return user;
+      });
     } catch (error) {
-      console.error(
-        'Error searching Google Sheets, falling back to local database:',
-        getErrorType(error),
-      );
+      if (error instanceof AlumniClaimConflictError) return undefined;
+      throw error;
     }
-    
-    // 로컬 데이터베이스에서 검색
-    return await db.select().from(alumniDatabase).where(eq(alumniDatabase.name, name));
   }
 
   async getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined> {
