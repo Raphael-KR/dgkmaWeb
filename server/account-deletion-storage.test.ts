@@ -79,6 +79,7 @@ test("development PostgreSQL deletes one member while preserving public content"
   const { storage } = await import("./storage");
   const token = randomUUID().replaceAll("-", "");
   const email = `task4-${token}@example.invalid`;
+  const mixedCaseEmail = email.toUpperCase();
   const kakaoId = `task4-${token}`;
   const otherEmail = `task4-other-${token}@example.invalid`;
   const otherKakaoId = `task4-other-${token}`;
@@ -148,7 +149,7 @@ test("development PostgreSQL deletes one member while preserving public content"
        values
          ($1, $2, $3, 'pending'),
          ($4, $5, $3, 'pending')`,
-      [kakaoId, otherEmail, marker, otherKakaoId, email],
+      [kakaoId, otherEmail, marker, otherKakaoId, mixedCaseEmail],
     );
     await pool.query(
       `insert into "session" (sid, sess, expire)
@@ -190,7 +191,7 @@ test("development PostgreSQL deletes one member while preserving public content"
          (select count(*)::int from obituaries where title = $4 and author_id is null) as obituary_anonymous_count,
          (select count(*)::int from payments where type = $4 and user_id is null) as payment_anonymous_count,
          (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id is null) as alumni_unmatched_count,
-         (select count(*)::int from pending_registrations where kakao_id = $5 or email = $6) as pending_count,
+         (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
          (select count(*)::int from "session" where sid = any($7::text[])) as target_session_count,
          (select count(*)::int from "session" where sid = $8) as other_session_count`,
       [

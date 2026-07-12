@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, RefreshCw, FileSpreadsheet, Users, AlertCircle } from "lucide-react";
+import type { AdminPendingRegistrationDto } from "@shared/schema";
 
 export default function Admin() {
   const { user } = useAuth();
@@ -91,11 +92,11 @@ export default function Admin() {
     };
   }, [isPolling]);
 
-  const { data: pendingRegistrations, isLoading } = useQuery({
+  const { data: pendingRegistrations = [], isLoading } = useQuery<AdminPendingRegistrationDto[]>({
     queryKey: ["/api/admin/pending-registrations"],
     queryFn: async () => {
       const response = await fetch("/api/admin/pending-registrations", { credentials: "include" });
-      return response.json();
+      return response.json() as Promise<AdminPendingRegistrationDto[]>;
     },
     enabled: !!user?.isAdmin,
   });
@@ -108,7 +109,16 @@ export default function Admin() {
         credentials: "include",
         body: JSON.stringify({ status }),
       });
-      return response.json();
+      const responseBody = await response.json().catch(() => ({})) as {
+        message?: unknown;
+      };
+      if (!response.ok) {
+        if (typeof responseBody.message === "string") {
+          throw new Error(responseBody.message);
+        }
+        throw new Error("처리 중 오류가 발생했습니다.");
+      }
+      return responseBody as AdminPendingRegistrationDto;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-registrations"] });
@@ -117,10 +127,10 @@ export default function Admin() {
         description: "회원 가입 요청이 처리되었습니다.",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "오류",
-        description: "처리 중 오류가 발생했습니다.",
+        description: error instanceof Error ? error.message : "처리 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     },
@@ -270,14 +280,16 @@ export default function Admin() {
                     </p>
                   ) : (
                     <div className="space-y-4">
-                      {pendingRegistrations?.map((registration: any) => (
+                      {pendingRegistrations?.map((registration) => (
                         <div key={registration.id} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between mb-3">
                             <div>
                               <p className="font-bold">{registration.name}</p>
                               <p className="text-sm text-gray-600">{registration.email}</p>
                               <p className="text-xs text-gray-500">
-                                {new Date(registration.createdAt).toLocaleDateString()}
+                                {registration.createdAt
+                                  ? new Date(registration.createdAt).toLocaleDateString()
+                                  : "날짜 정보 없음"}
                               </p>
                             </div>
                             <Badge variant="outline">대기중</Badge>

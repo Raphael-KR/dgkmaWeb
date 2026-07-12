@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   KakaoAdminConfigurationError,
@@ -61,4 +62,19 @@ test("missing production administrator key reports the production variable only"
       return true;
     },
   );
+});
+
+test("deployment docs and environment example match the PostgreSQL login transition", async () => {
+  const [envExample, replitGuide, roadmap] = await Promise.all([
+    readFile(new URL("../.env.example", import.meta.url), "utf8"),
+    readFile(new URL("../replit.md", import.meta.url), "utf8"),
+    readFile(new URL("../roadmap.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(envExample, /^KAKAO_ADMIN_KEY=/m);
+  assert.match(envExample, /^KAKAO_DEV_ADMIN_KEY=""$/m);
+  assert.match(envExample, /^KAKAO_PROD_ADMIN_KEY=""$/m);
+  assert.match(replitGuide, /로그인 매칭 코드는 PostgreSQL `alumni_database`를 사용/);
+  assert.doesNotMatch(replitGuide, /아직 Google Sheets 런타임 조회를 사용/);
+  assert.match(roadmap, /\| PostgreSQL 기준 명부 일원화 \| 진행 중 \|/);
 });

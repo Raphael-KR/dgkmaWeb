@@ -472,3 +472,43 @@ npm run build
 ```
 
 전체 검증은 Replit 개발 workspace와 Development Database에서 수행하며 Production Database는 사용하지 않는다.
+
+### Task 8: 전체 브랜치 최종 리뷰 보정
+
+**Files:**
+- Modify: `shared/schema.ts`
+- Modify: `drizzle.config.ts`
+- Create: `server/kakao-oauth-state.ts`
+- Create: `server/kakao-oauth-state.test.ts`
+- Modify: `server/routes.ts`
+- Modify: `server/kakao-oauth-routes.test.ts`
+- Create: `server/admin-pending-registration.ts`
+- Create: `server/admin-pending-registration-contract.test.ts`
+- Modify: `client/src/pages/admin.tsx`
+- Modify: `server/storage.ts`
+- Modify: `server/account-deletion-storage.test.ts`
+- Modify: `client/src/pages/login.tsx`
+- Modify: `server/kakao-consent-ui-contract.test.ts`
+- Modify: `.env.example`
+- Modify: `replit.md`
+- Modify: `roadmap.md`
+
+**완료 조건:**
+- OAuth state 원문은 세션이나 DB에 저장하지 않고 SHA-256 hash, 세션 binding hash, 10분 만료만 저장한다.
+- 동일 session/state의 동시 callback은 PostgreSQL `DELETE ... RETURNING` 원자 소비로 정확히 한 요청만 token exchange에 진입한다.
+- 원자 소비 loser는 세션을 수정하거나 저장하지 않아 winner가 저장한 로그인 `userId`를 덮어쓰지 않는다.
+- 관리자 가입대기 목록과 승인 응답은 `id`, `name`, `email`, `status`, `createdAt` DTO만 반환하며 승인 HTTP 오류의 body `message`를 오류 토스트에 표시한다.
+- 회원 탈퇴는 pending email을 소문자 기준으로 삭제하고 mixed-case 통합 테스트로 검증한다.
+- 로그인 안내와 환경 예시, PostgreSQL 명부 전환 문서는 현재 구현과 일치한다.
+
+**스키마 적용 및 검증:**
+
+```bash
+npm run db:push
+npx tsx --test server/kakao-oauth-state.test.ts server/kakao-oauth-routes.test.ts server/admin-pending-registration-contract.test.ts server/account-deletion-storage.test.ts server/kakao-consent-ui-contract.test.ts server/kakao-admin-config.test.ts
+npm test
+npm run check
+npm run build
+```
+
+`npm run db:push`는 Development Database에서 `current_database() = 'heliumdb'`를 먼저 확인한 뒤 실행한다. `session`은 `tablesFilter: ["!session"]`로 제외한다. `kakao_oauth_states`는 Development Database에 먼저 적용하고, Production Database에는 별도로 적용한다. 이 최종 리뷰에서는 Production Database에 접근하거나 스키마를 적용하지 않는다.

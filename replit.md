@@ -73,7 +73,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 로그인 매칭 코드는 PostgreSQL 기준으로 전환할 때까지 아직 Google Sheets 런타임 조회를 사용합니다. 전환 완료 후 Google Sheets와 관련 Secrets는 운영 의존성에서 제거합니다.
+Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 로그인 매칭 코드는 PostgreSQL `alumni_database`를 사용하며 Google Sheets를 런타임에 조회하지 않습니다. Google Sheets와 관련 Secrets는 관리자가 명시적으로 실행하는 동문 명부 동기화 기능에만 사용합니다.
 
 ### 선택 운영 설정
 
@@ -123,6 +123,10 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 ```bash
 npm run db:push
 ```
+
+2026-07-13 전체 브랜치 최종 리뷰에서 OAuth state의 다중 인스턴스 일회성 소비를 위해 `kakao_oauth_states` additive 테이블을 추가했습니다. 이 테이블에는 state 원문이 아니라 SHA-256 hash, 세션 binding hash, 만료 시각만 저장합니다. Development Database에 적용하고 원자 소비 통합 테스트를 실행했으며, Production Database에는 별도로 적용해야 합니다.
+
+`session` 테이블은 `connect-pg-simple`과 앱 시작 코드가 관리합니다. `drizzle.config.ts`의 `tablesFilter: ["!session"]`는 `db:push`가 이 테이블을 삭제나 rename 대상으로 해석하지 않도록 제외합니다.
 
 프로덕션에는 생성 SQL을 확인한 후 Production SQL 콘솔에서 additive SQL만 수동 적용합니다. 적용 결과를 확인하기 전에는 Republish하지 않습니다. 기존 컬럼·테이블 삭제처럼 되돌리기 어려운 SQL은 별도 백업과 복구 절차 없이 실행하지 않습니다.
 

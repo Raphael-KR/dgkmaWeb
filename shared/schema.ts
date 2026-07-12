@@ -153,6 +153,13 @@ export const pendingRegistrations = pgTable("pending_registrations", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const kakaoOAuthStates = pgTable("kakao_oauth_states", {
+  stateHash: text("state_hash").primaryKey(),
+  sessionBindingHash: text("session_binding_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   posts: many(posts),
@@ -293,6 +300,13 @@ export type AlumniRecord = typeof alumniDatabase.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
+export type AdminPendingRegistrationDto = {
+  id: number;
+  name: string;
+  email: string;
+  status: string | null;
+  createdAt: string | null;
+};
 export type Obituary = typeof obituaries.$inferSelect;
 export type CommunityEvent = typeof communityEvents.$inferSelect;
 export type InsertCommunityEvent = typeof communityEvents.$inferInsert;

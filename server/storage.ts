@@ -347,7 +347,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(alumniDatabase.matchedUserId, user.id));
       await tx.delete(pendingRegistrations).where(or(
         user.kakaoId ? eq(pendingRegistrations.kakaoId, user.kakaoId) : undefined,
-        eq(pendingRegistrations.email, user.email),
+        sql`lower(${pendingRegistrations.email}) = ${user.email.trim().toLowerCase()}`,
       ));
       await tx.execute(sql`
         delete from "session"

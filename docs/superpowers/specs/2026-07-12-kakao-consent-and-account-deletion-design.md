@@ -100,6 +100,14 @@ CI는 카카오의 제휴형 회원 비교식별 정보이며 본인인증 수�
 
 여기서 “브라우저 개인정보 비노출”은 로그인한 본인의 서비스 화면에 필요한 최소 회원정보 표시를 금지한다는 뜻이 아니다. 금지 대상은 카카오 원본 응답, 토큰, 어드민 키, 오류 원문, 불필요한 개인정보 왕복과 화면에 사용하지 않는 필드다.
 
+### OAuth state 원자 소비
+
+로그인 시작 시 생성한 32바이트 무작위 state 원문은 카카오 authorization URL로만 전달한다. 서버 세션과 PostgreSQL `kakao_oauth_states`에는 state의 SHA-256 hash만 저장하며, 테이블 행은 세션 ID의 SHA-256 hash와 10분 만료 시각에 함께 바인딩한다. 세션에는 동일한 state hash와 만료 시각을 저장해 다른 세션의 callback을 거부한다.
+
+callback은 전달받은 state를 hash한 뒤 세션 hash와 고정 길이 timing-safe 비교를 수행한다. 그 다음 `state_hash`, `session_binding_hash`, 만료 조건이 모두 일치하는 행을 `DELETE ... RETURNING`으로 원자 소비한다. 여러 프로세스나 인스턴스가 같은 session/state callback을 동시에 처리해도 삭제된 행을 반환받은 정확히 한 요청만 카카오 token exchange로 진행한다. 원자 소비에 실패한 loser 요청은 오래된 session snapshot으로 winner의 로그인 세션을 덮어쓰지 않도록 세션을 수정하거나 저장하지 않고 즉시 거부한다. 이미 소비됐거나 만료된 state, DB 소비 오류, 소비 후 세션 저장 오류는 token exchange 전에 종료한다.
+
+`kakao_oauth_states`는 `shared/schema.ts`가 관리하는 additive 테이블이다. `session` 테이블은 `connect-pg-simple`과 `server/index.ts`가 관리하므로 `drizzle.config.ts`의 `tablesFilter: ["!session"]`로 `db:push` 대상에서 제외한다. Development Database에서 먼저 `npm run db:push`와 원자 소비 통합 테스트를 실행하며, Production Database에는 별도 승인된 additive 스키마 작업으로 적용한다.
+
 ## 중복가입 방지
 
 회원 생성 전 다음 식별 계층을 순서대로 적용한다.
@@ -213,6 +221,8 @@ OAuth 토큰 교환 응답의 액세스 토큰은 브라우저에 반환하지 �
 - 공통 회원 직렬화가 허용 목록 밖의 DB 필드를 응답에서 제외함
 - 같은 카카오 회원번호·이메일·정규화 전화번호·동문 명부 행으로 중복 회원을 만들지 않음
 - 실제 Development Database에서 관리자 승인과 OAuth pending refresh를 경쟁시켜 승인 회원 한 명, 새 pending 0건, refresh의 승인 회원 반환을 확인하고 `finally` 정리 후 관련 레코드 0건을 확인함
+- 동일 session/state callback 두 건을 동시에 보내 token exchange 진입이 정확히 한 건인지 확인함
+- 실제 Development Database에서 동일 OAuth state hash를 두 요청이 원자 소비할 때 정확히 한 건만 성공하고, 만료 state는 소비되지 않으며 `finally` 정리 후 관련 레코드 0건을 확인함
 - 로그인 매칭 경로가 Google Sheets가 아닌 PostgreSQL `alumni_database`를 사용함
 - 양력·음력·윤달 생일 판정과 본인 전용 축하 배너
 - 환경별 어드민 키 선택과 누락 오류

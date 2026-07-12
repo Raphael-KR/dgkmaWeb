@@ -11,6 +11,10 @@ import {
 } from "./kakao-oauth-config";
 import { PendingRegistrationConflictError, PhoneRegistrationConflictError } from "./storage";
 import { registerRoutes, type RouteDependencies } from "./routes";
+import type {
+  KakaoOAuthStateBinding,
+  KakaoOAuthStateStore,
+} from "./kakao-oauth-state";
 
 const clientAuthPath = new URL("../client/src/lib/auth.ts", import.meta.url);
 const routesPath = new URL("./routes.ts", import.meta.url);
@@ -100,11 +104,37 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
   } as any;
 }
 
+function kakaoOAuthStateStoreDouble(): KakaoOAuthStateStore {
+  const bindings = new Map<string, KakaoOAuthStateBinding>();
+  return {
+    issue: async (binding) => {
+      bindings.set(binding.sessionBindingHash, binding);
+    },
+    consume: async ({ stateHash, sessionBindingHash }) => {
+      const binding = bindings.get(sessionBindingHash);
+      if (
+        !binding
+        || binding.stateHash !== stateHash
+        || binding.expiresAt.getTime() <= Date.now()
+      ) {
+        return false;
+      }
+      bindings.delete(sessionBindingHash);
+      return true;
+    },
+  };
+}
+
 async function startServer(
   dependencies: RouteDependencies,
-  options: { failStartSessionSave?: boolean } = {},
+  options: {
+    failStartSessionSave?: boolean;
+    synchronizeAuthorizeRequests?: boolean;
+  } = {},
 ) {
   const app = express();
+  const kakaoOAuthStateStore = dependencies.kakaoOAuthStateStore
+    ?? kakaoOAuthStateStoreDouble();
   app.use(express.json());
   app.use(session({ secret: "test-session-secret", resave: false, saveUninitialized: false }));
   if (options.failStartSessionSave) {
@@ -125,14 +155,20 @@ async function startServer(
     req.session.userId = 1;
     res.json({ ok: true });
   });
-  app.post("/__test/kakao-state", (req, res) => {
-    req.session.kakaoOAuthState = "seeded-oauth-state";
-    req.session.save((error) => {
-      if (error) return res.status(500).json({ ok: false });
-      return res.json({ state: req.session.kakaoOAuthState });
+  if (options.synchronizeAuthorizeRequests) {
+    let arrivals = 0;
+    let release: (() => void) | undefined;
+    const bothRequestsReady = new Promise<void>((resolve) => {
+      release = resolve;
     });
-  });
-  const server = await registerRoutes(app, dependencies);
+    app.use("/api/auth/kakao/authorize", async (_req, _res, next) => {
+      arrivals += 1;
+      if (arrivals === 2) release?.();
+      await bothRequestsReady;
+      next();
+    });
+  }
+  const server = await registerRoutes(app, { ...dependencies, kakaoOAuthStateStore });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
@@ -155,14 +191,6 @@ async function beginKakaoAuthorization(baseUrl: string) {
   const state = location.searchParams.get("state");
   assert.ok(state, "OAuth state query parameter is required");
   return { cookie, location, state };
-}
-
-async function seedKakaoOAuthState(baseUrl: string) {
-  const response = await fetch(`${baseUrl}/__test/kakao-state`, { method: "POST" });
-  assert.equal(response.status, 200);
-  const cookie = response.headers.get("set-cookie");
-  assert.ok(cookie);
-  return { cookie, state: "seeded-oauth-state" };
 }
 
 async function postKakaoAuthorize(
@@ -255,6 +283,87 @@ test("authorization rejects missing, mismatched, and reused state before Kakao f
     const reused = await postKakaoAuthorize(server.baseUrl, { code: "test-code" }, reusable);
     assert.equal(reused.status, 400);
     assert.equal(fetchCalls, 1);
+  } finally {
+    await server.close();
+  }
+});
+
+test("concurrent callbacks for one session and state enter token exchange exactly once", async () => {
+  let tokenExchangeCalls = 0;
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: async () => {
+      tokenExchangeCalls += 1;
+      return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+    },
+  }, { synchronizeAuthorizeRequests: true });
+
+  try {
+    const authorization = await beginKakaoAuthorization(server.baseUrl);
+    const responses = await Promise.all([
+      postKakaoAuthorize(server.baseUrl, { code: "first-code" }, authorization),
+      postKakaoAuthorize(server.baseUrl, { code: "second-code" }, authorization),
+    ]);
+
+    assert.deepEqual(responses.map(({ status }) => status), [400, 400]);
+    assert.equal(tokenExchangeCalls, 1);
+  } finally {
+    await server.close();
+  }
+});
+
+test("a concurrent callback loser cannot overwrite the winner login session", async () => {
+  let issued = false;
+  let consumed = false;
+  let tokenExchangeCalls = 0;
+  const stateStore: KakaoOAuthStateStore = {
+    issue: async () => {
+      issued = true;
+    },
+    consume: async () => {
+      if (!issued) return false;
+      if (!consumed) {
+        consumed = true;
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      return false;
+    },
+  };
+  const responses = [
+    new Response(JSON.stringify({ access_token: "test-access-token" })),
+    new Response(JSON.stringify(newKakaoUserInfo)),
+  ];
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoOAuthStateStore: stateStore,
+    kakaoFetch: async (input) => {
+      if (String(input) === "https://kauth.kakao.com/oauth/token") {
+        tokenExchangeCalls += 1;
+      }
+      const response = responses.shift();
+      assert.ok(response, "unexpected Kakao fetch call");
+      return response;
+    },
+    kakaoAuthStorage: kakaoAuthStorageDouble({
+      getUserByKakaoId: async () => createdUser,
+    }),
+  }, { synchronizeAuthorizeRequests: true });
+
+  try {
+    const authorization = await beginKakaoAuthorization(server.baseUrl);
+    const callbackResponses = await Promise.all([
+      postKakaoAuthorize(server.baseUrl, { code: "winner-code" }, authorization),
+      postKakaoAuthorize(server.baseUrl, { code: "loser-code" }, authorization),
+    ]);
+
+    assert.deepEqual(callbackResponses.map(({ status }) => status).sort(), [200, 400]);
+    assert.equal(tokenExchangeCalls, 1);
+    const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie: authorization.cookie },
+    });
+    assert.equal(meResponse.status, 200);
+    assert.equal((await meResponse.json()).user.id, createdUser.id);
   } finally {
     await server.close();
   }
@@ -955,14 +1064,21 @@ test("admin approval unresolved identity or alumni conflict returns 409 and leav
 });
 
 test("authorization request hides configuration error details", async () => {
+  let configCalls = 0;
   const server = await startServer({
     getKakaoOAuthConfig: () => {
+      configCalls += 1;
+      if (configCalls === 1) return config;
       throw new KakaoOAuthConfigurationError(["KAKAO_DEV_CLIENT_SECRET"]);
     },
   });
   try {
-    const seeded = await seedKakaoOAuthState(server.baseUrl);
-    const response = await postKakaoAuthorize(server.baseUrl, { code: "test-code" }, seeded);
+    const authorization = await beginKakaoAuthorization(server.baseUrl);
+    const response = await postKakaoAuthorize(
+      server.baseUrl,
+      { code: "test-code" },
+      authorization,
+    );
     assert.equal(response.status, 500);
     const responseBody = await response.json();
     assert.deepEqual(responseBody, { message: "Kakao 앱 설정 오류" });

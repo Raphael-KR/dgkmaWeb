@@ -1,6 +1,6 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { normalizePhoneForComparison, PendingRegistrationConflictError, PhoneRegistrationConflictError, storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type InsertUser, type PendingRegistrationConflictReason, type User } from "@shared/schema";
 import {
@@ -39,11 +39,21 @@ import {
   KakaoUnlinkError,
   unlinkKakaoUser as unlinkKakaoUserFromKakao,
 } from "./kakao-unlink";
+import {
+  KAKAO_OAUTH_STATE_TTL_MS,
+  hashKakaoOAuthSessionBinding,
+  hashKakaoOAuthState,
+  kakaoOAuthStateStore as postgresKakaoOAuthStateStore,
+  oauthStateHashesMatch,
+  type KakaoOAuthStateStore,
+} from "./kakao-oauth-state";
+import { toAdminPendingRegistrationDto } from "./admin-pending-registration";
 
 declare module "express-session" {
   interface SessionData {
     userId?: number;
-    kakaoOAuthState?: string;
+    kakaoOAuthStateHash?: string;
+    kakaoOAuthStateExpiresAt?: number;
   }
 }
 
@@ -114,6 +124,7 @@ export type RouteDependencies = {
   deleteUserAccount?: (user: Pick<User, "id" | "kakaoId" | "email">) => Promise<void>;
   unlinkKakaoUser?: typeof unlinkKakaoUserFromKakao;
   pendingRegistrationStorage?: Pick<typeof storage, "updatePendingRegistrationStatus">;
+  kakaoOAuthStateStore?: KakaoOAuthStateStore;
   kakaoAuthStorage?: Pick<
     typeof storage,
     | "getUser"
@@ -135,13 +146,6 @@ function saveSession(req: Request): Promise<void> {
   });
 }
 
-function oauthStatesMatch(expected: string, actual: string): boolean {
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  const actualBuffer = Buffer.from(actual, "utf8");
-  return expectedBuffer.length === actualBuffer.length
-    && timingSafeEqual(expectedBuffer, actualBuffer);
-}
-
 export async function registerRoutes(
   app: Express,
   dependencies: RouteDependencies = {},
@@ -154,6 +158,8 @@ export async function registerRoutes(
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
   const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
   const pendingRegistrationStorage = dependencies.pendingRegistrationStorage ?? storage;
+  const kakaoOAuthStateStore = dependencies.kakaoOAuthStateStore
+    ?? postgresKakaoOAuthStateStore;
   const getKakaoAdminConfig = dependencies.getKakaoAdminConfig
     ?? (() => resolveKakaoAdminConfig());
   const getAccountDeletionUser = dependencies.getAccountDeletionUser
@@ -190,11 +196,28 @@ export async function registerRoutes(
     try {
       const config = getKakaoOAuthConfig();
       const state = randomBytes(32).toString("hex");
-      req.session.kakaoOAuthState = state;
+      const stateHash = hashKakaoOAuthState(state);
+      const sessionBindingHash = hashKakaoOAuthSessionBinding(req.sessionID);
+      const expiresAt = new Date(Date.now() + KAKAO_OAUTH_STATE_TTL_MS);
+      req.session.kakaoOAuthStateHash = stateHash;
+      req.session.kakaoOAuthStateExpiresAt = expiresAt.getTime();
       await saveSession(req);
+      try {
+        await kakaoOAuthStateStore.issue({ stateHash, sessionBindingHash, expiresAt });
+      } catch (error) {
+        delete req.session.kakaoOAuthStateHash;
+        delete req.session.kakaoOAuthStateExpiresAt;
+        try {
+          await saveSession(req);
+        } catch (cleanupError) {
+          console.error("[Kakao OAuth] state cleanup failed:", getErrorType(cleanupError));
+        }
+        throw error;
+      }
       return res.redirect(buildKakaoAuthorizeUrl(config, state));
     } catch (error) {
-      delete req.session.kakaoOAuthState;
+      delete req.session.kakaoOAuthStateHash;
+      delete req.session.kakaoOAuthStateExpiresAt;
       if (error instanceof KakaoOAuthConfigurationError) {
         const { missingVariables } = error;
         console.error("[Kakao OAuth] missing configuration:", missingVariables);
@@ -211,15 +234,35 @@ export async function registerRoutes(
       if (typeof code !== "string" || code.length === 0) {
         return res.status(400).json({ message: "카카오 인가 코드가 필요합니다" });
       }
-      const expectedState = req.session.kakaoOAuthState;
+      const expectedStateHash = req.session.kakaoOAuthStateHash;
+      const stateExpiresAt = req.session.kakaoOAuthStateExpiresAt;
+      const actualStateHash = typeof state === "string"
+        ? hashKakaoOAuthState(state)
+        : "";
+      const stateMatches = typeof expectedStateHash === "string"
+        && oauthStateHashesMatch(expectedStateHash, actualStateHash);
       if (
-        typeof state !== "string"
-        || typeof expectedState !== "string"
-        || !oauthStatesMatch(expectedState, state)
+        !stateMatches
+        || typeof stateExpiresAt !== "number"
+        || stateExpiresAt <= Date.now()
       ) {
         return res.status(400).json({ message: "유효하지 않은 카카오 로그인 요청입니다" });
       }
-      delete req.session.kakaoOAuthState;
+      let stateConsumed: boolean;
+      try {
+        stateConsumed = await kakaoOAuthStateStore.consume({
+          stateHash: actualStateHash,
+          sessionBindingHash: hashKakaoOAuthSessionBinding(req.sessionID),
+        });
+      } catch (error) {
+        console.error("[Kakao OAuth] atomic state consumption failed:", getErrorType(error));
+        return res.status(500).json({ message: "카카오 로그인 요청 처리에 실패했습니다" });
+      }
+      if (!stateConsumed) {
+        return res.status(400).json({ message: "유효하지 않은 카카오 로그인 요청입니다" });
+      }
+      delete req.session.kakaoOAuthStateHash;
+      delete req.session.kakaoOAuthStateExpiresAt;
       try {
         await saveSession(req);
       } catch (error) {
@@ -1114,7 +1157,7 @@ export async function registerRoutes(
   app.get("/api/admin/pending-registrations", async (req, res) => {
     try {
       const registrations = await storage.getPendingRegistrations();
-      res.json(registrations);
+      res.json(registrations.map(toAdminPendingRegistrationDto));
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch pending registrations" });
     }
@@ -1131,7 +1174,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Registration not found" });
       }
       
-      res.json(registration);
+      res.json(toAdminPendingRegistrationDto(registration));
     } catch (error) {
       if (error instanceof PhoneRegistrationConflictError) {
         return res.status(409).json({

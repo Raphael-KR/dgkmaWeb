@@ -21,6 +21,7 @@ test("public Kakao consent copy and birthday UI match the approved contract", as
   assert.match(login, /선택/);
   assert.match(login, /프로필 사진/);
   assert.match(login, /생일/);
+  assert.match(login, /활동 지역은 카카오 제공항목이 아니며, 로그인 후 별도로 입력/);
   assert.doesNotMatch(login, /카카오싱크/);
   assert.doesNotMatch(privacy, /CI\(연계정보\)|생일 축하 쿠폰/);
   assert.match(privacy, /내부 연결 식별자/);
