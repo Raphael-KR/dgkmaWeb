@@ -50,6 +50,27 @@ test("authorization start redirects with the selected configuration", async () =
   }
 });
 
+test("authorization start hides configuration error details", async () => {
+  const server = await startServer({
+    getKakaoOAuthConfig: () => {
+      throw new KakaoOAuthConfigurationError(["KAKAO_DEV_CLIENT_SECRET"]);
+    },
+  });
+  try {
+    const response = await fetch(`${server.baseUrl}/api/auth/kakao/start`);
+    assert.equal(response.status, 500);
+    const responseBody = await response.json();
+    assert.deepEqual(responseBody, { message: "Kakao 앱 설정 오류" });
+    const body = JSON.stringify(responseBody);
+    assert.doesNotMatch(
+      body,
+      /KAKAO_DEV_CLIENT_SECRET|route-rest-key|route-client-secret/,
+    );
+  } finally {
+    await server.close();
+  }
+});
+
 test("token exchange uses the same selected configuration", async () => {
   let capturedBody = "";
   const kakaoFetch: typeof fetch = async (_input, init) => {
@@ -154,7 +175,9 @@ test("authorization request hides configuration error details", async () => {
       body: JSON.stringify({ code: "test-code" }),
     });
     assert.equal(response.status, 500);
-    const body = JSON.stringify(await response.json());
+    const responseBody = await response.json();
+    assert.deepEqual(responseBody, { message: "Kakao 앱 설정 오류" });
+    const body = JSON.stringify(responseBody);
     assert.doesNotMatch(
       body,
       /KAKAO_DEV_CLIENT_SECRET|route-rest-key|route-client-secret/,
