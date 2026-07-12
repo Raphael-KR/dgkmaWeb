@@ -49,14 +49,20 @@ Before resetting data, identify affected tables and foreign-key dependencies, us
 This standing authorization does not include dropping schemas or tables, deleting Replit Secrets, rewriting Git history, deleting Object Storage files, or deleting local user files.
 Once the user declares that data must be preserved, stop treating existing records as disposable.
 ## Kakao login rules
-The current Kakao Login flow uses REST authorize URL navigation.
-Client-side authorize uses `VITE_KAKAO_REST_API_KEY` and `VITE_KAKAO_REDIRECT_URI`.
-Server-side token exchange uses `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, and `KAKAO_REDIRECT_URI`.
-The client authorize `redirect_uri` and server token exchange `redirect_uri` must be exactly identical.
-Current production redirect URI:
-```text
-https://dgkma.replit.app/kakao-callback
-```
+The current Kakao Login flow uses REST authorize URL navigation. Replit provides one App Secrets pane for this project; `REPLIT_DEPLOYMENT="1"` selects production, and every other value selects development.
+
+The six environment-specific Kakao Secrets are:
+
+- Development: `KAKAO_DEV_REST_API_KEY`, `KAKAO_DEV_CLIENT_SECRET`, `KAKAO_DEV_REDIRECT_URI`
+- Production: `KAKAO_PROD_REST_API_KEY`, `KAKAO_PROD_CLIENT_SECRET`, `KAKAO_PROD_REDIRECT_URI`
+
+The browser starts login through `/api/auth/kakao/start`. The server alone selects the REST API key, client secret, and redirect URI for the selected environment. The exact callback values are:
+
+- Development: `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`
+- Production: `https://dgkma.org/kakao-callback`
+
+The development and production callback values must be registered exactly as shown and must match the selected `KAKAO_*_REDIRECT_URI` value. The five generic Kakao Secrets are deprecated. Remove them only after both development and production smoke checks pass.
+
 Do not use Kakao JavaScript SDK login for the current v5 flow.
 Do not expose server-only secrets through `VITE_`.
 Never log full secrets, access tokens, refresh tokens, or full authorization codes.

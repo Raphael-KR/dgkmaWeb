@@ -55,15 +55,15 @@ Replit 개발 워크스페이스도 같은 방식으로 GitHub 커밋을 가져�
 
 - `DATABASE_URL`
 - `SESSION_SECRET`
-- `KAKAO_REST_API_KEY`
-- `KAKAO_CLIENT_SECRET`
-- `KAKAO_REDIRECT_URI`
+- `KAKAO_DEV_REST_API_KEY`
+- `KAKAO_DEV_CLIENT_SECRET`
+- `KAKAO_DEV_REDIRECT_URI`
+- `KAKAO_PROD_REST_API_KEY`
+- `KAKAO_PROD_CLIENT_SECRET`
+- `KAKAO_PROD_REDIRECT_URI`
 - `PRIVATE_OBJECT_DIR`
 
-### 필수 클라이언트 설정
-
-- `VITE_KAKAO_REST_API_KEY`
-- `VITE_KAKAO_REDIRECT_URI`
+Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REPLIT_DEPLOYMENT="1"`이면 프로덕션 설정을 선택하고, 그 외 모든 값이면 개발 설정을 선택합니다. Secret 값 자체는 이 문서에 기록하지 않습니다.
 
 ### 현재 동문 명부 연동
 
@@ -88,9 +88,15 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 
 현재 로그인은 카카오 REST authorize URL을 사용하며 브라우저 SDK 기반 로그인은 사용하지 않습니다.
 
-- 클라이언트 인가: `VITE_KAKAO_REST_API_KEY`, `VITE_KAKAO_REDIRECT_URI`
-- 서버 토큰 교환: `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI`
-- 프로덕션 redirect URI: `https://dgkma.replit.app/kakao-callback`
+- 브라우저 로그인 시작: `/api/auth/kakao/start`
+- 서버가 선택하는 개발 설정: `KAKAO_DEV_REST_API_KEY`, `KAKAO_DEV_CLIENT_SECRET`, `KAKAO_DEV_REDIRECT_URI`
+- 서버가 선택하는 프로덕션 설정: `KAKAO_PROD_REST_API_KEY`, `KAKAO_PROD_CLIENT_SECRET`, `KAKAO_PROD_REDIRECT_URI`
+- 개발 callback: `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`
+- 프로덕션 callback: `https://dgkma.org/kakao-callback`
+
+브라우저는 Kakao Secret이나 redirect URI를 선택하지 않습니다. 서버만 `REPLIT_DEPLOYMENT` 값에 따라 REST API key, client secret, redirect URI를 선택하며, 선택된 callback은 해당 환경의 Kakao 설정과 문자열까지 정확히 같아야 합니다.
+
+기존 일반 Kakao Secret 5개는 deprecated 상태입니다. 개발과 프로덕션 smoke check가 모두 통과한 뒤에만 제거합니다.
 
 클라이언트 인가 단계와 서버 토큰 교환 단계의 redirect URI는 문자열까지 정확히 같아야 합니다.
 
