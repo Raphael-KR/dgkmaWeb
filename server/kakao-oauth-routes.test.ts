@@ -152,10 +152,6 @@ test("successful token exchange fetches secure user info and maps the Kakao resp
       name: "홍길동",
       profileImage: "https://cdn.example.com/profile.jpg",
       phoneNumber: "+82 10-1234-5678",
-      birthday: "0101",
-      birthdayType: "SOLAR",
-      isLeapMonth: false,
-      accessToken: "test-access-token",
     });
   } finally {
     await server.close();

@@ -301,14 +301,7 @@ export type MembershipStatus = {
 export const updateProfileSchema = insertUserSchema
   .pick({
     activityRegion: true,
-    birthday: true,
-    birthdayType: true,
-    isLeapMonth: true,
     kakaoSyncEnabled: true,
   })
-  .partial()
-  .extend({
-    // 양력/음력만 허용 (클라이언트 값 제약을 서버에서도 강제).
-    birthdayType: z.enum(["SOLAR", "LUNAR"]).nullable().optional(),
-  });
+  .partial();
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;

@@ -231,10 +231,6 @@ export async function registerRoutes(
         name: userInfo.kakao_account.name,                                      // ⚠️ kakao_account.name 원본
         profileImage: userInfo.kakao_account.profile?.profile_image_url || null, // 원본 그대로 (http/https 치환 ❌)
         phoneNumber: userInfo.kakao_account.phone_number,                       // ⚠️ 카카오 응답 원본 그대로
-        birthday: userInfo.kakao_account.birthday || null,                      // 원본 "MMDD"
-        birthdayType: userInfo.kakao_account.birthday_type || null,             // 원본 "SOLAR" | "LUNAR"
-        isLeapMonth: userInfo.kakao_account.is_leap_month ?? null,              // 미동의 시 null
-        accessToken: tokenData.access_token,
       });
     } catch (error) {
       if (error instanceof KakaoOAuthConfigurationError) {
@@ -249,7 +245,7 @@ export async function registerRoutes(
 
   app.post("/api/auth/kakao", async (req, res) => {
     try {
-      const { kakaoId, email, name, profileImage, phoneNumber, birthday, birthdayType, isLeapMonth, accessToken } = req.body;
+      const { kakaoId, email, name, profileImage, phoneNumber } = req.body;
 
       console.log("Kakao authentication request received");
 
@@ -274,11 +270,6 @@ export async function registerRoutes(
             const updates: Partial<typeof existingUserByEmail> = {};
             if (profileImage && !existingUserByEmail.profileImage) updates.profileImage = profileImage;
             if (phoneNumber && !existingUserByEmail.phoneNumber) updates.phoneNumber = phoneNumber;
-            if (birthday && !existingUserByEmail.birthday) {
-              updates.birthday = birthday;
-              updates.birthdayType = birthdayType;
-              updates.isLeapMonth = isLeapMonth;
-            }
             let finalUser = existingUserByEmail;
             if (Object.keys(updates).length > 0) {
               const updatedUser = await storage.updateUser(existingUserByEmail.id, updates);
@@ -304,11 +295,6 @@ export async function registerRoutes(
             const updates: Partial<typeof existingUserByKakao> = {};
             if (profileImage && !existingUserByKakao.profileImage) updates.profileImage = profileImage;
             if (phoneNumber && !existingUserByKakao.phoneNumber) updates.phoneNumber = phoneNumber;
-            if (birthday && !existingUserByKakao.birthday) {
-              updates.birthday = birthday;
-              updates.birthdayType = birthdayType;
-              updates.isLeapMonth = isLeapMonth;
-            }
             let finalUser = existingUserByKakao;
             if (Object.keys(updates).length > 0) {
               const updatedUser = await storage.updateUser(existingUserByKakao.id, updates);
@@ -333,9 +319,6 @@ export async function registerRoutes(
             name,
             profileImage,
             phoneNumber,
-            birthday,
-            birthdayType,
-            isLeapMonth,
             graduationYear: alumniMatches[0]?.graduationDate
               ? parseInt(alumniMatches[0].graduationDate.substring(0, 4), 10) || null
               : null,
@@ -355,9 +338,6 @@ export async function registerRoutes(
               name,
               profileImage,
               phoneNumber,
-              birthday,
-              birthdayType,
-              isLeapMonth,
               kakaoSync: true,
             },
           });
@@ -374,11 +354,6 @@ export async function registerRoutes(
         if (!user.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
         if (profileImage && !user.profileImage) updates.profileImage = profileImage;
         if (phoneNumber && !user.phoneNumber) updates.phoneNumber = phoneNumber;
-        if (birthday && !user.birthday) {
-          updates.birthday = birthday;
-          updates.birthdayType = birthdayType;
-          updates.isLeapMonth = isLeapMonth;
-        }
         if (Object.keys(updates).length > 0) {
           user = await storage.updateUser(user.id, updates);
         }
@@ -447,8 +422,7 @@ export async function registerRoutes(
     return res.json({ user });
   });
 
-  // 본인 프로필 수정 — 인증과 무관한 항목만 허용(activityRegion/birthday/birthdayType/
-  // isLeapMonth/kakaoSyncEnabled). 이름·졸업년도·연락처 등 검증 항목은 변경 불가.
+  // 본인 프로필 수정 — 활동 지역과 카카오 알림 설정만 허용.
   // ⚠️ 대상은 항상 req.session.userId — body 로 userId 받지 않음(보안).
   app.patch("/api/users/me", async (req, res) => {
     try {
@@ -1010,7 +984,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Registration not found" });
       }
       
-      // If approved, create user account (v5 — profileImage/phoneNumber/birthday 3필드 보존)
+      // If approved, create user account with the consented Kakao profile fields.
       if (status === "approved" && registration.userData) {
         const userData = registration.userData as any;
         await storage.createUser({
@@ -1019,9 +993,6 @@ export async function registerRoutes(
           name: userData.name,
           profileImage: userData.profileImage,
           phoneNumber: userData.phoneNumber,
-          birthday: userData.birthday,
-          birthdayType: userData.birthdayType,
-          isLeapMonth: userData.isLeapMonth,
           isVerified: true,
         });
       }

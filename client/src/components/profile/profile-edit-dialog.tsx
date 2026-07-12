@@ -16,7 +16,6 @@ import {
   FormItem,
   FormLabel,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -25,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -33,22 +31,15 @@ import { REGION_OPTIONS, type User } from "@shared/schema";
 
 type FormValues = {
   activityRegion: string;
-  birthday: string;
-  birthdayType: string;
-  isLeapMonth: boolean;
 };
 
 function toFormValues(user: User): FormValues {
   return {
     activityRegion: user.activityRegion ?? "",
-    birthday: user.birthday ?? "",
-    birthdayType: user.birthdayType ?? "",
-    isLeapMonth: !!user.isLeapMonth,
   };
 }
 
-// 인증과 무관한 본인 항목만 편집(활동지역·생일·양력음력·윤달).
-// 이름·졸업년도·연락처는 동문 DB 검증 항목이라 편집 불가.
+// 활동 지역만 수정한다. 이름·졸업년도·연락처는 동문 DB 검증 항목이다.
 export function ProfileEditDialog({
   open,
   onOpenChange,
@@ -69,17 +60,11 @@ export function ProfileEditDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, user]);
 
-  const birthdayType = form.watch("birthdayType");
-
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const payload: Record<string, unknown> = {
-        birthday: values.birthday.trim() || null,
-        birthdayType: values.birthdayType || null,
-        isLeapMonth: values.birthdayType === "LUNAR" ? !!values.isLeapMonth : false,
-      };
-      // 활동지역은 유효 값일 때만 전송(빈 값으로 덮어쓰지 않음).
-      if (values.activityRegion) payload.activityRegion = values.activityRegion;
+      const payload = values.activityRegion
+        ? { activityRegion: values.activityRegion }
+        : {};
       const res = await apiRequest("PATCH", "/api/users/me", payload);
       const data = await res.json();
       return data.user as User;
@@ -136,63 +121,6 @@ export function ProfileEditDialog({
                 </FormItem>
               )}
             />
-
-            <FormField
-              control={form.control}
-              name="birthday"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>생일</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="예: 0815 또는 1990-08-15"
-                      {...field}
-                      data-testid="input-birthday"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="birthdayType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>양력 / 음력</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-birthday-type">
-                        <SelectValue placeholder="선택 안 함" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SOLAR">양력</SelectItem>
-                      <SelectItem value="LUNAR">음력</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
-
-            {birthdayType === "LUNAR" && (
-              <FormField
-                control={form.control}
-                name="isLeapMonth"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                    <FormLabel className="mb-0">윤달</FormLabel>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-leap-month"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            )}
 
             <DialogFooter>
               <Button

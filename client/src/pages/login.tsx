@@ -57,11 +57,11 @@ export default function Login() {
                 <span>카카오로 시작하기</span>
               </Button>
 
-              <p className="text-sm text-gray-500 leading-relaxed mb-4">
-                카카오싱크 간편가입으로<br />
-                졸업생 정보와 자동 매칭하여<br />
-                빠르고 안전하게 시작하세요.
-              </p>
+              <div aria-label="카카오 로그인 개인정보 안내" className="text-sm text-gray-600 leading-relaxed mb-4 text-left">
+                <p><strong>필수</strong> 이름, 이메일, 전화번호</p>
+                <p><strong>선택</strong> 프로필 사진</p>
+                <p>이름과 전화번호는 동문 자격 확인, 이메일은 계정 관리와 공식 안내, 프로필 사진은 내 정보 표시에 사용합니다.</p>
+              </div>
 
               <div className="text-xs text-gray-400 space-y-1">
                 <p>

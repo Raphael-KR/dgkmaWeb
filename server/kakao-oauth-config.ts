@@ -14,7 +14,7 @@ export class KakaoOAuthConfigurationError extends Error {
   }
 }
 
-const KAKAO_SCOPE = "name,profile_image,account_email,birthday,phone_number";
+const KAKAO_SCOPE = "name,profile_image,account_email,phone_number";
 const KAKAO_REDIRECT_URIS = {
   development:
     "https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback",

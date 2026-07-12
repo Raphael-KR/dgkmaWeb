@@ -72,6 +72,14 @@ test("authorization and token requests use one configuration", () => {
   assert.equal(authorizeUrl.searchParams.get("response_type"), "code");
   assert.equal(authorizeUrl.searchParams.get("state"), "kakao_login");
   assert.equal(authorizeUrl.searchParams.has("client_secret"), false);
+  const scope = authorizeUrl.searchParams.get("scope") ?? "";
+  assert.deepEqual(scope.split(",").sort(), [
+    "account_email",
+    "name",
+    "phone_number",
+    "profile_image",
+  ]);
+  assert.doesNotMatch(scope, /birthday/);
 
   const tokenBody = buildKakaoTokenBody(config, "authorization-code");
   assert.equal(tokenBody.get("client_id"), "dev-rest");

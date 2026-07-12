@@ -12,6 +12,7 @@ import { LogOut, Edit, Settings, Shield, Receipt } from "lucide-react";
 import { MembershipBadge } from "@/components/membership-badge";
 import { ProfileEditDialog } from "@/components/profile/profile-edit-dialog";
 import { SettingsDialog } from "@/components/profile/settings-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { MembershipStatus } from "@shared/schema";
 
 export default function Profile() {
@@ -78,11 +79,14 @@ export default function Profile() {
           {/* Profile Card */}
           <Card className="shadow-sm mb-6">
             <CardHeader className="text-center">
-              <div className="w-20 h-20 kakao rounded-full mx-auto mb-4 flex items-center justify-center">
-                <span className="kakao-brown font-bold text-2xl">
+              <Avatar className="w-20 h-20 mx-auto mb-4">
+                {user.profileImage && (
+                  <AvatarImage src={user.profileImage} alt={`${user.name} 프로필 사진`} />
+                )}
+                <AvatarFallback className="kakao kakao-brown font-bold text-2xl">
                   {user.name?.charAt(0) || "?"}
-                </span>
-              </div>
+                </AvatarFallback>
+              </Avatar>
               <CardTitle className="text-xl">{user.name}</CardTitle>
               <p className="text-gray-600">
                 {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
