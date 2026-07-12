@@ -9,12 +9,17 @@ export type KakaoOAuthConfig = Readonly<{
 
 export class KakaoOAuthConfigurationError extends Error {
   constructor(public readonly missingVariables: readonly string[]) {
-    super(`Missing Kakao OAuth variables: ${missingVariables.join(", ")}`);
+    super(`Missing or invalid Kakao OAuth variables: ${missingVariables.join(", ")}`);
     this.name = "KakaoOAuthConfigurationError";
   }
 }
 
 const KAKAO_SCOPE = "name,profile_image,account_email,birthday,phone_number";
+const KAKAO_REDIRECT_URIS = {
+  development:
+    "https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback",
+  production: "https://dgkma.org/kakao-callback",
+} as const;
 
 export function resolveKakaoOAuthConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -35,6 +40,13 @@ export function resolveKakaoOAuthConfig(
   const missingVariables = Object.entries(names)
     .filter(([key]) => !values[key as keyof typeof values])
     .map(([, variableName]) => variableName);
+
+  if (
+    values.redirectUri &&
+    values.redirectUri !== KAKAO_REDIRECT_URIS[environment]
+  ) {
+    missingVariables.push(names.redirectUri);
+  }
 
   if (missingVariables.length > 0) {
     throw new KakaoOAuthConfigurationError(missingVariables);
