@@ -235,9 +235,11 @@
 ## 카카오 동의·탈퇴 검증 상태 (2026-07-13)
 
 - [x] Replit Development 격리 스냅샷에서 `npm test` 209/209, `npm run check`, `npm run build`, `git diff --check` 통과. 실제 PostgreSQL OAuth state·승인·거절·탈퇴 경쟁 테스트와 cleanup 0건을 포함한다.
-- [ ] `/login`, `/privacy`, `/terms`의 데스크톱·모바일 실제 브라우저 스크린샷: 대기. 현재 HEAD의 Replit 개발 동기화가 확인된 뒤 개인정보 없는 테스트 화면으로 촬영한다.
-- [ ] 실제 개발 OAuth·온보딩·탈퇴 smoke: 대기. 개발 테스트 계정 로그인 협조, 현재 개발 배포 동기화, `KAKAO_DEV_ADMIN_KEY`가 필요하다.
-- [ ] 카카오 심사용 PDF: 대기. 실제 화면 검증 후 담당자가 `docs/review-assets/`에 별도로 생성하며, 이 문서는 PDF가 존재하거나 검토됐다고 주장하지 않는다.
+- [x] 운영 `/login` 데스크톱·모바일 실제 브라우저 스크린샷과 `/privacy`, `/terms` 반영 상태 확인. 개인정보 없는 캡처는 `docs/review-assets/`에 보관한다.
+- [x] 실제 개발 OAuth·명부 매칭·프로필 표시·탈퇴 smoke. 사용자·세션 0건, 명부 연결 해제, HMAC 종료 marker 2건과 비로그인 화면 복귀를 확인했다.
+- [x] 카카오 심사용 PDF 생성 및 렌더링 검수. 제출 파일은 `docs/review-assets/kakao-consent-review.pdf`다.
+- [x] 운영 additive 스키마, Republish와 비로그인 smoke. 공개 페이지·카테고리 `200`, 탈퇴·부고·경조사·업로드 보호 API `401`, 운영 명부 3,458건을 확인했다.
+- [ ] 카카오 운영 앱의 이름·전화번호·생일 권한 승인 후 운영 OAuth·명부 매칭·탈퇴를 별도로 확인한다.
 
 ## 배포 전후 기술 검증
 
