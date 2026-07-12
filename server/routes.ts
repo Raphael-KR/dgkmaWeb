@@ -18,6 +18,13 @@ import {
   type AdminUserLookup,
 } from "./auth-middleware";
 import { getErrorType } from "./safe-logging";
+import {
+  KakaoOAuthConfigurationError,
+  buildKakaoAuthorizeUrl,
+  buildKakaoTokenBody,
+  resolveKakaoOAuthConfig,
+  type KakaoOAuthConfig,
+} from "./kakao-oauth-config";
 import { isSelectablePostCategory } from "@shared/category-policy";
 import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
 import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
@@ -88,6 +95,8 @@ function isKakaoDebugEnabled(): boolean {
 
 export type RouteDependencies = {
   getUserForAdmin?: AdminUserLookup;
+  getKakaoOAuthConfig?: () => KakaoOAuthConfig;
+  kakaoFetch?: typeof fetch;
 };
 
 export async function registerRoutes(
@@ -97,20 +106,9 @@ export async function registerRoutes(
   const getUserForAdmin = dependencies.getUserForAdmin
     ?? ((userId: number) => storage.getUser(userId));
   const requireAdmin = createRequireAdmin(getUserForAdmin);
-
-  // 카카오 OAuth 환경변수 부팅 검증 — DEBUG_KAKAO_AUTH=true 일 때만 1회 출력.
-  //  - restApiKeyPrefix 가 카카오 콘솔 [앱 설정 > 앱 키 > REST API 키] 앞 6자리와
-  //    일치해야 token exchange 성공 (불일치 시 KOE114 / KOE303 발생).
-  //  - 아래 prefix 와 token body debug 의 clientIdPrefix 는 항상 같아야 함.
-  //  - 값 전체값은 절대 출력하지 않음 (마스킹).
-  if (isKakaoDebugEnabled()) {
-    const restKey = process.env.KAKAO_REST_API_KEY;
-    console.log('[Kakao OAuth] env check:', {
-      restApiKeyPrefix: restKey ? restKey.substring(0, 6) + '...' : null,
-      hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
-      redirectUri: process.env.KAKAO_REDIRECT_URI || '(env 미설정 — Origin/Referer fallback 사용)',
-    });
-  }
+  const getKakaoOAuthConfig =
+    dependencies.getKakaoOAuthConfig ?? (() => resolveKakaoOAuthConfig());
+  const kakaoFetch = dependencies.kakaoFetch ?? fetch;
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -136,92 +134,37 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/auth/kakao/start", (_req, res) => {
+    try {
+      const config = getKakaoOAuthConfig();
+      return res.redirect(buildKakaoAuthorizeUrl(config));
+    } catch (error) {
+      if (error instanceof KakaoOAuthConfigurationError) {
+        const { missingVariables } = error;
+        console.error("[Kakao OAuth] missing configuration:", missingVariables);
+        return res.status(500).json({ message: "Kakao 앱 설정 오류" });
+      }
+      console.error("[Kakao OAuth] authorization start failed:", getErrorType(error));
+      return res.status(500).json({ message: "Kakao authorization failed" });
+    }
+  });
+
   app.post("/api/auth/kakao/authorize", async (req, res) => {
     try {
       const { code } = req.body;
+      const config = getKakaoOAuthConfig();
+      const params = buildKakaoTokenBody(config, String(code ?? ""));
 
-      // ⚠️ token exchange 의 client_id 는 반드시 process.env.KAKAO_REST_API_KEY 만 사용.
-      //   - KAKAO_CLIENT_ID, VITE_KAKAO_REST_API_KEY, KAKAO_ADMIN_KEY 등 다른 env 로 fallback ❌
-      //   - 클라이언트 인가 단계와 서버 토큰 단계 모두 REST API 키를 써서 client_id 일치 보장
-      //     (v5 는 REST authorize URL 직접 이동 흐름 — JS SDK 미사용).
-      //   - KAKAO_REST_API_KEY 누락 시 빈 문자열로 요청하지 말고 명시적 에러 반환 (KOE114 회피)
-      const clientId = process.env.KAKAO_REST_API_KEY;
-      if (!clientId) {
-        console.error('[Kakao OAuth] KAKAO_REST_API_KEY env is missing');
-        return res.status(500).json({
-          message: 'Kakao 앱 설정 오류',
-          description: '서버에 KAKAO_REST_API_KEY 환경변수가 설정되어 있지 않습니다.',
-        });
-      }
-
-      // redirect_uri 결정 우선순위 (인가 단계와 토큰 단계가 byte-for-byte 동일해야 KOE114 회피):
-      //   1) KAKAO_REDIRECT_URI env  — 명시적 고정값 (가장 권장)
-      //   2) dev 환경                — http://localhost:5173/kakao-callback
-      //   3) Origin 헤더             — 브라우저가 보낸 origin (path 없음, 안전)
-      //   4) Referer 헤더의 origin    — URL 파싱하여 origin만 추출 (referer는 path/query 포함되므로 그대로 쓰면 ❌)
-      //   5) APP_URL env             — 배포 환경별 fallback
-      //   6) https://dgkma.replit.app — 마지막 fallback
-      let redirectUri: string;
-      if (process.env.KAKAO_REDIRECT_URI) {
-        redirectUri = process.env.KAKAO_REDIRECT_URI;
-      } else if (process.env.NODE_ENV === 'development') {
-        redirectUri = 'http://localhost:5173/kakao-callback';
-      } else {
-        let baseUrl = '';
-        const originHeader = req.headers.origin;
-        const refererHeader = req.headers.referer;
-        if (originHeader) {
-          baseUrl = originHeader;
-        } else if (refererHeader) {
-          // ⚠️ referer는 path/query 포함 가능 — origin만 추출해야 함.
-          // 예: "https://dgkma.replit.app/kakao-callback?code=..." → "https://dgkma.replit.app"
-          try {
-            baseUrl = new URL(refererHeader).origin;
-          } catch {
-            baseUrl = '';
-          }
-        }
-        if (!baseUrl) {
-          baseUrl = process.env.APP_URL || 'https://dgkma.replit.app';
-        }
-        redirectUri = `${baseUrl}/kakao-callback`;
-      }
-
-      // body 구성: 카카오 스펙(application/x-www-form-urlencoded)에 맞춰 정확한 파라미터 이름 사용.
-      // grant_type / client_id / redirect_uri / code (필수) + client_secret (선택, 콘솔 활성화 시 필수).
-      // ⚠️ 파라미터 이름 변형 금지 (redirectUri, redirectURL 등은 카카오가 인식 ❌).
-      const params = new URLSearchParams();
-      params.set('grant_type', 'authorization_code');
-      params.set('client_id', clientId);
-      params.set('redirect_uri', redirectUri);
-      params.set('code', String(code ?? ''));
-      if (process.env.KAKAO_CLIENT_SECRET) {
-        // 카카오 디벨로퍼스 [보안 > Client Secret] 활성화 시 필수.
-        // ⚠️ "카카오 로그인용" 클라이언트 시크릿만 사용 — 비즈니스 인증용 시크릿 금지.
-        params.set('client_secret', process.env.KAKAO_CLIENT_SECRET);
-      }
-
-      // Safe logging — DEBUG_KAKAO_AUTH=true 일 때만 출력. 전체값은 절대 노출 ❌ (모두 prefix 마스킹).
-      //   같은 TEST 앱이라면 콘솔 [앱 설정 > 앱 키]의 REST API 키 앞 6자리가 clientIdPrefix와 일치해야 함.
-      //   토큰 교환 실패 시의 에러 로그는 게이팅과 무관하게 항상 출력 (장애 진단용).
       if (isKakaoDebugEnabled()) {
-        console.log('[Kakao OAuth] token body debug:', {
-          url: 'https://kauth.kakao.com/oauth/token',
-          contentType: 'application/x-www-form-urlencoded',
-          bodyKeys: Array.from(params.keys()),
-          bodyLength: params.toString().length,
-          grant_type: params.get('grant_type'),
-          clientIdPrefix: clientId.substring(0, 6) + '...',
-          redirect_uri: params.get('redirect_uri'),
-          hasCode: (params.get('code')?.length ?? 0) > 0,
-          hasClientSecret: !!process.env.KAKAO_CLIENT_SECRET,
-          clientSecretPrefix: process.env.KAKAO_CLIENT_SECRET
-            ? process.env.KAKAO_CLIENT_SECRET.substring(0, 4) + '...'
-            : null,
+        console.log("[Kakao OAuth] configuration:", {
+          environment: config.environment,
+          restApiKeyPrefix: `${config.restApiKey.substring(0, 6)}...`,
+          redirectUri: config.redirectUri,
+          hasClientSecret: true,
         });
       }
 
-      const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
+      const tokenRes = await kakaoFetch('https://kauth.kakao.com/oauth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
@@ -230,7 +173,7 @@ export async function registerRoutes(
       if (!tokenRes.ok) {
         // 카카오 응답 error/error_description/error_code 그대로 전달 (디버깅용)
         console.error('[Kakao OAuth] token exchange failed:', {
-          redirectUri,
+          redirectUri: config.redirectUri,
           status: tokenRes.status,
           error: tokenData?.error,
           error_description: tokenData?.error_description,
@@ -246,7 +189,7 @@ export async function registerRoutes(
       }
 
       // ⚠️ HTTPS 응답 보장은 요청 단계에서 박음 — 수신값은 변형 ❌ (카카오 원본 보존 원칙)
-      const userRes = await fetch('https://kapi.kakao.com/v2/user/me?secure_resource=true', {
+      const userRes = await kakaoFetch('https://kapi.kakao.com/v2/user/me?secure_resource=true', {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       });
       const userInfo = await userRes.json();
@@ -294,6 +237,11 @@ export async function registerRoutes(
         accessToken: tokenData.access_token,
       });
     } catch (error) {
+      if (error instanceof KakaoOAuthConfigurationError) {
+        const { missingVariables } = error;
+        console.error("[Kakao OAuth] missing configuration:", missingVariables);
+        return res.status(500).json({ message: "Kakao 앱 설정 오류" });
+      }
       console.error('Kakao OAuth authorize error:', getErrorType(error));
       res.status(500).json({ message: 'Kakao authorization failed' });
     }

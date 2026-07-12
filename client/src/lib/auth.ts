@@ -54,35 +54,6 @@ export interface KakaoUserInfo {
   };
 }
 
-// v5 — REST API 인가 URL 직접 이동.
-//   인가 단계와 토큰 단계 모두 REST API 키를 사용해 client_id byte-for-byte 일치 보장.
-//
-// scope (v5 TEST API 기준):
-//   name, profile_image, account_email, birthday, phone_number
-//   - profile_nickname 미수집
-//   - birthday 는 선택 동의
-//   - phone_number 는 TEST API 에서 필수 동의 가능, PROD 배포 시 추가 기능 신청 필요
-//   - CI(account_ci) 는 현재 권한 없음 — 후속 심사 통과 후
 export const kakaoLogin = () => {
-  const clientId = import.meta.env.VITE_KAKAO_REST_API_KEY as string | undefined;
-  const redirectUri = import.meta.env.VITE_KAKAO_REDIRECT_URI as string | undefined;
-
-  if (!clientId) {
-    console.error("VITE_KAKAO_REST_API_KEY is not set");
-    return;
-  }
-  if (!redirectUri) {
-    console.error("VITE_KAKAO_REDIRECT_URI is not set");
-    return;
-  }
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    scope: "name,profile_image,account_email,birthday,phone_number",
-    state: "kakao_login",
-  });
-
-  window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
+  window.location.assign("/api/auth/kakao/start");
 };
