@@ -4,7 +4,7 @@ import {
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
   type PendingRegistration, type InsertPendingRegistration, type Category, type InsertCategory,
   type Obituary, type InsertObituary, type MembershipStatus, type Comment, ANNUAL_DUES,
-  type CommunityEvent, type PendingRegistrationUserData,
+  type CommunityEvent, type PendingRegistrationConflictReason, type PendingRegistrationUserData,
   PENDING_REGISTRATION_CONFLICT_REASONS,
 } from "@shared/schema";
 import type {
@@ -75,7 +75,7 @@ export class PhoneRegistrationConflictError extends Error {
 }
 
 export class PendingRegistrationConflictError extends Error {
-  constructor() {
+  constructor(public readonly conflictReason?: PendingRegistrationConflictReason) {
     super("The pending registration conflict is not resolved.");
     this.name = "PendingRegistrationConflictError";
   }
@@ -588,6 +588,21 @@ export class DatabaseStorage implements IStorage {
     try {
       return await db.transaction(async (tx) => {
         await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
+
+        if (insertUser.kakaoId) {
+          const [registeredUser] = await tx.select().from(users)
+            .where(eq(users.kakaoId, insertUser.kakaoId))
+            .limit(1);
+          if (registeredUser) return registeredUser;
+        }
+
+        const [emailConflict] = await tx.select({ id: users.id }).from(users)
+          .where(sql`lower(${users.email}) = ${insertUser.email.trim().toLowerCase()}`)
+          .limit(1);
+        if (emailConflict) {
+          throw new PendingRegistrationConflictError("email_conflict");
+        }
+
         return withPhoneRegistrationLock(tx, insertUser.phoneNumber ?? "", async (lockedPhone) => {
           const matches = await tx.select().from(alumniDatabase)
             .where(and(
@@ -766,12 +781,25 @@ export class DatabaseStorage implements IStorage {
         return { kind: "registered", user: registeredUser };
       }
 
+      const [emailConflict] = await tx.select({ id: users.id }).from(users)
+        .where(sql`lower(${users.email}) = ${insertRegistration.email.trim().toLowerCase()}`)
+        .limit(1);
+      const reviewedRegistration = emailConflict
+        ? {
+          ...insertRegistration,
+          userData: {
+            ...insertRegistration.userData,
+            conflictReason: "email_conflict" as const,
+          },
+        }
+        : insertRegistration;
+
       const matches = await tx.select().from(pendingRegistrations)
         .where(and(
           eq(pendingRegistrations.status, "pending"),
           or(
-            eq(pendingRegistrations.kakaoId, insertRegistration.kakaoId),
-            sql`lower(${pendingRegistrations.email}) = ${insertRegistration.email.trim().toLowerCase()}`,
+            eq(pendingRegistrations.kakaoId, reviewedRegistration.kakaoId),
+            sql`lower(${pendingRegistrations.email}) = ${reviewedRegistration.email.trim().toLowerCase()}`,
           ),
         ))
         .orderBy(asc(pendingRegistrations.id))
@@ -785,7 +813,7 @@ export class DatabaseStorage implements IStorage {
         }
         const [refreshed] = await tx.update(pendingRegistrations)
           .set({
-            ...insertRegistration,
+            ...reviewedRegistration,
             status: "pending",
             createdAt: new Date(),
           })
@@ -795,7 +823,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       const [created] = await tx.insert(pendingRegistrations)
-        .values({ ...insertRegistration, status: "pending" })
+        .values({ ...reviewedRegistration, status: "pending" })
         .returning();
       return { kind: "pending", registration: created };
     });

@@ -583,16 +583,27 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
     ...createdUser,
     id: 73,
     activityRegion: "서울특별시",
+    profileImage: "https://cdn.example.com/stale-profile.jpg",
+    birthday: "0101",
+    birthdayType: "SOLAR",
+    isLeapMonth: false,
   };
+  let savedUpdates: Partial<User> | undefined;
+  let storedApprovedUser = approvedUser;
   const server = await startServer({
     getKakaoOAuthConfig: () => config,
     kakaoFetch: kakaoResponses(),
     kakaoAuthStorage: kakaoAuthStorageDouble({
-      getUser: async (id: number) => id === approvedUser.id ? approvedUser : undefined,
+      getUser: async (id: number) => id === approvedUser.id ? storedApprovedUser : undefined,
       createOrRefreshPendingRegistration: async () => ({
         kind: "registered" as const,
         user: approvedUser,
       }),
+      updateUser: async (_id: number, updates: Partial<User>) => {
+        savedUpdates = updates;
+        storedApprovedUser = { ...approvedUser, ...updates };
+        return storedApprovedUser;
+      },
     }),
   });
   try {
@@ -604,13 +615,54 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
     );
 
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).user.id, approvedUser.id);
+    const responseBody = await response.json();
+    assert.equal(responseBody.user.id, approvedUser.id);
+    assert.equal(responseBody.user.profileImage, null);
+    assert.equal(responseBody.user.birthday, null);
+    assert.deepEqual(savedUpdates, {
+      profileImage: null,
+      birthday: null,
+      birthdayType: null,
+      isLeapMonth: null,
+    });
 
     const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
       headers: { cookie: authorization.cookie },
     });
     assert.equal(meResponse.status, 200);
-    assert.equal((await meResponse.json()).user.id, approvedUser.id);
+    assert.deepEqual((await meResponse.json()).user, responseBody.user);
+  } finally {
+    await server.close();
+  }
+});
+
+test("transactional email race creates an email_conflict review instead of returning 500", async () => {
+  let pendingReason: string | undefined;
+  const emailConflict = Object.assign(new PendingRegistrationConflictError(), {
+    conflictReason: "email_conflict" as const,
+  });
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: kakaoAuthStorageDouble({
+      findAlumniByName: async () => [alumniRecord],
+      createUserWithAlumniClaim: async () => {
+        throw emailConflict;
+      },
+      createOrRefreshPendingRegistration: async (registration: any) => {
+        pendingReason = registration.userData.conflictReason;
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
+      },
+    }),
+  });
+  try {
+    const response = await postKakaoAuthorize(server.baseUrl);
+    assert.equal(response.status, 202);
+    assert.equal(pendingReason, "email_conflict");
+    assert.equal((await response.json()).requiresApproval, true);
   } finally {
     await server.close();
   }

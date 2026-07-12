@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { normalizePhoneForComparison, PendingRegistrationConflictError, PhoneRegistrationConflictError, storage } from "./storage";
-import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type PendingRegistrationConflictReason, type User } from "@shared/schema";
+import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type InsertUser, type PendingRegistrationConflictReason, type User } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
   communityEventDraftSchema,
@@ -305,15 +305,32 @@ export async function registerRoutes(
         ? Boolean(account.is_leap_month)
         : hasBirthday ? false : null;
 
+      const synchronizeKakaoUser = async (authenticatedUser: User): Promise<User | undefined> => {
+        const updates: Partial<InsertUser> = {};
+        if (!authenticatedUser.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
+        if (authenticatedUser.profileImage !== profileImage) updates.profileImage = profileImage;
+        if (phoneNumber && !authenticatedUser.phoneNumber) updates.phoneNumber = phoneNumber;
+        if (authenticatedUser.birthday !== birthday) updates.birthday = birthday;
+        if (authenticatedUser.birthdayType !== birthdayType) updates.birthdayType = birthdayType;
+        if (authenticatedUser.isLeapMonth !== isLeapMonth) updates.isLeapMonth = isLeapMonth;
+        if (Object.keys(updates).length === 0) return authenticatedUser;
+        return kakaoAuthStorage.updateUser(authenticatedUser.id, updates);
+      };
+
       const completeKakaoLogin = async (authenticatedUser: User) => {
-        req.session.userId = authenticatedUser.id;
+        const synchronizedUser = await synchronizeKakaoUser(authenticatedUser);
+        if (!synchronizedUser) {
+          return res.status(500).json({ message: "사용자 정보 갱신에 실패했습니다" });
+        }
+
+        req.session.userId = synchronizedUser.id;
         try {
           await saveSession(req);
         } catch (error) {
           console.error("[Kakao Auth] session save failed:", getErrorType(error));
           return res.status(500).json({ message: "세션 저장에 실패했습니다" });
         }
-        return res.json({ user: toClientUser(authenticatedUser) });
+        return res.json({ user: toClientUser(synchronizedUser) });
       };
 
       const createPendingReview = async (
@@ -406,6 +423,16 @@ export async function registerRoutes(
               phoneNumber,
             );
           } catch (error) {
+            if (
+              error instanceof PendingRegistrationConflictError
+              && error.conflictReason === "email_conflict"
+            ) {
+              return createPendingReview(
+                "email_conflict",
+                "계정 정보 확인이 필요합니다",
+                "가입 처리 중 같은 이메일의 기존 회원 정보가 확인되어 관리자 확인이 필요합니다.",
+              );
+            }
             if (error instanceof PhoneRegistrationConflictError) {
               return createPendingReview(
                 "phone_conflict",
@@ -422,17 +449,6 @@ export async function registerRoutes(
               "동문 정보 연결을 완료하지 못했습니다. 관리자 확인 후 이용할 수 있습니다.",
             );
           }
-        }
-      } else {
-        const updates: Partial<typeof user> = {};
-        if (!user.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
-        if (user.profileImage !== profileImage) updates.profileImage = profileImage;
-        if (phoneNumber && !user.phoneNumber) updates.phoneNumber = phoneNumber;
-        if (user.birthday !== birthday) updates.birthday = birthday;
-        if (user.birthdayType !== birthdayType) updates.birthdayType = birthdayType;
-        if (user.isLeapMonth !== isLeapMonth) updates.isLeapMonth = isLeapMonth;
-        if (Object.keys(updates).length > 0) {
-          user = await kakaoAuthStorage.updateUser(user.id, updates);
         }
       }
 
