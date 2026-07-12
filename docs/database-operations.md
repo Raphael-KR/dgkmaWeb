@@ -147,10 +147,12 @@ env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE \
 ```sql
 CREATE TABLE IF NOT EXISTS kakao_oauth_states (
   state_hash text PRIMARY KEY,
-  session_binding_hash text NOT NULL UNIQUE,
+  session_binding_hash text NOT NULL,
   started_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT kakao_oauth_states_session_binding_hash_unique
+    UNIQUE (session_binding_hash)
 );
 
 ALTER TABLE kakao_oauth_states

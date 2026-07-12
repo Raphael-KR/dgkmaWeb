@@ -592,9 +592,10 @@ npm run build
 
 **Production 선행 additive 스키마 순서:**
 
-1. `kakao_identity_terminations` 생성
-2. `kakao_oauth_states.started_at` 추가
-3. 새 연결에서 두 변경과 기존 `session`, `session_expire_idx` 확인
-4. 코드 Republish
+1. `kakao_oauth_states` 전체 테이블을 명시적 기본키와 `kakao_oauth_states_session_binding_hash_unique` 제약으로 조건부 생성
+2. 초기 버전 `kakao_oauth_states.started_at`을 조건부 추가
+3. `kakao_identity_terminations` 조건부 생성
+4. 새 연결에서 두 테이블의 전체 컬럼·제약과 기존 `session`, `session_expire_idx` 확인
+5. 코드 Republish
 
 Production Database에는 이 작업에서 적용하지 않는다.

@@ -553,19 +553,27 @@ test("development PostgreSQL account deletion blocks an older OAuth callback wit
       user_count: number;
       pending_count: number;
       authenticated_session_count: number;
+      kakao_marker_count: number;
+      email_marker_count: number;
     }>(
       `select
          (select count(*)::int from users where kakao_id = $1) as user_count,
          (select count(*)::int from pending_registrations
            where kakao_id = $1 or lower(email) = lower($2)) as pending_count,
          (select count(*)::int from "session"
-           where sess ->> 'userId' = $3) as authenticated_session_count`,
-      [kakaoNumericId, email, String(userId)],
+           where sess ->> 'userId' = $3) as authenticated_session_count,
+         (select count(*)::int from kakao_identity_terminations
+           where identity_hash = $4) as kakao_marker_count,
+         (select count(*)::int from kakao_identity_terminations
+           where identity_hash = $5) as email_marker_count`,
+      [kakaoNumericId, email, String(userId), kakaoHash, emailHash],
     );
     assert.deepEqual(finalState.rows[0], {
       user_count: 0,
       pending_count: 0,
       authenticated_session_count: 0,
+      kakao_marker_count: 1,
+      email_marker_count: 1,
     });
     assert.equal(oldCallbackResponse.status, 409);
     assert.equal(unlinkCalls, 1);
@@ -677,19 +685,27 @@ test("development PostgreSQL deletion waits for a finalizing login and removes i
     const finalState = await pool.query<{
       user_count: number;
       session_count: number;
-      marker_count: number;
+      pending_count: number;
+      kakao_marker_count: number;
+      email_marker_count: number;
     }>(
       `select
          (select count(*)::int from users where id = $1) as user_count,
          (select count(*)::int from "session" where sid = $2) as session_count,
+         (select count(*)::int from pending_registrations
+           where kakao_id = $3 or lower(email) = lower($4)) as pending_count,
          (select count(*)::int from kakao_identity_terminations
-           where identity_hash = any($3::text[])) as marker_count`,
-      [userId, sid, [kakaoHash, emailHash]],
+           where identity_hash = $5) as kakao_marker_count,
+         (select count(*)::int from kakao_identity_terminations
+           where identity_hash = $6) as email_marker_count`,
+      [userId, sid, kakaoId, email, kakaoHash, emailHash],
     );
     assert.deepEqual(finalState.rows[0], {
       user_count: 0,
       session_count: 0,
-      marker_count: 2,
+      pending_count: 0,
+      kakao_marker_count: 1,
+      email_marker_count: 1,
     });
   } finally {
     releaseFinalizer?.();

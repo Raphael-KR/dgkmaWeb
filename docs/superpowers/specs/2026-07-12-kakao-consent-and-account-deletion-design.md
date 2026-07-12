@@ -116,7 +116,7 @@ OAuth callback의 모든 로컬 쓰기는 카카오 회원번호와 소문자 �
 
 종료보다 먼저 시작된 OAuth는 기존 사용자 로그인, 신규 사용자 생성, pending 생성, 세션 저장을 완료할 수 없다. 종료 이후 새로 시작한 OAuth는 `started_at`이 marker보다 새로우므로 영구 차단하지 않는다.
 
-Production Database 선행 additive 스키마는 1) `kakao_identity_terminations` 생성, 2) `kakao_oauth_states.started_at` 추가, 3) 새 연결에서 두 변경과 기존 `session`/`session_expire_idx` 확인, 4) 코드 Republish 순서다.
+Production Database 선행 additive 스키마는 1) `kakao_oauth_states` 전체 테이블을 명시적 기본키와 `kakao_oauth_states_session_binding_hash_unique` 제약으로 조건부 생성, 2) 초기 버전 테이블의 `started_at` 조건부 보완, 3) `kakao_identity_terminations` 조건부 생성, 4) 새 연결에서 두 테이블의 컬럼·제약과 기존 `session`/`session_expire_idx` 확인, 5) 코드 Republish 순서다.
 
 ## 중복가입 방지
 
