@@ -142,6 +142,7 @@ export interface IStorage {
     phoneNumber: string,
   ): Promise<User | undefined>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUserAccount(user: Pick<User, "id" | "kakaoId" | "email">): Promise<void>;
   
   // Category methods
   getCategories(): Promise<Category[]>;
@@ -244,6 +245,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
+  }
+
+  async deleteUserAccount(user: Pick<User, "id" | "kakaoId" | "email">): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.delete(communityEvents).where(and(
+        eq(communityEvents.authorId, user.id),
+        eq(communityEvents.status, "draft"),
+      ));
+      await tx.update(communityEvents)
+        .set({ authorId: null })
+        .where(eq(communityEvents.authorId, user.id));
+      await tx.update(posts)
+        .set({ authorId: null })
+        .where(eq(posts.authorId, user.id));
+      await tx.update(comments)
+        .set({ authorId: null })
+        .where(eq(comments.authorId, user.id));
+      await tx.update(obituaries)
+        .set({ authorId: null })
+        .where(eq(obituaries.authorId, user.id));
+      await tx.update(payments)
+        .set({ userId: null })
+        .where(eq(payments.userId, user.id));
+      await tx.update(alumniDatabase)
+        .set({ isMatched: false, matchedUserId: null })
+        .where(eq(alumniDatabase.matchedUserId, user.id));
+      await tx.delete(pendingRegistrations).where(or(
+        user.kakaoId ? eq(pendingRegistrations.kakaoId, user.kakaoId) : undefined,
+        eq(pendingRegistrations.email, user.email),
+      ));
+      await tx.execute(sql`
+        delete from "session"
+        where sess ->> 'userId' = ${String(user.id)}
+      `);
+      await tx.delete(users).where(eq(users.id, user.id));
+    });
   }
 
   async getCategories(): Promise<Category[]> {
