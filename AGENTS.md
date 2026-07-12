@@ -51,10 +51,12 @@ Once the user declares that data must be preserved, stop treating existing recor
 ## Kakao login rules
 The current Kakao Login flow uses REST authorize URL navigation. Replit provides one App Secrets pane for this project; `REPLIT_DEPLOYMENT="1"` selects production, and every other value selects development.
 
-The six environment-specific Kakao Secrets are:
+The eight environment-specific Kakao Secrets are:
 
 - Development: `KAKAO_DEV_REST_API_KEY`, `KAKAO_DEV_CLIENT_SECRET`, `KAKAO_DEV_REDIRECT_URI`
 - Production: `KAKAO_PROD_REST_API_KEY`, `KAKAO_PROD_CLIENT_SECRET`, `KAKAO_PROD_REDIRECT_URI`
+- Development admin: `KAKAO_DEV_ADMIN_KEY`
+- Production admin: `KAKAO_PROD_ADMIN_KEY`
 
 The browser starts login through `/api/auth/kakao/start`. The server alone selects the REST API key, client secret, and redirect URI for the selected environment. The exact callback values are:
 
@@ -66,6 +68,7 @@ The development and production callback values must be registered exactly as sho
 Do not use Kakao JavaScript SDK login for the current v5 flow.
 Do not expose server-only secrets through `VITE_`.
 Never log full secrets, access tokens, refresh tokens, or full authorization codes.
+The Kakao admin keys are server-only and may be used only to unlink a member during account deletion. Never use them for login or expose them to browsers, logs, errors, repository files, or client environment variables.
 ## Session and onboarding rules
 Use `req.session.userId` consistently across auth routes.
 After Kakao login, save the session before responding.

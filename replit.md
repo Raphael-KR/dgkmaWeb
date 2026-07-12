@@ -61,6 +61,8 @@ Replit 개발 워크스페이스도 같은 방식으로 GitHub 커밋을 가져�
 - `KAKAO_PROD_REST_API_KEY`
 - `KAKAO_PROD_CLIENT_SECRET`
 - `KAKAO_PROD_REDIRECT_URI`
+- `KAKAO_DEV_ADMIN_KEY`
+- `KAKAO_PROD_ADMIN_KEY`
 - `PRIVATE_OBJECT_DIR`
 
 Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REPLIT_DEPLOYMENT="1"`이면 프로덕션 설정을 선택하고, 그 외 모든 값이면 개발 설정을 선택합니다. Secret 값 자체는 이 문서에 기록하지 않습니다.
@@ -99,6 +101,8 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 기존 일반 Kakao Secret 5개는 deprecated 상태입니다. 개발과 프로덕션 smoke check가 모두 통과한 뒤에만 제거합니다.
 
 서버의 authorization request와 token exchange는 `REPLIT_DEPLOYMENT`로 선택한 동일한 환경 config의 REST API key와 redirect URI를 사용해야 합니다.
+
+카카오 어드민 키는 서버의 회원 탈퇴 처리에서만 `/v1/user/unlink` 호출에 사용합니다. `KAKAO_DEV_ADMIN_KEY`와 `KAKAO_PROD_ADMIN_KEY`도 `REPLIT_DEPLOYMENT="1"` 규칙으로 선택하며, 브라우저·`VITE_` 변수·로그·오류 메시지·저장소 파일에 노출하지 않습니다.
 
 ## 데이터베이스 운영
 
