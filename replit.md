@@ -13,7 +13,7 @@
 
 - 개발 홈페이지: `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`
 - 운영 홈페이지: `https://dgkma.org`
-- Replit 배포 호스트 `https://dgkma.replit.app`는 카카오 콜백과 배포 설정에서 계속 사용될 수 있으므로 공개 홈페이지 주소와 구분합니다.
+- 보조 접근 도메인 `https://dgkma.replit.app`은 공개 홈페이지 주소와 구분하며, 카카오 OAuth callback·redirect 설정에는 사용하지 않습니다.
 - Replit SSH는 `/home/runner/workspace` 개발 워크스페이스 접속입니다.
 - SSH로 접속한 셸은 autoscale 프로덕션 인스턴스의 셸이 아닙니다.
 - SSH 프로세스는 Replit Secret의 임시 `PROD_DATABASE_URL`을 명시적으로 선택할 때 Production Database에 직접 연결할 수 있습니다.
@@ -98,7 +98,7 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 
 기존 일반 Kakao Secret 5개는 deprecated 상태입니다. 개발과 프로덕션 smoke check가 모두 통과한 뒤에만 제거합니다.
 
-클라이언트 인가 단계와 서버 토큰 교환 단계의 redirect URI는 문자열까지 정확히 같아야 합니다.
+서버의 authorization request와 token exchange는 `REPLIT_DEPLOYMENT`로 선택한 동일한 환경 config의 REST API key와 redirect URI를 사용해야 합니다.
 
 ## 데이터베이스 운영
 
