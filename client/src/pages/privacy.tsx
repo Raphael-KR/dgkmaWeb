@@ -134,6 +134,50 @@ export default function Privacy() {
               </div>
             </section>
 
+            {/* 제5조의2 개인정보의 국외 이전 */}
+            <section>
+              <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제5조의2 (개인정보의 국외 이전)</h3>
+              <div className="space-y-4 text-gray-700">
+                <p>① 동문회는 개인정보 보호법 제28조의8 제1항 제3호에 따라 서비스 제공에 필요한 계약의 이행을 위하여 다음과 같이 개인정보 처리업무를 국외 사업자에게 위탁하고 개인정보를 이전합니다.</p>
+
+                <div className="border-y border-gray-200 divide-y divide-gray-200">
+                  <div className="py-4 space-y-3">
+                    <h4 className="font-semibold text-gray-900">Replit, Inc.</h4>
+                    <dl className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm sm:text-base">
+                      <dt className="font-medium text-gray-900">이전 국가·연락처</dt>
+                      <dd>미국 · privacy@replit.com</dd>
+                      <dt className="font-medium text-gray-900">이전 항목</dt>
+                      <dd>회원·계정 정보, 동문 명부 연결정보, 게시글·댓글·경조사·결제 기록, 업로드 파일, 접속 IP 및 서비스 이용 기록</dd>
+                      <dt className="font-medium text-gray-900">이전 목적</dt>
+                      <dd>웹 애플리케이션 호스팅·운영, 파일 저장, 백업 및 서비스 제공</dd>
+                      <dt className="font-medium text-gray-900">이전 시기·방법</dt>
+                      <dd>서비스 이용 및 정보 생성 시 암호화된 네트워크를 통해 지속적으로 이전</dd>
+                      <dt className="font-medium text-gray-900">보유·이용 기간</dt>
+                      <dd>회원 탈퇴, 처리목적 달성 또는 위탁계약 종료 시까지. 다만, 관계 법령이나 백업 정책에 따라 필요한 기간 동안 보관될 수 있습니다.</dd>
+                    </dl>
+                  </div>
+
+                  <div className="py-4 space-y-3">
+                    <h4 className="font-semibold text-gray-900">Neon, LLC</h4>
+                    <dl className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm sm:text-base">
+                      <dt className="font-medium text-gray-900">이전 국가·연락처</dt>
+                      <dd>미국(AWS 미국 동부 버지니아 북부 리전) · privacy@neon.tech</dd>
+                      <dt className="font-medium text-gray-900">이전 항목</dt>
+                      <dd>데이터베이스에 저장되는 회원·계정 정보, 동문 명부 연결정보, 게시글·댓글·경조사·결제 기록, OAuth·세션 관련 식별정보</dd>
+                      <dt className="font-medium text-gray-900">이전 목적</dt>
+                      <dd>운영 PostgreSQL 데이터베이스 저장, 백업 및 운영</dd>
+                      <dt className="font-medium text-gray-900">이전 시기·방법</dt>
+                      <dd>서비스 이용 및 정보 생성 시 암호화된 네트워크를 통해 지속적으로 이전</dd>
+                      <dt className="font-medium text-gray-900">보유·이용 기간</dt>
+                      <dd>회원 탈퇴, 처리목적 달성 또는 위탁계약 종료 시까지. 다만, 관계 법령이나 백업 정책에 따라 필요한 기간 동안 보관될 수 있습니다.</dd>
+                    </dl>
+                  </div>
+                </div>
+
+                <p>② 이용자는 제8조에 기재된 이메일로 개인정보 보호책임자에게 요청하여 국외 이전을 거부할 수 있습니다. 다만, 위 국외 이전은 서비스 제공에 필수적인 호스팅 및 데이터베이스 이용에 수반되므로, 거부하는 경우 회원 가입 및 서비스 이용이 제한될 수 있습니다.</p>
+              </div>
+            </section>
+
             {/* 제6조 정보주체의 권리 */}
             <section>
               <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제6조 (정보주체의 권리·의무 및 행사방법)</h3>
