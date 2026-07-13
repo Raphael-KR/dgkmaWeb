@@ -20,6 +20,8 @@ test("event draft hook recovers, autosaves, and discards drafts without identity
   assert.match(hook, /useFormState/);
   assert.match(hook, /recoveryPromiseRef/);
   assert.match(hook, /recoveryFailedRef/);
+  assert.match(hook, /const flushAutosave/);
+  assert.match(hook, /await persistDraft\(values, requestEventType, requestGeneration, revision\)/);
   assert.match(hook, /releasePublishResolution/);
   assert.match(hook, /draftIdsByTypeRef\.current\.delete/);
   assert.match(hook, /publishResolutionIdRef\.current = undefined/);
@@ -44,6 +46,9 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.match(composer, /useEventDraft/);
   assert.match(composer, /registerDraftId/);
   assert.match(composer, /prepareForPublish/);
+  assert.match(composer, /flushAutosave/);
+  assert.match(composer, /await flushAutosave\(\)/);
+  assert.match(composer, /hasMeaningfulDraftInput\(snapshot\)/);
   assert.match(composer, /isRecovering/);
   assert.match(composer, /다시 시도/);
   assert.match(composer, /isBusy = isParsing \|\| isPublishing \|\| isDiscarding \|\| isRecovering/);
@@ -56,4 +61,9 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.match(composer, /저장 중/);
   assert.match(composer, /임시저장됨/);
   assert.match(composer, /초안 삭제/);
+  assert.match(composer, /aria-expanded=\{isReviewOpen\}/);
+  assert.match(composer, /aria-controls="event-review"/);
+  assert.match(composer, /id="event-review"/);
+  assert.match(composer, /registerButtonRef\.current\?\.focus\(\)/);
+  assert.match(composer, /disabled=\{isParsing \|\| isPublishing \|\| isPublishResolutionPending \|\| isClosingReview\}/);
 });

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type FieldErrors, type Path, type SubmitHandler, useForm, useWatch } from "react-hook-form";
 import { LoaderCircle, Send, Trash2, X } from "lucide-react";
@@ -23,6 +23,8 @@ import {
   canSubmitCommunityEvent,
   collectFormErrorEntries,
   conclusivePublishErrorMessage,
+  hasMeaningfulDraftInput,
+  mergeMissingDraftValues,
   publishDraftWithRecovery,
   requestEventPublish,
   splitEventSource,
@@ -106,12 +108,15 @@ function initialValues(eventType: CommunityEventType): CommunityEventDraftInput 
 export function EventComposer() {
   const { toast } = useToast();
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isClosingReview, setIsClosingReview] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishErrors, setPublishErrors] = useState<Record<string, string>>({});
   const [previewSuccess, setPreviewSuccess] = useState<SuccessfulObituaryPreview>();
   const parseRequestRef = useRef(0);
   const publishingRef = useRef(false);
+  const registerButtonRef = useRef<HTMLButtonElement>(null);
+  const reviewHeadingRef = useRef<HTMLHeadingElement>(null);
   const form = useForm<CommunityEventDraftInput>({
     resolver: zodResolver(communityEventDraftSchema),
     defaultValues: initialValues("obituary"),
@@ -132,6 +137,7 @@ export function EventComposer() {
     isPublishResolutionPending,
     completePublish: completeDraftPublish,
     discardDraft,
+    flushAutosave,
     prepareForPublish,
     registerDraftId,
     lockPublishResolution,
@@ -145,7 +151,7 @@ export function EventComposer() {
     isPaused: !isReviewOpen || isParsing || isPublishing,
   });
   const sourceError = publishErrors.sourceText;
-  const isBusy = isParsing || isPublishing || isDiscarding || isRecovering;
+  const isBusy = isParsing || isPublishing || isDiscarding || isRecovering || isClosingReview;
   const inputsDisabled = isBusy || isPublishResolutionPending;
   const draftStatus = isRecovered ? "recovered" : isSaved ? "saved" : isSaving ? "saving" : "idle";
   const isPreviewCurrent = isCurrentObituaryPreview({
@@ -160,6 +166,10 @@ export function EventComposer() {
     isPreviewCurrent,
     isPublishResolutionPending,
   });
+
+  useEffect(() => {
+    if (isReviewOpen && !isParsing) reviewHeadingRef.current?.focus();
+  }, [isParsing, isReviewOpen]);
 
   const changeType = (eventType: CommunityEventType) => {
     if (inputsDisabled || eventType === currentType) return;
@@ -180,6 +190,10 @@ export function EventComposer() {
     const snapshot = form.getValues();
     const snapshotSourceText = snapshot.sourceText ?? "";
     if (!snapshotSourceText.trim()) {
+      if (hasMeaningfulDraftInput(snapshot)) {
+        setIsReviewOpen(true);
+        return;
+      }
       toast({ title: "원문을 입력해주세요", description: "분석할 문자 내용을 붙여넣어주세요.", variant: "destructive" });
       return;
     }
@@ -196,7 +210,10 @@ export function EventComposer() {
     }
 
     if (snapshot.eventType !== "obituary") {
-      form.setValue("details", { memo: textOnly }, { shouldDirty: true, shouldValidate: true });
+      form.setValue("details", mergeMissingDraftValues(snapshot.details, { memo: textOnly }), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
       return;
     }
 
@@ -221,22 +238,29 @@ export function EventComposer() {
       const obituaryDetails: Partial<ObituaryDetails> = {};
       if (parsed.deceasedName) obituaryDetails.deceasedName = parsed.deceasedName;
       if (parsed.funeralHome) {
-        form.setValue("location", parsed.funeralHome, { shouldDirty: true });
         obituaryDetails.funeralHome = parsed.funeralHome;
       }
       if (parsed.jangji) obituaryDetails.burialPlace = parsed.jangji;
       if (parsed.chiefMourner) obituaryDetails.chiefMourner = parsed.chiefMourner;
-      if (parsed.bankAccount) form.setValue("accountInfo", parsed.bankAccount, { shouldDirty: true });
-      if (parsed.contactNumber) form.setValue("contactNumber", parsed.contactNumber, { shouldDirty: true });
-      if (parsed.dateOfDeath) form.setValue("eventDate", parsed.dateOfDeath, { shouldDirty: true });
       if (parsed.deceasedRelation && OBITUARY_RELATIONSHIPS.includes(parsed.deceasedRelation as ObituaryDetails["relationship"] & string)) {
         obituaryDetails.relationship = parsed.deceasedRelation as ObituaryDetails["relationship"];
       }
       if (sourceUrls[0]) obituaryDetails.sourceUrl = sourceUrls[0];
-      form.setValue("details", {
-        ...(currentValues.details as ObituaryDetails),
-        ...obituaryDetails,
-      }, { shouldDirty: true, shouldValidate: true });
+      const mergedCommon = mergeMissingDraftValues(currentValues, {
+        location: parsed.funeralHome,
+        accountInfo: parsed.bankAccount,
+        contactNumber: parsed.contactNumber,
+        eventDate: parsed.dateOfDeath,
+      });
+      form.setValue("location", mergedCommon.location, { shouldDirty: true });
+      form.setValue("accountInfo", mergedCommon.accountInfo, { shouldDirty: true });
+      form.setValue("contactNumber", mergedCommon.contactNumber, { shouldDirty: true });
+      form.setValue("eventDate", mergedCommon.eventDate, { shouldDirty: true });
+      form.setValue(
+        "details",
+        mergeMissingDraftValues(currentValues.details as ObituaryDetails, obituaryDetails),
+        { shouldDirty: true, shouldValidate: true },
+      );
       toast({ title: "부고 문자 분석 완료", description: "입력된 내용을 확인하고 필요한 정보를 보완해주세요." });
     } catch {
       toast({ title: "분석 실패", description: "문자 내용을 분석하지 못했습니다. 직접 입력해주세요.", variant: "destructive" });
@@ -375,9 +399,17 @@ export function EventComposer() {
     }
   };
 
-  const closeReview = () => {
-    setPreviewSuccess(undefined);
-    setIsReviewOpen(false);
+  const closeReview = async () => {
+    if (isParsing || isPublishing || isPublishResolutionPending || isClosingReview) return;
+    setIsClosingReview(true);
+    try {
+      if (!await flushAutosave()) return;
+      setPreviewSuccess(undefined);
+      setIsReviewOpen(false);
+      requestAnimationFrame(() => registerButtonRef.current?.focus());
+    } finally {
+      setIsClosingReview(false);
+    }
   };
 
   return (
@@ -418,9 +450,12 @@ export function EventComposer() {
             {sourceError && <p id="event-source-error" role="alert" className="mt-1 text-sm text-red-700">{sourceError}</p>}
           </div>
           <Button
+            ref={registerButtonRef}
             type="button"
             onClick={() => void loadSource()}
             disabled={inputsDisabled}
+            aria-expanded={isReviewOpen}
+            aria-controls="event-review"
             className="w-full sm:min-w-28"
           >
             {isParsing && <LoaderCircle className="animate-spin" aria-hidden="true" />}
@@ -429,10 +464,22 @@ export function EventComposer() {
         </div>
 
         {isReviewOpen && (
-          <div className="space-y-4 border-t border-gray-200 pt-4">
+          <div
+            id="event-review"
+            role="region"
+            aria-labelledby="event-review-title"
+            className="space-y-4 border-t border-gray-200 pt-4"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-base font-semibold text-gray-900">{EVENT_TYPE_LABELS[currentType]} 내용 확인</h2>
+                <h2
+                  ref={reviewHeadingRef}
+                  id="event-review-title"
+                  tabIndex={-1}
+                  className="text-base font-semibold text-gray-900"
+                >
+                  {EVENT_TYPE_LABELS[currentType]} 내용 확인
+                </h2>
                 <div className="mt-1 min-h-5 text-sm text-gray-500" aria-live="polite">
                   {isRecovered && <span>임시저장된 내용을 복구했습니다</span>}
                   {isRecovering && <span>복구 중</span>}
@@ -458,8 +505,8 @@ export function EventComposer() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={closeReview}
-                  disabled={isPublishing || isPublishResolutionPending}
+                  onClick={() => void closeReview()}
+                  disabled={isParsing || isPublishing || isPublishResolutionPending || isClosingReview}
                   aria-label="등록 내용 확인 닫기"
                 >
                   <X aria-hidden="true" />
@@ -496,8 +543,8 @@ export function EventComposer() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={closeReview}
-                disabled={isPublishing || isPublishResolutionPending}
+                onClick={() => void closeReview()}
+                disabled={isParsing || isPublishing || isPublishResolutionPending || isClosingReview}
               >
                 취소
               </Button>

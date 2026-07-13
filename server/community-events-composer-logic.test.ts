@@ -13,6 +13,23 @@ import {
   splitEventSource,
 } from "../client/src/pages/events/event-composer-logic";
 
+test("parsed source fills only missing draft values", async () => {
+  const logic = await import("../client/src/pages/events/event-composer-logic");
+  const mergeMissingDraftValues = (logic as unknown as {
+    mergeMissingDraftValues?: (current: Record<string, unknown>, parsed: Record<string, unknown>) => Record<string, unknown>;
+  }).mergeMissingDraftValues;
+  assert.equal(typeof mergeMissingDraftValues, "function");
+  if (!mergeMissingDraftValues) return;
+  assert.deepEqual(mergeMissingDraftValues(
+    { memo: "직접 수정한 내용", location: "  " },
+    { memo: "파싱한 내용", location: "파싱한 장소", contact: "010-0000-0000" },
+  ), {
+    memo: "직접 수정한 내용",
+    location: "파싱한 장소",
+    contact: "010-0000-0000",
+  });
+});
+
 test("only autosaves meaningful draft input", () => {
   assert.equal(hasMeaningfulDraftInput({ eventType: "obituary", sourceUrls: [], details: {} }), false);
   assert.equal(hasMeaningfulDraftInput({ eventType: "obituary", sourceText: "   ", sourceUrls: [], details: {} }), false);
