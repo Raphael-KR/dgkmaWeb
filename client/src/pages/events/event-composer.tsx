@@ -144,7 +144,6 @@ export function EventComposer() {
     releasePublishResolution,
     resumeAutosave,
     retryDraft,
-    settleAutosave,
   } = useEventDraft({
     eventType: currentType,
     form,
@@ -222,7 +221,6 @@ export function EventComposer() {
     const parseTimeout = setTimeout(() => parseController.abort(), 15000);
     setIsParsing(true);
     try {
-      await settleAutosave();
       const response = await apiRequest(
         "POST",
         "/api/obituary/parse",

@@ -53,6 +53,7 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.match(composer, /setTimeout\(\(\) => parseController\.abort\(\), 15000\)/);
   assert.match(composer, /signal: parseController\.signal/);
   assert.match(composer, /clearTimeout\(parseTimeout\)/);
+  assert.doesNotMatch(composer, /await settleAutosave\(\)/);
   assert.match(composer, /hasMeaningfulDraftInput\(snapshot\)/);
   assert.match(composer, /isRecovering/);
   assert.match(composer, /다시 시도/);
