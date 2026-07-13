@@ -81,6 +81,11 @@ test("development continues before one consolidated user QA pass", async () => {
   assert.match(walkthrough, /## QA 실행 원칙/);
   assert.match(walkthrough, /기능별로 사용자에게 반복 요청하지 않고 누적/);
   assert.match(changelog, /핵심 개발 완료 후 통합 QA에서 한 번에 수행/);
+  assert.match(proposal, /상세 입력은 등록 명령 이후/);
+  assert.match(proposal, /목록 필터 없이 전체 경조사/);
+  assert.match(walkthrough, /등록 명령을 누르기 전에는 상세 필드와 미리보기가 표시되지 않/);
+  assert.match(walkthrough, /목록 필터 없이 모든 유형의 경조사가 함께 표시/);
+  assert.match(changelog, /간결한 입력과 점진적 확인 영역/);
 });
 
 test("privacy policy and approved design record the pending rejection destruction contract", async () => {

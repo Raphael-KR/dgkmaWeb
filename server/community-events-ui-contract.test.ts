@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("community event routes and list requests stay member-only and guarded", async () => {
+test("community event routes and the all-events list stay member-only and guarded", async () => {
   const [app, page, list, robots] = await Promise.all([
     readFile(new URL("../client/src/App.tsx", import.meta.url), "utf8"),
     readFile(new URL("../client/src/pages/events/index.tsx", import.meta.url), "utf8"),
@@ -12,15 +12,13 @@ test("community event routes and list requests stay member-only and guarded", as
 
   assert.match(app, /<Route path="\/events">\s*<AuthGate><CommunityEventsPage \/><\/AuthGate>/);
   assert.match(app, /<Route path="\/events\/:id">\s*<AuthGate><CommunityEventDetail \/><\/AuthGate>/);
-  assert.match(page, /전체/);
-  assert.match(page, /부고/);
-  assert.match(page, /결혼/);
-  assert.match(page, /개원/);
-  assert.match(page, /기타/);
   assert.match(page, /<EventComposer/);
   assert.match(page, /<EventList/);
-  assert.match(list, /queryKey: \["\/api\/events", selectedType\]/);
-  assert.match(list, /selectedType === "all" \? "\/api\/events" : `\/api\/events\?type=\$\{selectedType\}`/);
+  assert.doesNotMatch(page, /\bTabs(?:List|Trigger)?\b|selectedType|eventFilters/);
+  assert.doesNotMatch(page, /동문들의 경조사 소식을 확인합니다/);
+  assert.match(list, /queryKey: \["\/api\/events"\]/);
+  assert.match(list, /fetch\("\/api\/events", \{ credentials: "include" \}\)/);
+  assert.doesNotMatch(list, /\?type=|selectedType/);
   assert.match(list, /credentials: "include"/);
   assert.match(list, /if \(!response\.ok\) \{\s*throw new Error/);
   assert.doesNotMatch(list, /sourceText/);
@@ -29,7 +27,7 @@ test("community event routes and list requests stay member-only and guarded", as
   assert.match(robots, /^Disallow: \/events\/$/m);
 });
 
-test("community event composer stays visible and only submits schema-backed event data", async () => {
+test("community event composer progressively reveals schema-backed review fields", async () => {
   const [composer, fields] = await Promise.all([
     readFile(new URL("../client/src/pages/events/event-composer.tsx", import.meta.url), "utf8"),
     readFile(new URL("../client/src/pages/events/event-fields.tsx", import.meta.url), "utf8"),
@@ -42,7 +40,13 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(composer, /EVENT_TYPE_LABELS\[eventType\]/);
   assert.match(composer, /<Textarea/);
   assert.match(composer, /문자와 공개 링크를 함께 붙여넣으세요/);
-  assert.match(composer, /<EventFields/);
+  assert.match(composer, /const \[isReviewOpen, setIsReviewOpen\] = useState\(false\)/);
+  assert.match(composer, /isPaused: !isReviewOpen \|\| isParsing \|\| isPublishing/);
+  assert.match(composer, /`\$\{EVENT_TYPE_LABELS\[currentType\]\} 등록`/);
+  assert.match(composer, /\{isReviewOpen && \([\s\S]*<EventFields/);
+  assert.match(composer, /setIsReviewOpen\(true\)/);
+  assert.match(composer, /setIsReviewOpen\(false\)/);
+  assert.doesNotMatch(composer, />경조사 등록<|내용을 확인한 뒤 게시해주세요/);
   assert.match(composer, /communityEventPublishSchema\.safeParse/);
   assert.match(composer, /form\.handleSubmit\(publish, handleInvalidSubmit\)/);
   assert.match(composer, /handleInvalidSubmit/);
@@ -56,7 +60,6 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(composer, /분석할 문자 내용이 없습니다/);
   assert.match(composer, /form\.setError/);
   assert.match(composer, /form\.setFocus/);
-  assert.match(composer, /onPublished/);
   assert.match(composer, /disabled=\{!canSubmit\}/);
   assert.match(composer, /invalidateQueries\(\{ queryKey: \["\/api\/events"\] \}\)/);
   assert.match(composer, /removeQueries\(\{ queryKey: \["\/api\/events\/drafts\/latest"\] \}\)/);
@@ -86,10 +89,12 @@ test("community event composer stays visible and only submits schema-backed even
   assert.match(fields, /disabled=\{disabled\}/);
 });
 
-test("community events page switches the list to a newly published event type", async () => {
+test("community events page keeps one unfiltered list after publishing", async () => {
   const page = await readFile(new URL("../client/src/pages/events/index.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /<EventComposer onPublished=\{\(eventType\) => setSelectedType\(eventType\)\}/);
+  assert.match(page, /<EventComposer \/>/);
+  assert.match(page, /<EventList onSelect=/);
+  assert.doesNotMatch(page, /onPublished=|setSelectedType|selectedType/);
 });
 
 test("community event entry points replace the obsolete home obituary form", async () => {
