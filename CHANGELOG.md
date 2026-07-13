@@ -22,6 +22,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- 제품 비전과 개발 로드맵을 `planning_proposal.md` 단일 기준 문서로 통합하고 실제 구현·검증 상태와 변경·폐기된 방향을 정리
 - 카카오 로그인 v5를 REST OAuth authorize URL과 서버 토큰 교환 방식으로 정리
 - 카카오 로그인 완료 전에 PostgreSQL 세션 저장을 보장
 - 명부 불일치 가입을 관리자 승인 대기 정책으로 확정

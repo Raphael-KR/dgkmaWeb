@@ -1,6 +1,6 @@
 # Replit 개발 및 배포 운영
 
-이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전과 개발 우선순위는 [planning_proposal.md](./planning_proposal.md)와 [roadmap.md](./roadmap.md)를 참고합니다.
+이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전, 현재 상태와 개발 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
 ## 환경 구분
 

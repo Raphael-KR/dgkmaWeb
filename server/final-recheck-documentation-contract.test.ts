@@ -24,14 +24,45 @@ test("Kakao callback documentation describes the actual SPA authorization-code f
 
 test("planning proposal distinguishes the managed alumni source from the runtime copy", async () => {
   const proposal = await read("planning_proposal.md");
+  const currentPlan = proposal.slice(0, proposal.indexOf("## 9. 변경되거나 폐기된 방향"));
 
   assert.match(proposal, /카카오 REST OAuth/);
-  assert.doesNotMatch(proposal, /카카오싱크/);
+  assert.doesNotMatch(currentPlan, /카카오싱크/);
+  assert.match(proposal, /카카오 JavaScript SDK·카카오싱크[\s\S]*방향 변경/);
   assert.match(proposal, /PostgreSQL `alumni_database`/);
   assert.match(proposal, /1회 이관/);
-  assert.match(proposal, /Google Sheets를 동문 명부의 관리 원본/);
+  assert.match(proposal, /Google Sheets를 동문 명부의 (?:\*\*)?관리 원본/);
   assert.match(proposal, /런타임 복제본/);
   assert.doesNotMatch(proposal, /신규 가입 매칭[^\n]*Google Sheets[^\n]*의존/);
+});
+
+test("planning proposal is the single current product and development plan", async () => {
+  const [proposal, roadmap, readme, replit, walkthrough] = await Promise.all([
+    read("planning_proposal.md"),
+    read("roadmap.md"),
+    read("README.md"),
+    read("replit.md"),
+    read("walkthrough.md"),
+  ]);
+
+  assert.match(proposal, /제품·개발 통합 계획서/);
+  assert.match(proposal, /현재 검증 완료 기반/);
+  assert.match(proposal, /P0\/P1 보안·무결성 과제/);
+  assert.match(proposal, /현재 진행 중인 개발/);
+  assert.match(proposal, /장기·보류 과제/);
+  assert.match(proposal, /변경되거나 폐기된 방향/);
+  assert.match(proposal, /community_events` 17개 컬럼 확인/);
+  assert.match(proposal, /Supabase 클라이언트 로그인[\s\S]*방향 변경/);
+  assert.doesNotMatch(proposal, /\*\*미구현\*\*: 통합 경조사 모델/);
+
+  assert.match(roadmap, /planning_proposal\.md/);
+  assert.match(roadmap, /독립적인 상태나 계획을 관리하지 않습니다/);
+  assert.doesNotMatch(roadmap, /## 긴급|## 다음|## 이후|\| P0 \|/);
+
+  for (const document of [readme, replit, walkthrough]) {
+    assert.match(document, /planning_proposal\.md/);
+  }
+  assert.doesNotMatch(readme, /\[roadmap\.md\]/);
 });
 
 test("privacy policy and approved design record the pending rejection destruction contract", async () => {

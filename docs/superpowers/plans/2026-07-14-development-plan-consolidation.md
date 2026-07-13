@@ -46,6 +46,7 @@ The notice must link to `planning_proposal.md` for current goals and `walkthroug
 - Modify: `README.md`
 - Modify: `replit.md`
 - Modify: `walkthrough.md`
+- Modify: `CHANGELOG.md`
 - Modify: `server/final-recheck-documentation-contract.test.ts`
 
 **Interfaces:**
@@ -54,7 +55,7 @@ The notice must link to `planning_proposal.md` for current goals and `walkthroug
 
 - [ ] **Step 1: Update current documentation links**
 
-Describe `planning_proposal.md` as the integrated product and development plan. Keep `roadmap.md` listed only as a compatibility pointer if it remains in the README table.
+Describe `planning_proposal.md` as the integrated product and development plan, and record the consolidation in `CHANGELOG.md`. Keep `roadmap.md` listed only as a compatibility pointer if it remains in the README table.
 
 - [ ] **Step 2: Strengthen the documentation contract**
 

@@ -1,6 +1,6 @@
 # 개발·운영 기능 검증 가이드
 
-이 문서는 Replit 개발 환경과 `https://dgkma.org` 운영 환경의 기능을 확인하는 수동 회귀 테스트 체크리스트입니다. 개발 중에는 `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`를 먼저 확인하고, Republish 후에만 운영 URL을 확인합니다. 향후 기능과 우선순위는 [planning_proposal.md](./planning_proposal.md)와 [roadmap.md](./roadmap.md)를 참고합니다.
+이 문서는 Replit 개발 환경과 `https://dgkma.org` 운영 환경의 기능을 확인하는 수동 회귀 테스트 체크리스트입니다. 개발 중에는 `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev`를 먼저 확인하고, Republish 후에만 운영 URL을 확인합니다. 향후 기능과 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
 ## 검증 전 조건
 

@@ -39,8 +39,7 @@ GitHub main
 
 | 문서 | 역할 |
 |---|---|
-| [planning_proposal.md](./planning_proposal.md) | 장기 제품 비전과 정책 방향 |
-| [roadmap.md](./roadmap.md) | 개발 우선순위, 상태, 완료 조건, 선행 조건 |
+| [planning_proposal.md](./planning_proposal.md) | 제품 비전, 확정 정책, 현재 상태, 개발 우선순위와 완료 조건을 관리하는 통합 계획서 |
 | [walkthrough.md](./walkthrough.md) | 현재 프로덕션 기능의 수동 회귀 테스트 |
 | [replit.md](./replit.md) | Replit 개발·배포·환경변수·DB 운영 절차 |
 | [docs/database-operations.md](./docs/database-operations.md) | 개발·운영 DB 선택, SSH 직접 연결, 변경·검증·Secret 수명 관리 |
