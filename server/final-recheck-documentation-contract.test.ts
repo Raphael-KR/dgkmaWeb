@@ -65,6 +65,24 @@ test("planning proposal is the single current product and development plan", asy
   assert.doesNotMatch(readme, /\[roadmap\.md\]/);
 });
 
+test("development continues before one consolidated user QA pass", async () => {
+  const [proposal, walkthrough, changelog] = await Promise.all([
+    read("planning_proposal.md"),
+    read("walkthrough.md"),
+    read("CHANGELOG.md"),
+  ]);
+
+  assert.match(proposal, /개발 완료 후 통합 QA에서 한 번에 진행/);
+  assert.match(proposal, /자동화·개발 DB·개발 서버 검증 결과/);
+  assert.match(proposal, /결제박사 사용 예정/);
+  for (const term of ["API", "수수료", "정산", "환불", "영수증", "보안 조건"]) {
+    assert.match(proposal, new RegExp(term));
+  }
+  assert.match(walkthrough, /## QA 실행 원칙/);
+  assert.match(walkthrough, /기능별로 사용자에게 반복 요청하지 않고 누적/);
+  assert.match(changelog, /핵심 개발 완료 후 통합 QA에서 한 번에 수행/);
+});
+
 test("privacy policy and approved design record the pending rejection destruction contract", async () => {
   const [privacy, design, plan] = await Promise.all([
     read("client/src/pages/privacy.tsx"),
