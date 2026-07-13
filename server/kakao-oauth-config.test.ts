@@ -59,7 +59,7 @@ test("missing selected variables are reported by name only", () => {
   );
 });
 
-test("authorization and token requests use one configuration", () => {
+test("development authorization excludes the production-only channel scope", () => {
   const config = resolveKakaoOAuthConfig({ ...completeEnv });
   const state = "request-specific-oauth-state";
   const authorizeUrl = new URL(buildKakaoAuthorizeUrl(config, state));
@@ -79,7 +79,6 @@ test("authorization and token requests use one configuration", () => {
     "birthday",
     "name",
     "phone_number",
-    "plusfriends",
     "profile_image",
   ]);
   assert.doesNotMatch(scope, /account_ci|ci/);
@@ -92,6 +91,24 @@ test("authorization and token requests use one configuration", () => {
     "https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback",
   );
   assert.equal(tokenBody.get("code"), "authorization-code");
+});
+
+test("production authorization includes the Kakao channel scope", () => {
+  const config = resolveKakaoOAuthConfig({
+    ...completeEnv,
+    REPLIT_DEPLOYMENT: "1",
+  });
+  const authorizeUrl = new URL(buildKakaoAuthorizeUrl(config, "production-state"));
+  const scope = authorizeUrl.searchParams.get("scope") ?? "";
+
+  assert.deepEqual(scope.split(",").sort(), [
+    "account_email",
+    "birthday",
+    "name",
+    "phone_number",
+    "plusfriends",
+    "profile_image",
+  ]);
 });
 
 test("legacy production redirect URI is rejected without exposing its value", () => {
