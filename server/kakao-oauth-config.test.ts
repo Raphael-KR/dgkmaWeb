@@ -79,6 +79,7 @@ test("authorization and token requests use one configuration", () => {
     "birthday",
     "name",
     "phone_number",
+    "plusfriends",
     "profile_image",
   ]);
   assert.doesNotMatch(scope, /account_ci|ci/);

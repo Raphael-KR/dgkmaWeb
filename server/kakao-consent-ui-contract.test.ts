@@ -21,12 +21,18 @@ test("public Kakao consent copy and birthday UI match the approved contract", as
   assert.match(login, /선택/);
   assert.match(login, /프로필 사진/);
   assert.match(login, /생일/);
+  assert.match(login, /카카오톡 채널 추가 상태 및 내역/);
+  assert.match(login, /동문회 공지 및 경조사 알림/);
   assert.match(login, /활동 지역은 카카오 제공항목이 아니며, 로그인 후 별도로 입력/);
   assert.doesNotMatch(login, /카카오싱크/);
   assert.doesNotMatch(privacy, /CI\(연계정보\)|생일 축하 쿠폰/);
   assert.match(privacy, /내부 연결 식별자/);
+  assert.match(privacy, /카카오톡 채널 추가 상태 및 내역/);
+  assert.match(privacy, /동문회 공지 및 경조사 알림/);
   assert.doesNotMatch(terms, /근무지 정보/);
   assert.doesNotMatch(terms, /카카오싱크|간편 가입/);
+  assert.match(terms, /카카오톡 채널 추가 상태 및 내역/);
+  assert.match(terms, /동문회 공지 및 경조사 알림/);
   assert.match(profile, /profileImage/);
   assert.match(profile, /birthdayType/);
   assert.match(home, /isBirthdayToday/);
@@ -109,15 +115,20 @@ test("member withdrawal uses a separate destructive confirmation dialog and clea
   assert.match(auth, /setUser: \(user: ClientUser \| null\) => void/);
 });
 
-test("settings and terms do not claim an unimplemented Kakao notification service", async () => {
-  const [settings, terms] = await Promise.all([
+test("public copy does not claim an unimplemented Kakao notification service", async () => {
+  const [settings, login, privacy, terms] = await Promise.all([
     source("components/profile/settings-dialog.tsx"),
+    source("pages/login.tsx"),
+    source("pages/privacy.tsx"),
     source("pages/terms.tsx"),
   ]);
 
   assert.doesNotMatch(settings, /카카오 알림 연동|switch-kakao-sync|kakaoSyncEnabled/);
   assert.doesNotMatch(settings, /동문회 소식·경조사 안내를 카카오로/);
   assert.doesNotMatch(await source("hooks/use-auth.tsx"), /카카오톡으로 결과/);
+  for (const publicCopy of [login, privacy, terms]) {
+    assert.doesNotMatch(publicCopy, /카카오톡 자동 발송|친구톡 자동 발송|문자 메시지를 대체/);
+  }
   assert.doesNotMatch(terms, /카카오톡을 통한 알림 서비스|동문회 소식 및 행사 알림|회비 납부 안내/);
   assert.match(terms, /카카오 계정을 통한 로그인/);
   assert.match(terms, /카카오 로그인 서비스/);
