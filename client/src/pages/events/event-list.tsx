@@ -26,19 +26,14 @@ export type PublishedCommunityEvent = {
 };
 
 type EventListProps = {
-  selectedType: "all" | CommunityEventType;
   onSelect: (id: number) => void;
 };
 
-function eventListUrl(selectedType: EventListProps["selectedType"]) {
-  return selectedType === "all" ? "/api/events" : `/api/events?type=${selectedType}`;
-}
-
-export function EventList({ selectedType, onSelect }: EventListProps) {
+export function EventList({ onSelect }: EventListProps) {
   const { data: events = [], isLoading, error, isFetching, refetch } = useQuery<PublishedCommunityEvent[]>({
-    queryKey: ["/api/events", selectedType],
+    queryKey: ["/api/events"],
     queryFn: async () => {
-      const response = await fetch(eventListUrl(selectedType), { credentials: "include" });
+      const response = await fetch("/api/events", { credentials: "include" });
       if (!response.ok) {
         throw new Error("경조사 목록을 불러오지 못했습니다.");
       }

@@ -64,17 +64,19 @@ test("missing production administrator key reports the production variable only"
   );
 });
 
-test("deployment docs and environment example match the PostgreSQL login transition", async () => {
-  const [envExample, replitGuide, roadmap] = await Promise.all([
+test("deployment docs and environment example match the transitional alumni sources", async () => {
+  const [envExample, replitGuide, proposal] = await Promise.all([
     readFile(new URL("../.env.example", import.meta.url), "utf8"),
     readFile(new URL("../replit.md", import.meta.url), "utf8"),
-    readFile(new URL("../roadmap.md", import.meta.url), "utf8"),
+    readFile(new URL("../planning_proposal.md", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(envExample, /^KAKAO_ADMIN_KEY=/m);
   assert.match(envExample, /^KAKAO_DEV_ADMIN_KEY=""$/m);
   assert.match(envExample, /^KAKAO_PROD_ADMIN_KEY=""$/m);
-  assert.match(replitGuide, /로그인 매칭 코드는 PostgreSQL `alumni_database`를 사용/);
+  assert.match(replitGuide, /Google Sheets를 동문 명부의 \*\*관리 원본\*\*/);
+  assert.match(replitGuide, /PostgreSQL `alumni_database`[^\n]*\*\*런타임 복제본\*\*/);
   assert.doesNotMatch(replitGuide, /아직 Google Sheets 런타임 조회를 사용/);
-  assert.match(roadmap, /\| PostgreSQL 기준 명부 일원화 \| 진행 중 \|/);
+  assert.match(proposal, /Google Sheets를 동문 명부의 \*\*관리 원본\*\*/);
+  assert.match(proposal, /PostgreSQL `alumni_database`[^\n]*\*\*런타임 복제본\*\*/);
 });

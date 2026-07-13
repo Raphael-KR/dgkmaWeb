@@ -105,7 +105,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     revision: number,
   ) => {
     const requestEpoch = typeEpochRef.current.get(requestEventType) ?? 0;
-    saveQueueRef.current = saveQueueRef.current.catch(() => undefined).then(async () => {
+    const operation = saveQueueRef.current.catch(() => undefined).then(async () => {
       if (
         manuallyPausedRef.current
         || externallyPausedRef.current
@@ -113,7 +113,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
         || requestEpoch !== (typeEpochRef.current.get(requestEventType) ?? 0)
         || !isCurrent(requestEventType, requestGeneration)
       ) {
-        return;
+        return false;
       }
 
       setStatus("saving");
@@ -135,16 +135,20 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
           draftIdRef.current = savedDraft.id;
           setDraftId(savedDraft.id);
           if (revision === saveRevisionRef.current) setStatus("saved");
+          return true;
         }
+        return false;
       } catch (error) {
         if (isCurrent(requestEventType, requestGeneration) && revision === saveRevisionRef.current) {
           setStatus("error");
           setErrorKind("save");
           setErrorMessage(error instanceof Error ? error.message : "임시 저장에 실패했습니다.");
         }
+        return false;
       }
     });
-    return saveQueueRef.current;
+    saveQueueRef.current = operation.then(() => undefined);
+    return operation;
   }, [fetcher, isCurrent]);
 
   const scheduleSave = useCallback((values: CommunityEventDraftInput) => {
@@ -275,6 +279,25 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     if (mountedRef.current) setStatus((current) => current === "saving" ? "idle" : current);
     return readyDraftId;
   }, [clearSaveTimeout]);
+
+  const flushAutosave = useCallback(async () => {
+    clearSaveTimeout();
+    await recoveryPromiseRef.current.catch(() => undefined);
+    if (
+      recoveryFailedRef.current
+      || manuallyPausedRef.current
+      || publishResolutionIdRef.current
+    ) {
+      return false;
+    }
+
+    const values = form.getValues();
+    if (!hasMeaningfulDraftInput(values)) return true;
+    const requestEventType = activeRef.current.eventType;
+    const requestGeneration = activeRef.current.generation;
+    const revision = ++saveRevisionRef.current;
+    return await persistDraft(values, requestEventType, requestGeneration, revision);
+  }, [clearSaveTimeout, form, persistDraft]);
 
   const resumeAutosave = useCallback(() => {
     if (!shouldResumeAutosave(publishResolutionIdRef.current)) return;
@@ -441,6 +464,7 @@ export function useEventDraft({ eventType, form, isPaused }: UseEventDraftInput)
     isPublishResolutionPending: publishResolutionId !== undefined,
     completePublish,
     discardDraft,
+    flushAutosave,
     prepareForPublish,
     registerDraftId,
     lockPublishResolution,

@@ -7,11 +7,11 @@
 | 구분 | Development Database | Production Database |
 |---|---|---|
 | 용도 | 구현, 테스트, 반복 초기화 | Republish된 서비스의 운영 데이터 |
-| 기본 접근 | Replit SSH의 `PG*` 환경변수와 `DATABASE_URL` | Replit Secret의 임시 `PROD_DATABASE_URL` |
+| 기본 접근 | Replit SSH의 `PG*` 환경변수와 `DATABASE_URL` | Replit Secret의 명시적 `PROD_DATABASE_URL` |
 | 확인된 DB | `heliumdb` | `neondb` |
 | 기본 선택 여부 | 기본값 | 명시적으로 선택할 때만 사용 |
 
-2026-07-12 기준으로 Google Sheets 명부 3,458건을 양쪽 `alumni_database`에 1회 이관했다. 두 환경 모두 휴대전화 중복과 필수값 누락이 0건이며, 아직 `users`와 명부 연결은 0건이다. 이 기준 상태는 로그인 조회를 PostgreSQL로 전환하기 위한 출발점이며 영구적인 운영 통계가 아니다.
+2026-07-12 기준으로 Google Sheets 명부 3,458건을 양쪽 `alumni_database`에 1회 이관했다. 최종 전환 선언 전까지 Google Sheets는 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Google Sheets를 직접 조회하지 않으며, 명시적인 관리자 동기화로 PostgreSQL 복제본을 갱신한다. 양쪽 DB의 당시 휴대전화 중복과 필수값 누락은 0건이었고 `users`와 명부 연결은 0건이었다. 이 수치는 영구적인 운영 통계가 아니다.
 
 ## SSH 접속
 
@@ -22,7 +22,7 @@ ssh -i ~/.ssh/replit -p 22 dc5e5541-525b-4ad6-b914-2d2db70cb4a9@dc5e5541-525b-4a
 cd /home/runner/workspace
 ```
 
-이 SSH는 Replit 개발 워크스페이스에 연결된다. autoscale 프로덕션 인스턴스의 셸이 아니다. 다만 개발 워크스페이스에 `PROD_DATABASE_URL`이 임시로 설정된 동안에는 SSH 프로세스가 그 URL을 사용해 Production Database에 직접 연결할 수 있다.
+이 SSH는 Replit 개발 워크스페이스에 연결된다. autoscale 프로덕션 인스턴스의 셸이 아니다. 다만 개발 워크스페이스에 `PROD_DATABASE_URL`이 설정되어 있으면 SSH 프로세스가 그 URL을 명시적으로 선택해 Production Database에 직접 연결할 수 있다.
 
 ## DB 선택 원리
 
@@ -74,13 +74,13 @@ https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev
 
 ### Secret 준비
 
-쓰기 권한이 있는 운영 URL이 꼭 필요한 동안에만 Replit의 `Tools > Setup > Secrets`에 다음 Secret을 둔다.
+정식 오픈 전 활발한 개발 기간에는 반복되는 운영 스키마·데이터 작업을 위해 Replit의 `Tools > Setup > Secrets`에 다음 Secret을 유지한다.
 
 ```text
 PROD_DATABASE_URL
 ```
 
-실제 값은 Replit이 제공한 Production Database URL 전체다. Mac의 `.env`, 저장소, 문서, 셸 기록, 채팅에는 복제하지 않는다. 새 Secret은 새 SSH 세션에서 존재 여부만 확인하며 값을 출력하지 않는다.
+실제 값은 Replit이 제공한 Production Database URL 전체다. Mac의 `.env`, 저장소, 문서, 셸 기록, 채팅에는 복제하지 않는다. 새 Secret은 새 SSH 세션에서 존재 여부만 확인하며 값을 출력하지 않는다. Secret이 상시 존재하더라도 일반 개발·앱 실행·테스트는 Development Database를 기본으로 하며, 운영 DB 접근은 항상 명시적인 운영 명령으로만 수행한다.
 
 ```bash
 node -e 'console.log(process.env.PROD_DATABASE_URL ? "PROD_DATABASE_URL: PRESENT" : "PROD_DATABASE_URL: MISSING")'
@@ -136,7 +136,7 @@ env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE \
 7. 운영 DB를 새 연결로 재조회하여 필수값, 중복, 연결 상태와 건수를 검증한다.
 8. Republish가 필요한 코드 변경만 Republish한다.
 9. `https://dgkma.org`에서 smoke check를 수행한다.
-10. owner 권한의 `PROD_DATABASE_URL`이 더 필요하지 않으면 Replit Secrets에서 삭제한다.
+10. 작업 결과와 운영 DB 연결 종료를 확인한다. 개발 기간에는 `PROD_DATABASE_URL`을 유지하고, 사용자가 반복적인 운영 스키마·데이터 작업 종료 또는 오픈 전 보안 강화를 명시적으로 선언한 뒤에만 삭제한다.
 
 스키마 변경과 데이터 마이그레이션은 별도 작업으로 취급한다. Production Database에 개발 DB 변경이 자동 전파된다고 가정하지 않는다.
 
@@ -196,7 +196,8 @@ kakao_identity_terminations
 - 명령에는 실제 URL 대신 `$PROD_DATABASE_URL` 변수명만 사용한다.
 - 프로덕션 쿼리 결과에 개인정보가 포함되지 않도록 집계와 마스킹된 샘플을 우선한다.
 - 장시간 SSH 작업이 끝나면 실행 중인 프로세스를 확인하고 `exit`로 세션을 닫는다.
-- owner URL이 필요 없어진 시점에 `PROD_DATABASE_URL` Secret을 삭제한다.
+- 개발 기간에는 향후 스키마·데이터 작업을 위해 owner URL을 유지하되 명시적인 운영 명령에서만 사용한다.
+- 사용자가 반복적인 운영 스키마·데이터 작업 종료 또는 오픈 전 보안 강화를 선언하면 `PROD_DATABASE_URL` Secret을 삭제한다.
 
 ## 장애 확인
 

@@ -22,15 +22,70 @@ test("Kakao callback documentation describes the actual SPA authorization-code f
   }
 });
 
-test("planning proposal names REST OAuth and PostgreSQL alumni_database as current runtime sources", async () => {
+test("planning proposal distinguishes the managed alumni source from the runtime copy", async () => {
   const proposal = await read("planning_proposal.md");
+  const currentPlan = proposal.slice(0, proposal.indexOf("## 9. 변경되거나 폐기된 방향"));
 
   assert.match(proposal, /카카오 REST OAuth/);
-  assert.doesNotMatch(proposal, /카카오싱크/);
+  assert.doesNotMatch(currentPlan, /카카오싱크/);
+  assert.match(proposal, /카카오 JavaScript SDK·카카오싱크[\s\S]*방향 변경/);
   assert.match(proposal, /PostgreSQL `alumni_database`/);
   assert.match(proposal, /1회 이관/);
-  assert.match(proposal, /런타임 원본/);
+  assert.match(proposal, /Google Sheets를 동문 명부의 (?:\*\*)?관리 원본/);
+  assert.match(proposal, /런타임 복제본/);
   assert.doesNotMatch(proposal, /신규 가입 매칭[^\n]*Google Sheets[^\n]*의존/);
+});
+
+test("planning proposal is the single current product and development plan", async () => {
+  const [proposal, roadmap, readme, replit, walkthrough] = await Promise.all([
+    read("planning_proposal.md"),
+    read("roadmap.md"),
+    read("README.md"),
+    read("replit.md"),
+    read("walkthrough.md"),
+  ]);
+
+  assert.match(proposal, /제품·개발 통합 계획서/);
+  assert.match(proposal, /현재 검증 완료 기반/);
+  assert.match(proposal, /P0\/P1 보안·무결성 과제/);
+  assert.match(proposal, /현재 진행 중인 개발/);
+  assert.match(proposal, /장기·보류 과제/);
+  assert.match(proposal, /변경되거나 폐기된 방향/);
+  assert.match(proposal, /community_events` 17개 컬럼 확인/);
+  assert.match(proposal, /Supabase 클라이언트 로그인[\s\S]*방향 변경/);
+  assert.doesNotMatch(proposal, /\*\*미구현\*\*: 통합 경조사 모델/);
+
+  assert.match(roadmap, /planning_proposal\.md/);
+  assert.match(roadmap, /독립적인 상태나 계획을 관리하지 않습니다/);
+  assert.doesNotMatch(roadmap, /## 긴급|## 다음|## 이후|\| P0 \|/);
+
+  for (const document of [readme, replit, walkthrough]) {
+    assert.match(document, /planning_proposal\.md/);
+  }
+  assert.doesNotMatch(readme, /\[roadmap\.md\]/);
+});
+
+test("development continues before one consolidated user QA pass", async () => {
+  const [proposal, walkthrough, changelog] = await Promise.all([
+    read("planning_proposal.md"),
+    read("walkthrough.md"),
+    read("CHANGELOG.md"),
+  ]);
+
+  assert.match(proposal, /개발 완료 후 통합 QA에서 한 번에 진행/);
+  assert.match(proposal, /자동화·개발 DB·개발 서버 검증 결과/);
+  assert.match(proposal, /결제박사 사용 예정/);
+  for (const term of ["API", "수수료", "정산", "환불", "영수증", "보안 조건"]) {
+    assert.match(proposal, new RegExp(term));
+  }
+  assert.match(walkthrough, /## QA 실행 원칙/);
+  assert.match(walkthrough, /기능별로 사용자에게 반복 요청하지 않고 누적/);
+  assert.match(changelog, /핵심 개발 완료 후 통합 QA에서 한 번에 수행/);
+  assert.match(proposal, /상세 입력은 등록 명령 이후/);
+  assert.match(proposal, /목록 필터 없이 전체 경조사/);
+  assert.match(walkthrough, /등록 명령을 누르기 전에는 상세 필드와 미리보기가 표시되지 않/);
+  assert.match(walkthrough, /목록 필터 없이 모든 유형의 경조사가 함께 표시/);
+  assert.match(changelog, /간결한 입력과 점진적 확인 영역/);
 });
 
 test("privacy policy and approved design record the pending rejection destruction contract", async () => {

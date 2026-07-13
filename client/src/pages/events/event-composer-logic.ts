@@ -45,6 +45,19 @@ export function hasMeaningfulDraftInput(input: object) {
   return Object.entries(input).some(([key, value]) => key !== "eventType" && hasValue(value));
 }
 
+function hasDraftValue(value: unknown) {
+  if (typeof value === "string") return value.trim().length > 0;
+  return value !== undefined && value !== null;
+}
+
+export function mergeMissingDraftValues<T extends object>(current: T, parsed: Partial<T>): T {
+  const next = { ...current } as Record<string, unknown>;
+  Object.entries(parsed).forEach(([key, value]) => {
+    if (!hasDraftValue(next[key]) && hasDraftValue(value)) next[key] = value;
+  });
+  return next as T;
+}
+
 export function splitEventSource(sourceText: string) {
   return {
     sourceUrls: sourceText.match(URL_PATTERN)?.slice(0, 3) ?? [],
