@@ -55,7 +55,7 @@ test("community event composer progressively reveals schema-backed review fields
   assert.match(composer, /requestEventPublish\(fetch, publishDraftId, payload\)/);
   assert.match(composer, /conclusivePublishErrorMessage/);
   assert.match(composer, /apiRequest\("GET", `\/api\/events\/\$\{publishDraftId\}`/);
-  assert.match(composer, /apiRequest\("POST", "\/api\/obituary\/parse"/);
+  assert.match(composer, /apiRequest\(\s*"POST",\s*"\/api\/obituary\/parse"/);
   assert.match(composer, /링크 내용 수집은 준비 중이며 입력한 문자만 분석했습니다\./);
   assert.match(composer, /분석할 문자 내용이 없습니다/);
   assert.match(composer, /form\.setError/);

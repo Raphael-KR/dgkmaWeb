@@ -218,10 +218,17 @@ export function EventComposer() {
     }
 
     const requestToken = ++parseRequestRef.current;
+    const parseController = new AbortController();
+    const parseTimeout = setTimeout(() => parseController.abort(), 15000);
     setIsParsing(true);
     try {
       await settleAutosave();
-      const response = await apiRequest("POST", "/api/obituary/parse", { text: textOnly });
+      const response = await apiRequest(
+        "POST",
+        "/api/obituary/parse",
+        { text: textOnly },
+        { signal: parseController.signal },
+      );
       const parsed = await response.json() as ParsedObituary;
       const currentValues = form.getValues();
       if (!canApplyParsedSource({
@@ -262,9 +269,15 @@ export function EventComposer() {
         { shouldDirty: true, shouldValidate: true },
       );
       toast({ title: "부고 문자 분석 완료", description: "입력된 내용을 확인하고 필요한 정보를 보완해주세요." });
-    } catch {
-      toast({ title: "분석 실패", description: "문자 내용을 분석하지 못했습니다. 직접 입력해주세요.", variant: "destructive" });
+    } catch (error) {
+      const timedOut = error instanceof DOMException && error.name === "AbortError";
+      toast({
+        title: timedOut ? "분석 시간이 초과되었습니다" : "분석 실패",
+        description: "문자 내용을 자동 분석하지 못했습니다. 직접 입력해주세요.",
+        variant: "destructive",
+      });
     } finally {
+      clearTimeout(parseTimeout);
       resumeAutosave();
       if (parseRequestRef.current === requestToken) setIsParsing(false);
     }
@@ -403,7 +416,14 @@ export function EventComposer() {
     if (isParsing || isPublishing || isPublishResolutionPending || isClosingReview) return;
     setIsClosingReview(true);
     try {
-      if (!await flushAutosave()) return;
+      const saved = await flushAutosave();
+      if (!saved) {
+        toast({
+          title: "임시 저장하지 못했습니다",
+          description: "현재 화면의 입력은 유지됩니다. 새로고침하기 전에 다시 열어 저장을 재시도해주세요.",
+          variant: "destructive",
+        });
+      }
       setPreviewSuccess(undefined);
       setIsReviewOpen(false);
       requestAnimationFrame(() => registerButtonRef.current?.focus());
