@@ -33,6 +33,22 @@ test("public Kakao consent copy and birthday UI match the approved contract", as
   assert.doesNotMatch(callback, /phoneNumber|profileImage|birthdayType|isLeapMonth/);
 });
 
+test("privacy policy discloses essential overseas processing for Replit and Neon", async () => {
+  const privacy = await source("pages/privacy.tsx");
+
+  assert.match(privacy, /제5조의2 \(개인정보의 국외 이전\)/);
+  assert.match(privacy, /Replit, Inc\./);
+  assert.match(privacy, /privacy@replit\.com/);
+  assert.match(privacy, /Neon, LLC/);
+  assert.match(privacy, /privacy@neon\.tech/);
+  assert.match(privacy, /미국/);
+  assert.match(privacy, /암호화된 네트워크/);
+  assert.match(privacy, /개인정보 보호법 제28조의8 제1항 제3호/);
+  assert.match(privacy, /국외 이전을 거부/);
+  assert.match(privacy, /제8조에 기재된 이메일/);
+  assert.match(privacy, /회원 가입 및 서비스 이용이 제한/);
+});
+
 test("Kakao callback handles every explicit login result without remaining on the loading screen", async () => {
   const [auth, callback, profileEdit, settings] = await Promise.all([
     source("hooks/use-auth.tsx"),
