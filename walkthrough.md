@@ -235,13 +235,14 @@
 
 ## 카카오 동의·탈퇴 검증 상태 (2026-07-13)
 
-- [x] Replit Development 격리 스냅샷에서 `npm test` 209/209, `npm run check`, `npm run build`, `git diff --check` 통과. 실제 PostgreSQL OAuth state·승인·거절·탈퇴 경쟁 테스트와 cleanup 0건을 포함한다.
+- [x] Replit Development 격리 스냅샷에서 `npm test` 210/210, `npm run check`, `npm run build`, `git diff --check` 통과. 실제 PostgreSQL OAuth state·승인·거절·탈퇴 경쟁 테스트와 cleanup 0건을 포함한다.
 - [x] 운영 `/login` 데스크톱·모바일 실제 브라우저 스크린샷과 `/privacy`, `/terms` 반영 상태 확인. 개인정보 없는 캡처는 `docs/review-assets/`에 보관한다.
 - [x] 실제 개발 OAuth·명부 매칭·프로필 표시·탈퇴 smoke. 사용자·세션 0건, 명부 연결 해제, HMAC 종료 marker 2건과 비로그인 화면 복귀를 확인했다.
 - [x] 카카오 심사용 PDF 생성 및 렌더링 검수. 제출 파일은 `docs/review-assets/kakao-consent-review.pdf`다.
 - [x] 운영 additive 스키마, Republish와 비로그인 smoke. 공개 페이지·카테고리 `200`, 탈퇴·부고·경조사·업로드 보호 API `401`, 운영 명부 3,458건을 확인했다.
 - [ ] 카카오 운영 앱의 이름·전화번호·생일 권한 승인 후 운영 OAuth·명부 매칭·탈퇴를 별도로 확인한다.
-- [ ] 국외이전 고지가 포함된 현재 HEAD를 Republish하고 운영 `/privacy`의 데스크톱·모바일 표시를 확인한다.
+- [x] 국외이전 고지가 포함된 현재 HEAD를 Republish하고 운영 `/privacy`의 데스크톱·390px 모바일 표시와 콘솔 오류 없음을 확인했다.
+- [x] 이름·전화번호 필수, 생일 선택, CI 사용 안 함과 심사용 PDF·운영 URL·수집 사유로 개인정보 동의항목 심사를 제출하고 카카오 콘솔의 `심사 중` 상태를 확인했다.
 
 ## 배포 전후 기술 검증
 
