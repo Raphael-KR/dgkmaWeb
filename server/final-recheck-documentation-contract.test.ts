@@ -22,14 +22,15 @@ test("Kakao callback documentation describes the actual SPA authorization-code f
   }
 });
 
-test("planning proposal names REST OAuth and PostgreSQL alumni_database as current runtime sources", async () => {
+test("planning proposal distinguishes the managed alumni source from the runtime copy", async () => {
   const proposal = await read("planning_proposal.md");
 
   assert.match(proposal, /카카오 REST OAuth/);
   assert.doesNotMatch(proposal, /카카오싱크/);
   assert.match(proposal, /PostgreSQL `alumni_database`/);
   assert.match(proposal, /1회 이관/);
-  assert.match(proposal, /런타임 원본/);
+  assert.match(proposal, /Google Sheets를 동문 명부의 관리 원본/);
+  assert.match(proposal, /런타임 복제본/);
   assert.doesNotMatch(proposal, /신규 가입 매칭[^\n]*Google Sheets[^\n]*의존/);
 });
 

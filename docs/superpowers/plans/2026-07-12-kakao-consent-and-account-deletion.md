@@ -154,7 +154,7 @@ npx tsx --test server/member-deduplication.test.ts server/kakao-oauth-routes.tes
 
 Expected: 현재 로그인 경로가 Google Sheets를 사용하고 중복 전화번호·명부 연결을 원자적으로 막지 못해 FAIL.
 
-- [ ] **Step 3: PostgreSQL 원본 매칭 구현**
+- [ ] **Step 3: PostgreSQL 런타임 복제본 매칭 구현**
 
 비교 시에만 카카오와 명부 전화번호를 숫자 문자열로 정규화한다. 기존 회원의 정규화 전화번호가 일치하면 새 회원을 만들지 않는다. 동문 행 연결은 트랜잭션에서 `matched_user_id IS NULL` 조건으로 갱신해 동시에 두 계정이 같은 동문을 점유하지 못하게 한다. 이미 다른 회원에게 연결된 행은 관리자 확인 응답으로 처리한다. 로그인 경로에서 `googleSheetsService.findAlumniByPhoneAndName` 호출과 동적 import를 제거한다.
 
@@ -539,7 +539,7 @@ npm run build
 - 관리자 pending 목록 query는 HTTP 오류의 `message`를 `Error`로 전달하고 성공 body가 배열인지 확인한다.
 - `ClientUser.createdAt`은 DB `User`의 Date 타입과 분리한 `string | null` JSON 계약이며 `toClientUser`가 ISO 문자열로 직렬화한다.
 - callback 문서는 카카오 query 전달, 브라우저의 단일 서버 전달, 서버 응답·앱 로그의 전체 코드·토큰 비기록을 실제 SPA 흐름대로 설명한다.
-- 기획서는 카카오 REST OAuth와 1회 이관된 PostgreSQL `alumni_database`를 현재 인증 런타임 원본으로 설명한다.
+- 기획서는 카카오 REST OAuth, Google Sheets 관리 원본과 PostgreSQL `alumni_database` 런타임 복제본의 전환기 운영을 설명한다.
 
 **검증:**
 

@@ -16,7 +16,7 @@
 - 보조 접근 도메인 `https://dgkma.replit.app`은 공개 홈페이지 주소와 구분하며, 카카오 OAuth callback·redirect 설정에는 사용하지 않습니다.
 - Replit SSH는 `/home/runner/workspace` 개발 워크스페이스 접속입니다.
 - SSH로 접속한 셸은 autoscale 프로덕션 인스턴스의 셸이 아닙니다.
-- SSH 프로세스는 Replit Secret의 임시 `PROD_DATABASE_URL`을 명시적으로 선택할 때 Production Database에 직접 연결할 수 있습니다.
+- SSH 프로세스는 Replit Secret의 `PROD_DATABASE_URL`을 명시적으로 선택할 때 Production Database에 직접 연결할 수 있습니다. 개발 중 반복되는 운영 스키마·데이터 작업을 위해 Secret은 유지하되 기본 연결로 사용하지 않습니다.
 - 개발 DB에 적용한 SQL과 seed는 프로덕션 DB에 자동 반영되지 않습니다.
 - 개발·운영 DB 직접 연결과 안전한 변경 절차는 [데이터베이스 운영 런북](./docs/database-operations.md)을 따릅니다.
 
@@ -73,7 +73,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 로그인 매칭 코드는 PostgreSQL `alumni_database`를 사용하며 Google Sheets를 런타임에 조회하지 않습니다. Google Sheets와 관련 Secrets는 관리자가 명시적으로 실행하는 동문 명부 동기화 기능에만 사용합니다.
+Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 최종 원본 전환을 선언하기 전까지 Google Sheets를 동문 명부의 **관리 원본**으로 유지하고, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**으로 운용합니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다.
 
 ### 선택 운영 설정
 
@@ -82,7 +82,7 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 - `PUBLIC_OBJECT_SEARCH_PATHS`
 - `VITE_KAKAO_CHANNEL_URL`
 
-쓰기 권한이 있는 `PROD_DATABASE_URL`은 상시 설정이 아니라 명시적인 운영 변경 기간에만 두는 임시 Secret입니다. 반복적인 운영 조회가 필요하면 별도 읽기 전용 역할의 `PROD_DATABASE_READONLY_URL`을 사용합니다.
+쓰기 권한이 있는 `PROD_DATABASE_URL`은 정식 오픈 전 개발 기간에는 Replit Secrets에 유지합니다. 단, 존재 자체가 운영 변경 승인을 뜻하지 않으며 일반 개발·앱 실행·테스트에서는 Development Database를 기본으로 사용합니다. 운영 작업은 명시적인 명령, 대상 DB와 변경 전후 건수 확인, 가능한 트랜잭션 적용을 거쳐야 합니다. 반복적인 운영 조회에는 가능하면 별도 읽기 전용 역할의 `PROD_DATABASE_READONLY_URL`을 사용합니다. owner URL은 사용자가 반복적인 운영 스키마·데이터 작업 종료 또는 오픈 전 보안 강화를 명시적으로 선언한 뒤 제거합니다.
 
 `DEBUG_KAKAO_AUTH`를 활성화해도 전체 키, 토큰, 인가 코드, 개인 정보를 로그에 남기지 않습니다.
 

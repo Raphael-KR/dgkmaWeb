@@ -21,11 +21,12 @@ https://dgkma.org
 Use the Replit development homepage as the default browser target during implementation and iterative verification. Do not require a Republish just to inspect an in-progress change.
 Use the production homepage only for post-Republish smoke checks and production-specific verification.
 Codex may use the configured Replit SSH connection to update and validate the development workspace and Development Database. Replit SSH does not connect to the Production Database or an autoscale production instance.
-When the temporary Replit Secret `PROD_DATABASE_URL` exists, SSH processes can connect directly to the Production Database. Follow `docs/database-operations.md` for every direct database operation.
+When the Replit Secret `PROD_DATABASE_URL` exists, SSH processes can connect directly to the Production Database. Keep it during active pre-launch development because approved production schema and data changes may recur. Follow `docs/database-operations.md` for every direct database operation.
 Keep Development Database as the default. Replit `PG*` variables take precedence over `DATABASE_URL` in `server/db.ts`; never unset them for normal development, app execution, or tests.
 Select Production Database only with an explicit production command. Verify `current_database()` and pre-change counts first, use a transaction where practical, then verify through a new connection.
-Treat owner-level `PROD_DATABASE_URL` as temporary and remove it after the approved production work. Prefer `PROD_DATABASE_READONLY_URL` for recurring production inspection.
+The presence of owner-level `PROD_DATABASE_URL` does not authorize implicit production access. Prefer `PROD_DATABASE_READONLY_URL` for recurring production inspection when available. Remove the owner URL only after the user explicitly declares recurring production schema and data work complete or requests launch hardening.
 Never store either production URL in a local Mac `.env`, repository file, document, shell history, or chat.
+Until the user explicitly declares the final alumni-source cutover, Google Sheets remains the managed alumni source and PostgreSQL `alumni_database` is the login/runtime copy. Keep `ALUMNI_SPREADSHEET_ID`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, and the explicit admin sync path available during this transition. Do not remove or disable them merely because login no longer queries Google Sheets directly.
 Do not assume local Mac npm scripts are reliable. Local `node_modules`, `tsc`, build tools, or dev dependencies may be missing or stale.
 When validation is needed, run it in the Replit development workspace through SSH when available. Ask the user to run commands only when Codex cannot access the required Replit surface.
 Preferred validation commands:

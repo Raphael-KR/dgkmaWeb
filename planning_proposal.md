@@ -24,11 +24,13 @@
 *   **확정 정책**: 명부 불일치 사용자는 즉시 계정이나 세션을 만들지 않고 `pending_registrations`에 저장하며, 관리자가 승인 또는 거절함.
 
 ## 3. 데이터베이스 및 마이그레이션 전략
-*   **현재 상태**: `구현 완료`
+*   **현재 상태**: `전환 진행 중`
     *   2026년 7월 12일 기존 Google Sheets 명부 3,458건을 Development Database와 Production Database의 PostgreSQL `alumni_database`로 1회 이관함
-    *   신규 가입 매칭, 가입대기 관리자 승인, 동문 조회는 PostgreSQL `alumni_database`를 런타임 원본으로 사용함
-    *   Google Sheets 연동 코드는 과거 이관과 관리자 유지보수의 역사적 맥락으로만 남아 있으며 현재 인증 런타임의 원본이 아님
-*   **DB 전략**: **PostgreSQL 내장 및 일원화**
+    *   사용자가 최종 전환을 선언하기 전까지 Google Sheets를 동문 명부의 관리 원본으로 유지함
+    *   신규 가입 매칭, 가입대기 관리자 승인, 동문 조회는 PostgreSQL `alumni_database` 런타임 복제본을 기준 데이터로 사용하고 Google Sheets를 로그인 요청마다 조회하지 않음
+    *   관리자가 명시적으로 실행하는 동문 명부 동기화로 Google Sheets 변경을 PostgreSQL 런타임 복제본에 반영함
+    *   PostgreSQL 단독 원본 전환, Google Sheets 동결과 관련 Secrets·동기화 기능 제거는 사용자의 명시적인 최종 전환 선언 뒤에 수행함
+*   **DB 전략**: **Google Sheets 관리 원본 + PostgreSQL 런타임 복제본에서 PostgreSQL 단독 원본으로 단계적 전환**
     *   **Alumni Table**: 전체 졸업생 데이터 (기준 데이터)
     *   **User Table**: 가입 회원 데이터
 *   **레거시 데이터 마이그레이션**:
