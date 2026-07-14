@@ -3,7 +3,11 @@ import * as http from "node:http";
 import * as https from "node:https";
 import type { IncomingMessage } from "node:http";
 import net, { type LookupFunction } from "node:net";
-import { assertSafeSourceUrl, isPublicAddress } from "./event-source-policy";
+import {
+  assertSafeSourceUrl,
+  EventSourcePolicyError,
+  isPublicAddress,
+} from "./event-source-policy";
 
 const MAX_REDIRECTS = 3;
 const MAX_BODY_BYTES = 512 * 1024;
@@ -165,7 +169,7 @@ async function resolvePublicAddress(
     throw new Error("주소를 확인할 수 없습니다");
   }
   if (answers.some((answer) => !isPublicAddress(answer.address))) {
-    throw new Error("공개 주소가 아닌 대상은 읽을 수 없습니다");
+    throw new EventSourcePolicyError("공개 주소가 아닌 대상은 읽을 수 없습니다");
   }
 
   const selected = answers[0];

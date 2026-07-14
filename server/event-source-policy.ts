@@ -3,6 +3,13 @@ import net from "node:net";
 const MAX_SOURCE_URLS = 3;
 const TRAILING_URL_PUNCTUATION = /[),.\]}>!?;:'"，。、；：！？…]+$/;
 
+export class EventSourcePolicyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EventSourcePolicyError";
+  }
+}
+
 function ipv4Octets(address: string): number[] | undefined {
   if (net.isIP(address) !== 4) return undefined;
   return address.split(".").map(Number);
@@ -111,25 +118,25 @@ export function assertSafeSourceUrl(rawUrl: string): URL {
   try {
     url = new URL(rawUrl);
   } catch {
-    throw new Error("올바른 주소가 아닙니다");
+    throw new EventSourcePolicyError("올바른 주소가 아닙니다");
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("지원하지 않는 주소 형식입니다");
+    throw new EventSourcePolicyError("지원하지 않는 주소 형식입니다");
   }
   if (url.username || url.password) {
-    throw new Error("인증 정보가 포함된 주소는 사용할 수 없습니다");
+    throw new EventSourcePolicyError("인증 정보가 포함된 주소는 사용할 수 없습니다");
   }
   if (
     (url.protocol === "http:" && url.port && url.port !== "80") ||
     (url.protocol === "https:" && url.port && url.port !== "443")
   ) {
-    throw new Error("기본 포트가 아닌 주소는 사용할 수 없습니다");
+    throw new EventSourcePolicyError("기본 포트가 아닌 주소는 사용할 수 없습니다");
   }
 
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   if (net.isIP(hostname) && !isPublicAddress(hostname)) {
-    throw new Error("공개 주소가 아닌 대상은 읽을 수 없습니다");
+    throw new EventSourcePolicyError("공개 주소가 아닌 대상은 읽을 수 없습니다");
   }
 
   return url;
