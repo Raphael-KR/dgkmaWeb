@@ -85,7 +85,7 @@ const adminPendingRegistrationUpdateSchema = z.object({
 const eventParseRequestSchema = z.object({
   eventType: z.enum(COMMUNITY_EVENT_TYPES),
   input: z.string().min(1).max(20_000),
-});
+}).strict();
 
 function sanitizePublishedEvent(event: CommunityEvent) {
   const { sourceText: _sourceText, ...publishedEvent } = event;
@@ -1013,6 +1013,7 @@ export async function registerRoutes(
         return res.json({
           draft: {
             ...parsed.draft,
+            sourceText: input,
             sourceUrls: sourceResult.urls,
             details: {
               ...parsed.draft.details,
@@ -1029,7 +1030,7 @@ export async function registerRoutes(
           eventType,
           sourceText: input,
           sourceUrls: sourceResult.urls,
-          details: { memo: input },
+          details: { memo: sourceResult.combinedText.slice(0, 5_000) },
         },
         missingFields: [],
         sources: sourceResult.sources,
