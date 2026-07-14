@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
+import { randomUUID } from "node:crypto";
 import test from "node:test";
 import express from "express";
 import {
+  consumePostgresEventParseQuota,
   createEventParseLimiter,
   createInMemoryEventParseQuota,
   type ConsumeEventParseQuota,
 } from "./event-parse-limiter";
+import { pool } from "./db";
 
 async function listen(app: express.Express) {
   const server = app.listen(0, "127.0.0.1");
@@ -81,5 +84,23 @@ test("limits concurrent parsing work per user and releases capacity", async () =
   } finally {
     heldResponses.splice(0).forEach((response) => response.sendStatus(204));
     await server.close();
+  }
+});
+
+test("PostgreSQL quota atomically limits requests across callers", async () => {
+  const email = `event-parse-${randomUUID()}@example.test`;
+  const inserted = await pool.query<{ id: number }>(`
+    INSERT INTO users (email, name) VALUES ($1, '파싱 제한 테스트') RETURNING id
+  `, [email]);
+  const userId = inserted.rows[0]!.id;
+
+  try {
+    const results = await Promise.all(Array.from({ length: 12 }, () => (
+      consumePostgresEventParseQuota(userId, 60_000, 10)
+    )));
+    assert.equal(results.filter(Boolean).length, 10);
+    assert.equal(results.filter((allowed) => !allowed).length, 2);
+  } finally {
+    await pool.query("DELETE FROM users WHERE id = $1", [userId]);
   }
 });
