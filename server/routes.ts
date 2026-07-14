@@ -1006,15 +1006,18 @@ export async function registerRoutes(
     try {
       const { eventType, input } = eventParseRequestSchema.parse(req.body);
       const sourceResult = await readSources(input);
+      const fetchedSourceUrls = sourceResult.sources
+        .filter((source) => source.status === "fetched")
+        .map((source) => source.url);
 
       if (eventType === "obituary") {
         const parsed = parseObituaryEventSource(sourceResult.combinedText);
-        const sourceUrl = sourceResult.urls[0];
+        const sourceUrl = fetchedSourceUrls[0];
         return res.json({
           draft: {
             ...parsed.draft,
             sourceText: input,
-            sourceUrls: sourceResult.urls,
+            sourceUrls: fetchedSourceUrls,
             details: {
               ...parsed.draft.details,
               ...(sourceUrl ? { sourceUrl } : {}),
@@ -1029,7 +1032,7 @@ export async function registerRoutes(
         draft: {
           eventType,
           sourceText: input,
-          sourceUrls: sourceResult.urls,
+          sourceUrls: fetchedSourceUrls,
           details: { memo: sourceResult.combinedText.slice(0, 5_000) },
         },
         missingFields: [],

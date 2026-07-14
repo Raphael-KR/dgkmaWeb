@@ -99,7 +99,7 @@ test("event parsing blocks private links while preserving the submitted text", a
     const body = await response.json();
     assert.equal(body.draft.sourceText, input);
     assert.equal(body.draft.details.memo, "김동국 동문 자녀 결혼 안내");
-    assert.deepEqual(body.draft.sourceUrls, ["http://127.0.0.1/private"]);
+    assert.deepEqual(body.draft.sourceUrls, []);
     assert.deepEqual(body.sources, [{
       url: "http://127.0.0.1/private",
       status: "blocked",
@@ -127,6 +127,7 @@ test("event parsing uses combined public text while preserving the raw source", 
     const body = await response.json();
     assert.equal(body.draft.sourceText, input);
     assert.equal(body.draft.details.memo, "개원 안내\n장소: 동국한의원");
+    assert.deepEqual(body.draft.sourceUrls, ["https://example.com/opening"]);
   } finally {
     await server.close();
   }
@@ -146,7 +147,7 @@ test("event parsing keeps non-obituary memo within its schema limit", async () =
   }
 });
 
-test("event parsing keeps source-reader URLs on obituary drafts", async () => {
+test("event parsing does not promote blocked URLs to obituary source fields", async () => {
   const server = await startServer();
   try {
     const response = await parseEvent(server.baseUrl, {
@@ -157,8 +158,8 @@ test("event parsing keeps source-reader URLs on obituary drafts", async () => {
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.draft.sourceText, "故김한의 모친상 http://127.0.0.1/private");
-    assert.deepEqual(body.draft.sourceUrls, ["http://127.0.0.1/private"]);
-    assert.equal(body.draft.details.sourceUrl, "http://127.0.0.1/private");
+    assert.deepEqual(body.draft.sourceUrls, []);
+    assert.equal(body.draft.details.sourceUrl, undefined);
     assert.equal(body.sources[0]?.status, "blocked");
   } finally {
     await server.close();
