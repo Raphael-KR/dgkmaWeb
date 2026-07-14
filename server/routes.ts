@@ -11,7 +11,9 @@ import {
   type CommunityEventPublishInput,
 } from "@shared/community-events";
 import { z } from "zod";
-import { parseObituarySms } from "./obituary-parser";
+import { parseObituaryEventSource, parseObituarySms } from "./obituary-parser";
+import { createEventParseLimiter } from "./event-parse-limiter";
+import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
 import {
   createRequireAdmin,
@@ -78,6 +80,11 @@ const adminPendingRegistrationUpdateSchema = z.object({
   body: z.object({
     status: z.enum(["approved", "rejected"]),
   }).strict(),
+});
+
+const eventParseRequestSchema = z.object({
+  eventType: z.enum(COMMUNITY_EVENT_TYPES),
+  input: z.string().min(1).max(20_000),
 });
 
 function sanitizePublishedEvent(event: CommunityEvent) {
@@ -158,6 +165,7 @@ export type RouteDependencies = {
     | "createOrRefreshPendingRegistration"
     | "finalizeKakaoLogin"
   >;
+  readEventSources?: (input: string) => Promise<EventSourceReadResult>;
 };
 
 function saveSession(req: Request): Promise<void> {
@@ -218,6 +226,8 @@ export async function registerRoutes(
       beforeDelete?: (user: User) => Promise<void>,
     ) => storage.deleteUserAccount(user, beforeDelete));
   const unlinkKakaoUser = dependencies.unlinkKakaoUser ?? unlinkKakaoUserFromKakao;
+  const readSources = dependencies.readEventSources ?? readEventSources;
+  const eventParseLimiter = createEventParseLimiter({ windowMs: 60_000, max: 10 });
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -989,6 +999,46 @@ export async function registerRoutes(
       res.status(201).json(obituary);
     } catch (error) {
       res.status(500).json({ message: "부고 등록에 실패했습니다" });
+    }
+  });
+
+  app.post("/api/events/parse", requireAuthenticated, eventParseLimiter, async (req, res) => {
+    try {
+      const { eventType, input } = eventParseRequestSchema.parse(req.body);
+      const sourceResult = await readSources(input);
+
+      if (eventType === "obituary") {
+        const parsed = parseObituaryEventSource(sourceResult.combinedText);
+        const sourceUrl = sourceResult.urls[0];
+        return res.json({
+          draft: {
+            ...parsed.draft,
+            sourceUrls: sourceResult.urls,
+            details: {
+              ...parsed.draft.details,
+              ...(sourceUrl ? { sourceUrl } : {}),
+            },
+          },
+          missingFields: parsed.missingFields,
+          sources: sourceResult.sources,
+        });
+      }
+
+      return res.json({
+        draft: {
+          eventType,
+          sourceText: input,
+          sourceUrls: sourceResult.urls,
+          details: { memo: input },
+        },
+        missingFields: [],
+        sources: sourceResult.sources,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      return res.status(500).json({ message: "소식 초안 분석에 실패했습니다" });
     }
   });
 
