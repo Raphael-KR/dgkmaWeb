@@ -50,9 +50,11 @@ async function close(server: Server): Promise<void> {
 test("requestPublicAddress pins the supplied address and preserves the HTTP host", async () => {
   let host = "";
   let acceptEncoding = "";
+  let connection = "";
   const server = createServer((request, response) => {
     host = request.headers.host ?? "";
     acceptEncoding = request.headers["accept-encoding"] ?? "";
+    connection = request.headers.connection ?? "";
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     response.end("<p>행사 안내</p>");
   });
@@ -70,6 +72,26 @@ test("requestPublicAddress pins the supplied address and preserves the HTTP host
     assert.equal(await readBody(response), "<p>행사 안내</p>");
     assert.equal(host, `source.example:${port}`);
     assert.equal(acceptEncoding, "identity");
+    assert.equal(connection, "close");
+  } finally {
+    await close(server);
+  }
+});
+
+test("requestPublicAddress aborts when the body stalls after headers", async () => {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "Content-Type": "text/plain" });
+    response.write("partial");
+  });
+  const port = await listen(server);
+
+  try {
+    const response = await requestPublicAddress(
+      new URL(`http://source.example:${port}/stalled-body`),
+      "127.0.0.1",
+      4,
+    );
+    await assert.rejects(readBody(response), /시간 제한|aborted|premature|reset/i);
   } finally {
     await close(server);
   }
@@ -165,6 +187,35 @@ test("fetchPublicPage blocks all DNS answers when any address is private before 
   assert.equal(requested, false);
 });
 
+test("fetchPublicPage rejects inconsistent DNS family metadata", async () => {
+  let requested = false;
+  await assert.rejects(
+    fetchPublicPage("https://source.example/family", {
+      lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 6 }),
+      requestPublicAddress: async () => {
+        requested = true;
+        return textResponse("unexpected");
+      },
+    }),
+    /주소를 확인/,
+  );
+  assert.equal(requested, false);
+});
+
+test("fetchPublicPage strips IPv6 URL brackets before lookup", async () => {
+  const lookedUp: string[] = [];
+  const page = await fetchPublicPage("https://[2606:4700:4700::1111]/event", {
+    lookup: (async (hostname: string) => {
+      lookedUp.push(hostname);
+      return [{ address: "2606:4700:4700::1111", family: 6 }];
+    }) as PublicPageFetcherDependencies["lookup"],
+    requestPublicAddress: async () => textResponse("행사", { "content-type": "text/plain" }),
+  });
+
+  assert.deepEqual(lookedUp, ["2606:4700:4700::1111"]);
+  assert.equal(page.body, "행사");
+});
+
 test("fetchPublicPage rejects a redirect to localhost before a second request", async () => {
   let requests = 0;
 
@@ -223,8 +274,13 @@ test("fetchPublicPage rejects non-text and compressed responses", async () => {
 });
 
 test("fetchPublicPage aborts a streamed body exceeding 512 KiB", async () => {
+  let cancelled = false;
   async function* oversizedBody(): AsyncIterable<Uint8Array> {
-    yield new Uint8Array(512 * 1024 + 1);
+    try {
+      yield new Uint8Array(512 * 1024 + 1);
+    } finally {
+      cancelled = true;
+    }
   }
 
   await assert.rejects(
@@ -238,4 +294,42 @@ test("fetchPublicPage aborts a streamed body exceeding 512 KiB", async () => {
     }),
     /512 KiB/,
   );
+  assert.equal(cancelled, true);
+});
+
+test("fetchPublicPage rejects an oversized content-length before reading", async () => {
+  let read = false;
+  let cancelled = false;
+  const body: AsyncIterable<Uint8Array> = {
+    [Symbol.asyncIterator]() {
+      return {
+        async next() {
+          read = true;
+          return { done: false as const, value: Buffer.from("unexpected") };
+        },
+        async return() {
+          cancelled = true;
+          return { done: true as const, value: undefined };
+        },
+      };
+    },
+  };
+
+  await assert.rejects(
+    fetchPublicPage("https://source.example/declared-large", {
+      lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 4 }),
+      requestPublicAddress: async () => ({
+        status: 200,
+        headers: {
+          "content-type": "text/plain",
+          "content-length": String(512 * 1024 + 1),
+        },
+        body,
+      }),
+    }),
+    /512 KiB/,
+  );
+
+  assert.equal(read, false);
+  assert.equal(cancelled, true);
 });

@@ -2,7 +2,7 @@ import dns from "node:dns";
 import * as http from "node:http";
 import * as https from "node:https";
 import type { IncomingMessage } from "node:http";
-import type { LookupFunction } from "node:net";
+import net, { type LookupFunction } from "node:net";
 import { assertSafeSourceUrl, isPublicAddress } from "./event-source-policy";
 
 const MAX_REDIRECTS = 3;
@@ -120,10 +120,12 @@ export function requestPublicAddress(
       headers: {
         Accept: "text/html, text/plain;q=0.9",
         "Accept-Encoding": "identity",
+        Connection: "close",
         Host: url.host,
       },
+      agent: false,
       lookup: pinnedLookup,
-      servername: isHttps ? hostname : undefined,
+      servername: isHttps && !net.isIP(hostname) ? hostname : undefined,
     }, (response) => {
       receivedResponse = true;
       resolve({
@@ -150,8 +152,16 @@ async function resolvePublicAddress(
   url: URL,
   lookup: typeof dns.promises.lookup,
 ): Promise<{ address: string; family: 4 | 6 }> {
-  const answers = await lookup(url.hostname, { all: true, verbatim: true });
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const answers = await lookup(hostname, { all: true, verbatim: true });
   if (!Array.isArray(answers) || answers.length === 0) {
+    throw new Error("주소를 확인할 수 없습니다");
+  }
+  if (answers.some((answer) => {
+    const detectedFamily = net.isIP(answer.address);
+    return (answer.family !== 4 && answer.family !== 6)
+      || detectedFamily !== answer.family;
+  })) {
     throw new Error("주소를 확인할 수 없습니다");
   }
   if (answers.some((answer) => !isPublicAddress(answer.address))) {
@@ -215,6 +225,13 @@ function isCompressed(response: RawPublicResponse): boolean {
   }));
 }
 
+function declaredBodyTooLarge(response: RawPublicResponse): boolean {
+  const contentLength = headerValue(response.headers, "content-length");
+  if (!contentLength) return false;
+  const parsed = Number(contentLength);
+  return Number.isFinite(parsed) && parsed > MAX_BODY_BYTES;
+}
+
 export async function fetchPublicPage(
   rawUrl: string,
   dependencies: PublicPageFetcherDependencies = {},
@@ -254,6 +271,10 @@ export async function fetchPublicPage(
     if (!contentType) {
       await cancelBody(response.body);
       throw new Error("텍스트 형식의 응답만 읽을 수 있습니다");
+    }
+    if (declaredBodyTooLarge(response)) {
+      await cancelBody(response.body);
+      throw new Error("응답 본문은 512 KiB를 초과할 수 없습니다");
     }
 
     return {

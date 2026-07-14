@@ -27,6 +27,14 @@ test("accepts only public HTTP and HTTPS URLs with default ports", () => {
   );
   assert.throws(() => assertSafeSourceUrl("http://example.com:8080"), /포트/);
   assert.throws(() => assertSafeSourceUrl("https://127.0.0.1/path"), /공개 주소/);
+  for (const encodedLoopback of [
+    "http://2130706433/",
+    "http://0x7f000001/",
+    "http://0177.0.0.1/",
+    "http://[::ffff:127.0.0.1]/",
+  ]) {
+    assert.throws(() => assertSafeSourceUrl(encodedLoopback), /공개 주소/, encodedLoopback);
+  }
 });
 
 test("classifies public and non-public IPv4 addresses", () => {
@@ -59,7 +67,12 @@ test("classifies public and non-public IPv6 addresses including mapped IPv4", ()
     "fe80::1",
     "ff00::1",
     "2001:db8::1",
+    "2001::1",
+    "2001:2::1",
+    "2002:7f00:1::",
+    "3fff::1",
     "::ffff:127.0.0.1",
+    "::ffff:7f00:1",
     "::ffff:10.0.0.1",
     "::ffff:192.168.1.1",
   ]) {
@@ -68,5 +81,6 @@ test("classifies public and non-public IPv6 addresses including mapped IPv4", ()
 
   assert.equal(isPublicAddress("2606:4700:4700::1111"), true);
   assert.equal(isPublicAddress("2001:4860:4860::8888"), true);
+  assert.equal(isPublicAddress("::ffff:8.8.8.8"), true);
   assert.equal(isPublicAddress("not-an-address"), false);
 });

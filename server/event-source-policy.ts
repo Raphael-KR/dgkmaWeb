@@ -76,7 +76,10 @@ function isPublicIpv6(address: string): boolean {
 
   // Public source pages should currently resolve to global unicast space only.
   if ((groups[0] & 0xe000) !== 0x2000) return false;
+  if (groups[0] === 0x2001 && groups[1] < 0x0200) return false;
   if (groups[0] === 0x2001 && groups[1] === 0x0db8) return false;
+  if (groups[0] === 0x2002) return false;
+  if (groups[0] === 0x3fff && groups[1] < 0x1000) return false;
 
   return true;
 }
