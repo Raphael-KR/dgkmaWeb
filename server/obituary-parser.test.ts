@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseObituarySms } from "./obituary-parser";
+import { parseObituaryEventSource, parseObituarySms } from "./obituary-parser";
 
 test("does not invent a relationship when an obituary source has no relationship evidence", () => {
   const parsed = parseObituarySms("故 홍길동님 별세 안내\n빈소: 동국병원 장례식장");
@@ -25,4 +25,64 @@ test("recognizes explicit relationship expressions and normalizes in-laws", () =
   assert.equal(parseObituarySms("김동국 동문 장인상").deceasedRelation, "빙부");
   assert.equal(parseObituarySms("고인과의 관계: 장모").deceasedRelation, "빙모");
   assert.equal(parseObituarySms("김동국 동문 모친께서 별세하셨습니다").deceasedRelation, "모친");
+});
+
+test("maps a standard obituary message into the community-event draft", () => {
+  const parsed = parseObituaryEventSource(`
+김동국 동문 부친상
+故김한의 (향년 88세)
+발인: 2026년 6월 12일(금요일) 오전 7시 30분
+빈소: 동국병원 장례식장 202호실
+장지: 동국추모공원
+상주: 김동국
+마음 전하실 곳: 동국은행 000-000-000000 김동국
+연락처: 010-0000-0000
+https://example.com/obituary
+  `.trim());
+
+  assert.deepEqual(parsed.missingFields, []);
+  assert.equal(parsed.draft.eventType, "obituary");
+  assert.equal(parsed.draft.relatedMemberName, "김동국");
+  assert.equal(parsed.draft.eventDate, "2026년 6월 12일(금요일) 오전 7시 30분");
+  assert.equal(parsed.draft.location, "동국병원 장례식장 202호실");
+  assert.equal(parsed.draft.contactNumber, "010-0000-0000");
+  assert.equal(parsed.draft.accountInfo, "동국은행 000-000-000000 김동국");
+  assert.deepEqual(parsed.draft.sourceUrls, ["https://example.com/obituary"]);
+  assert.deepEqual(parsed.draft.details, {
+    deceasedName: "김한의",
+    deceasedAge: 88,
+    relationship: "부친",
+    funeralDate: "2026년 6월 12일(금요일) 오전 7시 30분",
+    funeralHome: "동국병원 장례식장 202호실",
+    accountInfo: "동국은행 000-000-000000 김동국",
+    sourceUrl: "https://example.com/obituary",
+    familyContact: "010-0000-0000",
+    burialPlace: "동국추모공원",
+    chiefMourner: "김동국",
+  });
+});
+
+test("reports required obituary fields that have no source evidence", () => {
+  const parsed = parseObituaryEventSource("故김한의\n관계: 모친\n발인: 2026년 6월 12일");
+
+  assert.deepEqual(parsed.missingFields, ["details.deceasedAge", "details.funeralHome"]);
+  assert.equal(parsed.draft.details.deceasedAge, undefined);
+  assert.equal(parsed.draft.details.funeralHome, undefined);
+});
+
+test("normalizes every approved obituary relationship in event drafts", () => {
+  const cases = [
+    ["본인상", "본인"],
+    ["부친상", "부친"],
+    ["모친상", "모친"],
+    ["장인상", "빙부"],
+    ["장모상", "빙모"],
+    ["시부상", "시부"],
+    ["시모상", "시모"],
+    ["자녀상", "자녀"],
+  ] as const;
+
+  for (const [source, expected] of cases) {
+    assert.equal(parseObituaryEventSource(source).draft.details.relationship, expected);
+  }
 });
