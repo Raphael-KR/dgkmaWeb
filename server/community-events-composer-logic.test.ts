@@ -8,10 +8,43 @@ import {
   classifyPublishRecovery,
   ConclusivePublishError,
   hasMeaningfulDraftInput,
+  mergeParsedEventDraft,
   publishDraftWithRecovery,
   requestEventPublish,
   splitEventSource,
 } from "../client/src/pages/events/event-composer-logic";
+
+test("parsed event drafts fill nested blanks without replacing user edits", () => {
+  const merged = mergeParsedEventDraft(
+    {
+      eventType: "obituary",
+      sourceText: "사용자가 붙여넣은 원문 https://example.com/notice",
+      sourceUrls: [],
+      location: "직접 입력한 빈소",
+      details: { deceasedName: "직접 입력한 이름", funeralDate: "   " },
+    },
+    {
+      eventType: "obituary",
+      sourceText: "원격 페이지에서 추출한 내용",
+      sourceUrls: ["https://example.com/notice"],
+      location: "파싱한 빈소",
+      details: {
+        deceasedName: "파싱한 이름",
+        deceasedAge: 88,
+        funeralDate: "2026년 6월 12일",
+      },
+    },
+  );
+
+  assert.equal(merged.sourceText, "사용자가 붙여넣은 원문 https://example.com/notice");
+  assert.deepEqual(merged.sourceUrls, ["https://example.com/notice"]);
+  assert.equal(merged.location, "직접 입력한 빈소");
+  assert.deepEqual(merged.details, {
+    deceasedName: "직접 입력한 이름",
+    deceasedAge: 88,
+    funeralDate: "2026년 6월 12일",
+  });
+});
 
 test("parsed source fills only missing draft values", async () => {
   const logic = await import("../client/src/pages/events/event-composer-logic");

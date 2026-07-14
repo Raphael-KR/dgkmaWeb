@@ -1,4 +1,4 @@
-import type { CommunityEventType } from "@shared/community-events";
+import type { CommunityEventDraftInput, CommunityEventType } from "@shared/community-events";
 import { missingFieldLabel } from "./obituary-preview-logic";
 
 const URL_PATTERN = /https?:\/\/[^\s]+/g;
@@ -56,6 +56,25 @@ export function mergeMissingDraftValues<T extends object>(current: T, parsed: Pa
     if (!hasDraftValue(next[key]) && hasDraftValue(value)) next[key] = value;
   });
   return next as T;
+}
+
+export function mergeParsedEventDraft(
+  current: CommunityEventDraftInput,
+  parsed: CommunityEventDraftInput,
+): CommunityEventDraftInput {
+  const common = mergeMissingDraftValues(current, parsed);
+  const details = mergeMissingDraftValues(
+    current.details as Record<string, unknown>,
+    parsed.details as Record<string, unknown>,
+  );
+
+  return {
+    ...common,
+    eventType: current.eventType,
+    sourceText: current.sourceText,
+    sourceUrls: parsed.sourceUrls,
+    details,
+  } as CommunityEventDraftInput;
 }
 
 export function splitEventSource(sourceText: string) {

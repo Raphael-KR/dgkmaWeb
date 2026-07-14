@@ -30,7 +30,8 @@ const MISSING_FIELD_LABELS: Record<string, string> = {
 };
 
 export function missingFieldLabel(field: string): string {
-  return MISSING_FIELD_LABELS[field] ?? "입력값";
+  const normalized = field.split(".").pop() ?? field;
+  return MISSING_FIELD_LABELS[normalized] ?? "입력값";
 }
 
 export type PreviewRequestIdentity = {
