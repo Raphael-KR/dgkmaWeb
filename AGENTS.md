@@ -64,6 +64,8 @@ The browser starts login through `/api/auth/kakao/start`. The server alone selec
 - Development: `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`
 - Production: `https://dgkma.org/kakao-callback`
 
+Development OAuth uses the official Kakao test app and requests `name`, `profile_image`, `account_email`, `birthday`, and `phone_number`. Production OAuth requests the same scopes plus the production representative-channel scope `plusfriends`. Do not share the production Kakao app keys with the development server or add `plusfriends` back to the development authorization request.
+
 The development and production callback values must be registered exactly as shown and must match the selected `KAKAO_*_REDIRECT_URI` value. The five generic Kakao Secrets are deprecated. Remove them only after both development and production smoke checks pass.
 
 Do not use Kakao JavaScript SDK login for the current v5 flow.

@@ -14,7 +14,8 @@ export class KakaoOAuthConfigurationError extends Error {
   }
 }
 
-const KAKAO_SCOPE = "name,profile_image,account_email,birthday,phone_number,plusfriends";
+const KAKAO_BASE_SCOPE = "name,profile_image,account_email,birthday,phone_number";
+const KAKAO_PRODUCTION_SCOPE = `${KAKAO_BASE_SCOPE},plusfriends`;
 const KAKAO_REDIRECT_URIS = {
   development:
     "https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback",
@@ -56,11 +57,14 @@ export function resolveKakaoOAuthConfig(
 }
 
 export function buildKakaoAuthorizeUrl(config: KakaoOAuthConfig, state: string): string {
+  const scope = config.environment === "production"
+    ? KAKAO_PRODUCTION_SCOPE
+    : KAKAO_BASE_SCOPE;
   const params = new URLSearchParams({
     client_id: config.restApiKey,
     redirect_uri: config.redirectUri,
     response_type: "code",
-    scope: KAKAO_SCOPE,
+    scope,
     state,
   });
   return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
