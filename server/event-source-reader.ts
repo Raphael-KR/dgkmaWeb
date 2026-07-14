@@ -25,9 +25,16 @@ export type EventSourceReadResult = {
 };
 
 export type EventSourceReaderDependencies = {
-  fetchPage?: (url: string) => Promise<PublicPageResult>;
+  fetchPage?: (url: string, signal?: AbortSignal) => Promise<PublicPageResult>;
   extractText?: (page: PublicPageResult) => string;
 };
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error("경조사 원문 분석이 중단되었습니다");
+  error.name = "AbortError";
+  throw error;
+}
 
 function normalizeSourceText(value: string): string {
   return value
@@ -47,7 +54,9 @@ function withoutSourceUrls(input: string, urls: string[]): string {
 export async function readEventSources(
   input: string,
   dependencies: EventSourceReaderDependencies = {},
+  signal?: AbortSignal,
 ): Promise<EventSourceReadResult> {
+  throwIfAborted(signal);
   const urls = extractEventSourceUrls(input);
   const fetchPage = dependencies.fetchPage ?? fetchPublicPage;
   const extractText = dependencies.extractText ?? extractPublicPageText;
@@ -55,14 +64,16 @@ export async function readEventSources(
   const sources: EventSourceStatus[] = [];
 
   for (const url of urls) {
+    throwIfAborted(signal);
     try {
       assertSafeSourceUrl(url);
-      const page = await fetchPage(url);
+      const page = await fetchPage(url, signal);
       const extracted = normalizeSourceText(extractText(page));
       if (!extracted) throw new Error("empty public page");
       textParts.push(extracted);
       sources.push({ url, status: "fetched", message: SOURCE_MESSAGES.fetched });
     } catch (error) {
+      throwIfAborted(signal);
       const blocked = error instanceof EventSourcePolicyError;
       sources.push({
         url,

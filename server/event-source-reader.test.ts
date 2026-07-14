@@ -91,3 +91,25 @@ test("reports private destinations as blocked without invoking the fetcher", asy
     message: "안전하지 않은 주소는 읽지 않았습니다.",
   }]);
 });
+
+test("stops reading remaining URLs when the request signal is aborted", async () => {
+  const controller = new AbortController();
+  const fetched: string[] = [];
+  const pending = readEventSources(
+    "https://first.example/a https://second.example/b",
+    {
+      fetchPage: async (url, signal) => {
+        fetched.push(url);
+        await new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        });
+        return htmlPage(url, "unexpected");
+      },
+    },
+    controller.signal,
+  );
+
+  setTimeout(() => controller.abort(), 10);
+  await assert.rejects(pending, /중단|aborted/i);
+  assert.deepEqual(fetched, ["https://first.example/a"]);
+});

@@ -3,12 +3,14 @@ import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
 import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
+import { createEventParseLimiter, createInMemoryEventParseQuota } from "./event-parse-limiter";
 import { registerRoutes } from "./routes";
 
 const memberId = 2_147_483_646;
 
 async function startServer(
-  readSources?: (input: string) => Promise<EventSourceReadResult>,
+  readSources?: (input: string, signal?: AbortSignal) => Promise<EventSourceReadResult>,
+  eventParseTimeoutMs?: number,
 ) {
   const app = express();
   app.use(express.json({ limit: "1mb" }));
@@ -22,6 +24,12 @@ async function startServer(
     readEventSources: readSources ?? ((input) => readEventSources(input, {
       fetchPage: async () => { throw new Error("테스트는 외부 페이지를 읽지 않습니다"); },
     })),
+    eventParseTimeoutMs,
+    eventParseLimiter: createEventParseLimiter({
+      windowMs: 60_000,
+      max: 10,
+      consumeQuota: createInMemoryEventParseQuota(),
+    }),
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -202,6 +210,30 @@ test("event parsing limits one member to ten requests per minute", async () => {
     });
     assert.equal(limited.status, 429);
     assert.deepEqual(await limited.json(), { message: "잠시 후 다시 시도해주세요" });
+  } finally {
+    await server.close();
+  }
+});
+
+test("event parsing stops source work at the route deadline", async () => {
+  let aborted = false;
+  const server = await startServer((_input, signal) => new Promise((_resolve, reject) => {
+    signal?.addEventListener("abort", () => {
+      aborted = true;
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      reject(error);
+    }, { once: true });
+  }), 20);
+
+  try {
+    const response = await parseEvent(server.baseUrl, {
+      eventType: "other",
+      input: "느린 링크",
+    });
+    assert.equal(response.status, 504);
+    assert.deepEqual(await response.json(), { message: "분석 시간이 초과되었습니다" });
+    assert.equal(aborted, true);
   } finally {
     await server.close();
   }

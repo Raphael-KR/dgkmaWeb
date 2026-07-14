@@ -31,6 +31,7 @@ export type RequestPublicAddress = (
   url: URL,
   address: string,
   family: 4 | 6,
+  signal?: AbortSignal,
 ) => Promise<RawPublicResponse>;
 
 export type PublicPageFetcherDependencies = {
@@ -50,9 +51,40 @@ function clearRequestTimer(timer: NodeJS.Timeout): void {
   clearTimeout(timer);
 }
 
+function abortError(): Error {
+  const error = new Error("공개 페이지 요청이 중단되었습니다");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw abortError();
+}
+
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  throwIfAborted(signal);
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 function createTimedBody(
   response: IncomingMessage,
   timer: NodeJS.Timeout,
+  cleanupAbort: () => void,
 ): AsyncIterable<Uint8Array> {
   return {
     [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
@@ -62,6 +94,7 @@ function createTimedBody(
         if (finished) return;
         finished = true;
         clearRequestTimer(timer);
+        cleanupAbort();
       };
 
       return {
@@ -101,6 +134,7 @@ export function requestPublicAddress(
   url: URL,
   address: string,
   family: 4 | 6,
+  signal?: AbortSignal,
 ): Promise<RawPublicResponse> {
   const isHttps = url.protocol === "https:";
   const transport = isHttps ? https : http;
@@ -114,6 +148,7 @@ export function requestPublicAddress(
   };
 
   return new Promise((resolve, reject) => {
+    throwIfAborted(signal);
     let receivedResponse = false;
     const request = transport.request({
       protocol: url.protocol,
@@ -135,9 +170,12 @@ export function requestPublicAddress(
       resolve({
         status: response.statusCode ?? 0,
         headers: response.headers,
-        body: createTimedBody(response, timer),
+        body: createTimedBody(response, timer, cleanupAbort),
       });
     });
+    const onAbort = () => request.destroy(abortError());
+    const cleanupAbort = () => signal?.removeEventListener("abort", onAbort);
+    signal?.addEventListener("abort", onAbort, { once: true });
     const timer = setTimeout(() => {
       request.destroy(new Error("요청 시간 제한을 초과했습니다"));
     }, REQUEST_TIMEOUT_MS);
@@ -145,6 +183,7 @@ export function requestPublicAddress(
     request.once("error", (error) => {
       if (!receivedResponse) {
         clearRequestTimer(timer);
+        cleanupAbort();
         reject(error);
       }
     });
@@ -155,9 +194,10 @@ export function requestPublicAddress(
 async function resolvePublicAddress(
   url: URL,
   lookup: typeof dns.promises.lookup,
+  signal?: AbortSignal,
 ): Promise<{ address: string; family: 4 | 6 }> {
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  const answers = await lookup(hostname, { all: true, verbatim: true });
+  const answers = await abortable(lookup(hostname, { all: true, verbatim: true }), signal);
   if (!Array.isArray(answers) || answers.length === 0) {
     throw new Error("주소를 확인할 수 없습니다");
   }
@@ -188,7 +228,10 @@ async function cancelBody(body: AsyncIterable<Uint8Array>): Promise<void> {
   }
 }
 
-async function readBoundedBody(body: AsyncIterable<Uint8Array>): Promise<string> {
+async function readBoundedBody(
+  body: AsyncIterable<Uint8Array>,
+  signal?: AbortSignal,
+): Promise<string> {
   const iterator = body[Symbol.asyncIterator]();
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
@@ -196,7 +239,7 @@ async function readBoundedBody(body: AsyncIterable<Uint8Array>): Promise<string>
 
   try {
     while (true) {
-      const next = await iterator.next();
+      const next = await abortable(iterator.next(), signal);
       if (next.done) {
         completed = true;
         return Buffer.concat(chunks).toString("utf8");
@@ -239,7 +282,9 @@ function declaredBodyTooLarge(response: RawPublicResponse): boolean {
 export async function fetchPublicPage(
   rawUrl: string,
   dependencies: PublicPageFetcherDependencies = {},
+  signal?: AbortSignal,
 ): Promise<PublicPageResult> {
+  throwIfAborted(signal);
   const requestedUrl = assertSafeSourceUrl(rawUrl);
   const lookup = dependencies.lookup ?? dns.promises.lookup;
   const request = dependencies.requestPublicAddress ?? requestPublicAddress;
@@ -247,9 +292,13 @@ export async function fetchPublicPage(
   let redirects = 0;
 
   while (true) {
+    throwIfAborted(signal);
     const safeUrl = assertSafeSourceUrl(currentUrl.href);
-    const address = await resolvePublicAddress(safeUrl, lookup);
-    const response = await request(safeUrl, address.address, address.family);
+    const address = await resolvePublicAddress(safeUrl, lookup, signal);
+    const response = await abortable(
+      request(safeUrl, address.address, address.family, signal),
+      signal,
+    );
 
     if (REDIRECT_STATUS_CODES.has(response.status)) {
       const location = headerValue(response.headers, "location");
@@ -285,7 +334,7 @@ export async function fetchPublicPage(
       requestedUrl: requestedUrl.href,
       finalUrl: safeUrl.href,
       contentType,
-      body: await readBoundedBody(response.body),
+      body: await readBoundedBody(response.body, signal),
     };
   }
 }

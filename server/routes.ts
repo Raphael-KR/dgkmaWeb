@@ -1,4 +1,4 @@
-import type { Express, Request } from "express";
+import type { Express, Request, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "node:crypto";
 import { normalizePhoneForComparison, PendingRegistrationConflictError, PhoneRegistrationConflictError, storage } from "./storage";
@@ -14,6 +14,11 @@ import { z } from "zod";
 import { parseObituaryEventSource, parseObituarySms } from "./obituary-parser";
 import { createEventParseLimiter } from "./event-parse-limiter";
 import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
+import {
+  normalizeCommunityEventSources,
+  sanitizeStoredCommunityEventSources,
+} from "./community-event-source-policy";
+import { EventSourcePolicyError } from "./event-source-policy";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage/routes";
 import {
   createRequireAdmin,
@@ -88,7 +93,8 @@ const eventParseRequestSchema = z.object({
 }).strict();
 
 function sanitizePublishedEvent(event: CommunityEvent) {
-  const { sourceText: _sourceText, ...publishedEvent } = event;
+  const safeEvent = sanitizeStoredCommunityEventSources(event);
+  const { sourceText: _sourceText, ...publishedEvent } = safeEvent;
   return publishedEvent;
 }
 
@@ -165,7 +171,9 @@ export type RouteDependencies = {
     | "createOrRefreshPendingRegistration"
     | "finalizeKakaoLogin"
   >;
-  readEventSources?: (input: string) => Promise<EventSourceReadResult>;
+  readEventSources?: (input: string, signal?: AbortSignal) => Promise<EventSourceReadResult>;
+  eventParseTimeoutMs?: number;
+  eventParseLimiter?: RequestHandler;
 };
 
 function saveSession(req: Request): Promise<void> {
@@ -227,7 +235,9 @@ export async function registerRoutes(
     ) => storage.deleteUserAccount(user, beforeDelete));
   const unlinkKakaoUser = dependencies.unlinkKakaoUser ?? unlinkKakaoUserFromKakao;
   const readSources = dependencies.readEventSources ?? readEventSources;
-  const eventParseLimiter = createEventParseLimiter({ windowMs: 60_000, max: 10 });
+  const eventParseLimiter = dependencies.eventParseLimiter
+    ?? createEventParseLimiter({ windowMs: 60_000, max: 10 });
+  const eventParseTimeoutMs = dependencies.eventParseTimeoutMs ?? 15_000;
 
   // Auth routes
   // Simple auth callback for development (Supabase OAuth 사용 안함)
@@ -1003,9 +1013,21 @@ export async function registerRoutes(
   });
 
   app.post("/api/events/parse", requireAuthenticated, eventParseLimiter, async (req, res) => {
+    const controller = new AbortController();
+    let timedOut = false;
+    const onDisconnect = () => {
+      if (!res.writableEnded) controller.abort();
+    };
+    req.once("aborted", onDisconnect);
+    res.once("close", onDisconnect);
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, eventParseTimeoutMs);
+
     try {
       const { eventType, input } = eventParseRequestSchema.parse(req.body);
-      const sourceResult = await readSources(input);
+      const sourceResult = await readSources(input, controller.signal);
       const fetchedSourceUrls = sourceResult.sources
         .filter((source) => source.status === "fetched")
         .map((source) => source.url);
@@ -1042,7 +1064,15 @@ export async function registerRoutes(
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
       }
+      if (timedOut) {
+        return res.status(504).json({ message: "분석 시간이 초과되었습니다" });
+      }
+      if (controller.signal.aborted) return;
       return res.status(500).json({ message: "소식 초안 분석에 실패했습니다" });
+    } finally {
+      clearTimeout(timeout);
+      req.removeListener("aborted", onDisconnect);
+      res.removeListener("close", onDisconnect);
     }
   });
 
@@ -1066,12 +1096,15 @@ export async function registerRoutes(
 
   app.post("/api/events/drafts", async (req, res) => {
     try {
-      const data = communityEventDraftSchema.parse(req.body);
+      const data = normalizeCommunityEventSources(communityEventDraftSchema.parse(req.body));
       const event = await storage.createEventDraft(req.session.userId!, data);
       res.status(201).json(event);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      if (error instanceof EventSourcePolicyError) {
+        return res.status(400).json({ message: "공개 링크 형식을 확인해주세요" });
       }
       res.status(500).json({ message: "임시 저장된 소식 작성에 실패했습니다" });
     }
@@ -1083,7 +1116,7 @@ export async function registerRoutes(
       if (!id) {
         return res.status(400).json({ message: "잘못된 소식입니다" });
       }
-      const data = communityEventDraftSchema.parse(req.body);
+      const data = normalizeCommunityEventSources(communityEventDraftSchema.parse(req.body));
       const event = await storage.updateEventDraft(id, req.session.userId!, data);
       if (!event) {
         return res.status(404).json({ message: "임시 저장된 소식을 찾을 수 없습니다" });
@@ -1092,6 +1125,9 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      if (error instanceof EventSourcePolicyError) {
+        return res.status(400).json({ message: "공개 링크 형식을 확인해주세요" });
       }
       res.status(500).json({ message: "임시 저장된 소식 수정에 실패했습니다" });
     }
@@ -1162,7 +1198,9 @@ export async function registerRoutes(
 
       let data: CommunityEventPublishInput;
       if (req.body?.eventType === "obituary") {
-        const draftData = communityEventDraftSchema.parse(req.body);
+        const draftData = normalizeCommunityEventSources(
+          communityEventDraftSchema.parse(req.body),
+        );
         if (draftData.eventType !== "obituary" || ownedDraft.eventType !== "obituary") {
           return res.status(400).json({ message: "잘못된 요청입니다" });
         }
@@ -1189,9 +1227,9 @@ export async function registerRoutes(
             memberTitle: announcement.input.memberTitle,
           },
         };
-        data = communityEventPublishSchema.parse(canonicalDraft);
+        data = normalizeCommunityEventSources(communityEventPublishSchema.parse(canonicalDraft));
       } else {
-        data = communityEventPublishSchema.parse(req.body);
+        data = normalizeCommunityEventSources(communityEventPublishSchema.parse(req.body));
         if (data.eventType !== ownedDraft.eventType) {
           return res.status(400).json({ message: "잘못된 요청입니다" });
         }
@@ -1205,6 +1243,9 @@ export async function registerRoutes(
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "잘못된 요청입니다", errors: error.errors });
+      }
+      if (error instanceof EventSourcePolicyError) {
+        return res.status(400).json({ message: "공개 링크 형식을 확인해주세요" });
       }
       res.status(500).json({ message: "소식 발행에 실패했습니다" });
     }

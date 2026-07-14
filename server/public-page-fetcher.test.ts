@@ -187,6 +187,31 @@ test("fetchPublicPage blocks all DNS answers when any address is private before 
   assert.equal(requested, false);
 });
 
+test("fetchPublicPage aborts a pending DNS lookup at the caller deadline", async () => {
+  const controller = new AbortController();
+  const pending = fetchPublicPage("https://source.example/slow-dns", {
+    lookup: (() => new Promise(() => {})) as PublicPageFetcherDependencies["lookup"],
+  }, controller.signal);
+
+  setTimeout(() => controller.abort(), 10);
+  await assert.rejects(pending, /중단|aborted/i);
+});
+
+test("fetchPublicPage aborts an injected stalled body at the caller deadline", async () => {
+  const controller = new AbortController();
+  const pending = fetchPublicPage("https://source.example/slow-body", {
+    lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 4 }),
+    requestPublicAddress: async () => ({
+      status: 200,
+      headers: { "content-type": "text/plain" },
+      body: { [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) },
+    }),
+  }, controller.signal);
+
+  setTimeout(() => controller.abort(), 10);
+  await assert.rejects(pending, /중단|aborted/i);
+});
+
 test("fetchPublicPage rejects inconsistent DNS family metadata", async () => {
   let requested = false;
   await assert.rejects(
