@@ -1197,8 +1197,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async applyAlumniSync(fingerprint: string): Promise<AlumniSyncReport> {
-    const snapshot = await googleSheetsService.fetchAlumniSnapshot();
-
     return db.transaction(async (tx) => {
       const lockResult = await tx.execute<{ locked: boolean }>(sql`
         select pg_try_advisory_xact_lock(
@@ -1209,6 +1207,7 @@ export class DatabaseStorage implements IStorage {
         throw new AlumniSyncInProgressError();
       }
 
+      const snapshot = await googleSheetsService.fetchAlumniSnapshot();
       const databaseRecords = await tx.select().from(alumniDatabase);
       const plan = planAlumniSync(snapshot, databaseRecords);
       if (plan.report.blocked) throw new AlumniSyncBlockedError();

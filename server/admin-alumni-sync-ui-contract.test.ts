@@ -12,6 +12,9 @@ test("admin alumni sync uses a PII-free preview before fingerprint apply", async
   assert.match(source, /JSON\.stringify\(\{ fingerprint:/);
   assert.match(source, /변경 미리보기/);
   assert.match(source, /변경 적용/);
+  assert.match(source, /useReducer/);
+  assert.match(source, /alumniSyncReducer/);
+  assert.match(source, /getAlumniSyncControls/);
   for (const field of [
     "sourceTotal",
     "databaseTotal",
@@ -25,8 +28,16 @@ test("admin alumni sync uses a PII-free preview before fingerprint apply", async
   ]) {
     assert.match(source, new RegExp(`report\\.${field}`));
   }
-  assert.match(source, /!preview\.report\.blocked/);
-  assert.match(source, /preview\.report\.insert \+ preview\.report\.update > 0/);
+  for (const action of [
+    "preview-started",
+    "preview-succeeded",
+    "preview-failed",
+    "apply-started",
+    "apply-succeeded",
+    "apply-failed",
+  ]) {
+    assert.match(source, new RegExp(action));
+  }
 });
 
 test("admin alumni sync keeps no raw alumni or synthetic progress state", async () => {

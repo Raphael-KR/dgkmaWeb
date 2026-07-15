@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useReducer } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -11,15 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, RefreshCw, FileSpreadsheet, Users, AlertCircle } from "lucide-react";
 import type { AdminPendingRegistrationDto, AdminPendingRegistrationUpdateResult } from "@shared/schema";
-import type { AlumniSyncReport } from "@shared/alumni-sync";
-
-type AlumniSyncPreviewResponse = {
-  report: AlumniSyncReport;
-  fingerprint: string | null;
-};
+import {
+  alumniSyncInitialState,
+  alumniSyncReducer,
+  getAlumniSyncControls,
+  type AlumniSyncPreview,
+} from "./admin-alumni-sync-state";
 
 type AlumniSyncApplyResponse = {
-  report: AlumniSyncReport;
+  report: AlumniSyncPreview["report"];
 };
 
 async function readAdminResponse<T>(response: Response, fallback: string): Promise<T> {
@@ -34,7 +34,11 @@ export default function Admin() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [preview, setPreview] = useState<AlumniSyncPreviewResponse | null>(null);
+  const [alumniSyncState, dispatchAlumniSync] = useReducer(
+    alumniSyncReducer,
+    alumniSyncInitialState,
+  );
+  const preview = alumniSyncState.preview;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -111,20 +115,24 @@ export default function Admin() {
     enabled: !!user?.isAdmin,
   });
 
-  const previewAlumniMutation = useMutation<AlumniSyncPreviewResponse, Error>({
+  const previewAlumniMutation = useMutation<AlumniSyncPreview, Error>({
     mutationFn: async () => {
       const response = await fetch("/api/admin/sync-alumni/preview", {
         method: "POST",
         credentials: "include",
       });
-      return readAdminResponse<AlumniSyncPreviewResponse>(
+      return readAdminResponse<AlumniSyncPreview>(
         response,
         "변경 미리보기를 불러오지 못했습니다.",
       );
     },
-    onMutate: () => setPreview(null),
-    onSuccess: (nextPreview) => setPreview(nextPreview),
+    onMutate: () => dispatchAlumniSync({ type: "preview-started" }),
+    onSuccess: (nextPreview) => dispatchAlumniSync({
+      type: "preview-succeeded",
+      preview: nextPreview,
+    }),
     onError: (error) => {
+      dispatchAlumniSync({ type: "preview-failed", message: error.message });
       toast({
         title: "미리보기 실패",
         description: error.message,
@@ -147,8 +155,9 @@ export default function Admin() {
         "변경 사항을 적용하지 못했습니다.",
       );
     },
+    onMutate: () => dispatchAlumniSync({ type: "apply-started" }),
     onSuccess: ({ report }) => {
-      setPreview(null);
+      dispatchAlumniSync({ type: "apply-succeeded" });
       queryClient.invalidateQueries({ queryKey: ["/api/alumni"] });
       refetchGoogleSheetsStatus();
       toast({
@@ -157,7 +166,7 @@ export default function Admin() {
       });
     },
     onError: (error) => {
-      setPreview(null);
+      dispatchAlumniSync({ type: "apply-failed", message: error.message });
       toast({
         title: "동기화 실패",
         description: error.message,
@@ -166,10 +175,9 @@ export default function Admin() {
     },
   });
 
-  const canApply = Boolean(
-    preview?.fingerprint
-      && !preview.report.blocked
-      && preview.report.insert + preview.report.update > 0,
+  const { canPreview, canApply } = getAlumniSyncControls(
+    alumniSyncState,
+    Boolean(googleSheetsStatus?.connected),
   );
 
   if (!user?.isAdmin) {
@@ -316,6 +324,14 @@ export default function Admin() {
                       적용 전에 추가·수정 건수와 차단 오류를 확인합니다.
                     </p>
 
+                    {alumniSyncState.errorMessage && (
+                      <Alert variant="destructive" className="mb-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>동기화 요청 실패</AlertTitle>
+                        <AlertDescription>{alumniSyncState.errorMessage}</AlertDescription>
+                      </Alert>
+                    )}
+
                     {preview && (
                       <div className="mb-4 space-y-3" aria-live="polite">
                         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border bg-gray-200">
@@ -355,13 +371,9 @@ export default function Admin() {
                       <Button
                         variant="outline"
                         onClick={() => previewAlumniMutation.mutate()}
-                        disabled={
-                          previewAlumniMutation.isPending
-                          || applyAlumniMutation.isPending
-                          || !googleSheetsStatus?.connected
-                        }
+                        disabled={!canPreview}
                       >
-                        {previewAlumniMutation.isPending ? (
+                        {alumniSyncState.phase === "previewing" ? (
                           <LoadingSpinner className="mr-2" />
                         ) : (
                           <RefreshCw className="mr-2" size={16} />
@@ -370,9 +382,9 @@ export default function Admin() {
                       </Button>
                       <Button
                         onClick={() => applyAlumniMutation.mutate()}
-                        disabled={!canApply || applyAlumniMutation.isPending}
+                        disabled={!canApply}
                       >
-                        {applyAlumniMutation.isPending ? (
+                        {alumniSyncState.phase === "applying" ? (
                           <LoadingSpinner className="mr-2" />
                         ) : (
                           <Check className="mr-2" size={16} />

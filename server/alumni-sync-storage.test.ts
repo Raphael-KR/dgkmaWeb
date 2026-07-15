@@ -27,8 +27,14 @@ test("alumni sync storage uses one advisory-locked transaction without delete", 
   );
 
   assert.match(source, /async previewAlumniSync/);
-  assert.match(method, /db\.transaction/);
-  assert.match(method, /pg_try_advisory_xact_lock/);
+  const transactionIndex = method.indexOf("db.transaction");
+  const lockIndex = method.indexOf("pg_try_advisory_xact_lock");
+  const sourceReadIndex = method.indexOf("fetchAlumniSnapshot");
+  const planIndex = method.indexOf("planAlumniSync");
+  assert.ok(transactionIndex >= 0);
+  assert.ok(lockIndex > transactionIndex);
+  assert.ok(sourceReadIndex > lockIndex, "source는 advisory lock 획득 후 다시 읽어야 합니다.");
+  assert.ok(planIndex > sourceReadIndex);
   assert.match(method, /tx\.insert\(alumniDatabase\)/);
   assert.match(method, /tx\.update\(alumniDatabase\)/);
   assert.doesNotMatch(method, /tx\.delete\(alumniDatabase\)/);
@@ -62,7 +68,18 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
   const triggerName = `task5_trigger_${token.slice(0, 16)}`;
   let targetVerified = false;
   let userId: number | undefined;
+  const fixtureAlumniIds = new Set<number>();
   let currentSnapshot: AlumniSourceSnapshot;
+  let delayNextSourceRead = false;
+  let sourceReadCalls = 0;
+  let markSourceReadStarted: (() => void) | undefined;
+  const sourceReadStarted = new Promise<void>((resolve) => {
+    markSourceReadStarted = resolve;
+  });
+  let resumeSourceRead: (() => void) | undefined;
+  const sourceReadResume = new Promise<void>((resolve) => {
+    resumeSourceRead = resolve;
+  });
 
   const sourceRecord = (
     rowNumber: number,
@@ -92,20 +109,37 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
     assert.equal(database.rows[0]?.database, "heliumdb");
     targetVerified = true;
 
+    const collisions = await testPool.query<{
+      alumni_count: number;
+      user_count: number;
+    }>(
+      `select
+         (select count(*)::int from alumni_database where mobile = any($1::text[])) as alumni_count,
+         (select count(*)::int from users where email = $2) as user_count`,
+      [mobiles, email],
+    );
+    assert.deepEqual(
+      collisions.rows[0],
+      { alumni_count: 0, user_count: 0 },
+      "fixture 식별자가 기존 Development 데이터와 충돌하면 테스트를 중단해야 합니다.",
+    );
+
     const user = await testPool.query<{ id: number }>(
       `insert into users (email, name, is_verified, activity_region)
        values ($1, $2, true, '서울특별시') returning id`,
       [email, marker],
     );
     userId = user.rows[0].id;
-    await testPool.query(
+    const fixtureAlumni = await testPool.query<{ id: number }>(
       `insert into alumni_database
         (department, generation, name, mobile, status, is_matched, matched_user_id)
        values
         ('한의학과', $1, $2, $3, 'old', true, $5),
-        ('한의학과', $1, $4, $6, 'database-only', false, null)`,
+        ('한의학과', $1, $4, $6, 'database-only', false, null)
+       returning id`,
       [marker, `${marker}-existing`, mobiles[0], `${marker}-database-only`, userId, mobiles[1]],
     );
+    for (const row of fixtureAlumni.rows) fixtureAlumniIds.add(row.id);
 
     currentSnapshot = {
       sourceTotal: 2,
@@ -116,12 +150,20 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
       ],
     };
     const { googleSheetsService } = await import("./google-sheets");
-    t.mock.method(googleSheetsService, "fetchAlumniSnapshot", async () => currentSnapshot);
+    t.mock.method(googleSheetsService, "fetchAlumniSnapshot", async () => {
+      sourceReadCalls++;
+      const snapshot = currentSnapshot;
+      if (delayNextSourceRead) {
+        delayNextSourceRead = false;
+        markSourceReadStarted?.();
+        await sourceReadResume;
+      }
+      return snapshot;
+    });
     const {
       AlumniSyncBlockedError,
       AlumniSyncFingerprintMismatchError,
       AlumniSyncInProgressError,
-      ALUMNI_SYNC_ADVISORY_LOCK_KEY,
       storage,
     } = await import("./storage");
 
@@ -141,12 +183,48 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
     assert.deepEqual(afterPreview.rows, beforePreview.rows, "preview는 DB를 변경하면 안 됩니다.");
 
     const staleFingerprint = preview.sourceFingerprint!;
+    delayNextSourceRead = true;
+    const staleApply = storage.applyAlumniSync(staleFingerprint);
+    await sourceReadStarted;
+
     currentSnapshot = {
       ...currentSnapshot,
       records: currentSnapshot.records.map((record, index) => index === 0
         ? { ...record, status: "source-changed" }
         : record),
     };
+    const freshPreview = await storage.previewAlumniSync();
+    const sourceReadsBeforeConcurrentApply = sourceReadCalls;
+    let concurrencyFailure: unknown;
+    try {
+      await assert.rejects(
+        storage.applyAlumniSync(freshPreview.sourceFingerprint!),
+        AlumniSyncInProgressError,
+      );
+      assert.equal(
+        sourceReadCalls,
+        sourceReadsBeforeConcurrentApply,
+        "lock을 얻지 못한 apply는 source를 읽으면 안 됩니다.",
+      );
+    } catch (error) {
+      concurrencyFailure = error;
+    } finally {
+      resumeSourceRead?.();
+    }
+    await staleApply;
+    const freshApply = await storage.applyAlumniSync(freshPreview.sourceFingerprint!);
+    assert.equal(freshApply.update, 1);
+    const concurrencyRow = await testPool.query<{ status: string }>(
+      "select status from alumni_database where mobile = $1",
+      [mobiles[0]],
+    );
+    assert.equal(
+      concurrencyRow.rows[0]?.status,
+      "source-changed",
+      "먼저 시작한 stale apply가 fresh apply 뒤에서 덮어쓰면 안 됩니다.",
+    );
+    if (concurrencyFailure) throw concurrencyFailure;
+
     await assert.rejects(
       storage.applyAlumniSync(staleFingerprint),
       AlumniSyncFingerprintMismatchError,
@@ -170,26 +248,9 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
         sourceRecord(3, mobiles[2], marker, `${marker}-inserted`),
       ],
     };
-    const lockedPreview = await storage.previewAlumniSync();
-    const lockClient = await testPool.connect();
-    try {
-      await lockClient.query("begin");
-      const held = await lockClient.query<{ locked: boolean }>(
-        "select pg_try_advisory_xact_lock(hashtextextended($1, 0)) as locked",
-        [ALUMNI_SYNC_ADVISORY_LOCK_KEY],
-      );
-      assert.equal(held.rows[0]?.locked, true);
-      await assert.rejects(
-        storage.applyAlumniSync(lockedPreview.sourceFingerprint!),
-        AlumniSyncInProgressError,
-      );
-      await lockClient.query("rollback");
-    } finally {
-      lockClient.release();
-    }
-
-    const applied = await storage.applyAlumniSync(lockedPreview.sourceFingerprint!);
-    assert.equal(applied.insert, 1);
+    const appliedPreview = await storage.previewAlumniSync();
+    const applied = await storage.applyAlumniSync(appliedPreview.sourceFingerprint!);
+    assert.equal(applied.insert, 0);
     assert.equal(applied.update, 1);
     const appliedRows = await testPool.query<{
       mobile: string;
@@ -209,6 +270,12 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
       { isMatched: true, matchedUserId: userId },
     );
     assert.equal(matched?.name, `${marker}-updated`);
+    const ownedRows = await testPool.query<{ id: number }>(
+      `select id from alumni_database
+        where generation = $1 and mobile = any($2::text[])`,
+      [marker, mobiles],
+    );
+    for (const row of ownedRows.rows) fixtureAlumniIds.add(row.id);
 
     await testPool.query(
       `create function ${functionName}() returns trigger language plpgsql as $$
@@ -246,8 +313,26 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
         const client = await testPool.connect();
         try {
           await client.query("begin");
-          await client.query("delete from alumni_database where mobile = any($1::text[])", [mobiles]);
-          await client.query("delete from users where email = $1", [email]);
+          const discoveredFixtureRows = await client.query<{ id: number }>(
+            `select id from alumni_database
+              where generation = any($1::text[])
+                and mobile = any($2::text[])`,
+            [[marker, `${marker}-ROLLBACK`], mobiles],
+          );
+          for (const row of discoveredFixtureRows.rows) fixtureAlumniIds.add(row.id);
+          const ownedIds = Array.from(fixtureAlumniIds);
+          if (ownedIds.length > 0) {
+            await client.query(
+              `delete from alumni_database
+                where id = any($1::int[])
+                  and generation = any($2::text[])
+                  and mobile = any($3::text[])`,
+              [ownedIds, [marker, `${marker}-ROLLBACK`], mobiles],
+            );
+          }
+          if (userId !== undefined) {
+            await client.query("delete from users where id = $1 and email = $2", [userId, email]);
+          }
           await client.query("commit");
         } catch (error) {
           await client.query("rollback");
@@ -262,11 +347,12 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
           function_count: number;
         }>(
           `select
-             (select count(*)::int from alumni_database where mobile = any($1::text[])) as alumni_count,
-             (select count(*)::int from users where email = $2) as user_count,
-             (select count(*)::int from pg_trigger where tgname = $3) as trigger_count,
-             (select count(*)::int from pg_proc where proname = $4) as function_count`,
-          [mobiles, email, triggerName, functionName],
+             (select count(*)::int from alumni_database
+               where generation = any($1::text[]) and mobile = any($2::text[])) as alumni_count,
+             (select count(*)::int from users where id = $3 and email = $4) as user_count,
+             (select count(*)::int from pg_trigger where tgname = $5) as trigger_count,
+             (select count(*)::int from pg_proc where proname = $6) as function_count`,
+          [[marker, `${marker}-ROLLBACK`], mobiles, userId ?? 0, email, triggerName, functionName],
         );
         assert.deepEqual(residue.rows[0], {
           alumni_count: 0,
