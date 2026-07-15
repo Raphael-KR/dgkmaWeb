@@ -54,7 +54,7 @@ export function getAlumniSyncControls(
   const hasChanges = report ? report.insert + report.update > 0 : false;
 
   return {
-    canPreview: connected && !busy,
+    canPreview: !busy,
     canApply: Boolean(
       connected
         && !busy

@@ -69,6 +69,13 @@ test("preview success enables apply only for an unblocked plan with changes", ()
   }
 });
 
+test("preview remains available when the connection probe reports source validation errors", () => {
+  assert.deepEqual(getAlumniSyncControls(alumniSyncInitialState, false), {
+    canPreview: true,
+    canApply: false,
+  });
+});
+
 test("apply start disables both controls and success clears the preview", () => {
   const ready = alumniSyncReducer(alumniSyncInitialState, {
     type: "preview-succeeded",

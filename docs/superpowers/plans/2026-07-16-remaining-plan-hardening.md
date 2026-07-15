@@ -61,4 +61,3 @@
 2. Development Database fixture가 모두 정리됐는지 확인한다.
 3. 구현 완료와 통합 QA 잔여 항목을 기준 문서에 반영한다.
 4. 코드 리뷰를 거쳐 커밋·푸시하고 Replit `main`을 정렬한다.
-

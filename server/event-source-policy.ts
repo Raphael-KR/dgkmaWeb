@@ -99,6 +99,15 @@ export function isPublicAddress(address: string): boolean {
   return false;
 }
 
+function isObviouslyNonPublicHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/\.$/, "");
+  if (!normalized.includes(".")) return true;
+
+  return [".localhost", ".local", ".internal", ".lan", ".home.arpa"].some(
+    (suffix) => normalized.endsWith(suffix),
+  );
+}
+
 export function extractEventSourceUrls(input: string): string[] {
   const matches = input.match(/https?:\/\/[^\s<>"']+/gi) ?? [];
   const urls: string[] = [];
@@ -135,7 +144,10 @@ export function assertSafeSourceUrl(rawUrl: string): URL {
   }
 
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
-  if (net.isIP(hostname) && !isPublicAddress(hostname)) {
+  if (
+    (net.isIP(hostname) && !isPublicAddress(hostname))
+    || (!net.isIP(hostname) && isObviouslyNonPublicHostname(hostname))
+  ) {
     throw new EventSourcePolicyError("공개 주소가 아닌 대상은 읽을 수 없습니다");
   }
 

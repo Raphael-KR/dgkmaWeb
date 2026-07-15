@@ -323,6 +323,32 @@ test("returns blocking snapshots for an empty source and invalid required header
   ]);
 });
 
+test("blocks snapshots when any managed source column header is missing", async () => {
+  const { buildAlumniSourceSnapshot } = await import("./google-sheets");
+  const headersWithoutMemo = sheetHeaders.filter((header) => header !== "메모");
+  const rowWithoutMemo = [
+    "한의학과",
+    "30",
+    "동문",
+    "",
+    "",
+    "서울특별시",
+    "010-1111-2222",
+    "",
+    "",
+    "정회원",
+    "회원",
+  ];
+
+  const snapshot = buildAlumniSourceSnapshot([headersWithoutMemo, rowWithoutMemo]);
+
+  assert.equal(snapshot.sourceTotal, 1);
+  assert.deepEqual(snapshot.records, []);
+  assert.deepEqual(snapshot.issues, [
+    { code: "MISSING_REQUIRED_HEADER", count: 1 },
+  ]);
+});
+
 test("Google Sheets API failures become structured snapshots without raw errors", async (t) => {
   t.mock.method(console, "error", () => {});
   const { GoogleSheetsService } = await import("./google-sheets");

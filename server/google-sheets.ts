@@ -36,12 +36,16 @@ const SOURCE_COLUMNS = {
   memo: "메모",
 } as const;
 
-const REQUIRED_SOURCE_COLUMNS = [
+const REQUIRED_SOURCE_VALUE_COLUMNS = [
   "department",
   "generation",
   "name",
   "mobile",
 ] as const;
+
+const MANAGED_SOURCE_COLUMNS = Object.keys(SOURCE_COLUMNS) as Array<
+  keyof typeof SOURCE_COLUMNS
+>;
 
 function cellValue(row: unknown[], index: number | undefined): string {
   if (index === undefined || index < 0) return "";
@@ -63,7 +67,7 @@ export function buildAlumniSourceSnapshot(rows: unknown[][]): AlumniSourceSnapsh
   const columnIndexes = Object.fromEntries(
     Object.entries(SOURCE_COLUMNS).map(([field, label]) => [field, header.indexOf(label)]),
   ) as Record<keyof typeof SOURCE_COLUMNS, number>;
-  const missingRequiredHeaders = REQUIRED_SOURCE_COLUMNS.filter(
+  const missingRequiredHeaders = MANAGED_SOURCE_COLUMNS.filter(
     (field) => columnIndexes[field] < 0,
   );
 
@@ -94,7 +98,7 @@ export function buildAlumniSourceSnapshot(rows: unknown[][]): AlumniSourceSnapsh
     memo: cellValue(row, columnIndexes.memo) || undefined,
   }));
   const missingRequiredValues = records.filter((record) =>
-    REQUIRED_SOURCE_COLUMNS.some((field) => !record[field]?.trim())
+    REQUIRED_SOURCE_VALUE_COLUMNS.some((field) => !record[field]?.trim())
   ).length;
   const issues: AlumniSyncIssue[] = [];
   if (sourceRows.length === 0) issues.push({ code: "EMPTY_SOURCE", count: 1 });

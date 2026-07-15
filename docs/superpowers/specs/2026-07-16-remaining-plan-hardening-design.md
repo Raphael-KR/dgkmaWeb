@@ -35,4 +35,3 @@
 - Replit에서 집중 테스트, 전체 `npm test`, `npm run check`, `npm run build`를 실행한다.
 - 스키마 변경은 하지 않는다. Development Database에서만 동기화 dry-run과 일회용 fixture를 검증하고 실제 Sheets 명부 적용은 수행하지 않는다.
 - GitHub `main` 반영 후 Replit 개발 서버를 확인한다. Production Database 변경과 Republish는 이번 범위에 포함하지 않는다.
-
