@@ -5,7 +5,7 @@ import test from "node:test";
 import express from "express";
 import type { Category, Obituary, Post } from "@shared/schema";
 import type { AdminUserLookup } from "./auth-middleware";
-import { googleSheetsService } from "./google-sheets";
+import { AlumniSourceReadError, googleSheetsService } from "./google-sheets";
 import { registerRoutes } from "./routes";
 import { storage } from "./storage";
 
@@ -164,6 +164,30 @@ test("sync failures return a fixed Korean response without the source exception"
       message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
     });
     assert.doesNotMatch(JSON.stringify(body), new RegExp(sourceError));
+  } finally {
+    await server.close();
+  }
+});
+
+test("strict Sheets reader failures propagate through storage to route 500", async (t) => {
+  t.mock.method(console, "log", () => {});
+  t.mock.method(console, "error", () => {});
+  t.mock.method(googleSheetsService, "testConnection", async () => true);
+  t.mock.method(googleSheetsService, "fetchAlumniData", async () => {
+    throw new AlumniSourceReadError([{ code: "EMPTY_SOURCE", count: 1 }]);
+  });
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
+
+  try {
+    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni`, {
+      method: "POST",
+      headers: { "x-test-user-id": "1" },
+    });
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), {
+      message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
+    });
   } finally {
     await server.close();
   }

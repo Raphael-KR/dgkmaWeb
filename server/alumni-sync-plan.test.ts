@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const baseSource = {
@@ -172,6 +172,36 @@ test("blocks ambiguous normalized mobile duplicates already in the database", as
   assert.deepEqual(plan.changes, []);
 });
 
+test("sums every row across independent source and database duplicate groups", async () => {
+  const { planAlumniSync } = await import("./alumni-sync-plan");
+  const plan = planAlumniSync(
+    {
+      records: [
+        sourceRow(2, { mobile: "010-1111-2222" }),
+        sourceRow(3, { mobile: "+82 10-1111-2222" }),
+        sourceRow(4, { mobile: "010-3333-4444" }),
+        sourceRow(5, { mobile: "+82 10-3333-4444" }),
+      ],
+      sourceTotal: 4,
+      issues: [],
+    },
+    [
+      databaseRow(1, { mobile: "010-5555-6666" }),
+      databaseRow(2, { mobile: "+82 10-5555-6666" }),
+      databaseRow(3, { mobile: "010-7777-8888" }),
+      databaseRow(4, { mobile: "+82 10-7777-8888" }),
+    ],
+  );
+
+  assert.equal(plan.report.blocked, true);
+  assert.equal(plan.report.conflict, 8);
+  assert.deepEqual(plan.report.issues, [
+    { code: "DUPLICATE_MOBILE", count: 4 },
+    { code: "DATABASE_DUPLICATE_MOBILE", count: 4 },
+  ]);
+  assert.deepEqual(plan.changes, []);
+});
+
 test("preserves structured source issues as blocking PII-free report counts", async () => {
   const { planAlumniSync } = await import("./alumni-sync-plan");
   const plan = planAlumniSync(
@@ -320,10 +350,20 @@ test("Google Sheets API failures become structured snapshots without raw errors"
   assert.doesNotMatch(JSON.stringify(snapshot), /민감한 원문 API 오류/);
 });
 
-test("Google Sheets reader keeps no raw alumni cache", async () => {
-  const source = await readFile(new URL("./google-sheets.ts", import.meta.url), "utf8");
+test("tracked Google Sheets readers keep no raw alumni cache", async () => {
+  const serverDirectory = new URL("./", import.meta.url);
+  const readerFiles = (await readdir(serverDirectory))
+    .filter((fileName) => /^google-sheets(?:-.*)?\.ts$/.test(fileName));
 
-  assert.doesNotMatch(source, /cachedAlumniData|Cache cleared|캐시에 저장/);
+  assert.ok(readerFiles.includes("google-sheets.ts"));
+  for (const fileName of readerFiles) {
+    const source = await readFile(new URL(fileName, serverDirectory), "utf8");
+    assert.doesNotMatch(
+      source,
+      /cachedAlumniData|Cache cleared|캐시에 저장/,
+      fileName,
+    );
+  }
 });
 
 test("planner does not double-count strict snapshot issues", async () => {

@@ -201,8 +201,10 @@ export function planAlumniSync(
   const conflictRows = new Set<number>();
   for (const rows of Array.from(sourceMobiles.values())) {
     if (rows.length < 2) continue;
-    ensureIssueCount(issueCounts, "DUPLICATE_MOBILE", rows.length);
     for (const rowNumber of rows) conflictRows.add(rowNumber);
+  }
+  if (conflictRows.size > 0) {
+    ensureIssueCount(issueCounts, "DUPLICATE_MOBILE", conflictRows.size);
   }
 
   const databaseByMobile = new Map<string, AlumniDatabaseRecord[]>();
@@ -216,9 +218,11 @@ export function planAlumniSync(
   let databaseConflictCount = 0;
   for (const records of Array.from(databaseByMobile.values())) {
     if (records.length > 1) {
-      ensureIssueCount(issueCounts, "DATABASE_DUPLICATE_MOBILE", records.length);
       databaseConflictCount += records.length;
     }
+  }
+  if (databaseConflictCount > 0) {
+    ensureIssueCount(issueCounts, "DATABASE_DUPLICATE_MOBILE", databaseConflictCount);
   }
 
   const issues = toIssues(issueCounts);

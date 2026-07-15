@@ -6,7 +6,6 @@ import ts from "typescript";
 const protectedFiles = [
   "routes.ts",
   "google-sheets.ts",
-  "google-sheets-old.ts",
   "storage.ts",
 ];
 

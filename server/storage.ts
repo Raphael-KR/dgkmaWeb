@@ -1270,7 +1270,7 @@ export class DatabaseStorage implements IStorage {
       console.error('Google Sheets sync failed:', getErrorType(error));
       // 에러 시에도 동기화 상태 정리
       googleSheetsService.finishSync();
-      return stats;
+      throw error;
     }
   }
 
