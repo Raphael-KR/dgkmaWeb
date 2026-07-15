@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
-import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
+import { readEventSources } from "./event-source-reader";
 import { createEventParseLimiter, createInMemoryEventParseQuota } from "./event-parse-limiter";
 import { registerRoutes } from "./routes";
 
 const memberId = 2_147_483_646;
 
 async function startServer(
-  readSources?: (input: string, signal?: AbortSignal) => Promise<EventSourceReadResult>,
+  readSources?: typeof readEventSources,
   eventParseTimeoutMs?: number,
 ) {
   const app = express();
@@ -21,9 +21,10 @@ async function startServer(
   });
 
   const server = await registerRoutes(app, {
-    readEventSources: readSources ?? ((input) => readEventSources(input, {
-      fetchPage: async () => { throw new Error("테스트는 외부 페이지를 읽지 않습니다"); },
-    })),
+    readEventSources: readSources ?? ((input, _dependencies, signal) =>
+      readEventSources(input, {
+        fetchPage: async () => { throw new Error("테스트는 외부 페이지를 읽지 않습니다"); },
+      }, signal)),
     eventParseTimeoutMs,
     eventParseLimiter: createEventParseLimiter({
       windowMs: 60_000,
@@ -70,6 +71,32 @@ test("event parsing requires an authenticated member session", async () => {
 
     assert.equal(response.status, 401);
     assert.deepEqual(await response.json(), { message: "로그인이 필요합니다" });
+  } finally {
+    await server.close();
+  }
+});
+
+test("event parsing passes the route abort signal as the reader third argument", async () => {
+  let readerArguments: unknown[] | undefined;
+  const server = await startServer(async (...args: unknown[]) => {
+    readerArguments = args;
+    return {
+      combinedText: String(args[0]),
+      urls: [],
+      sources: [],
+    };
+  });
+
+  try {
+    const response = await parseEvent(server.baseUrl, {
+      eventType: "other",
+      input: "중단 신호 전달 확인",
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(readerArguments?.[0], "중단 신호 전달 확인");
+    assert.equal(readerArguments?.[1], undefined);
+    assert.ok(readerArguments?.[2] instanceof AbortSignal);
   } finally {
     await server.close();
   }
@@ -136,6 +163,54 @@ test("event parsing uses combined public text while preserving the raw source", 
     assert.equal(body.draft.sourceText, input);
     assert.equal(body.draft.details.memo, "개원 안내\n장소: 동국한의원");
     assert.deepEqual(body.draft.sourceUrls, ["https://example.com/opening"]);
+  } finally {
+    await server.close();
+  }
+});
+
+test("event parsing maps a fetched obituary source without missing fields", async () => {
+  const sourceUrl = "https://example.com/obituary";
+  const input = `부고 안내 ${sourceUrl}`;
+  const server = await startServer(async () => ({
+    combinedText: `김동국 동문 부친상
+故김한의 (향년 88세)
+발인: 2026년 8월 3일 오전 7시
+빈소: 동국병원 장례식장 202호`,
+    urls: [sourceUrl],
+    sources: [{ url: sourceUrl, status: "fetched" }],
+  }));
+
+  try {
+    const response = await parseEvent(server.baseUrl, { eventType: "obituary", input });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.draft.sourceText, input);
+    assert.deepEqual(body.draft.sourceUrls, [sourceUrl]);
+    assert.equal(body.draft.details.sourceUrl, sourceUrl);
+    assert.equal(body.draft.details.deceasedName, "김한의");
+    assert.deepEqual(body.missingFields, []);
+  } finally {
+    await server.close();
+  }
+});
+
+test("event parsing reports required obituary fields missing from the source", async () => {
+  const server = await startServer(async () => ({
+    combinedText: "故김한의\n관계: 모친\n발인: 2026년 8월 3일",
+    urls: [],
+    sources: [],
+  }));
+
+  try {
+    const response = await parseEvent(server.baseUrl, {
+      eventType: "obituary",
+      input: "일부 정보만 있는 부고",
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).missingFields, [
+      "details.deceasedAge",
+      "details.funeralHome",
+    ]);
   } finally {
     await server.close();
   }
@@ -217,7 +292,7 @@ test("event parsing limits one member to ten requests per minute", async () => {
 
 test("event parsing stops source work at the route deadline", async () => {
   let aborted = false;
-  const server = await startServer((_input, signal) => new Promise((_resolve, reject) => {
+  const server = await startServer((_input, _dependencies, signal) => new Promise((_resolve, reject) => {
     signal?.addEventListener("abort", () => {
       aborted = true;
       const error = new Error("aborted");

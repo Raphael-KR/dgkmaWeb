@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 import { parseObituaryEventSource, parseObituarySms } from "./obituary-parser";
 import { createEventParseLimiter } from "./event-parse-limiter";
-import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
+import { readEventSources } from "./event-source-reader";
 import {
   normalizeCommunityEventSources,
   sanitizeStoredCommunityEventSources,
@@ -171,7 +171,7 @@ export type RouteDependencies = {
     | "createOrRefreshPendingRegistration"
     | "finalizeKakaoLogin"
   >;
-  readEventSources?: (input: string, signal?: AbortSignal) => Promise<EventSourceReadResult>;
+  readEventSources?: typeof readEventSources;
   eventParseTimeoutMs?: number;
   eventParseLimiter?: RequestHandler;
 };
@@ -234,7 +234,9 @@ export async function registerRoutes(
       beforeDelete?: (user: User) => Promise<void>,
     ) => storage.deleteUserAccount(user, beforeDelete));
   const unlinkKakaoUser = dependencies.unlinkKakaoUser ?? unlinkKakaoUserFromKakao;
-  const readSources = dependencies.readEventSources ?? readEventSources;
+  const sourceReader = dependencies.readEventSources ?? readEventSources;
+  const readSources = (input: string, signal?: AbortSignal) =>
+    sourceReader(input, undefined, signal);
   const eventParseLimiter = dependencies.eventParseLimiter
     ?? createEventParseLimiter({ windowMs: 60_000, max: 10 });
   const eventParseTimeoutMs = dependencies.eventParseTimeoutMs ?? 15_000;

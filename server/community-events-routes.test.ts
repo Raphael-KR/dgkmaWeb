@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
-import type { CommunityEventDraftInput } from "@shared/community-events";
+import {
+  COMMUNITY_EVENT_TYPES,
+  type CommunityEventDraftInput,
+  type CommunityEventType,
+} from "@shared/community-events";
 import type { CommunityEvent } from "@shared/schema";
 import type { AdminUserLookup } from "./auth-middleware";
 import { registerRoutes } from "./routes";
@@ -73,6 +77,10 @@ test("community event APIs enforce member sessions and do not expose source text
     status: "published",
     publishedAt: new Date("2026-07-11T01:00:00Z"),
     sourceUrls: ["https://example.com/notice#tracking", "http://127.0.0.1/private"],
+    details: {
+      memo: "공개 메모",
+      sourceUrl: "http://127.0.0.1/private",
+    } as CommunityEvent["details"],
   });
   const draftEvent = event();
   let storageCalls = 0;
@@ -160,6 +168,8 @@ test("community event APIs enforce member sessions and do not expose source text
     const listed = (await list.json())[0];
     assert.equal(listed.sourceText, undefined);
     assert.deepEqual(listed.sourceUrls, ["https://example.com/notice"]);
+    assert.equal(listed.details.sourceUrl, undefined);
+    assert.equal(listed.details.memo, "공개 메모");
     assert.deepEqual(listedEventTypes, [undefined]);
 
     const filteredList = await fetch(`${server.baseUrl}/api/events?type=wedding`, { headers });
@@ -168,7 +178,10 @@ test("community event APIs enforce member sessions and do not expose source text
 
     const detail = await fetch(`${server.baseUrl}/api/events/1`, { headers });
     assert.equal(detail.status, 200);
-    assert.equal((await detail.json()).sourceText, undefined);
+    const detailBody = await detail.json();
+    assert.equal(detailBody.sourceText, undefined);
+    assert.equal(detailBody.details.sourceUrl, undefined);
+    assert.equal(detailBody.details.memo, "공개 메모");
 
     const latestDraft = await fetch(`${server.baseUrl}/api/events/drafts/latest?type=wedding`, { headers });
     assert.equal(latestDraft.status, 200);
@@ -226,6 +239,175 @@ test("community event APIs enforce member sessions and do not expose source text
       body: JSON.stringify({ ...draftPayload, sourceUrls: ["http://127.0.0.1/private"] }),
     });
     assert.equal(privatePublish.status, 400);
+  } finally {
+    await server.close();
+  }
+});
+
+test("all community event types support draft, publish, and filtered list routes", async (t) => {
+  const payloads: Record<CommunityEventType, CommunityEventDraftInput> = {
+    obituary: {
+      eventType: "obituary",
+      title: "서버 회원 동문 부친상",
+      eventDate: "2026-08-03",
+      location: "동국병원 장례식장",
+      relatedMemberName: "요청 이름",
+      contactNumber: "010-0000-0000",
+      details: {
+        deceasedName: "김한의",
+        deceasedAge: 88,
+        relationship: "부친",
+        funeralDate: "2026년 8월 3일",
+        funeralHome: "동국병원 장례식장 202호",
+      },
+      sourceUrls: [],
+    },
+    wedding: {
+      eventType: "wedding",
+      title: "김동국 동문 자녀 결혼",
+      eventDate: "2026-08-10",
+      relatedMemberName: "김동국",
+      details: { memo: "결혼 안내" },
+      sourceUrls: [],
+    },
+    opening: {
+      eventType: "opening",
+      title: "김동국 동문 개원",
+      eventDate: "2026-08-11",
+      relatedMemberName: "김동국",
+      details: { memo: "개원 안내" },
+      sourceUrls: [],
+    },
+    other: {
+      eventType: "other",
+      title: "김동국 동문 소식",
+      eventDate: "2026-08-12",
+      relatedMemberName: "김동국",
+      details: { memo: "기타 안내" },
+      sourceUrls: [],
+    },
+  };
+  const ids = new Map(COMMUNITY_EVENT_TYPES.map((eventType, index) => [eventType, 101 + index]));
+  const createdTypes: CommunityEventType[] = [];
+  const publishedTypes: CommunityEventType[] = [];
+  const listedTypes: Array<CommunityEventType | undefined> = [];
+
+  const storedEvent = (
+    data: CommunityEventDraftInput,
+    status: CommunityEvent["status"] = "draft",
+  ) => event({
+    id: ids.get(data.eventType),
+    eventType: data.eventType,
+    status,
+    title: data.title ?? null,
+    eventDate: data.eventDate ?? null,
+    location: data.location ?? null,
+    relatedMemberName: data.relatedMemberName ?? null,
+    contactNumber: data.contactNumber ?? null,
+    accountInfo: data.accountInfo ?? null,
+    sourceText: data.sourceText ?? null,
+    sourceUrls: data.sourceUrls,
+    details: data.details,
+    publishedAt: status === "published" ? new Date("2026-07-16T00:00:00Z") : null,
+  });
+
+  t.mock.method(storage, "createEventDraft", async (_authorId, data) => {
+    createdTypes.push(data.eventType);
+    return storedEvent(data);
+  });
+  t.mock.method(storage, "getEventDraft", async (id, authorId) => {
+    if (authorId !== memberId) return undefined;
+    const match = COMMUNITY_EVENT_TYPES.find((eventType) => ids.get(eventType) === id);
+    return match ? storedEvent(payloads[match]) : undefined;
+  });
+  t.mock.method(storage, "publishEvent", async (_id, _authorId, data) => {
+    publishedTypes.push(data.eventType);
+    return storedEvent(data, "published");
+  });
+  t.mock.method(storage, "getPublishedEvents", async (eventType) => {
+    listedTypes.push(eventType);
+    return eventType ? [storedEvent(payloads[eventType], "published")] : [];
+  });
+  t.mock.method(storage, "getUser", async () => ({
+    id: memberId,
+    kakaoId: null,
+    email: "matrix@example.invalid",
+    name: "서버 회원",
+    graduationYear: null,
+    isVerified: true,
+    isAdmin: false,
+    kakaoSyncEnabled: false,
+    profileImage: null,
+    phoneNumber: "010-1234-5678",
+    birthday: null,
+    birthdayType: null,
+    isLeapMonth: null,
+    activityRegion: "서울특별시",
+    createdAt: null,
+    updatedAt: null,
+  }));
+  t.mock.method(storage, "getAlumniRecordByUserId", async () => ({
+    id: 901,
+    department: "한의학과",
+    generation: "8기",
+    name: "서버 회원",
+    admissionDate: "1986-03-02",
+    graduationDate: null,
+    address: null,
+    mobile: "010-1234-5678",
+    phone: null,
+    group: null,
+    status: null,
+    alumniPosition: "동국한의원 원장",
+    memo: null,
+    isMatched: true,
+    matchedUserId: memberId,
+  }));
+  t.mock.method(storage, "getMembershipStatus", async () => ({
+    year: 2026,
+    tier: "권리회원",
+    isPaid: true,
+    paidAmount: 100_000,
+    annualDues: 100_000,
+    currentYearPayment: null,
+  }));
+
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
+  const headers = {
+    "content-type": "application/json",
+    "x-test-user-id": String(memberId),
+  };
+
+  try {
+    for (const eventType of COMMUNITY_EVENT_TYPES) {
+      await t.test(eventType, async () => {
+        const draft = await fetch(`${server.baseUrl}/api/events/drafts`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payloads[eventType]),
+        });
+        assert.equal(draft.status, 201);
+        assert.equal((await draft.json()).eventType, eventType);
+
+        const publish = await fetch(`${server.baseUrl}/api/events/${ids.get(eventType)}/publish`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payloads[eventType]),
+        });
+        assert.equal(publish.status, 200);
+        const published = await publish.json();
+        assert.equal(published.eventType, eventType);
+        assert.equal(published.sourceText, undefined);
+
+        const list = await fetch(`${server.baseUrl}/api/events?type=${eventType}`, { headers });
+        assert.equal(list.status, 200);
+        assert.deepEqual((await list.json()).map((item: CommunityEvent) => item.eventType), [eventType]);
+      });
+    }
+
+    assert.deepEqual(createdTypes, COMMUNITY_EVENT_TYPES);
+    assert.deepEqual(publishedTypes, COMMUNITY_EVENT_TYPES);
+    assert.deepEqual(listedTypes, COMMUNITY_EVENT_TYPES);
   } finally {
     await server.close();
   }
