@@ -92,6 +92,17 @@ const eventParseRequestSchema = z.object({
   input: z.string().min(1).max(20_000),
 }).strict();
 
+type RouteEventSourceReader = (
+  input: string,
+  signal?: AbortSignal,
+) => ReturnType<typeof readEventSources>;
+
+export function createDefaultEventSourceReader(
+  sourceReader: typeof readEventSources = readEventSources,
+): RouteEventSourceReader {
+  return (input, signal) => sourceReader(input, undefined, signal);
+}
+
 function sanitizePublishedEvent(event: CommunityEvent) {
   const safeEvent = sanitizeStoredCommunityEventSources(event);
   const { sourceText: _sourceText, ...publishedEvent } = safeEvent;
@@ -171,7 +182,7 @@ export type RouteDependencies = {
     | "createOrRefreshPendingRegistration"
     | "finalizeKakaoLogin"
   >;
-  readEventSources?: typeof readEventSources;
+  readEventSources?: RouteEventSourceReader;
   eventParseTimeoutMs?: number;
   eventParseLimiter?: RequestHandler;
 };
@@ -234,9 +245,7 @@ export async function registerRoutes(
       beforeDelete?: (user: User) => Promise<void>,
     ) => storage.deleteUserAccount(user, beforeDelete));
   const unlinkKakaoUser = dependencies.unlinkKakaoUser ?? unlinkKakaoUserFromKakao;
-  const sourceReader = dependencies.readEventSources ?? readEventSources;
-  const readSources = (input: string, signal?: AbortSignal) =>
-    sourceReader(input, undefined, signal);
+  const readSources = dependencies.readEventSources ?? createDefaultEventSourceReader();
   const eventParseLimiter = dependencies.eventParseLimiter
     ?? createEventParseLimiter({ windowMs: 60_000, max: 10 });
   const eventParseTimeoutMs = dependencies.eventParseTimeoutMs ?? 15_000;

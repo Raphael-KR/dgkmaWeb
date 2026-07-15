@@ -5,7 +5,6 @@ import express from "express";
 import {
   COMMUNITY_EVENT_TYPES,
   type CommunityEventDraftInput,
-  type CommunityEventType,
 } from "@shared/community-events";
 import type { CommunityEvent } from "@shared/schema";
 import type { AdminUserLookup } from "./auth-middleware";
@@ -39,6 +38,8 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
 const memberId = 2_147_483_646;
 const otherMemberId = 2_147_483_645;
 const noAlumniMemberId = 2_147_483_644;
+const EXPECTED_COMMUNITY_EVENT_TYPES = ["obituary", "wedding", "opening", "other"] as const;
+type ExpectedCommunityEventType = (typeof EXPECTED_COMMUNITY_EVENT_TYPES)[number];
 
 const draftPayload = {
   eventType: "wedding" as const,
@@ -73,6 +74,7 @@ function event(overrides: Partial<CommunityEvent> = {}): CommunityEvent {
 }
 
 test("community event APIs enforce member sessions and do not expose source text", async (t) => {
+  const safeSourceUrl = "https://example.com/safe-obituary";
   const publishedEvent = event({
     status: "published",
     publishedAt: new Date("2026-07-11T01:00:00Z"),
@@ -81,6 +83,17 @@ test("community event APIs enforce member sessions and do not expose source text
       memo: "공개 메모",
       sourceUrl: "http://127.0.0.1/private",
     } as CommunityEvent["details"],
+  });
+  const safePublishedEvent = event({
+    id: 2,
+    eventType: "obituary",
+    status: "published",
+    publishedAt: new Date("2026-07-11T02:00:00Z"),
+    sourceUrls: [`${safeSourceUrl}#tracking`],
+    details: {
+      deceasedName: "김한의",
+      sourceUrl: `${safeSourceUrl}#tracking`,
+    },
   });
   const draftEvent = event();
   let storageCalls = 0;
@@ -95,11 +108,11 @@ test("community event APIs enforce member sessions and do not expose source text
   t.mock.method(storage, "getPublishedEvents", async (eventType) => {
     storageCalls += 1;
     listedEventTypes.push(eventType);
-    return [publishedEvent];
+    return [publishedEvent, safePublishedEvent];
   });
-  t.mock.method(storage, "getPublishedEvent", async () => {
+  t.mock.method(storage, "getPublishedEvent", async (id) => {
     storageCalls += 1;
-    return publishedEvent;
+    return id === safePublishedEvent.id ? safePublishedEvent : publishedEvent;
   });
   t.mock.method(storage, "getLatestEventDraft", async () => {
     storageCalls += 1;
@@ -165,11 +178,13 @@ test("community event APIs enforce member sessions and do not expose source text
     const headers = { "x-test-user-id": String(memberId) };
     const list = await fetch(`${server.baseUrl}/api/events`, { headers });
     assert.equal(list.status, 200);
-    const listed = (await list.json())[0];
+    const [listed, safeListed] = await list.json();
     assert.equal(listed.sourceText, undefined);
     assert.deepEqual(listed.sourceUrls, ["https://example.com/notice"]);
     assert.equal(listed.details.sourceUrl, undefined);
     assert.equal(listed.details.memo, "공개 메모");
+    assert.deepEqual(safeListed.sourceUrls, [safeSourceUrl]);
+    assert.equal(safeListed.details.sourceUrl, safeSourceUrl);
     assert.deepEqual(listedEventTypes, [undefined]);
 
     const filteredList = await fetch(`${server.baseUrl}/api/events?type=wedding`, { headers });
@@ -182,6 +197,12 @@ test("community event APIs enforce member sessions and do not expose source text
     assert.equal(detailBody.sourceText, undefined);
     assert.equal(detailBody.details.sourceUrl, undefined);
     assert.equal(detailBody.details.memo, "공개 메모");
+
+    const safeDetail = await fetch(`${server.baseUrl}/api/events/2`, { headers });
+    assert.equal(safeDetail.status, 200);
+    const safeDetailBody = await safeDetail.json();
+    assert.deepEqual(safeDetailBody.sourceUrls, [safeSourceUrl]);
+    assert.equal(safeDetailBody.details.sourceUrl, safeSourceUrl);
 
     const latestDraft = await fetch(`${server.baseUrl}/api/events/drafts/latest?type=wedding`, { headers });
     assert.equal(latestDraft.status, 200);
@@ -245,7 +266,8 @@ test("community event APIs enforce member sessions and do not expose source text
 });
 
 test("all community event types support draft, publish, and filtered list routes", async (t) => {
-  const payloads: Record<CommunityEventType, CommunityEventDraftInput> = {
+  assert.deepEqual(COMMUNITY_EVENT_TYPES, EXPECTED_COMMUNITY_EVENT_TYPES);
+  const payloads: Record<ExpectedCommunityEventType, CommunityEventDraftInput> = {
     obituary: {
       eventType: "obituary",
       title: "서버 회원 동문 부친상",
@@ -287,10 +309,10 @@ test("all community event types support draft, publish, and filtered list routes
       sourceUrls: [],
     },
   };
-  const ids = new Map(COMMUNITY_EVENT_TYPES.map((eventType, index) => [eventType, 101 + index]));
-  const createdTypes: CommunityEventType[] = [];
-  const publishedTypes: CommunityEventType[] = [];
-  const listedTypes: Array<CommunityEventType | undefined> = [];
+  const ids = new Map(EXPECTED_COMMUNITY_EVENT_TYPES.map((eventType, index) => [eventType, 101 + index]));
+  const createdTypes: ExpectedCommunityEventType[] = [];
+  const publishedTypes: ExpectedCommunityEventType[] = [];
+  const listedTypes: Array<ExpectedCommunityEventType | undefined> = [];
 
   const storedEvent = (
     data: CommunityEventDraftInput,
@@ -317,7 +339,7 @@ test("all community event types support draft, publish, and filtered list routes
   });
   t.mock.method(storage, "getEventDraft", async (id, authorId) => {
     if (authorId !== memberId) return undefined;
-    const match = COMMUNITY_EVENT_TYPES.find((eventType) => ids.get(eventType) === id);
+    const match = EXPECTED_COMMUNITY_EVENT_TYPES.find((eventType) => ids.get(eventType) === id);
     return match ? storedEvent(payloads[match]) : undefined;
   });
   t.mock.method(storage, "publishEvent", async (_id, _authorId, data) => {
@@ -379,7 +401,7 @@ test("all community event types support draft, publish, and filtered list routes
   };
 
   try {
-    for (const eventType of COMMUNITY_EVENT_TYPES) {
+    for (const eventType of EXPECTED_COMMUNITY_EVENT_TYPES) {
       await t.test(eventType, async () => {
         const draft = await fetch(`${server.baseUrl}/api/events/drafts`, {
           method: "POST",
@@ -405,9 +427,9 @@ test("all community event types support draft, publish, and filtered list routes
       });
     }
 
-    assert.deepEqual(createdTypes, COMMUNITY_EVENT_TYPES);
-    assert.deepEqual(publishedTypes, COMMUNITY_EVENT_TYPES);
-    assert.deepEqual(listedTypes, COMMUNITY_EVENT_TYPES);
+    assert.deepEqual(createdTypes, EXPECTED_COMMUNITY_EVENT_TYPES);
+    assert.deepEqual(publishedTypes, EXPECTED_COMMUNITY_EVENT_TYPES);
+    assert.deepEqual(listedTypes, EXPECTED_COMMUNITY_EVENT_TYPES);
   } finally {
     await server.close();
   }

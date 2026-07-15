@@ -2,14 +2,18 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
-import { readEventSources } from "./event-source-reader";
+import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
 import { createEventParseLimiter, createInMemoryEventParseQuota } from "./event-parse-limiter";
-import { registerRoutes } from "./routes";
+import { createDefaultEventSourceReader, registerRoutes } from "./routes";
 
 const memberId = 2_147_483_646;
+type InjectedEventSourceReader = (
+  input: string,
+  signal?: AbortSignal,
+) => Promise<EventSourceReadResult>;
 
 async function startServer(
-  readSources?: typeof readEventSources,
+  readSources?: InjectedEventSourceReader,
   eventParseTimeoutMs?: number,
 ) {
   const app = express();
@@ -21,7 +25,7 @@ async function startServer(
   });
 
   const server = await registerRoutes(app, {
-    readEventSources: readSources ?? ((input, _dependencies, signal) =>
+    readEventSources: readSources ?? ((input, signal) =>
       readEventSources(input, {
         fetchPage: async () => { throw new Error("테스트는 외부 페이지를 읽지 않습니다"); },
       }, signal)),
@@ -76,7 +80,26 @@ test("event parsing requires an authenticated member session", async () => {
   }
 });
 
-test("event parsing passes the route abort signal as the reader third argument", async () => {
+test("the default event source adapter passes the signal as the raw reader third argument", async () => {
+  let readerArguments: Parameters<typeof readEventSources> | undefined;
+  const readSources = createDefaultEventSourceReader(async (...args) => {
+    readerArguments = args;
+    return {
+      combinedText: String(args[0]),
+      urls: [],
+      sources: [],
+    };
+  });
+  const signal = new AbortController().signal;
+
+  await readSources("중단 신호 전달 확인", signal);
+
+  assert.equal(readerArguments?.[0], "중단 신호 전달 확인");
+  assert.equal(readerArguments?.[1], undefined);
+  assert.equal(readerArguments?.[2], signal);
+});
+
+test("event parsing preserves the injected reader input and signal contract", async () => {
   let readerArguments: unknown[] | undefined;
   const server = await startServer(async (...args: unknown[]) => {
     readerArguments = args;
@@ -95,8 +118,8 @@ test("event parsing passes the route abort signal as the reader third argument",
 
     assert.equal(response.status, 200);
     assert.equal(readerArguments?.[0], "중단 신호 전달 확인");
-    assert.equal(readerArguments?.[1], undefined);
-    assert.ok(readerArguments?.[2] instanceof AbortSignal);
+    assert.ok(readerArguments?.[1] instanceof AbortSignal);
+    assert.equal(readerArguments?.length, 2);
   } finally {
     await server.close();
   }
@@ -292,7 +315,7 @@ test("event parsing limits one member to ten requests per minute", async () => {
 
 test("event parsing stops source work at the route deadline", async () => {
   let aborted = false;
-  const server = await startServer((_input, _dependencies, signal) => new Promise((_resolve, reject) => {
+  const server = await startServer((_input, signal) => new Promise((_resolve, reject) => {
     signal?.addEventListener("abort", () => {
       aborted = true;
       const error = new Error("aborted");
