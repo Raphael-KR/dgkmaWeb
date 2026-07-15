@@ -1,25 +1,123 @@
-import { google } from 'googleapis';
-import { getErrorType } from './safe-logging';
+import { google } from "googleapis";
+import type { AlumniSyncIssue } from "@shared/alumni-sync";
+import type { AlumniSourceRecord, AlumniSourceSnapshot } from "./alumni-sync-plan";
+import { getErrorType } from "./safe-logging";
 
-export interface AlumniRecord {
-  department: string; // 학과
-  generation: string; // 기수
-  name: string; // 성명
-  admissionDate?: string; // 입학일자
-  graduationDate?: string; // 졸업일자
-  address?: string; // 주소
-  mobile?: string; // 핸드폰번호
-  phone?: string; // 전화번호
-  group?: string; // 그룹
-  status?: string; // 상태
-  alumniPosition?: string; // 동문회직책
-  memo?: string; // 메모
+export type AlumniRecord = Omit<AlumniSourceRecord, "rowNumber">;
+
+type SheetsClient = {
+  spreadsheets: {
+    values: {
+      get(input: { spreadsheetId: string; range: string }): Promise<{
+        data: { values?: unknown[][] | null };
+      }>;
+    };
+    get(input: { spreadsheetId: string }): Promise<unknown>;
+  };
+};
+
+type GoogleSheetsServiceOptions = {
+  spreadsheetId?: string;
+  sheets?: SheetsClient;
+};
+
+const SOURCE_COLUMNS = {
+  department: "학과",
+  generation: "기수",
+  name: "성명",
+  admissionDate: "입학일자",
+  graduationDate: "졸업일자",
+  address: "주소",
+  mobile: "핸드폰번호",
+  phone: "전화번호",
+  group: "그룹",
+  status: "상태",
+  alumniPosition: "동문회직책",
+  memo: "메모",
+} as const;
+
+const REQUIRED_SOURCE_COLUMNS = [
+  "department",
+  "generation",
+  "name",
+  "mobile",
+] as const;
+
+function cellValue(row: unknown[], index: number | undefined): string {
+  if (index === undefined || index < 0) return "";
+  const value = row[index];
+  return value === null || value === undefined ? "" : String(value).trim();
+}
+
+export function buildAlumniSourceSnapshot(rows: unknown[][]): AlumniSourceSnapshot {
+  if (rows.length === 0) {
+    return {
+      records: [],
+      sourceTotal: 0,
+      issues: [{ code: "EMPTY_SOURCE", count: 1 }],
+    };
+  }
+
+  const header = rows[0].map((value) => String(value ?? "").trim());
+  const sourceRows = rows.slice(1);
+  const columnIndexes = Object.fromEntries(
+    Object.entries(SOURCE_COLUMNS).map(([field, label]) => [field, header.indexOf(label)]),
+  ) as Record<keyof typeof SOURCE_COLUMNS, number>;
+  const missingRequiredHeaders = REQUIRED_SOURCE_COLUMNS.filter(
+    (field) => columnIndexes[field] < 0,
+  );
+
+  if (missingRequiredHeaders.length > 0) {
+    return {
+      records: [],
+      sourceTotal: sourceRows.length,
+      issues: [{
+        code: "MISSING_REQUIRED_HEADER",
+        count: missingRequiredHeaders.length,
+      }],
+    };
+  }
+
+  const records = sourceRows.map((row, index): AlumniSourceRecord => ({
+    rowNumber: index + 2,
+    department: cellValue(row, columnIndexes.department),
+    generation: cellValue(row, columnIndexes.generation),
+    name: cellValue(row, columnIndexes.name),
+    admissionDate: cellValue(row, columnIndexes.admissionDate) || undefined,
+    graduationDate: cellValue(row, columnIndexes.graduationDate) || undefined,
+    address: cellValue(row, columnIndexes.address) || undefined,
+    mobile: cellValue(row, columnIndexes.mobile),
+    phone: cellValue(row, columnIndexes.phone) || undefined,
+    group: cellValue(row, columnIndexes.group) || undefined,
+    status: cellValue(row, columnIndexes.status) || undefined,
+    alumniPosition: cellValue(row, columnIndexes.alumniPosition) || undefined,
+    memo: cellValue(row, columnIndexes.memo) || undefined,
+  }));
+  const missingRequiredValues = records.filter((record) =>
+    REQUIRED_SOURCE_COLUMNS.some((field) => !record[field]?.trim())
+  ).length;
+  const issues: AlumniSyncIssue[] = [];
+  if (sourceRows.length === 0) issues.push({ code: "EMPTY_SOURCE", count: 1 });
+  if (missingRequiredValues > 0) {
+    issues.push({ code: "MISSING_REQUIRED_VALUE", count: missingRequiredValues });
+  }
+
+  return { records, sourceTotal: sourceRows.length, issues };
+}
+
+export class AlumniSourceReadError extends Error {
+  readonly issues: AlumniSyncIssue[];
+
+  constructor(issues: AlumniSyncIssue[]) {
+    super("Google Sheets 명부를 안전하게 읽지 못했습니다");
+    this.name = "AlumniSourceReadError";
+    this.issues = issues;
+  }
 }
 
 export class GoogleSheetsService {
-  private sheets: any;
+  private sheets: SheetsClient | undefined;
   private spreadsheetId: string | undefined;
-  private cachedAlumniData: AlumniRecord[] | null = null;
   
   // 동기화 진행상황 추적
   private syncProgress = {
@@ -31,11 +129,15 @@ export class GoogleSheetsService {
     errors: 0
   };
 
-  constructor() {
-    this.spreadsheetId = process.env.ALUMNI_SPREADSHEET_ID;
+  constructor(options: GoogleSheetsServiceOptions = {}) {
+    this.spreadsheetId = options.spreadsheetId ?? process.env.ALUMNI_SPREADSHEET_ID;
+
+    if (options.sheets) {
+      this.sheets = options.sheets;
+      return;
+    }
     
     if (!this.spreadsheetId) {
-      console.log('Google Sheets not configured - ALUMNI_SPREADSHEET_ID not found');
       return;
     }
 
@@ -59,114 +161,43 @@ export class GoogleSheetsService {
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
       });
 
-      this.sheets = google.sheets({ version: 'v4', auth });
-      console.log('Google Sheets service initialized successfully');
+      this.sheets = google.sheets({ version: "v4", auth }) as unknown as SheetsClient;
+      console.log("Google Sheets 서비스를 초기화했습니다");
     } catch (error) {
-      console.error('Failed to initialize Google Sheets service:', getErrorType(error));
+      console.error("Google Sheets 서비스 초기화 실패:", getErrorType(error));
     }
   }
 
-  // 스프레드시트에서 동문 데이터 가져오기
-  async fetchAlumniData(): Promise<AlumniRecord[]> {
+  async fetchAlumniSnapshot(): Promise<AlumniSourceSnapshot> {
     if (!this.sheets || !this.spreadsheetId) {
-      console.log('Google Sheets not available, returning empty array');
-      return [];
+      return {
+        records: [],
+        sourceTotal: 0,
+        issues: [{ code: "SOURCE_UNAVAILABLE", count: 1 }],
+      };
     }
-
-    // 캐시 강제 초기화
-    this.cachedAlumniData = null;
-    console.log('Cache cleared for fresh duplicate analysis');
 
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'A:L', // A부터 L까지 (12개 컬럼: 학과~메모)
+        range: "A:L",
       });
-
-      const rows = response.data.values || [];
-      const alumniData: AlumniRecord[] = [];
-
-      // 첫 번째 행은 헤더로 건너뛰기
-      // 스프레드시트 구조: [학과, 기수, 성명, 입학일자, 졸업일자, 주소, 핸드폰번호, 전화번호, 그룹, 상태, 동문회직책, 메모]
-      let skippedRows = 0;
-      let validRows = 0;
-      
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        
-        // 헤더 행인지 확인
-        if (row[0] === '학과' || row[2] === '성명') {
-          skippedRows++;
-          continue;
-        }
-        
-        // 필수 데이터(학과, 기수, 성명)가 있는 경우만 처리
-        if (row[0] && row[1] && row[2]) {
-          alumniData.push({
-            department: row[0]?.toString().trim() || '',
-            generation: row[1]?.toString().trim() || '',
-            name: row[2]?.toString().trim() || '',
-            admissionDate: row[3]?.toString().trim() || undefined,
-            graduationDate: row[4]?.toString().trim() || undefined,
-            address: row[5]?.toString().trim() || undefined,
-            mobile: row[6]?.toString().trim() || undefined,
-            phone: row[7]?.toString().trim() || undefined,
-            group: row[8]?.toString().trim() || undefined,
-            status: row[9]?.toString().trim() || undefined,
-            alumniPosition: row[10]?.toString().trim() || undefined,
-            memo: row[11]?.toString().trim() || undefined,
-          });
-          validRows++;
-        } else {
-          console.log(`Skipped source row ${i} with missing required data`);
-          skippedRows++;
-        }
-      }
-      
-      // 휴대전화번호 중복 분석 (새로운 고유키 기준)
-      const mobileGroups = new Map<string, number>();
-      const nameGroups = new Map<string, number>();
-      
-      alumniData.forEach(alumni => {
-        // 휴대전화번호 중복 체크
-        if (alumni.mobile) {
-          const mobile = alumni.mobile.trim();
-          mobileGroups.set(mobile, (mobileGroups.get(mobile) || 0) + 1);
-        }
-        
-        // 동명이인 분석 (참고용)
-        const nameKey = `${alumni.name}_${alumni.generation}`;
-        nameGroups.set(nameKey, (nameGroups.get(nameKey) || 0) + 1);
-      });
-      
-      const mobileDuplicates = Array.from(mobileGroups.entries())
-        .filter(([mobile, count]) => count > 1);
-        
-      const nameDuplicates = Array.from(nameGroups.entries())
-        .filter(([key, count]) => count > 1)
-        .map(([key, count]) => {
-          const [name, generation] = key.split('_');
-          return { name, generation, count };
-        });
-      
-      console.log(`Data processing summary:`);
-      console.log(`- Total raw rows: ${rows.length}`);
-      console.log(`- Valid alumni records: ${validRows}`);
-      console.log(`- Skipped rows: ${skippedRows}`);
-      console.log(`- Expected count: ${rows.length - 1} (excluding header)`);
-      console.log(`- Actual processed: ${alumniData.length}`);
-      console.log(`- Mobile number duplicates: ${mobileDuplicates.length}`);
-      console.log(`- Same name/generation combinations: ${nameDuplicates.length} (동명이인)`);
-      
-      console.log(`Fetched ${alumniData.length} alumni records from Google Sheets`);
-      
-      // 캐시에 저장
-      this.cachedAlumniData = alumniData;
-      return alumniData;
+      return buildAlumniSourceSnapshot(response.data.values ?? []);
     } catch (error) {
-      console.error('Error fetching alumni data from Google Sheets:', getErrorType(error));
-      return [];
+      console.error("Google Sheets 명부 읽기 실패:", getErrorType(error));
+      return {
+        records: [],
+        sourceTotal: 0,
+        issues: [{ code: "SOURCE_UNAVAILABLE", count: 1 }],
+      };
     }
+  }
+
+  // Task 5 전환 전까지 기존 호출부의 배열 계약을 유지하되 오류는 성공으로 숨기지 않는다.
+  async fetchAlumniData(): Promise<AlumniRecord[]> {
+    const snapshot = await this.fetchAlumniSnapshot();
+    if (snapshot.issues.length > 0) throw new AlumniSourceReadError(snapshot.issues);
+    return snapshot.records.map(({ rowNumber: _rowNumber, ...record }) => record);
   }
 
   /**
@@ -313,8 +344,8 @@ export class GoogleSheetsService {
   // 연결 테스트
   async testConnection(): Promise<boolean> {
     try {
-      if (!this.spreadsheetId) {
-        console.log('Google Sheets not configured - using local alumni database');
+      if (!this.spreadsheetId || !this.sheets) {
+        console.log("Google Sheets가 설정되지 않았습니다");
         return false;
       }
 
@@ -322,10 +353,10 @@ export class GoogleSheetsService {
         spreadsheetId: this.spreadsheetId,
       });
 
-      console.log('Connected to Google Sheets');
+      console.log("Google Sheets 연결을 확인했습니다");
       return true;
     } catch (error) {
-      console.error('Google Sheets connection test failed:', getErrorType(error));
+      console.error("Google Sheets 연결 확인 실패:", getErrorType(error));
       return false;
     }
   }
