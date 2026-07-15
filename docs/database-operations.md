@@ -182,7 +182,7 @@ CREATE TABLE IF NOT EXISTS event_parse_rate_limits (
 );
 ```
 
-적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development Database에는 2026-07-14 적용·0건 초기 상태를 확인했으며, Production Database에는 배포 게이트에서 별도 적용한다.
+적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development Database에는 2026-07-14 적용·0건 초기 상태를 확인했다. Production Database에는 2026-07-14 적용해 같은 스키마와 0건 초기 상태를 확인했고, 2026-07-16 Republish 후 실제 회원의 문자 분석·초안 생성·삭제와 운영 DB의 경조사·초안 0건 정리를 확인했다.
 
 ## 정식 오픈 전 초기화
 
