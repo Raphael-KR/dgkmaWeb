@@ -31,7 +31,7 @@ test("all admin routes are registered after the shared administrator guard", asy
   ).map((match) => match.index ?? -1);
 
   assert.ok(guardIndex >= 0);
-  assert.equal(adminRouteIndexes.length, 5);
+  assert.equal(adminRouteIndexes.length, 6);
   assert.ok(adminRouteIndexes.every((index) => index > guardIndex));
 });
 
@@ -111,6 +111,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
     const adminEndpoints = [
       { method: "GET", path: "/api/admin/pending-registrations" },
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
+      { method: "POST", path: "/api/admin/sync-alumni/preview" },
       { method: "POST", path: "/api/admin/sync-alumni" },
       { method: "GET", path: "/api/admin/sync-progress" },
       { method: "GET", path: "/api/admin/test-google-sheets" },
@@ -146,9 +147,9 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
   }
 });
 
-test("sync failures return a fixed Korean response without the source exception", async (t) => {
+test("sync apply failures return a fixed Korean response without the source exception", async (t) => {
   const sourceError = "sheets oauth credential secret leaked";
-  t.mock.method(storage, "syncAlumniFromGoogleSheets", async () => {
+  t.mock.method(storage, "applyAlumniSync", async () => {
     throw new Error(sourceError);
   });
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
@@ -156,7 +157,11 @@ test("sync failures return a fixed Korean response without the source exception"
   try {
     const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni`, {
       method: "POST",
-      headers: { "x-test-user-id": "1" },
+      headers: {
+        "content-type": "application/json",
+        "x-test-user-id": "1",
+      },
+      body: JSON.stringify({ fingerprint: `sha256:${"a".repeat(64)}` }),
     });
     assert.equal(response.status, 500);
     const body = await response.json();
@@ -169,17 +174,16 @@ test("sync failures return a fixed Korean response without the source exception"
   }
 });
 
-test("strict Sheets reader failures propagate through storage to route 500", async (t) => {
+test("strict Sheets reader failures return a fixed preview response", async (t) => {
   t.mock.method(console, "log", () => {});
   t.mock.method(console, "error", () => {});
-  t.mock.method(googleSheetsService, "testConnection", async () => true);
-  t.mock.method(googleSheetsService, "fetchAlumniData", async () => {
+  t.mock.method(storage, "previewAlumniSync", async () => {
     throw new AlumniSourceReadError([{ code: "EMPTY_SOURCE", count: 1 }]);
   });
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
 
   try {
-    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni`, {
+    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni/preview`, {
       method: "POST",
       headers: { "x-test-user-id": "1" },
     });

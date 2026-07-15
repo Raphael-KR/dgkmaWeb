@@ -1,7 +1,15 @@
 import type { Express, Request, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "node:crypto";
-import { normalizePhoneForComparison, PendingRegistrationConflictError, PhoneRegistrationConflictError, storage } from "./storage";
+import {
+  AlumniSyncBlockedError,
+  AlumniSyncFingerprintMismatchError,
+  AlumniSyncInProgressError,
+  normalizePhoneForComparison,
+  PendingRegistrationConflictError,
+  PhoneRegistrationConflictError,
+  storage,
+} from "./storage";
 import { insertPostSchema, insertCommentSchema, insertPaymentSchema, insertCategorySchema, updateProfileSchema, REGION_OPTIONS, type CommunityEvent, type InsertUser, type PendingRegistration, type PendingRegistrationConflictReason, type User } from "@shared/schema";
 import {
   COMMUNITY_EVENT_TYPES,
@@ -87,6 +95,10 @@ const adminPendingRegistrationUpdateSchema = z.object({
   }).strict(),
 });
 
+const alumniSyncApplySchema = z.object({
+  fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+}).strict();
+
 const eventParseRequestSchema = z.object({
   eventType: z.enum(COMMUNITY_EVENT_TYPES),
   input: z.string().min(1).max(20_000),
@@ -167,6 +179,7 @@ export type RouteDependencies = {
     typeof storage,
     "rejectPendingRegistration" | "updatePendingRegistrationStatus"
   >>;
+  alumniSyncStorage?: Pick<typeof storage, "previewAlumniSync" | "applyAlumniSync">;
   kakaoOAuthStateStore?: KakaoOAuthStateStore;
   kakaoAuthStorage?: Pick<
     typeof storage,
@@ -233,6 +246,7 @@ export async function registerRoutes(
     updatePendingRegistrationStatus: dependencies.pendingRegistrationStorage?.updatePendingRegistrationStatus
       ?? storage.updatePendingRegistrationStatus.bind(storage),
   };
+  const alumniSyncStorage = dependencies.alumniSyncStorage ?? storage;
   const kakaoOAuthStateStore = dependencies.kakaoOAuthStateStore
     ?? postgresKakaoOAuthStateStore;
   const getKakaoAdminConfig = dependencies.getKakaoAdminConfig
@@ -1423,20 +1437,41 @@ export async function registerRoutes(
     }
   });
 
-  // Google Sheets 동기화 API (관리자 전용)
-  app.post("/api/admin/sync-alumni", async (req, res) => {
+  app.post("/api/admin/sync-alumni/preview", async (_req, res) => {
     try {
-      console.log('Alumni sync API called');
-      const syncStats = await storage.syncAlumniFromGoogleSheets();
-      
-      const response = { 
-        message: `Google Sheets 동기화 완료: ${syncStats.synced}/${syncStats.total}건 업데이트`,
-        stats: syncStats
-      };
-      
-      console.log('Sending response:', response);
-      res.json(response);
+      const report = await alumniSyncStorage.previewAlumniSync();
+      res.json({ report, fingerprint: report.sourceFingerprint });
     } catch (error) {
+      console.error("Alumni sync preview error:", getErrorType(error));
+      res.status(500).json({ message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요" });
+    }
+  });
+
+  app.post("/api/admin/sync-alumni", async (req, res) => {
+    const parsedRequest = alumniSyncApplySchema.safeParse(req.body);
+    if (!parsedRequest.success) {
+      return res.status(400).json({ message: "유효한 미리보기가 필요합니다" });
+    }
+
+    try {
+      const report = await alumniSyncStorage.applyAlumniSync(
+        parsedRequest.data.fingerprint,
+      );
+      res.json({ report });
+    } catch (error) {
+      if (error instanceof AlumniSyncFingerprintMismatchError) {
+        return res.status(409).json({
+          message: "명부가 변경되었습니다. 다시 미리보기 해주세요",
+        });
+      }
+      if (error instanceof AlumniSyncBlockedError) {
+        return res.status(422).json({
+          message: "차단 오류를 해결한 뒤 다시 미리보기 해주세요",
+        });
+      }
+      if (error instanceof AlumniSyncInProgressError) {
+        return res.status(409).json({ message: "다른 명부 동기화가 진행 중입니다" });
+      }
       console.error("Alumni sync error:", getErrorType(error));
       res.status(500).json({ message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요" });
     }

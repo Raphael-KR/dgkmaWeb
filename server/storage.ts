@@ -13,12 +13,13 @@ import type {
   CommunityEventPublishInput,
   CommunityEventType,
 } from "@shared/community-events";
+import type { AlumniSyncReport } from "@shared/alumni-sync";
 import { db } from "./db";
 import { eq, desc, and, like, or, asc, count, gte, inArray, isNull, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { googleSheetsService } from "./google-sheets";
-import { getErrorType } from "./safe-logging";
 import { koreaCalendarYear } from "./korea-date";
 import { uniqueAlumniMatch } from "./alumni-match";
+import { planAlumniSync } from "./alumni-sync-plan";
 import {
   eventDraftAdvisoryLockId,
   getOrCreateEventDraft,
@@ -85,6 +86,29 @@ export class PendingRegistrationConflictError extends Error {
   constructor(public readonly conflictReason?: PendingRegistrationConflictReason) {
     super("The pending registration conflict is not resolved.");
     this.name = "PendingRegistrationConflictError";
+  }
+}
+
+export const ALUMNI_SYNC_ADVISORY_LOCK_KEY = "dgkma:alumni-sync:v1";
+
+export class AlumniSyncFingerprintMismatchError extends Error {
+  constructor() {
+    super("The alumni source fingerprint does not match the preview.");
+    this.name = "AlumniSyncFingerprintMismatchError";
+  }
+}
+
+export class AlumniSyncBlockedError extends Error {
+  constructor() {
+    super("The alumni sync plan contains blocking issues.");
+    this.name = "AlumniSyncBlockedError";
+  }
+}
+
+export class AlumniSyncInProgressError extends Error {
+  constructor() {
+    super("Another alumni sync transaction holds the advisory lock.");
+    this.name = "AlumniSyncInProgressError";
   }
 }
 
@@ -352,7 +376,8 @@ export interface IStorage {
   claimAlumniRecord(name: string, phoneNumber: string, userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
-  syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }>;
+  previewAlumniSync(): Promise<AlumniSyncReport>;
+  applyAlumniSync(fingerprint: string): Promise<AlumniSyncReport>;
   getDirectoryAlumni(viewer: User, q?: string): Promise<DirectoryResult>;
   
   // Pending registration methods
@@ -1165,113 +1190,48 @@ export class DatabaseStorage implements IStorage {
     .limit(20);
   }
 
-  // Google Sheets에서 동문 데이터 동기화
-  async syncAlumniFromGoogleSheets(): Promise<{ total: number; synced: number; errors: number }> {
-    const stats = { total: 0, synced: 0, errors: 0 };
-    
-    try {
-      console.log('Starting Google Sheets sync...');
-      
-      // 동기화 시작 알림
-      googleSheetsService.startSync();
-      
-      // Google Sheets 연결 테스트
-      googleSheetsService.updateSyncProgress('Google Sheets 연결 테스트 중...');
-      const isConnected = await googleSheetsService.testConnection();
-      if (!isConnected) {
-        console.log('Google Sheets not configured, skipping sync');
-        googleSheetsService.finishSync();
-        return stats;
+  async previewAlumniSync(): Promise<AlumniSyncReport> {
+    const snapshot = await googleSheetsService.fetchAlumniSnapshot();
+    const databaseRecords = await db.select().from(alumniDatabase);
+    return planAlumniSync(snapshot, databaseRecords).report;
+  }
+
+  async applyAlumniSync(fingerprint: string): Promise<AlumniSyncReport> {
+    const snapshot = await googleSheetsService.fetchAlumniSnapshot();
+
+    return db.transaction(async (tx) => {
+      const lockResult = await tx.execute<{ locked: boolean }>(sql`
+        select pg_try_advisory_xact_lock(
+          hashtextextended(${ALUMNI_SYNC_ADVISORY_LOCK_KEY}, 0)
+        ) as locked
+      `);
+      if (lockResult.rows[0]?.locked !== true) {
+        throw new AlumniSyncInProgressError();
       }
-      
-      // Google Sheets에서 모든 동문 데이터 가져오기
-      googleSheetsService.updateSyncProgress('Google Sheets 데이터 로딩 중...');
-      const googleAlumni = await googleSheetsService.fetchAlumniData();
-      stats.total = googleAlumni.length;
-      googleSheetsService.updateSyncProgress('데이터 동기화 시작', 0, stats.total);
-      
-      if (googleAlumni.length === 0) {
-        console.log('No alumni data found in Google Sheets');
-        return stats;
+
+      const databaseRecords = await tx.select().from(alumniDatabase);
+      const plan = planAlumniSync(snapshot, databaseRecords);
+      if (plan.report.blocked) throw new AlumniSyncBlockedError();
+      if (plan.report.sourceFingerprint !== fingerprint) {
+        throw new AlumniSyncFingerprintMismatchError();
       }
-      
-      // 각 동문 데이터를 로컬 DB와 비교하여 업데이트
-      for (let i = 0; i < googleAlumni.length; i++) {
-        const alumniData = googleAlumni[i];
-        
-        // 진행상황 업데이트 (10명마다)
-        if (i % 10 === 0 || i === googleAlumni.length - 1) {
-          googleSheetsService.updateSyncProgress(
-            `동문 데이터 처리 중... (${i + 1}/${googleAlumni.length})`,
-            i + 1,
-            googleAlumni.length
-          );
+
+      for (const change of plan.changes) {
+        if (change.kind === "insert") {
+          await tx.insert(alumniDatabase).values({
+            ...change.source,
+            isMatched: false,
+            matchedUserId: null,
+          });
+          continue;
         }
-        
-        try {
-          // 필수 데이터 검증 (휴대전화번호 포함)
-          if (!alumniData.name || !alumniData.generation || !alumniData.department || !alumniData.mobile) {
-            console.log(`Skipping invalid alumni source row at index ${i}`);
-            stats.errors++;
-            googleSheetsService.updateSyncProgress('데이터 검증 오류 발생', undefined, undefined, stats.errors);
-            continue;
-          }
-          
-          // 기존 데이터 확인 (휴대전화번호로)
-          const existing = await this.findAlumniByMobile(alumniData.mobile);
-          
-          if (!existing) {
-            // 새로운 동문 데이터 추가
-            await db.insert(alumniDatabase).values({
-              department: alumniData.department,
-              generation: alumniData.generation,
-              name: alumniData.name,
-              admissionDate: alumniData.admissionDate || null,
-              graduationDate: alumniData.graduationDate || null,
-              address: alumniData.address || null,
-              mobile: alumniData.mobile || null,
-              phone: alumniData.phone || null,
-              group: alumniData.group || null,
-              status: alumniData.status || null,
-              alumniPosition: alumniData.alumniPosition || null,
-              memo: alumniData.memo || null,
-              isMatched: false,
-              matchedUserId: null,
-            });
-            stats.synced++;
-            
-            if (stats.synced % 50 === 0) {
-              console.log(`Progress: ${stats.synced}/${stats.total} new records synced (${Math.round((stats.synced/stats.total)*100)}%)`);
-            }
-          }
-        } catch (error) {
-          console.error(`Error syncing alumni source row at index ${i}:`, getErrorType(error));
-          stats.errors++;
-        }
+        await tx.update(alumniDatabase)
+          .set(change.source)
+          .where(eq(alumniDatabase.id, change.databaseId));
       }
-      
-      // 최종 통계 확인
-      const finalCountResult = await db.select().from(alumniDatabase);
-      const totalInDB = finalCountResult.length;
-      
-      // 동기화 완료
-      googleSheetsService.updateSyncProgress('동기화 완료', stats.total, stats.total);
-      googleSheetsService.finishSync();
-      
-      console.log(`Google Sheets sync completed:`);
-      console.log(`- Google Sheets total: ${stats.total}`);
-      console.log(`- New records synced: ${stats.synced}`);
-      console.log(`- Errors: ${stats.errors}`);
-      console.log(`- Total records in DB: ${totalInDB}`);
-      console.log(`- Remaining to sync: ${stats.total - totalInDB}`);
-      
-      return stats;
-    } catch (error) {
-      console.error('Google Sheets sync failed:', getErrorType(error));
-      // 에러 시에도 동기화 상태 정리
-      googleSheetsService.finishSync();
-      throw error;
-    }
+
+      return plan.report;
+    });
   }
 
   async getObituaries(): Promise<Obituary[]> {
