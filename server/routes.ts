@@ -761,17 +761,6 @@ export async function registerRoutes(
     }
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    app.get("/api/debug/login", async (req, res) => {
-      const user = await storage.getUser(1);
-      if (!user) {
-        return res.status(404).json({ message: "Debug user not found" });
-      }
-      req.session.userId = 1;
-      res.json({ user: toClientUser(user) });
-    });
-  }
-
   // Categories routes
   app.get("/api/categories", async (req, res) => {
     try {
@@ -1438,7 +1427,7 @@ export async function registerRoutes(
       res.json(response);
     } catch (error) {
       console.error("Alumni sync error:", getErrorType(error));
-      res.status(500).json({ message: "동기화 실패", error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요" });
     }
   });
 
@@ -1475,10 +1464,9 @@ export async function registerRoutes(
       }
     } catch (error) {
       console.error("Google Sheets test error:", getErrorType(error));
-      res.status(500).json({ 
+      res.status(500).json({
         connected: false, 
-        message: "Google Sheets 연결 실패",
-        error: error instanceof Error ? error.message : String(error)
+        message: "Google Sheets 연결에 실패했습니다. 잠시 후 다시 시도해주세요",
       });
     }
   });
