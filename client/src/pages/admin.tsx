@@ -6,92 +6,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, X, RefreshCw, FileSpreadsheet, Users, AlertCircle } from "lucide-react";
 import type { AdminPendingRegistrationDto, AdminPendingRegistrationUpdateResult } from "@shared/schema";
+import type { AlumniSyncReport } from "@shared/alumni-sync";
+
+type AlumniSyncPreviewResponse = {
+  report: AlumniSyncReport;
+  fingerprint: string | null;
+};
+
+type AlumniSyncApplyResponse = {
+  report: AlumniSyncReport;
+};
+
+async function readAdminResponse<T>(response: Response, fallback: string): Promise<T> {
+  const body = await response.json().catch(() => ({})) as { message?: unknown };
+  if (!response.ok) {
+    throw new Error(typeof body.message === "string" ? body.message : fallback);
+  }
+  return body as T;
+}
 
 export default function Admin() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [syncProgress, setSyncProgress] = useState<any>(null);
-  const [isPolling, setIsPolling] = useState(false);
+  const [preview, setPreview] = useState<AlumniSyncPreviewResponse | null>(null);
 
-  // 페이지 로드 시 스크롤을 맨 위로 + 진행중인 동기화 체크
   useEffect(() => {
     window.scrollTo(0, 0);
-    
-    // 페이지 로드 시 현재 동기화 상태 확인
-    const checkInitialSyncStatus = async () => {
-      try {
-        const response = await fetch("/api/admin/sync-progress", { credentials: "include" });
-        const progress = await response.json();
-        
-        if (progress.isRunning) {
-          console.log('Detected ongoing sync, resuming polling...');
-          setSyncProgress(progress);
-          setIsPolling(true);
-        }
-      } catch (error) {
-        console.error('Failed to check initial sync status:', error);
-      }
-    };
-    
-    checkInitialSyncStatus();
   }, []);
-
-  // 동기화 진행상황 폴링
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-    
-    const checkProgress = async () => {
-      try {
-        const response = await fetch("/api/admin/sync-progress", { credentials: "include" });
-        const progress = await response.json();
-        console.log('Progress polling:', progress);
-        setSyncProgress(progress);
-        
-        // 동기화가 완료되면 폴링 중지
-        if (!progress.isRunning) {
-          console.log('Sync finished, stopping polling');
-          setIsPolling(false);
-          setSyncProgress(null);
-          return false; // 폴링 중지 신호
-        }
-        return true; // 폴링 계속
-      } catch (error) {
-        console.error('Progress polling error:', error);
-        // 에러 발생 시에도 폴링 중지
-        setIsPolling(false);
-        setSyncProgress(null);
-        return false;
-      }
-    };
-    
-    if (isPolling) {
-      // 즉시 첫 번째 체크 실행
-      checkProgress().then(shouldContinue => {
-        if (shouldContinue) {
-          intervalId = setInterval(() => {
-            checkProgress().then(shouldContinue => {
-              if (!shouldContinue && intervalId) {
-                clearInterval(intervalId);
-              }
-            });
-          }, 1000);
-        }
-      });
-    }
-    
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [isPolling]);
 
   const { data: pendingRegistrations = [], isLoading, isError, error } =
     useQuery<AdminPendingRegistrationDto[]>({
@@ -164,81 +111,66 @@ export default function Admin() {
     enabled: !!user?.isAdmin,
   });
 
-  // Google Sheets 동기화
-  const syncAlumniMutation = useMutation({
+  const previewAlumniMutation = useMutation<AlumniSyncPreviewResponse, Error>({
     mutationFn: async () => {
-      console.log('Starting alumni sync...');
-      
-      // 동기화 시작 시 폴링 시작
-      setIsPolling(true);
-      
-      // AbortController로 타임아웃 처리
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5분 타임아웃
-      
-      try {
-        const response = await fetch("/api/admin/sync-alumni", {
-          method: "POST",
-          credentials: "include",
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-        
-        const data = await response.json();
-        console.log('Sync response:', data);
-        return data;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        setIsPolling(false); // 에러 시 폴링 중지
-        setSyncProgress(null);
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error('동기화 시간이 초과되었습니다.');
-        }
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      console.log('Sync success:', data);
-      setIsPolling(false); // 성공 시 폴링 중지
-      setSyncProgress(null);
-      
-      // 메시지 개선 - 새로 추가된 건수와 전체 건수 구분
-      const newRecords = data.stats?.synced || 0;
-      const totalRecords = data.stats?.total || 0;
-      
-      let description;
-      if (newRecords === 0) {
-        description = `모든 동문 데이터가 이미 최신 상태입니다. (총 ${totalRecords}건 확인완료)`;
-      } else {
-        description = `${newRecords}건의 새로운 동문 데이터가 추가되었습니다. (총 ${totalRecords}건)`;
-      }
-      
-      toast({
-        title: "동기화 완료",
-        description: description,
+      const response = await fetch("/api/admin/sync-alumni/preview", {
+        method: "POST",
+        credentials: "include",
       });
-      refetchGoogleSheetsStatus();
+      return readAdminResponse<AlumniSyncPreviewResponse>(
+        response,
+        "변경 미리보기를 불러오지 못했습니다.",
+      );
     },
+    onMutate: () => setPreview(null),
+    onSuccess: (nextPreview) => setPreview(nextPreview),
     onError: (error) => {
-      console.error('Sync error:', error);
-      setIsPolling(false); // 에러 시 폴링 중지
-      setSyncProgress(null);
       toast({
-        title: "동기화 실패",
-        description: error instanceof Error ? error.message : "Google Sheets 동기화 중 오류가 발생했습니다.",
+        title: "미리보기 실패",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
+
+  const applyAlumniMutation = useMutation<AlumniSyncApplyResponse, Error>({
+    mutationFn: async () => {
+      if (!preview?.fingerprint) throw new Error("유효한 미리보기가 필요합니다.");
+      const response = await fetch("/api/admin/sync-alumni", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ fingerprint: preview.fingerprint }),
+      });
+      return readAdminResponse<AlumniSyncApplyResponse>(
+        response,
+        "변경 사항을 적용하지 못했습니다.",
+      );
+    },
+    onSuccess: ({ report }) => {
+      setPreview(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/alumni"] });
+      refetchGoogleSheetsStatus();
+      toast({
+        title: "명부 반영 완료",
+        description: `${report.insert}건 추가, ${report.update}건 수정했습니다.`,
+      });
+    },
+    onError: (error) => {
+      setPreview(null);
+      toast({
+        title: "동기화 실패",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const canApply = Boolean(
+    preview?.fingerprint
+      && !preview.report.blocked
+      && preview.report.insert + preview.report.update > 0,
+  );
 
   if (!user?.isAdmin) {
     return (
@@ -381,61 +313,73 @@ export default function Admin() {
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-2">데이터 동기화</h3>
                     <p className="text-sm text-gray-600 mb-4">
-                      Google Sheets의 동문 명단을 로컬 데이터베이스와 동기화합니다. 
-                      새로운 동문 데이터가 추가되고 기존 정보가 업데이트됩니다.
+                      적용 전에 추가·수정 건수와 차단 오류를 확인합니다.
                     </p>
-                    
-                    {/* 진행율 표시기 */}
-                    {syncProgress && syncProgress.isRunning && (
-                      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-blue-800">
-                            동기화 진행 중...
-                          </span>
-                          <span className="text-xs text-blue-600">
-                            {syncProgress.processed}/{syncProgress.total}
-                            {syncProgress.total > 0 && ` (${Math.round((syncProgress.processed / syncProgress.total) * 100)}%)`}
-                          </span>
+
+                    {preview && (
+                      <div className="mb-4 space-y-3" aria-live="polite">
+                        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border bg-gray-200">
+                          {[
+                            ["원본", preview.report.sourceTotal],
+                            ["DB", preview.report.databaseTotal],
+                            ["추가", preview.report.insert],
+                            ["수정", preview.report.update],
+                            ["동일", preview.report.unchanged],
+                            ["충돌", preview.report.conflict],
+                            ["오류", preview.report.invalid],
+                            ["원본만", preview.report.sourceOnly],
+                            ["DB만", preview.report.databaseOnly],
+                          ].map(([label, value]) => (
+                            <div key={label} className="bg-white px-2 py-3 text-center">
+                              <div className="text-lg font-semibold">{value}</div>
+                              <div className="text-xs text-gray-500">{label}</div>
+                            </div>
+                          ))}
                         </div>
-                        
-                        {syncProgress.total > 0 && (
-                          <Progress 
-                            value={(syncProgress.processed / syncProgress.total) * 100} 
-                            className="h-2 mb-2"
-                          />
-                        )}
-                        
-                        {syncProgress.errors > 0 && (
-                          <div className="text-xs text-red-600">
-                            오류: {syncProgress.errors}건
-                          </div>
-                        )}
-                        
-                        {syncProgress.startTime > 0 && (
-                          <div className="text-xs text-gray-500">
-                            경과 시간: {Math.round((Date.now() - syncProgress.startTime) / 1000)}초
-                          </div>
+                        {preview.report.blocked && (
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>적용할 수 없는 명부입니다</AlertTitle>
+                            <AlertDescription>
+                              차단 오류 {preview.report.issues.reduce(
+                                (total, issue) => total + issue.count,
+                                0,
+                              )}건을 원본에서 확인해주세요.
+                            </AlertDescription>
+                          </Alert>
                         )}
                       </div>
                     )}
-                    
-                    <Button
-                      onClick={() => syncAlumniMutation.mutate()}
-                      disabled={syncAlumniMutation.isPending || !googleSheetsStatus?.connected || isPolling}
-                      className="w-full"
-                    >
-                      {syncAlumniMutation.isPending || isPolling ? (
-                        <>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => previewAlumniMutation.mutate()}
+                        disabled={
+                          previewAlumniMutation.isPending
+                          || applyAlumniMutation.isPending
+                          || !googleSheetsStatus?.connected
+                        }
+                      >
+                        {previewAlumniMutation.isPending ? (
                           <LoadingSpinner className="mr-2" />
-                          동기화 중...
-                        </>
-                      ) : (
-                        <>
+                        ) : (
                           <RefreshCw className="mr-2" size={16} />
-                          동문 데이터 동기화
-                        </>
-                      )}
-                    </Button>
+                        )}
+                        변경 미리보기
+                      </Button>
+                      <Button
+                        onClick={() => applyAlumniMutation.mutate()}
+                        disabled={!canApply || applyAlumniMutation.isPending}
+                      >
+                        {applyAlumniMutation.isPending ? (
+                          <LoadingSpinner className="mr-2" />
+                        ) : (
+                          <Check className="mr-2" size={16} />
+                        )}
+                        변경 적용
+                      </Button>
+                    </div>
                   </div>
 
                   {/* 설정 안내 */}
@@ -468,32 +412,14 @@ export default function Admin() {
             </TabsContent>
 
             <TabsContent value="stats" className="space-y-4 mt-6">
-              <div className="grid gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold">1,247</p>
-                      <p className="text-sm text-gray-600">총 회원 수</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold">856</p>
-                      <p className="text-sm text-gray-600">인증 완료</p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold">₩42,800,000</p>
-                      <p className="text-sm text-gray-600">총 회비 수납액</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="font-semibold">통계 집계 준비 중</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    실제 집계 API가 연결되면 표시됩니다.
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
