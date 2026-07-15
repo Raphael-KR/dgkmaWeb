@@ -87,7 +87,17 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
 test("every admin endpoint rejects anonymous and member sessions", async (t) => {
   const memberId = 2_147_483_646;
   let lookupCalls = 0;
+  let categoryLookups = 0;
+  let categoryWrites = 0;
   let paymentWrites = 0;
+  t.mock.method(storage, "getUser", async () => {
+    categoryLookups += 1;
+    return { isAdmin: false } as any;
+  });
+  t.mock.method(storage, "createCategory", async () => {
+    categoryWrites += 1;
+    throw new Error("category writes must not run for unauthorized requests");
+  });
   t.mock.method(storage, "createPayment", async () => {
     paymentWrites += 1;
     throw new Error("payment writes must not run for unauthorized requests");
@@ -104,6 +114,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
       { method: "POST", path: "/api/admin/sync-alumni" },
       { method: "GET", path: "/api/admin/sync-progress" },
       { method: "GET", path: "/api/admin/test-google-sheets" },
+      { method: "POST", path: "/api/categories", body: "{}", legacyGuard: true },
       { method: "POST", path: "/api/payments", body: "{}" },
     ];
 
@@ -127,7 +138,9 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
     }
 
     assert.equal(paymentWrites, 0);
-    assert.equal(lookupCalls, adminEndpoints.length);
+    assert.equal(categoryWrites, 0);
+    assert.equal(categoryLookups, 1);
+    assert.equal(lookupCalls, adminEndpoints.filter((endpoint) => !endpoint.legacyGuard).length);
   } finally {
     await server.close();
   }
