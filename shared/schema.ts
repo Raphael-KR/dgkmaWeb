@@ -143,6 +143,13 @@ export const communityEvents = pgTable("community_events", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const eventParseRateLimits = pgTable("event_parse_rate_limits", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
+  requestCount: integer("request_count").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const pendingRegistrations = pgTable("pending_registrations", {
   id: serial("id").primaryKey(),
   kakaoId: text("kakao_id").notNull(),

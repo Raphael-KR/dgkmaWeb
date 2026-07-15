@@ -50,7 +50,7 @@ test("event composer integrates recovery, compact status, discard, and publish r
   assert.match(composer, /await flushAutosave\(\)/);
   assert.match(composer, /if \(!saved\) \{[\s\S]*현재 화면의 입력은 유지됩니다/);
   assert.match(composer, /new AbortController\(\)/);
-  assert.match(composer, /setTimeout\(\(\) => parseController\.abort\(\), 15000\)/);
+  assert.match(composer, /setTimeout\(\(\) => parseController\.abort\(\), 20000\)/);
   assert.match(composer, /signal: parseController\.signal/);
   assert.match(composer, /clearTimeout\(parseTimeout\)/);
   assert.doesNotMatch(composer, /await settleAutosave\(\)/);

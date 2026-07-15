@@ -1,3 +1,6 @@
+import type { CommunityEventDraftInput, ObituaryDetails } from "@shared/community-events";
+import { extractEventSourceUrls } from "./event-source-policy";
+
 export interface ParsedObituary {
   deceasedName: string;
   deceasedRelation?: string;
@@ -8,6 +11,13 @@ export interface ParsedObituary {
   bankAccount: string;
   contactNumber: string;
 }
+
+type ObituaryDraft = Extract<CommunityEventDraftInput, { eventType: "obituary" }>;
+
+export type ParsedObituaryEventSource = {
+  draft: ObituaryDraft;
+  missingFields: string[];
+};
 
 const RELATION_ALIASES = [
   { aliases: ["본인"], relation: "본인" },
@@ -26,6 +36,11 @@ const DATE_PATTERNS = [
   /\d{4}[-.]\s*\d{1,2}[-.]\s*\d{1,2}\s*(?:오전|오후)?\s*\d{1,2}시(?:\s*\d{1,2}분)?/,
   /\d{4}년\s*\d{1,2}월\s*\d{1,2}일/,
   /\d{4}[-.]\d{1,2}[-.]\d{1,2}/,
+];
+
+const FUNERAL_DATE_PATTERNS = [
+  /\d{4}년\s*\d{1,2}월\s*\d{1,2}일(?:\s*\([^\n)]+\))?(?:\s*(?:오전|오후)\s*\d{1,2}시(?:\s*\d{1,2}분)?)?/,
+  /\d{4}[-.]\s*\d{1,2}[-.]\s*\d{1,2}(?:\s*\([^\n)]+\))?(?:\s*(?:오전|오후)\s*\d{1,2}시(?:\s*\d{1,2}분)?)?/,
 ];
 
 function extractDeceasedName(text: string): string {
@@ -58,6 +73,30 @@ function extractRelation(text: string): string | undefined {
     }
   }
   return undefined;
+}
+
+function extractFuneralDate(text: string): string {
+  const labeled = text.match(/(?:발인|영결|출상)\s*[：:\s]\s*([^\n]+)/);
+  const candidates = labeled ? [labeled[1], text] : [text];
+  for (const candidate of candidates) {
+    for (const pattern of FUNERAL_DATE_PATTERNS) {
+      const match = candidate.match(pattern);
+      if (match) return match[0].trim();
+    }
+  }
+  return "";
+}
+
+function extractDeceasedAge(text: string): number | undefined {
+  const match = text.match(/향년\s*(\d{1,3})\s*세/);
+  if (!match) return undefined;
+  const age = Number(match[1]);
+  return age > 0 && age <= 130 ? age : undefined;
+}
+
+function extractRelatedMemberName(text: string): string | undefined {
+  const match = text.match(/([가-힣]{2,5})\s*(?:동문|회원)\s*(?:본인|부친|모친|빙부|빙모|장인|장모|시부|시모|자녀|아들|딸)?상/);
+  return match?.[1];
 }
 
 function extractDateOfDeath(text: string): string {
@@ -107,5 +146,56 @@ export function parseObituarySms(text: string): Partial<ParsedObituary> {
     chiefMourner: extractLabeled(text, ["상주"]),
     bankAccount: extractLabeled(text, ["계좌", "마음전하실곳", "마음 전하실 곳"]),
     contactNumber: extractPhone(text),
+  };
+}
+
+export function parseObituaryEventSource(text: string): ParsedObituaryEventSource {
+  const legacy = parseObituarySms(text);
+  const relationship = legacy.deceasedRelation as ObituaryDetails["relationship"];
+  const deceasedAge = extractDeceasedAge(text);
+  const funeralDate = extractFuneralDate(text);
+  const sourceUrls = extractEventSourceUrls(text);
+  const sourceUrl = sourceUrls[0];
+  const relatedMemberName = extractRelatedMemberName(text);
+
+  const details: ObituaryDetails = {
+    ...(legacy.deceasedName ? { deceasedName: legacy.deceasedName } : {}),
+    ...(deceasedAge ? { deceasedAge } : {}),
+    ...(relationship ? { relationship } : {}),
+    ...(funeralDate ? { funeralDate } : {}),
+    ...(legacy.funeralHome ? { funeralHome: legacy.funeralHome } : {}),
+    ...(legacy.bankAccount ? { accountInfo: legacy.bankAccount } : {}),
+    ...(sourceUrl ? { sourceUrl } : {}),
+    ...(legacy.contactNumber ? { familyContact: legacy.contactNumber } : {}),
+    ...(legacy.jangji ? { burialPlace: legacy.jangji } : {}),
+    ...(legacy.chiefMourner ? { chiefMourner: legacy.chiefMourner } : {}),
+  };
+
+  const requiredDetails: Array<[keyof ObituaryDetails, unknown]> = [
+    ["deceasedName", details.deceasedName],
+    ["deceasedAge", details.deceasedAge],
+    ["relationship", details.relationship],
+    ["funeralDate", details.funeralDate],
+    ["funeralHome", details.funeralHome],
+  ];
+
+  return {
+    draft: {
+      eventType: "obituary",
+      title: relatedMemberName && relationship
+        ? `${relatedMemberName} 동문 ${relationship}상`
+        : "부고",
+      ...(funeralDate ? { eventDate: funeralDate } : {}),
+      ...(legacy.funeralHome ? { location: legacy.funeralHome } : {}),
+      ...(relatedMemberName ? { relatedMemberName } : {}),
+      ...(legacy.contactNumber ? { contactNumber: legacy.contactNumber } : {}),
+      ...(legacy.bankAccount ? { accountInfo: legacy.bankAccount } : {}),
+      sourceText: text,
+      sourceUrls,
+      details,
+    },
+    missingFields: requiredDetails
+      .filter(([, value]) => value === undefined || value === "")
+      .map(([field]) => `details.${field}`),
   };
 }

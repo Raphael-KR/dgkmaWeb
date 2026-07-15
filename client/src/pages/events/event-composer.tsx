@@ -13,10 +13,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   communityEventDraftSchema,
   communityEventPublishSchema,
-  OBITUARY_RELATIONSHIPS,
   type CommunityEventDraftInput,
   type CommunityEventType,
-  type ObituaryDetails,
 } from "@shared/community-events";
 import {
   canApplyParsedSource,
@@ -24,16 +22,16 @@ import {
   collectFormErrorEntries,
   conclusivePublishErrorMessage,
   hasMeaningfulDraftInput,
-  mergeMissingDraftValues,
+  mergeParsedEventDraft,
   publishDraftWithRecovery,
   requestEventPublish,
-  splitEventSource,
 } from "./event-composer-logic";
 import { EventFields } from "./event-fields";
 import { EVENT_TYPE_LABELS } from "./event-list";
 import { ObituaryPreview } from "./obituary-preview";
 import {
   isCurrentObituaryPreview,
+  missingFieldLabel,
   type SuccessfulObituaryPreview,
 } from "./obituary-preview-logic";
 
@@ -58,15 +56,16 @@ type ComposerFieldPath =
   | "details.burialPlace"
   | "details.chiefMourner";
 
-type ParsedObituary = {
-  deceasedName?: string;
-  deceasedRelation?: string;
-  dateOfDeath?: string;
-  funeralHome?: string;
-  jangji?: string;
-  chiefMourner?: string;
-  bankAccount?: string;
-  contactNumber?: string;
+type EventSourceStatus = {
+  url: string;
+  status: "fetched" | "unavailable" | "blocked";
+  message?: string;
+};
+
+type ParsedEventResponse = {
+  draft: unknown;
+  missingFields?: unknown;
+  sources?: unknown;
 };
 
 const eventTypes: CommunityEventType[] = ["obituary", "wedding", "opening", "other"];
@@ -111,6 +110,8 @@ export function EventComposer() {
   const [isClosingReview, setIsClosingReview] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [sourceStatuses, setSourceStatuses] = useState<EventSourceStatus[]>([]);
+  const [parseMissingFields, setParseMissingFields] = useState<string[]>([]);
   const [publishErrors, setPublishErrors] = useState<Record<string, string>>({});
   const [previewSuccess, setPreviewSuccess] = useState<SuccessfulObituaryPreview>();
   const parseRequestRef = useRef(0);
@@ -178,6 +179,8 @@ export function EventComposer() {
 
     const currentValues = form.getValues();
     setPreviewSuccess(undefined);
+    setSourceStatuses([]);
+    setParseMissingFields([]);
     setIsReviewOpen(false);
     form.reset({ ...currentValues, eventType, details: {} } as CommunityEventDraftInput);
     form.clearErrors();
@@ -197,37 +200,24 @@ export function EventComposer() {
       return;
     }
 
-    const { sourceUrls, textOnly } = splitEventSource(snapshotSourceText);
-    form.setValue("sourceUrls", sourceUrls, { shouldDirty: true });
     setIsReviewOpen(true);
-    if (sourceUrls.length > 0) {
-      toast({ title: "링크는 저장했습니다", description: "링크 내용 수집은 준비 중이며 입력한 문자만 분석했습니다." });
-    }
-    if (!textOnly) {
-      toast({ title: "분석할 문자 내용이 없습니다", description: "링크만 입력되어 문자 분석은 하지 않았습니다." });
-      return;
-    }
-
-    if (snapshot.eventType !== "obituary") {
-      form.setValue("details", mergeMissingDraftValues(snapshot.details, { memo: textOnly }), {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-      return;
-    }
+    setSourceStatuses([]);
+    setParseMissingFields([]);
 
     const requestToken = ++parseRequestRef.current;
     const parseController = new AbortController();
-    const parseTimeout = setTimeout(() => parseController.abort(), 15000);
+    const parseTimeout = setTimeout(() => parseController.abort(), 20000);
     setIsParsing(true);
     try {
       const response = await apiRequest(
         "POST",
-        "/api/obituary/parse",
-        { text: textOnly },
+        "/api/events/parse",
+        { eventType: snapshot.eventType, input: snapshotSourceText },
         { signal: parseController.signal },
       );
-      const parsed = await response.json() as ParsedObituary;
+      const parsed = await response.json() as ParsedEventResponse;
+      const parsedDraft = communityEventDraftSchema.safeParse(parsed.draft);
+      if (!parsedDraft.success) throw new Error("invalid parse response");
       const currentValues = form.getValues();
       if (!canApplyParsedSource({
         activeToken: parseRequestRef.current,
@@ -239,34 +229,24 @@ export function EventComposer() {
       })) {
         return;
       }
-
-      const obituaryDetails: Partial<ObituaryDetails> = {};
-      if (parsed.deceasedName) obituaryDetails.deceasedName = parsed.deceasedName;
-      if (parsed.funeralHome) {
-        obituaryDetails.funeralHome = parsed.funeralHome;
-      }
-      if (parsed.jangji) obituaryDetails.burialPlace = parsed.jangji;
-      if (parsed.chiefMourner) obituaryDetails.chiefMourner = parsed.chiefMourner;
-      if (parsed.deceasedRelation && OBITUARY_RELATIONSHIPS.includes(parsed.deceasedRelation as ObituaryDetails["relationship"] & string)) {
-        obituaryDetails.relationship = parsed.deceasedRelation as ObituaryDetails["relationship"];
-      }
-      if (sourceUrls[0]) obituaryDetails.sourceUrl = sourceUrls[0];
-      const mergedCommon = mergeMissingDraftValues(currentValues, {
-        location: parsed.funeralHome,
-        accountInfo: parsed.bankAccount,
-        contactNumber: parsed.contactNumber,
-        eventDate: parsed.dateOfDeath,
+      const merged = mergeParsedEventDraft(currentValues, {
+        ...parsedDraft.data,
+        sourceText: snapshotSourceText,
       });
-      form.setValue("location", mergedCommon.location, { shouldDirty: true });
-      form.setValue("accountInfo", mergedCommon.accountInfo, { shouldDirty: true });
-      form.setValue("contactNumber", mergedCommon.contactNumber, { shouldDirty: true });
-      form.setValue("eventDate", mergedCommon.eventDate, { shouldDirty: true });
-      form.setValue(
-        "details",
-        mergeMissingDraftValues(currentValues.details as ObituaryDetails, obituaryDetails),
-        { shouldDirty: true, shouldValidate: true },
-      );
-      toast({ title: "부고 문자 분석 완료", description: "입력된 내용을 확인하고 필요한 정보를 보완해주세요." });
+      form.reset(merged, { keepDefaultValues: true });
+      setSourceStatuses(Array.isArray(parsed.sources)
+        ? parsed.sources.filter((source): source is EventSourceStatus => {
+          if (!source || typeof source !== "object") return false;
+          const candidate = source as Record<string, unknown>;
+          return typeof candidate.url === "string"
+            && (candidate.status === "fetched" || candidate.status === "unavailable" || candidate.status === "blocked")
+            && (candidate.message === undefined || typeof candidate.message === "string");
+        })
+        : []);
+      setParseMissingFields(Array.isArray(parsed.missingFields)
+        ? parsed.missingFields.filter((field): field is string => typeof field === "string")
+        : []);
+      toast({ title: "경조사 내용 분석 완료", description: "입력된 내용을 확인하고 필요한 정보를 보완해주세요." });
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === "AbortError";
       toast({
@@ -290,6 +270,8 @@ export function EventComposer() {
     form.clearErrors();
     setPublishErrors({});
     setPreviewSuccess(undefined);
+    setSourceStatuses([]);
+    setParseMissingFields([]);
     setIsReviewOpen(false);
     toast({ title: "경조사를 게시했습니다", description: "새 소식이 아래 목록에 반영되었습니다." });
   };
@@ -406,6 +388,8 @@ export function EventComposer() {
       form.clearErrors();
       setPublishErrors({});
       setPreviewSuccess(undefined);
+      setSourceStatuses([]);
+      setParseMissingFields([]);
       setIsReviewOpen(false);
     }
   };
@@ -466,6 +450,19 @@ export function EventComposer() {
               {...form.register("sourceText")}
             />
             {sourceError && <p id="event-source-error" role="alert" className="mt-1 text-sm text-red-700">{sourceError}</p>}
+            {sourceStatuses.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm text-gray-600" aria-live="polite">
+                {sourceStatuses.map((source) => (
+                  <li key={`${source.url}-${source.status}`}>
+                    {source.message ?? (source.status === "fetched"
+                      ? "링크 내용을 불러왔습니다."
+                      : source.status === "blocked"
+                        ? "안전하지 않은 주소는 읽지 않았습니다."
+                        : "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.")}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <Button
             ref={registerButtonRef}
@@ -536,6 +533,12 @@ export function EventComposer() {
               <Button type="button" variant="outline" size="sm" onClick={retryDraft} disabled={inputsDisabled}>
                 임시저장 다시 시도
               </Button>
+            )}
+
+            {parseMissingFields.length > 0 && (
+              <div className="border-y border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" role="status">
+                확인이 필요한 항목: {Array.from(new Set(parseMissingFields.map(missingFieldLabel))).join(", ")}
+              </div>
             )}
 
             <EventFields disabled={inputsDisabled} eventType={currentType} form={form} publishErrors={publishErrors} />

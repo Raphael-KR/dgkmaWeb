@@ -72,6 +72,7 @@ test("community event APIs enforce member sessions and do not expose source text
   const publishedEvent = event({
     status: "published",
     publishedAt: new Date("2026-07-11T01:00:00Z"),
+    sourceUrls: ["https://example.com/notice#tracking", "http://127.0.0.1/private"],
   });
   const draftEvent = event();
   let storageCalls = 0;
@@ -156,7 +157,9 @@ test("community event APIs enforce member sessions and do not expose source text
     const headers = { "x-test-user-id": String(memberId) };
     const list = await fetch(`${server.baseUrl}/api/events`, { headers });
     assert.equal(list.status, 200);
-    assert.equal((await list.json())[0].sourceText, undefined);
+    const listed = (await list.json())[0];
+    assert.equal(listed.sourceText, undefined);
+    assert.deepEqual(listed.sourceUrls, ["https://example.com/notice"]);
     assert.deepEqual(listedEventTypes, [undefined]);
 
     const filteredList = await fetch(`${server.baseUrl}/api/events?type=wedding`, { headers });
@@ -179,6 +182,13 @@ test("community event APIs enforce member sessions and do not expose source text
     assert.equal(createdAuthorId, memberId);
     assert.equal("authorId" in (createdDraft ?? {}), false);
 
+    const privateCreate = await fetch(`${server.baseUrl}/api/events/drafts`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ ...draftPayload, sourceUrls: ["http://127.0.0.1/private"] }),
+    });
+    assert.equal(privateCreate.status, 400);
+
     const update = await fetch(`${server.baseUrl}/api/events/drafts/1`, {
       method: "PATCH",
       headers: { "content-type": "application/json", ...headers },
@@ -187,6 +197,13 @@ test("community event APIs enforce member sessions and do not expose source text
     assert.equal(update.status, 200);
     assert.equal(updatedAuthorId, memberId);
     assert.equal("authorId" in (updatedDraft ?? {}), false);
+
+    const privateUpdate = await fetch(`${server.baseUrl}/api/events/drafts/1`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ ...draftPayload, sourceUrls: ["http://127.0.0.1/private"] }),
+    });
+    assert.equal(privateUpdate.status, 400);
 
     const remove = await fetch(`${server.baseUrl}/api/events/drafts/1`, {
       method: "DELETE",
@@ -202,6 +219,13 @@ test("community event APIs enforce member sessions and do not expose source text
     assert.equal(publish.status, 200);
     assert.equal(publishedAuthorId, memberId);
     assert.equal("authorId" in (publishedData ?? {}), false);
+
+    const privatePublish = await fetch(`${server.baseUrl}/api/events/1/publish`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ ...draftPayload, sourceUrls: ["http://127.0.0.1/private"] }),
+    });
+    assert.equal(privatePublish.status, 400);
   } finally {
     await server.close();
   }

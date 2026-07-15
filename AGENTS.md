@@ -20,6 +20,7 @@ https://dgkma.org
 ```
 Use the Replit development homepage as the default browser target during implementation and iterative verification. Do not require a Republish just to inspect an in-progress change.
 Use the production homepage only for post-Republish smoke checks and production-specific verification.
+When the in-app browser is available, Codex must directly perform all checks that can be completed on the development homepage instead of asking the user to verify them. Ask the user to Republish only for genuinely production-specific validation after development checks pass, and batch those production checks to minimize Republish requests.
 Codex may use the configured Replit SSH connection to update and validate the development workspace and Development Database. Replit SSH does not connect to the Production Database or an autoscale production instance.
 When the Replit Secret `PROD_DATABASE_URL` exists, SSH processes can connect directly to the Production Database. Keep it during active pre-launch development because approved production schema and data changes may recur. Follow `docs/database-operations.md` for every direct database operation.
 Keep Development Database as the default. Replit `PG*` variables take precedence over `DATABASE_URL` in `server/db.ts`; never unset them for normal development, app execution, or tests.
