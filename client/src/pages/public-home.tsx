@@ -230,7 +230,7 @@ export function PublicHome() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="sm:col-span-2">
+            <Card className="sm:col-span-2 min-w-0">
               <CardContent className="p-6">
                 <div className="text-xs tp-text-gold-dark font-semibold mb-2">회원 구성</div>
                 <div className="overflow-x-auto -mx-2 px-2">

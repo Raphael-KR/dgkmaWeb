@@ -105,3 +105,4 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 서비스 이용약관 / 개인정보 처리방침 페이지
 - [코드 보강] Google Sheets 명부 매칭·진행 로그를 한국어 비식별 건수·단계 중심으로 통일하고 개인정보 원문이 로그에 포함되지 않는 회귀 테스트를 추가
 - [보안 보강] 미등록 `/api/*` 요청이 개발·운영 SPA fallback에서 HTML `200`으로 변환되지 않고 고정 JSON `404`를 반환하도록 보호
+- [모바일 QA 수정] 공개 홈페이지 회원 구성 표가 390px 화면에서 grid 폭을 넓혀 가로 스크롤을 만드는 문제를 수정
