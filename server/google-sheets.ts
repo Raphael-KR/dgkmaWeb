@@ -241,7 +241,7 @@ export class GoogleSheetsService {
     if (phone) {
       const phoneMatches = alumni.filter(a => toKakaoPhoneFormat(a.mobile) === phone);
       if (phoneMatches.length > 0) {
-        console.log(`Found ${phoneMatches.length} phone match record(s)`);
+        console.log(`동문 명부 전화번호 매칭 결과: ${phoneMatches.length}건`);
         return phoneMatches;
       }
     }
@@ -249,11 +249,11 @@ export class GoogleSheetsService {
     // 2순위: 이름 일치 (단, 1건일 때만 자동 등록 허용)
     const nameMatches = alumni.filter(a => a.name === name);
     if (nameMatches.length === 1) {
-      console.log('Found one unique name match');
+      console.log("동문 명부 이름 매칭 결과: 1건");
       return nameMatches;
     }
     if (nameMatches.length > 1) {
-      console.log(`Found ${nameMatches.length} name matches; blocking auto-match`);
+      console.log(`동문 명부 이름 매칭 차단: ${nameMatches.length}건`);
     }
     return [];
   }
@@ -267,7 +267,7 @@ export class GoogleSheetsService {
     // 정확한 이름 매칭 우선
     const exactMatches = allAlumni.filter(alumni => alumni.name === name);
     if (exactMatches.length > 0) {
-      console.log(`Found ${exactMatches.length} exact name match record(s)`);
+      console.log(`동문 명부 정확한 이름 매칭 결과: ${exactMatches.length}건`);
       return exactMatches;
     }
 
@@ -276,7 +276,7 @@ export class GoogleSheetsService {
       alumni.name.includes(name) || name.includes(alumni.name)
     );
 
-    console.log(`Found ${partialMatches.length} partial name match record(s)`);
+    console.log(`동문 명부 부분 이름 매칭 결과: ${partialMatches.length}건`);
     return partialMatches;
   }
 
@@ -312,7 +312,9 @@ export class GoogleSheetsService {
     if (total !== undefined) this.syncProgress.total = total;
     if (errors !== undefined) this.syncProgress.errors = errors;
     
-    console.log(`Sync Progress: ${step} (${this.syncProgress.processed}/${this.syncProgress.total})`);
+    console.log(
+      `동문 명부 동기화 진행: ${step} (${this.syncProgress.processed}/${this.syncProgress.total})`,
+    );
   }
 
   // 동기화 시작
