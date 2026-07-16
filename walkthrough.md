@@ -284,6 +284,15 @@
 - [ ] 관리자 결제 기록 생성은 테스트 금액·정리 범위를 확정한 뒤 실행한다.
 - [ ] Production Republish 후 운영 역할·모바일·외부 링크 대표 사례를 묶어 최종 통합 QA한다.
 
+## Production 배포 smoke 상태 (2026-07-16)
+
+- [x] Republish 후 운영 `/`와 `/api/categories`가 `200`, 비로그인 `/api/admin/sync-alumni/preview`, `/api/events`, `POST /api/payments`가 `401`을 반환했다. 제거된 `POST /api/debug/login`과 미등록 `/api/*`는 고정 한국어 JSON `404`를 반환했다.
+- [x] 운영 JavaScript 자산 `assets/index-CJN6DkYf.js`와 Replit 현재 빌드의 SHA-256이 `45d04488e7a34e2e7d4993a8aeff461196ca826bfcf63d8df136db92ea7a8f10`으로 일치해 배포본이 검증한 빌드와 같음을 확인했다.
+- [x] 운영 실제 일반회원 세션으로 회원 홈, `/events`, `/directory`, `/o`의 `/events?type=obituary` 이동, `/profile`을 확인했다. 각 화면은 정상 제목과 경로로 로드됐고 1,280px 데스크톱에서 가로 overflow가 없었다.
+- [x] 공개 홈 390px overflow 수정은 동일 배포 자산의 Development 390px 브라우저에서 `documentWidth=390`으로 확인했다. 운영의 별도 실제 모바일 화면 확인은 최종 통합 QA에 유지한다.
+- [x] 이 smoke에서는 경조사 게시·결제 생성·명부 적용·Production Database 변경을 실행하지 않았다.
+- [ ] 운영 일반회원 `403`, 실제 관리자 성공, 실제 모바일 화면, 대표 공개 링크와 네 유형 게시·상세는 최종 통합 QA에서 확인한다.
+
 ## 카카오 동의·탈퇴 검증 상태 (2026-07-14)
 
 - [x] Replit Development 격리 스냅샷에서 `npm test` 210/210, `npm run check`, `npm run build`, `git diff --check` 통과. 실제 PostgreSQL OAuth state·승인·거절·탈퇴 경쟁 테스트와 cleanup 0건을 포함한다.
