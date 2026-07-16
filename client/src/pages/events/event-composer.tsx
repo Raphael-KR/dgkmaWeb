@@ -24,6 +24,7 @@ import {
   hasMeaningfulDraftInput,
   mergeParsedEventDraft,
   publishDraftWithRecovery,
+  remainingParseMissingFields,
   requestEventPublish,
 } from "./event-composer-logic";
 import { EventFields } from "./event-fields";
@@ -125,6 +126,7 @@ export function EventComposer() {
   const currentType = form.watch("eventType");
   const previewValues = useWatch({ control: form.control });
   const previewFingerprint = JSON.stringify(previewValues);
+  const visibleParseMissingFields = remainingParseMissingFields(parseMissingFields, previewValues);
   const {
     draftId,
     errorMessage: draftError,
@@ -535,9 +537,9 @@ export function EventComposer() {
               </Button>
             )}
 
-            {parseMissingFields.length > 0 && (
+            {visibleParseMissingFields.length > 0 && (
               <div className="border-y border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" role="status">
-                확인이 필요한 항목: {Array.from(new Set(parseMissingFields.map(missingFieldLabel))).join(", ")}
+                확인이 필요한 항목: {Array.from(new Set(visibleParseMissingFields.map(missingFieldLabel))).join(", ")}
               </div>
             )}
 

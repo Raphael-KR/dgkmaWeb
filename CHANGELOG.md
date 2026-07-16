@@ -42,6 +42,10 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 관리자 명부 동기화를 즉시 실행·진행률 polling 방식에서 `변경 미리보기` 후 `변경 적용`하는 2단계 흐름으로 변경
 - 명부 적용은 Google Sheets 원본을 다시 확인하고 PostgreSQL advisory lock과 단일 transaction에서 추가·수정하며, 기존 회원 연결과 DB-only 행을 보존하도록 변경
 
+### Fixed
+
+- 부고 문자 분석에서 누락된 나이·관계를 사용자가 직접 입력한 뒤에도 “확인이 필요한 항목” 경고가 남던 상태를 현재 입력값에 맞춰 즉시 갱신
+
 ### Security
 
 - 게시판 작성자·댓글 작성자 식별을 세션 기준으로 제한
