@@ -20,6 +20,18 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+function rejectUnknownApiPath(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) {
+  if (req.path.startsWith("/api/")) {
+    res.status(404).json({ message: "요청한 API를 찾을 수 없습니다" });
+    return;
+  }
+  next();
+}
+
 export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
@@ -42,6 +54,7 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
+  app.use("*", rejectUnknownApiPath);
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 
@@ -79,6 +92,8 @@ export function serveStatic(app: Express) {
   }
 
   app.use(express.static(distPath));
+
+  app.use("*", rejectUnknownApiPath);
 
   // fall through to index.html if the file doesn't exist
   app.use("*", async (req, res, next) => {

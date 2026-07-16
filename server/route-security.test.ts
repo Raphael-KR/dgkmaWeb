@@ -11,6 +11,7 @@ import { storage } from "./storage";
 
 const routesPath = new URL("./routes.ts", import.meta.url);
 const authHookPath = new URL("../client/src/hooks/use-auth.tsx", import.meta.url);
+const vitePath = new URL("./vite.ts", import.meta.url);
 
 test("debug login route and client query bypass are absent", async () => {
   const [routesSource, authHookSource] = await Promise.all([
@@ -21,6 +22,12 @@ test("debug login route and client query bypass are absent", async () => {
   assert.doesNotMatch(routesSource, /\/api\/debug\/login/);
   assert.doesNotMatch(authHookSource, /debug_login/);
   assert.doesNotMatch(authHookSource, /\/api\/debug\/login/);
+});
+
+test("SPA fallback does not turn unknown API paths into HTML success responses", async () => {
+  const viteSource = await readFile(vitePath, "utf8");
+  assert.match(viteSource, /req\.path\.startsWith\("\/api\/"\)/);
+  assert.match(viteSource, /res\.status\(404\)\.json\(\{ message: "요청한 API를 찾을 수 없습니다" \}\)/);
 });
 
 test("all admin routes are registered after the shared administrator guard", async () => {
