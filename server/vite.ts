@@ -25,7 +25,7 @@ function rejectUnknownApiPath(
   res: express.Response,
   next: express.NextFunction,
 ) {
-  if (req.path.startsWith("/api/")) {
+  if (req.originalUrl.split("?", 1)[0].startsWith("/api/")) {
     res.status(404).json({ message: "요청한 API를 찾을 수 없습니다" });
     return;
   }

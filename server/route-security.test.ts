@@ -26,7 +26,7 @@ test("debug login route and client query bypass are absent", async () => {
 
 test("SPA fallback does not turn unknown API paths into HTML success responses", async () => {
   const viteSource = await readFile(vitePath, "utf8");
-  assert.match(viteSource, /req\.path\.startsWith\("\/api\/"\)/);
+  assert.match(viteSource, /req\.originalUrl\.split\("\\?", 1\)\[0\]\.startsWith\("\/api\/"\)/);
   assert.match(viteSource, /res\.status\(404\)\.json\(\{ message: "요청한 API를 찾을 수 없습니다" \}\)/);
 });
 
