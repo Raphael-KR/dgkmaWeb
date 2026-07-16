@@ -4,12 +4,16 @@ import test from "node:test";
 import express from "express";
 import { readEventSources, type EventSourceReadResult } from "./event-source-reader";
 import { createEventParseLimiter, createInMemoryEventParseQuota } from "./event-parse-limiter";
-import { registerRoutes } from "./routes";
+import { createDefaultEventSourceReader, registerRoutes } from "./routes";
 
 const memberId = 2_147_483_646;
+type InjectedEventSourceReader = (
+  input: string,
+  signal?: AbortSignal,
+) => Promise<EventSourceReadResult>;
 
 async function startServer(
-  readSources?: (input: string, signal?: AbortSignal) => Promise<EventSourceReadResult>,
+  readSources?: InjectedEventSourceReader,
   eventParseTimeoutMs?: number,
 ) {
   const app = express();
@@ -21,9 +25,10 @@ async function startServer(
   });
 
   const server = await registerRoutes(app, {
-    readEventSources: readSources ?? ((input) => readEventSources(input, {
-      fetchPage: async () => { throw new Error("테스트는 외부 페이지를 읽지 않습니다"); },
-    })),
+    readEventSources: readSources ?? ((input, signal) =>
+      readEventSources(input, {
+        fetchPage: async () => { throw new Error("테스트는 외부 페이지를 읽지 않습니다"); },
+      }, signal)),
     eventParseTimeoutMs,
     eventParseLimiter: createEventParseLimiter({
       windowMs: 60_000,
@@ -70,6 +75,51 @@ test("event parsing requires an authenticated member session", async () => {
 
     assert.equal(response.status, 401);
     assert.deepEqual(await response.json(), { message: "로그인이 필요합니다" });
+  } finally {
+    await server.close();
+  }
+});
+
+test("the default event source adapter passes the signal as the raw reader third argument", async () => {
+  let readerArguments: Parameters<typeof readEventSources> | undefined;
+  const readSources = createDefaultEventSourceReader(async (...args) => {
+    readerArguments = args;
+    return {
+      combinedText: String(args[0]),
+      urls: [],
+      sources: [],
+    };
+  });
+  const signal = new AbortController().signal;
+
+  await readSources("중단 신호 전달 확인", signal);
+
+  assert.equal(readerArguments?.[0], "중단 신호 전달 확인");
+  assert.equal(readerArguments?.[1], undefined);
+  assert.equal(readerArguments?.[2], signal);
+});
+
+test("event parsing preserves the injected reader input and signal contract", async () => {
+  let readerArguments: unknown[] | undefined;
+  const server = await startServer(async (...args: unknown[]) => {
+    readerArguments = args;
+    return {
+      combinedText: String(args[0]),
+      urls: [],
+      sources: [],
+    };
+  });
+
+  try {
+    const response = await parseEvent(server.baseUrl, {
+      eventType: "other",
+      input: "중단 신호 전달 확인",
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(readerArguments?.[0], "중단 신호 전달 확인");
+    assert.ok(readerArguments?.[1] instanceof AbortSignal);
+    assert.equal(readerArguments?.length, 2);
   } finally {
     await server.close();
   }
@@ -136,6 +186,54 @@ test("event parsing uses combined public text while preserving the raw source", 
     assert.equal(body.draft.sourceText, input);
     assert.equal(body.draft.details.memo, "개원 안내\n장소: 동국한의원");
     assert.deepEqual(body.draft.sourceUrls, ["https://example.com/opening"]);
+  } finally {
+    await server.close();
+  }
+});
+
+test("event parsing maps a fetched obituary source without missing fields", async () => {
+  const sourceUrl = "https://example.com/obituary";
+  const input = `부고 안내 ${sourceUrl}`;
+  const server = await startServer(async () => ({
+    combinedText: `김동국 동문 부친상
+故김한의 (향년 88세)
+발인: 2026년 8월 3일 오전 7시
+빈소: 동국병원 장례식장 202호`,
+    urls: [sourceUrl],
+    sources: [{ url: sourceUrl, status: "fetched" }],
+  }));
+
+  try {
+    const response = await parseEvent(server.baseUrl, { eventType: "obituary", input });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.draft.sourceText, input);
+    assert.deepEqual(body.draft.sourceUrls, [sourceUrl]);
+    assert.equal(body.draft.details.sourceUrl, sourceUrl);
+    assert.equal(body.draft.details.deceasedName, "김한의");
+    assert.deepEqual(body.missingFields, []);
+  } finally {
+    await server.close();
+  }
+});
+
+test("event parsing reports required obituary fields missing from the source", async () => {
+  const server = await startServer(async () => ({
+    combinedText: "故김한의\n관계: 모친\n발인: 2026년 8월 3일",
+    urls: [],
+    sources: [],
+  }));
+
+  try {
+    const response = await parseEvent(server.baseUrl, {
+      eventType: "obituary",
+      input: "일부 정보만 있는 부고",
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).missingFields, [
+      "details.deceasedAge",
+      "details.funeralHome",
+    ]);
   } finally {
     await server.close();
   }

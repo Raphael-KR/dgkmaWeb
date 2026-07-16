@@ -35,6 +35,14 @@ test("accepts only public HTTP and HTTPS URLs with default ports", () => {
   ]) {
     assert.throws(() => assertSafeSourceUrl(encodedLoopback), /공개 주소/, encodedLoopback);
   }
+  for (const localHostname of [
+    "http://localhost/private",
+    "http://api.localhost/private",
+    "http://service.internal/private",
+    "http://printer/private",
+  ]) {
+    assert.throws(() => assertSafeSourceUrl(localHostname), /공개 주소/, localHostname);
+  }
 });
 
 test("classifies public and non-public IPv4 addresses", () => {

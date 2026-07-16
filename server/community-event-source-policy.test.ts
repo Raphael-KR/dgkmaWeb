@@ -27,6 +27,7 @@ test("normalizes approved source URLs and removes fragments", () => {
 test("rejects private, credentialed, and non-default-port source URLs", () => {
   for (const sourceUrl of [
     "http://127.0.0.1/private",
+    "http://localhost/private",
     "https://user:secret@example.com/notice",
     "https://example.com:8443/notice",
   ]) {

@@ -5,10 +5,30 @@ import test from "node:test";
 import express from "express";
 import type { Category, Obituary, Post } from "@shared/schema";
 import type { AdminUserLookup } from "./auth-middleware";
+import { AlumniSourceReadError, googleSheetsService } from "./google-sheets";
 import { registerRoutes } from "./routes";
 import { storage } from "./storage";
 
 const routesPath = new URL("./routes.ts", import.meta.url);
+const authHookPath = new URL("../client/src/hooks/use-auth.tsx", import.meta.url);
+const vitePath = new URL("./vite.ts", import.meta.url);
+
+test("debug login route and client query bypass are absent", async () => {
+  const [routesSource, authHookSource] = await Promise.all([
+    readFile(routesPath, "utf8"),
+    readFile(authHookPath, "utf8"),
+  ]);
+
+  assert.doesNotMatch(routesSource, /\/api\/debug\/login/);
+  assert.doesNotMatch(authHookSource, /debug_login/);
+  assert.doesNotMatch(authHookSource, /\/api\/debug\/login/);
+});
+
+test("SPA fallback does not turn unknown API paths into HTML success responses", async () => {
+  const viteSource = await readFile(vitePath, "utf8");
+  assert.match(viteSource, /req\.originalUrl\.split\("\?", 1\)\[0\]\.startsWith\("\/api\/"\)/);
+  assert.match(viteSource, /res\.status\(404\)\.json\(\{ message: "요청한 API를 찾을 수 없습니다" \}\)/);
+});
 
 test("all admin routes are registered after the shared administrator guard", async () => {
   const source = await readFile(routesPath, "utf8");
@@ -18,7 +38,7 @@ test("all admin routes are registered after the shared administrator guard", asy
   ).map((match) => match.index ?? -1);
 
   assert.ok(guardIndex >= 0);
-  assert.equal(adminRouteIndexes.length, 5);
+  assert.equal(adminRouteIndexes.length, 6);
   assert.ok(adminRouteIndexes.every((index) => index > guardIndex));
 });
 
@@ -71,46 +91,137 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
   };
 }
 
-test("protected routes enforce the live session role matrix", async () => {
+test("every admin endpoint rejects anonymous and member sessions", async (t) => {
   const memberId = 2_147_483_646;
-  const adminId = 2_147_483_647;
   let lookupCalls = 0;
+  let categoryLookups = 0;
+  let categoryWrites = 0;
+  let paymentWrites = 0;
+  t.mock.method(storage, "getUser", async () => {
+    categoryLookups += 1;
+    return { isAdmin: false } as any;
+  });
+  t.mock.method(storage, "createCategory", async () => {
+    categoryWrites += 1;
+    throw new Error("category writes must not run for unauthorized requests");
+  });
+  t.mock.method(storage, "createPayment", async () => {
+    paymentWrites += 1;
+    throw new Error("payment writes must not run for unauthorized requests");
+  });
   const server = await startAuthorizationTestServer(async (userId) => {
     lookupCalls += 1;
-    return { isAdmin: userId === adminId };
+    return { isAdmin: userId !== memberId };
   });
 
   try {
-    const anonymousAdmin = await fetch(`${server.baseUrl}/api/admin/sync-progress`);
-    assert.equal(anonymousAdmin.status, 401);
+    const adminEndpoints = [
+      { method: "GET", path: "/api/admin/pending-registrations" },
+      { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
+      { method: "POST", path: "/api/admin/sync-alumni/preview" },
+      { method: "POST", path: "/api/admin/sync-alumni" },
+      { method: "GET", path: "/api/admin/sync-progress" },
+      { method: "GET", path: "/api/admin/test-google-sheets" },
+      { method: "POST", path: "/api/categories", body: "{}", legacyGuard: true },
+      { method: "POST", path: "/api/payments", body: "{}" },
+    ];
 
-    const memberAdmin = await fetch(`${server.baseUrl}/api/admin/sync-progress`, {
-      headers: { "x-test-user-id": String(memberId) },
-    });
-    assert.equal(memberAdmin.status, 403);
+    for (const endpoint of adminEndpoints) {
+      const anonymous = await fetch(`${server.baseUrl}${endpoint.path}`, {
+        method: endpoint.method,
+        headers: endpoint.body ? { "content-type": "application/json" } : undefined,
+        body: endpoint.body,
+      });
+      assert.equal(anonymous.status, 401, `${endpoint.method} ${endpoint.path}`);
 
-    const adminAdmin = await fetch(`${server.baseUrl}/api/admin/sync-progress`, {
-      headers: { "x-test-user-id": String(adminId) },
-    });
-    assert.equal(adminAdmin.status, 200);
+      const member = await fetch(`${server.baseUrl}${endpoint.path}`, {
+        method: endpoint.method,
+        headers: {
+          ...(endpoint.body ? { "content-type": "application/json" } : {}),
+          "x-test-user-id": String(memberId),
+        },
+        body: endpoint.body,
+      });
+      assert.equal(member.status, 403, `${endpoint.method} ${endpoint.path}`);
+    }
 
-    const anonymousPayment = await fetch(`${server.baseUrl}/api/payments`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-    });
-    assert.equal(anonymousPayment.status, 401);
+    assert.equal(paymentWrites, 0);
+    assert.equal(categoryWrites, 0);
+    assert.equal(categoryLookups, 1);
+    assert.equal(lookupCalls, adminEndpoints.filter((endpoint) => !endpoint.legacyGuard).length);
+  } finally {
+    await server.close();
+  }
+});
 
-    const memberPayment = await fetch(`${server.baseUrl}/api/payments`, {
+test("sync apply failures return a fixed Korean response without the source exception", async (t) => {
+  const sourceError = "sheets oauth credential secret leaked";
+  t.mock.method(storage, "applyAlumniSync", async () => {
+    throw new Error(sourceError);
+  });
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
+
+  try {
+    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-test-user-id": String(memberId),
+        "x-test-user-id": "1",
       },
-      body: "{}",
+      body: JSON.stringify({ fingerprint: `sha256:${"a".repeat(64)}` }),
     });
-    assert.equal(memberPayment.status, 403);
-    assert.equal(lookupCalls, 3);
+    assert.equal(response.status, 500);
+    const body = await response.json();
+    assert.deepEqual(body, {
+      message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
+    });
+    assert.doesNotMatch(JSON.stringify(body), new RegExp(sourceError));
+  } finally {
+    await server.close();
+  }
+});
+
+test("strict Sheets reader failures return a fixed preview response", async (t) => {
+  t.mock.method(console, "log", () => {});
+  t.mock.method(console, "error", () => {});
+  t.mock.method(storage, "previewAlumniSync", async () => {
+    throw new AlumniSourceReadError([{ code: "EMPTY_SOURCE", count: 1 }]);
+  });
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
+
+  try {
+    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni/preview`, {
+      method: "POST",
+      headers: { "x-test-user-id": "1" },
+    });
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), {
+      message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
+    });
+  } finally {
+    await server.close();
+  }
+});
+
+test("Google Sheets connection failures return a fixed Korean response without the source exception", async (t) => {
+  const sourceError = "sheets oauth credential secret leaked";
+  t.mock.method(googleSheetsService, "testConnection", async () => {
+    throw new Error(sourceError);
+  });
+  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
+
+  try {
+    const response = await fetch(`${server.baseUrl}/api/admin/test-google-sheets`, {
+      headers: { "x-test-user-id": "1" },
+    });
+    assert.equal(response.status, 500);
+    const body = await response.json();
+    assert.deepEqual(body, {
+      connected: false,
+      message: "Google Sheets 연결에 실패했습니다. 잠시 후 다시 시도해주세요",
+    });
+    assert.doesNotMatch(JSON.stringify(body), new RegExp(sourceError));
   } finally {
     await server.close();
   }
