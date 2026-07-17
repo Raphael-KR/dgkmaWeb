@@ -10,6 +10,7 @@ import {
   hasMeaningfulDraftInput,
   mergeParsedEventDraft,
   publishDraftWithRecovery,
+  remainingParseMissingFields,
   requestEventPublish,
   splitEventSource,
 } from "../client/src/pages/events/event-composer-logic";
@@ -61,6 +62,34 @@ test("parsed source fills only missing draft values", async () => {
     location: "파싱한 장소",
     contact: "010-0000-0000",
   });
+});
+
+test("parse warnings disappear as the user fills the missing fields", () => {
+  const parsedMissingFields = [
+    "details.deceasedAge",
+    "details.relationship",
+    "details.funeralHome",
+  ];
+
+  assert.deepEqual(remainingParseMissingFields(parsedMissingFields, {
+    eventType: "obituary",
+    sourceUrls: [],
+    details: {
+      deceasedAge: 80,
+      relationship: "부친",
+      funeralHome: "   ",
+    },
+  }), ["details.funeralHome"]);
+
+  assert.deepEqual(remainingParseMissingFields(parsedMissingFields, {
+    eventType: "obituary",
+    sourceUrls: [],
+    details: {
+      deceasedAge: 80,
+      relationship: "부친",
+      funeralHome: "동국대학교 일산병원 장례식장",
+    },
+  }), []);
 });
 
 test("only autosaves meaningful draft input", () => {

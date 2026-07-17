@@ -22,6 +22,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - [운영 검증 완료] 개인정보 처리방침의 Replit·Neon 국외 이전 대상, 항목, 목적, 시기·방법, 보유기간과 거부권 고지
 - [코드·Replit 검증 완료, 통합 QA 예정] Google Sheets 명부의 필수값·전화번호·중복 preflight, 개인정보 없는 변경 미리보기와 fingerprint 기반 원자 적용
 - [코드·Replit 검증 완료, 통합 QA 예정] 12개 명부 관리 컬럼 헤더 검증, 원본 오류 상태의 미리보기 접근, 로컬·내부 hostname 경조사 링크 차단
+- [운영 smoke 확인] 최종 Republish 자산과 Replit 검증 빌드의 SHA-256 일치, 공개·회원 화면 로드, 비로그인 관리자·경조사·결제 API 경계와 제거된 debug API의 `404`
 
 ### Changed
 
@@ -40,6 +41,10 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 카카오톡 채널 추가 상태 및 내역을 선택 동의로 추가하고 동의 목적을 `동문회 공지 및 경조사 알림`으로 설정
 - 관리자 명부 동기화를 즉시 실행·진행률 polling 방식에서 `변경 미리보기` 후 `변경 적용`하는 2단계 흐름으로 변경
 - 명부 적용은 Google Sheets 원본을 다시 확인하고 PostgreSQL advisory lock과 단일 transaction에서 추가·수정하며, 기존 회원 연결과 DB-only 행을 보존하도록 변경
+
+### Fixed
+
+- 부고 문자 분석에서 누락된 나이·관계를 사용자가 직접 입력한 뒤에도 “확인이 필요한 항목” 경고가 남던 상태를 현재 입력값에 맞춰 즉시 갱신
 
 ### Security
 

@@ -77,6 +77,24 @@ export function mergeParsedEventDraft(
   } as CommunityEventDraftInput;
 }
 
+function valueAtPath(input: unknown, path: string): unknown {
+  return path.split(".").reduce<unknown>((value, key) => {
+    if (!isRecord(value)) return undefined;
+    return value[key];
+  }, input);
+}
+
+function hasResolvedParseValue(value: unknown): boolean {
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== undefined && value !== null;
+}
+
+export function remainingParseMissingFields(missingFields: string[], draft: unknown): string[] {
+  return missingFields.filter((field) => !hasResolvedParseValue(valueAtPath(draft, field)));
+}
+
 export function splitEventSource(sourceText: string) {
   return {
     sourceUrls: sourceText.match(URL_PATTERN)?.slice(0, 3) ?? [],

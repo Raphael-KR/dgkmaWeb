@@ -277,12 +277,22 @@
 
 ## Development 통합 QA 상태 (2026-07-16)
 
-- [x] 실제 개발 카카오 회원 세션으로 로그인 후 회원 홈, 동문 주소록 범위·검색, `/events` 유형 전환·문자 분석·자동저장·새로고침 후 유형별 초안 복구·삭제를 확인했다. QA용 기타 경조사 초안은 게시하지 않고 삭제했으며 `community_events`는 0건으로 복구했다.
+- [x] 실제 개발 카카오 회원 세션으로 로그인 후 회원 홈, 동문 주소록 범위·검색, `/events` 유형 전환·문자 분석·자동저장·새로고침 후 유형별 초안 복구·삭제를 확인했다. 이어 부고·결혼·개원·기타 네 유형을 실제 게시하고 목록과 `/events/:id` 상세를 확인했다. QA 게시물 ID 161~164와 후속 경고 검증 초안을 정리해 `community_events`는 0건으로 복구했다.
 - [x] `/o`, `/o/new`가 각각 `/events?type=obituary`, `/events?type=obituary&compose=1`으로 이동하는 것을 확인했다. 390px 개발 브라우저에서 공개 홈페이지와 `/events`의 가로 overflow가 없고 브라우저 오류가 없는 것을 확인했다.
+- [x] 부고 파서가 놓친 나이·관계를 직접 채웠을 때 상단 누락 경고가 즉시 사라지는지 실제 브라우저에서 확인했다. 회귀 테스트를 포함한 Replit 전체 311/311, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
 - [x] Development Database의 유일한 QA 회원을 트랜잭션으로 임시 관리자 승격한 뒤 관리자 패널·가입 승인 빈 상태·Google Sheets 연결·개인정보 없는 변경 미리보기를 확인했다. 원본·DB 3,458건, 차단 오류 3건에서 `변경 적용`이 비활성화됐고 실제 적용은 실행하지 않았다. 검증 뒤 회원 권한은 일반회원으로 복구했고 관리자 수는 0명이다.
 - [ ] 실제 불일치 카카오 계정의 가입 대기·관리자 승인 또는 거절·카카오 연결 해제는 별도 불일치 테스트 계정이 필요하다.
 - [ ] 관리자 결제 기록 생성은 테스트 금액·정리 범위를 확정한 뒤 실행한다.
 - [ ] Production Republish 후 운영 역할·모바일·외부 링크 대표 사례를 묶어 최종 통합 QA한다.
+
+## Production 배포 smoke 상태 (2026-07-16)
+
+- [x] Republish 후 운영 `/`와 `/api/categories`가 `200`, 비로그인 `/api/admin/sync-alumni/preview`, `/api/events`, `POST /api/payments`가 `401`을 반환했다. 제거된 `POST /api/debug/login`과 미등록 `/api/*`는 고정 한국어 JSON `404`를 반환했다.
+- [x] 운영 JavaScript 자산 `assets/index-CJN6DkYf.js`와 Replit 현재 빌드의 SHA-256이 `45d04488e7a34e2e7d4993a8aeff461196ca826bfcf63d8df136db92ea7a8f10`으로 일치해 배포본이 검증한 빌드와 같음을 확인했다.
+- [x] 운영 실제 일반회원 세션으로 회원 홈, `/events`, `/directory`, `/o`의 `/events?type=obituary` 이동, `/profile`을 확인했다. 각 화면은 정상 제목과 경로로 로드됐고 1,280px 데스크톱에서 가로 overflow가 없었다.
+- [x] 공개 홈 390px overflow 수정은 동일 배포 자산의 Development 390px 브라우저에서 `documentWidth=390`으로 확인했다. 운영의 별도 실제 모바일 화면 확인은 최종 통합 QA에 유지한다.
+- [x] 이 smoke에서는 경조사 게시·결제 생성·명부 적용·Production Database 변경을 실행하지 않았다.
+- [ ] 운영 일반회원 `403`, 실제 관리자 성공, 실제 모바일 화면, 대표 공개 링크와 네 유형 게시·상세는 최종 통합 QA에서 확인한다.
 
 ## 카카오 동의·탈퇴 검증 상태 (2026-07-14)
 
