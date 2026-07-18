@@ -291,6 +291,8 @@
 
 ## Production 배포 smoke 상태 (2026-07-16)
 
+- [x] 2026-07-18 관리자 자동 복구 커밋 `e021457` Republish 후 운영 `/`, `/api/categories`가 `200`, 제거된 `POST /api/debug/login`이 `404`, 비로그인 `/api/admin/sync-alumni/preview`와 `/api/events`가 `401`을 반환했다. 기존 실제 회원 세션의 홈도 정상 로드됐다.
+- [ ] Republish 직후 지정 계정의 Production Database `isAdmin`은 아직 `false`다. 운영에서 로그아웃 후 카카오로 다시 로그인해 `true` 자동 복구와 관리자 화면 진입을 확인한다.
 - [x] Republish 후 운영 `/`와 `/api/categories`가 `200`, 비로그인 `/api/admin/sync-alumni/preview`, `/api/events`, `POST /api/payments`가 `401`을 반환했다. 제거된 `POST /api/debug/login`과 미등록 `/api/*`는 고정 한국어 JSON `404`를 반환했다.
 - [x] 운영 JavaScript 자산 `assets/index-CJN6DkYf.js`와 Replit 현재 빌드의 SHA-256이 `45d04488e7a34e2e7d4993a8aeff461196ca826bfcf63d8df136db92ea7a8f10`으로 일치해 배포본이 검증한 빌드와 같음을 확인했다.
 - [x] 운영 실제 일반회원 세션으로 회원 홈, `/events`, `/directory`, `/o`의 `/events?type=obituary` 이동, `/profile`을 확인했다. 각 화면은 정상 제목과 경로로 로드됐고 1,280px 데스크톱에서 가로 overflow가 없었다.
