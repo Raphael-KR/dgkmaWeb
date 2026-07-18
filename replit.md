@@ -65,6 +65,8 @@ Replit 개발 워크스페이스도 같은 방식으로 GitHub 커밋을 가져�
 - `KAKAO_PROD_REDIRECT_URI`
 - `KAKAO_DEV_ADMIN_KEY`
 - `KAKAO_PROD_ADMIN_KEY`
+- `KAKAO_DEV_ADMIN_USER_IDS`
+- `KAKAO_PROD_ADMIN_USER_IDS`
 - `PRIVATE_OBJECT_DIR`
 
 Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REPLIT_DEPLOYMENT="1"`이면 프로덕션 설정을 선택하고, 그 외 모든 값이면 개발 설정을 선택합니다. Secret 값 자체는 이 문서에 기록하지 않습니다.
@@ -105,6 +107,8 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 서버의 authorization request와 token exchange는 `REPLIT_DEPLOYMENT`로 선택한 동일한 환경 config의 REST API key와 redirect URI를 사용해야 합니다.
 
 카카오 어드민 키는 서버의 회원 탈퇴 및 가입 거절의 카카오 연결 해제에서만 `/v1/user/unlink` 호출에 사용합니다. `KAKAO_DEV_ADMIN_KEY`와 `KAKAO_PROD_ADMIN_KEY`도 `REPLIT_DEPLOYMENT="1"` 규칙으로 선택하며, 브라우저·`VITE_` 변수·로그·오류 메시지·저장소 파일에 노출하지 않습니다.
+
+관리자 계정 복구용 `KAKAO_DEV_ADMIN_USER_IDS`와 `KAKAO_PROD_ADMIN_USER_IDS`에는 각 환경에서 카카오가 인증한 숫자형 회원번호를 쉼표로 구분해 저장합니다. 로그인 callback의 카카오 회원번호가 현재 환경의 allowlist와 정확히 일치하면 서버가 해당 회원의 `isAdmin=true`를 복구합니다. 값이 없으면 아무도 자동 승격하지 않고, 잘못된 형식은 값 원문을 노출하지 않은 채 실패합니다. allowlist에 없다는 이유로 기존 관리자 권한을 자동 회수하지는 않습니다.
 
 ## 데이터베이스 운영
 
