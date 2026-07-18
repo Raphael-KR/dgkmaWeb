@@ -53,12 +53,14 @@ Once the user declares that data must be preserved, stop treating existing recor
 ## Kakao login rules
 The current Kakao Login flow uses REST authorize URL navigation. Replit provides one App Secrets pane for this project; `REPLIT_DEPLOYMENT="1"` selects production, and every other value selects development.
 
-The eight environment-specific Kakao Secrets are:
+The ten environment-specific Kakao Secrets are:
 
 - Development: `KAKAO_DEV_REST_API_KEY`, `KAKAO_DEV_CLIENT_SECRET`, `KAKAO_DEV_REDIRECT_URI`
 - Production: `KAKAO_PROD_REST_API_KEY`, `KAKAO_PROD_CLIENT_SECRET`, `KAKAO_PROD_REDIRECT_URI`
 - Development admin: `KAKAO_DEV_ADMIN_KEY`
 - Production admin: `KAKAO_PROD_ADMIN_KEY`
+- Development administrator identities: `KAKAO_DEV_ADMIN_USER_IDS`
+- Production administrator identities: `KAKAO_PROD_ADMIN_USER_IDS`
 
 The browser starts login through `/api/auth/kakao/start`. The server alone selects the REST API key, client secret, and redirect URI for the selected environment. The exact callback values are:
 
@@ -73,6 +75,7 @@ Do not use Kakao JavaScript SDK login for the current v5 flow.
 Do not expose server-only secrets through `VITE_`.
 Never log full secrets, access tokens, refresh tokens, or full authorization codes.
 The Kakao admin keys are server-only and may be used only for 회원 탈퇴 및 가입 거절의 카카오 연결 해제. Never use them for login or expose them to browsers, logs, errors, repository files, or client environment variables.
+The administrator identity Secrets are comma-separated positive numeric Kakao user IDs. On a successful Kakao member login, the server may restore `isAdmin=true` only when the callback Kakao ID exactly matches the selected environment's allowlist. A missing allowlist grants nobody, invalid values must fail without logging their contents, and login must not auto-revoke administrators granted through another approved process.
 ## Session and onboarding rules
 Use `req.session.userId` consistently across auth routes.
 After Kakao login, save the session before responding.

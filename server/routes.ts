@@ -66,6 +66,7 @@ import {
   KakaoOAuthTerminatedError,
   type KakaoOAuthGeneration,
 } from "./kakao-identity";
+import { isConfiguredKakaoAdministrator } from "./kakao-admin-allowlist";
 
 declare module "express-session" {
   interface SessionData {
@@ -198,6 +199,7 @@ export type RouteDependencies = {
   readEventSources?: RouteEventSourceReader;
   eventParseTimeoutMs?: number;
   eventParseLimiter?: RequestHandler;
+  isKakaoAdministrator?: (kakaoId: string) => boolean;
 };
 
 function saveSession(req: Request): Promise<void> {
@@ -251,6 +253,8 @@ export async function registerRoutes(
     ?? postgresKakaoOAuthStateStore;
   const getKakaoAdminConfig = dependencies.getKakaoAdminConfig
     ?? (() => resolveKakaoAdminConfig());
+  const isKakaoAdministrator = dependencies.isKakaoAdministrator
+    ?? isConfiguredKakaoAdministrator;
   const getAccountDeletionUser = dependencies.getAccountDeletionUser
     ?? ((userId: number) => storage.getUser(userId));
   const deleteUserAccount = dependencies.deleteUserAccount
@@ -461,6 +465,11 @@ export async function registerRoutes(
 
       const synchronizeKakaoUser = async (authenticatedUser: User): Promise<User | undefined> => {
         const updates: Partial<InsertUser> = {};
+        if (
+          !authenticatedUser.isAdmin
+          && authenticatedUser.kakaoId === kakaoId
+          && isKakaoAdministrator(kakaoId)
+        ) updates.isAdmin = true;
         if (!authenticatedUser.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
         if (authenticatedUser.profileImage !== profileImage) updates.profileImage = profileImage;
         if (phoneNumber && !authenticatedUser.phoneNumber) updates.phoneNumber = phoneNumber;

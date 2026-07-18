@@ -20,7 +20,7 @@
 - [ ] Replit 개발 워크스페이스에서 `git diff --check`가 종료 코드 `0`으로 끝난다.
 - [ ] Replit Deployments에서 Republish가 완료되었다.
 - [ ] 비로그인 브라우저와 실제 동문 계정을 준비한다.
-- [ ] 관리자 기능 검증이 필요하면 `isAdmin=true`인 별도 관리자 계정을 준비한다.
+- [ ] 관리자 기능 검증이 필요하면 현재 환경의 `KAKAO_*_ADMIN_USER_IDS`에 등록된 카카오 계정으로 다시 로그인해 `isAdmin=true` 복구를 확인한다.
 
 ## 공개 페이지
 
@@ -265,6 +265,8 @@
 
 관리자 화면과 `/api/admin/*`는 서버에서도 관리자 계정을 요구한다. 실제 결제 연동 전까지 결제 기록 생성도 관리자만 수행한다.
 
+- [ ] Development와 Production에서 각각 현재 환경 allowlist의 카카오 계정으로 로그인하면 `isAdmin=true`가 복구되고, DB 초기화·계정 재생성 뒤에도 같은 동작을 한다.
+- [ ] allowlist Secret이 없으면 자동 승격하지 않고, 다른 절차로 부여한 기존 관리자 권한은 allowlist에 없다는 이유로 자동 회수하지 않는다.
 - [ ] 비로그인·일반회원의 모든 `/api/admin/*` 요청이 각각 `401`, `403`을 반환하며, 특히 `POST /api/admin/sync-alumni/preview`와 `POST /api/admin/sync-alumni`가 DB를 변경하지 않는다.
 - [ ] 관리자 화면에서 가입 승인과 Google Sheets 연결 확인이 정상 동작한다.
 - [ ] `변경 미리보기`는 원본·DB·추가·수정·동일·충돌·오류·원본만·DB만 건수와 fingerprint만 반환하고 이름·전화번호·주소·메모를 브라우저나 응답에 노출하지 않는다.
@@ -281,6 +283,8 @@
 - [x] `/o`, `/o/new`가 각각 `/events?type=obituary`, `/events?type=obituary&compose=1`으로 이동하는 것을 확인했다. 390px 개발 브라우저에서 공개 홈페이지와 `/events`의 가로 overflow가 없고 브라우저 오류가 없는 것을 확인했다.
 - [x] 부고 파서가 놓친 나이·관계를 직접 채웠을 때 상단 누락 경고가 즉시 사라지는지 실제 브라우저에서 확인했다. 회귀 테스트를 포함한 Replit 전체 311/311, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
 - [x] Development Database의 유일한 QA 회원을 트랜잭션으로 임시 관리자 승격한 뒤 관리자 패널·가입 승인 빈 상태·Google Sheets 연결·개인정보 없는 변경 미리보기를 확인했다. 원본·DB 3,458건, 차단 오류 3건에서 `변경 적용`이 비활성화됐고 실제 적용은 실행하지 않았다. 검증 뒤 회원 권한은 일반회원으로 복구했고 관리자 수는 0명이다.
+- [x] 2026-07-18 Development와 Production Database에서 이름·정규화 전화번호가 정확히 일치하는 실제 카카오 회원을 각각 1명으로 확인하고, 카카오 회원번호 원문을 출력·커밋하지 않은 채 환경별 Replit Secret에 등록했다. 자동 복구·환경 선택·미설정·잘못된 형식·기존 관리자 비강등을 포함한 Replit 전체 테스트 317건, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
+- [ ] 새 코드가 적용된 Development에서 재로그인 후 관리자 권한 자동 복구와 관리자 화면 진입을 확인하고, Republish 뒤 Production에서도 같은 흐름을 확인한다.
 - [ ] 실제 불일치 카카오 계정의 가입 대기·관리자 승인 또는 거절·카카오 연결 해제는 별도 불일치 테스트 계정이 필요하다.
 - [ ] 관리자 결제 기록 생성은 테스트 금액·정리 범위를 확정한 뒤 실행한다.
 - [ ] 운영 일반회원·관리자 역할, 모바일 네 유형 입력, 외부 링크 대표 사례를 묶어 최종 통합 QA한다.

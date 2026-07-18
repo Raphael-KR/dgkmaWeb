@@ -23,6 +23,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - [코드·Replit 검증 완료, 통합 QA 예정] Google Sheets 명부의 필수값·전화번호·중복 preflight, 개인정보 없는 변경 미리보기와 fingerprint 기반 원자 적용
 - [코드·Replit 검증 완료, 통합 QA 예정] 12개 명부 관리 컬럼 헤더 검증, 원본 오류 상태의 미리보기 접근, 로컬·내부 hostname 경조사 링크 차단
 - [운영 smoke 확인] 최종 Republish 자산과 Replit 검증 빌드의 SHA-256 일치, 공개·회원 화면 로드, 390px 실제 회원 주요 동선, 비로그인 관리자·경조사·결제 API 경계와 제거된 debug API의 `404`
+- [코드·Replit 검증 완료, 실제 재로그인 QA 예정] 환경별 카카오 회원번호 서버 Secret allowlist와 로그인 시 관리자 권한 자동 복구
 
 ### Changed
 
@@ -65,6 +66,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 관리자 명부 API의 원문 오류 노출을 제거하고 전체 관리자 endpoint `401/403` 회귀 행렬을 추가
 - 명부 원본의 빈 데이터·12개 관리 컬럼 헤더·필수값 누락·잘못된 전화번호·중복·오래된 fingerprint·동시 적용을 DB 변경 전에 차단하고 원문 명부 메모리 캐시를 제거
 - 명부 연결 또는 원본 오류 상태에서도 개인정보 없는 차단 미리보기를 실행할 수 있게 하고, 경조사 저장 URL에서 로컬·내부 hostname을 거부
+- 관리자 계정 식별정보를 코드에 하드코딩하지 않고 환경별 서버 Secret으로 분리했으며, 카카오 callback 회원번호가 정확히 일치할 때만 `isAdmin=true`를 복구하도록 제한
 
 경조사 통합 기반과 등록·초안 UI는 운영 smoke까지 확인했으며 실제 계정·역할·모바일 전체 흐름은 통합 QA 예정이다. Replit 전체 테스트 265건, 빌드와 개발 서버 임시 회원 세션의 네 유형 초안·게시·목록, 링크 성공·차단·원문 비노출을 확인하고 테스트 데이터를 정리했다. Production Database의 공유 호출 제한 테이블을 적용한 뒤 2026-07-16 Republish했고, 운영 실제 회원으로 문자 분석·필수 누락 안내·초안 자동저장·삭제를 확인했다. 배포 자산 SHA-256은 Replit 빌드와 일치했고 브라우저 오류는 없었으며, 테스트 후 운영 경조사·초안은 0건이다. 카카오 동의·탈퇴 변경은 현재 HEAD 전체 Replit 자동화, 실제 개발·운영 OAuth·명부 매칭·선택정보 표시·탈퇴, 운영 로그인 화면 캡처, 심사용 PDF, 운영 additive 스키마·Republish·smoke·국외이전 고지, 카카오 개인정보 동의항목 권한 승인과 콘솔 동의 단계 설정까지 확인했다. 탈퇴 후 운영 DB에서 사용자·명부 연결·가입대기·세션 0건과 명부 3,458건 유지를 확인했다. 기존 부고 기본 기능의 프로덕션 검증 이력과 공개 `/about/condolence`는 유지한다.
 

@@ -577,6 +577,77 @@ test("authorization completes member update and session save without returning K
   }
 });
 
+test("a configured Kakao administrator regains database admin status after login", async () => {
+  let storedUser = { ...createdUser, isAdmin: false };
+  let savedUpdates: Partial<User> | undefined;
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    isKakaoAdministrator: (kakaoId) => kakaoId === createdUser.kakaoId,
+    kakaoAuthStorage: kakaoAuthStorageDouble({
+      getUser: async () => storedUser,
+      getUserByKakaoId: async () => storedUser,
+      updateUser: async (_id: number, updates: Partial<User>) => {
+        savedUpdates = updates;
+        storedUser = { ...storedUser, ...updates };
+        return storedUser;
+      },
+      finalizeKakaoLogin: async (
+        _userId: number,
+        _generation: unknown,
+        saveSession: () => Promise<void>,
+      ) => {
+        await saveSession();
+        return storedUser;
+      },
+    }),
+  });
+
+  try {
+    const response = await postKakaoAuthorize(server.baseUrl);
+    assert.equal(response.status, 200);
+    assert.deepEqual(savedUpdates, { isAdmin: true });
+    assert.equal((await response.json()).user.isAdmin, true);
+  } finally {
+    await server.close();
+  }
+});
+
+test("Kakao administrator recovery does not revoke an existing administrator", async () => {
+  const storedUser = { ...createdUser, isAdmin: true };
+  let savedUpdates: Partial<User> | undefined;
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    isKakaoAdministrator: () => false,
+    kakaoAuthStorage: kakaoAuthStorageDouble({
+      getUser: async () => storedUser,
+      getUserByKakaoId: async () => storedUser,
+      updateUser: async (_id: number, updates: Partial<User>) => {
+        savedUpdates = updates;
+        return { ...storedUser, ...updates };
+      },
+      finalizeKakaoLogin: async (
+        _userId: number,
+        _generation: unknown,
+        saveSession: () => Promise<void>,
+      ) => {
+        await saveSession();
+        return storedUser;
+      },
+    }),
+  });
+
+  try {
+    const response = await postKakaoAuthorize(server.baseUrl);
+    assert.equal(response.status, 200);
+    assert.equal(savedUpdates, undefined);
+    assert.equal((await response.json()).user.isAdmin, true);
+  } finally {
+    await server.close();
+  }
+});
+
 test("missing optional Kakao birthday clears the existing saved birthday", async () => {
   const userInfo = {
     id: 123456789,
