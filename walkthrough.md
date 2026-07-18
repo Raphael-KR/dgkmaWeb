@@ -267,6 +267,7 @@
 
 - [ ] Development와 Production에서 각각 현재 환경 allowlist의 카카오 계정으로 로그인하면 `isAdmin=true`가 복구되고, DB 초기화·계정 재생성 뒤에도 같은 동작을 한다.
 - [ ] allowlist Secret이 없으면 자동 승격하지 않고, 다른 절차로 부여한 기존 관리자 권한은 allowlist에 없다는 이유로 자동 회수하지 않는다.
+- [ ] 관리자 계정의 커뮤니티 홈 상단 `관리자` 배지가 클릭 가능한 상태로 표시되고 `/admin` 관리자 패널로 이동한다. 일반회원에게는 이 링크가 표시되지 않는다.
 - [ ] 비로그인·일반회원의 모든 `/api/admin/*` 요청이 각각 `401`, `403`을 반환하며, 특히 `POST /api/admin/sync-alumni/preview`와 `POST /api/admin/sync-alumni`가 DB를 변경하지 않는다.
 - [ ] 관리자 화면에서 가입 승인과 Google Sheets 연결 확인이 정상 동작한다.
 - [ ] `변경 미리보기`는 원본·DB·추가·수정·동일·충돌·오류·원본만·DB만 건수와 fingerprint만 반환하고 이름·전화번호·주소·메모를 브라우저나 응답에 노출하지 않는다.
@@ -284,7 +285,8 @@
 - [x] 부고 파서가 놓친 나이·관계를 직접 채웠을 때 상단 누락 경고가 즉시 사라지는지 실제 브라우저에서 확인했다. 회귀 테스트를 포함한 Replit 전체 311/311, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
 - [x] Development Database의 유일한 QA 회원을 트랜잭션으로 임시 관리자 승격한 뒤 관리자 패널·가입 승인 빈 상태·Google Sheets 연결·개인정보 없는 변경 미리보기를 확인했다. 원본·DB 3,458건, 차단 오류 3건에서 `변경 적용`이 비활성화됐고 실제 적용은 실행하지 않았다. 검증 뒤 회원 권한은 일반회원으로 복구했고 관리자 수는 0명이다.
 - [x] 2026-07-18 Development와 Production Database에서 이름·정규화 전화번호가 정확히 일치하는 실제 카카오 회원을 각각 1명으로 확인하고, 카카오 회원번호 원문을 출력·커밋하지 않은 채 환경별 Replit Secret에 등록했다. 자동 복구·환경 선택·미설정·잘못된 형식·기존 관리자 비강등을 포함한 Replit 전체 테스트 317건, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
-- [ ] 새 코드가 적용된 Development에서 재로그인 후 관리자 권한 자동 복구와 관리자 화면 진입을 확인하고, Republish 뒤 Production에서도 같은 흐름을 확인한다.
+- [x] 커뮤니티 홈의 관리자 배지를 `/admin` 링크로 바꾸고 관리자 조건·목적지·접근성 이름 계약을 추가했다. Replit 전체 테스트 318건, `npm run check`, `npm run build`, `git diff --check`가 통과했으며 실제 클릭은 다음 Republish 후 운영 관리자 세션에서 확인한다.
+- [ ] 새 코드가 적용된 Development에서 재로그인 후 관리자 권한 자동 복구와 관리자 화면 진입을 확인한다. Production 재로그인 복구는 아래 운영 상태에서 확인했다.
 - [ ] 실제 불일치 카카오 계정의 가입 대기·관리자 승인 또는 거절·카카오 연결 해제는 별도 불일치 테스트 계정이 필요하다.
 - [ ] 관리자 결제 기록 생성은 테스트 금액·정리 범위를 확정한 뒤 실행한다.
 - [ ] 운영 일반회원·관리자 역할, 모바일 네 유형 입력, 외부 링크 대표 사례를 묶어 최종 통합 QA한다.
@@ -292,7 +294,7 @@
 ## Production 배포 smoke 상태 (2026-07-16)
 
 - [x] 2026-07-18 관리자 자동 복구 커밋 `e021457` Republish 후 운영 `/`, `/api/categories`가 `200`, 제거된 `POST /api/debug/login`이 `404`, 비로그인 `/api/admin/sync-alumni/preview`와 `/api/events`가 `401`을 반환했다. 기존 실제 회원 세션의 홈도 정상 로드됐다.
-- [ ] Republish 직후 지정 계정의 Production Database `isAdmin`은 아직 `false`다. 운영에서 로그아웃 후 카카오로 다시 로그인해 `true` 자동 복구와 관리자 화면 진입을 확인한다.
+- [x] Republish 직후 `false`였던 지정 계정의 Production Database `isAdmin`이 운영 카카오 재로그인 뒤 `true`로 자동 복구됐고, 커뮤니티 홈의 `관리자` 표시를 실제 화면에서 확인했다. 관리자 패널 진입 링크는 다음 Republish 후 확인한다.
 - [x] Republish 후 운영 `/`와 `/api/categories`가 `200`, 비로그인 `/api/admin/sync-alumni/preview`, `/api/events`, `POST /api/payments`가 `401`을 반환했다. 제거된 `POST /api/debug/login`과 미등록 `/api/*`는 고정 한국어 JSON `404`를 반환했다.
 - [x] 운영 JavaScript 자산 `assets/index-CJN6DkYf.js`와 Replit 현재 빌드의 SHA-256이 `45d04488e7a34e2e7d4993a8aeff461196ca826bfcf63d8df136db92ea7a8f10`으로 일치해 배포본이 검증한 빌드와 같음을 확인했다.
 - [x] 운영 실제 일반회원 세션으로 회원 홈, `/events`, `/directory`, `/o`의 `/events?type=obituary` 이동, `/profile`을 확인했다. 각 화면은 정상 제목과 경로로 로드됐고 1,280px 데스크톱에서 가로 overflow가 없었다.
