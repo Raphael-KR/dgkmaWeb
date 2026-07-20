@@ -115,9 +115,16 @@ export default function Home() {
               )}
               {membership && <MembershipBadge tier={membership.tier} />}
               {user.isAdmin && (
-                <Badge className="bg-red-100 text-red-800 text-xs px-3 py-1">
-                  관리자
-                </Badge>
+                <Link
+                  href="/admin"
+                  aria-label="관리자 화면으로 이동"
+                  className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  data-testid="link-admin-panel"
+                >
+                  <Badge className="bg-red-100 text-red-800 text-xs px-3 py-1 transition-colors hover:bg-red-200">
+                    관리자
+                  </Badge>
+                </Link>
               )}
             </div>
           </div>

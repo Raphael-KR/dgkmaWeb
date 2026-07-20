@@ -24,6 +24,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - [코드·Replit 검증 완료, 통합 QA 예정] 12개 명부 관리 컬럼 헤더 검증, 원본 오류 상태의 미리보기 접근, 로컬·내부 hostname 경조사 링크 차단
 - [운영 smoke 확인] 최종 Republish 자산과 Replit 검증 빌드의 SHA-256 일치, 공개·회원 화면 로드, 390px 실제 회원 주요 동선, 비로그인 관리자·경조사·결제 API 경계와 제거된 debug API의 `404`
 - [코드·Replit 검증 완료, 실제 재로그인 QA 예정] 환경별 카카오 회원번호 서버 Secret allowlist와 로그인 시 관리자 권한 자동 복구
+- [코드·Replit 검증 완료] 커뮤니티 홈의 관리자 상태 배지를 관리자 패널 진입 링크로 변경
 
 ### Changed
 
