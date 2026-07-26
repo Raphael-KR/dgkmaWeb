@@ -703,9 +703,6 @@ export async function registerRoutes(
         return res.status(401).json({ message: "로그인이 필요합니다" });
       }
       const data = updateProfileSchema.parse(req.body);
-      if (data.activityRegion != null && !REGION_OPTIONS.includes(data.activityRegion as any)) {
-        return res.status(400).json({ message: "유효하지 않은 활동지역입니다" });
-      }
       const updated = await storage.updateUser(req.session.userId, data);
       if (!updated) {
         return res.status(404).json({ message: "사용자를 찾을 수 없습니다" });
