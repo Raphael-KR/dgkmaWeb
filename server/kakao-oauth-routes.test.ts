@@ -27,6 +27,8 @@ const config: KakaoOAuthConfig = {
   redirectUri: "https://dev.example/kakao-callback",
 };
 
+type KakaoAuthStorage = NonNullable<RouteDependencies["kakaoAuthStorage"]>;
+
 const newKakaoUserInfo = {
   id: 987654321,
   kakao_account: {
@@ -37,12 +39,18 @@ const newKakaoUserInfo = {
   },
 };
 
+function takeKakaoResponse(responses: Response[]): Response {
+  const response = responses.shift();
+  assert.ok(response, "unexpected Kakao fetch call");
+  return response;
+}
+
 function kakaoResponses(userInfo = newKakaoUserInfo) {
   const responses = [
     new Response(JSON.stringify({ access_token: "test-access-token" })),
     new Response(JSON.stringify(userInfo)),
   ];
-  return async () => responses.shift()!;
+  return async () => takeKakaoResponse(responses);
 }
 
 const alumniRecord: AlumniRecord = {
@@ -93,7 +101,7 @@ function finalizeKakaoLoginDouble(user: User = createdUser) {
   };
 }
 
-function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
+function kakaoAuthStorageDouble(overrides: Partial<KakaoAuthStorage> = {}) {
   return {
     getUser: async () => createdUser,
     getUserByEmail: async () => undefined,
@@ -105,7 +113,7 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
     updateUser: async () => createdUser,
     claimAlumniRecord: async () => undefined,
     finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-    createOrRefreshPendingRegistration: async (registration: any) => ({
+    createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => ({
       kind: "pending" as const,
       registration: {
         id: 1,
@@ -115,7 +123,7 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
       },
     }),
     ...overrides,
-  } as any;
+  } satisfies KakaoAuthStorage;
 }
 
 function kakaoOAuthStateStoreDouble(): KakaoOAuthStateStore {
@@ -684,7 +692,7 @@ test("missing optional Kakao birthday clears the existing saved birthday", async
   let savedUpdates: Partial<User> | undefined;
   const server = await startServer({
     getKakaoOAuthConfig: () => config,
-    kakaoFetch: async () => responses.shift()!,
+    kakaoFetch: async () => takeKakaoResponse(responses),
     kakaoAuthStorage: {
       getUser: async () => existingUser,
       getUserByEmail: async () => undefined,
@@ -774,7 +782,7 @@ test("same email with a different or missing Kakao ID never auto-links and creat
         createUserCalled = true;
         return createdUser;
       },
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -874,7 +882,7 @@ test("transactional email race creates an email_conflict review instead of retur
       createUserWithAlumniClaim: async () => {
         throw emailConflict;
       },
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingReason = registration.userData.conflictReason;
         return {
           kind: "pending" as const,
@@ -960,7 +968,7 @@ test("alumni claim race creates or refreshes pending review with alumni_race", a
     kakaoAuthStorage: kakaoAuthStorageDouble({
       findAlumniByName: async () => [alumniRecord],
       createUserWithAlumniClaim: async () => undefined,
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -1008,7 +1016,7 @@ test("normalized phone duplicate creates or refreshes one pending review without
       updateUser: async () => undefined,
       claimAlumniRecord: async () => alumniRecord,
       finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -1054,7 +1062,7 @@ test("already claimed alumni record requires approval without creating a member"
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
       finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -1133,7 +1141,7 @@ test("transactional phone race creates or refreshes a pending review", async () 
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
       finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
