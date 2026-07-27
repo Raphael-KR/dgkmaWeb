@@ -10,6 +10,7 @@
 - 핵심 개발 범위가 끝나면 비로그인·일반회원·관리자 계정과 데스크톱·모바일 환경을 준비해 이 체크리스트를 통합 QA로 한 번에 실행한다.
 - 사용자 본인만 처리할 수 있는 외부 서비스 설정, 개발 차단 요소, 보안 노출·운영 데이터 손상 위험, 제품 방향 결정은 통합 QA 전에도 즉시 확인한다.
 - 체크되지 않은 항목은 실패를 뜻하지 않으며 통합 QA 대기 상태를 뜻한다. 실제 검증 전에는 완료로 기록하지 않는다.
+- 자동화 회귀와 synthetic/client-navigation QA의 `[x]`는 실제 계정·운영 통합 QA의 완료를 뜻하지 않는다. 2026-07-27 현재 병합 후보의 실제 계정 allowlist/login/recovery, Production smoke, 실제 Kakao 통합 QA, Sheets 적용, payment provider·실제 결제는 계속 `[ ]`로 관리한다.
 
 ## 검증 전 조건
 
@@ -74,6 +75,17 @@
 
 - [ ] 가입 거절 시 카카오 연결 해제 성공 또는 이미 해제된 상태가 확인된 뒤 신청정보가 삭제되고 `{ deleted: true, id }`만 응답한다.
 - [ ] 어드민 키 누락은 `500`, 카카오 연결 해제 실패는 `502`, 누락·형식 오류·열 불일치가 있는 legacy 카카오 회원번호는 `409`를 반환하며, 모두 거절 미완료로 처리하고 신청정보를 보존한다.
+
+### 계약 회귀 자동화 (실제 계정 QA 아님)
+
+2026-07-28 현재 병합 후보의 최종 동결 증거에서 다음 서버 계약을 자동 검증했다. 이 체크는 실제 Kakao 로그인·allowlist·가입 승인/거절 통합 QA를 대체하지 않는다.
+
+- [x] 익명 same-cookie OAuth의 pending 등록 `202` 뒤 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성 `1`, member writes(사용자 생성·로그인 확정) `0`을 확인했다.
+- [x] 사전 인증된 기존 회원 세션에서 시작 전 `/api/auth/me`가 `200`인 것을 확인한 뒤, 카카오 로그인 시작이 기존 `userId`를 제거·저장하고 다른 카카오 신원의 pending `202`로 진행하는지 확인했다. 이후 `/api/auth/me`는 `401`, pending 생성은 `1`, member writes와 로그인 확정 writes는 모두 `0`이었다.
+- [x] 이 회귀는 `/api/auth/kakao/start` 로그인 시작 경계에서 이전 회원 세션을 해제·저장하는 보안 수정으로 막았다. 수정 전 실패하도록 고정한 test-only SHA 증거와 수정 후 통과 SHA 증거는 후보별 증거에 보존한다.
+- [x] 성공한 카카오 회원 callback은 검증과 회원 확정 뒤 세션을 재생성하고 새 세션에만 `userId`를 저장한다. test-only SHA `227e99bfe8bf5dcfcc0f78f92f2bb906644cc6e2`의 선택 회귀는 새 인증 쿠키가 없어 `0/1`로 실패했고, fix SHA `c527e79ef7a71816bc35c2d08435cd9857e8b72e`에서는 이전 쿠키 `/api/auth/me` `401`, 새 쿠키 `200`으로 `1/1` 통과했다. 기존 성공·경쟁·승인 경로를 포함한 Kakao route 전체도 `26/26` 통과했다.
+- [x] 관리자 결제 valid payload `{ "userId": 41, "amount": 50000, "year": 2026, "type": "연회비", "status": "completed", "receiptUrl": null }`가 `201`·write `1`이고, `amount` 누락은 `400`·errors 배열·write `0`이며 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀도 통과했다.
+- [x] 이전 후보의 focused `60/60`·전체 `341/341` 근거는 성공 로그인 세션 회전 수정으로 최종 후보 근거에서 제외했다. 새 최종 후보의 정확한 focused·전체·JUnit·check·build·residue 수치와 SHA는 `최종 후보의 candidate-metadata.json으로 식별한 증거 루트`에서 확인한다.
 
 ## 게시판·댓글·이미지
 
@@ -278,6 +290,16 @@
 - [ ] 관리자가 합의된 테스트 결제 기록을 생성하면 `201`을 반환한다.
 - [ ] Replit 실행 로그에 동문 원본 행, 이름, 전화번호, 주소, 이메일, 생일, 사용자 객체가 나타나지 않는다.
 
+2026-07-27 현재 병합 후보의 내부 route-contract 자동화는 위 실제 관리자 결제 기록 생성을 실행하지 않고, valid `201`/write `1`, `amount` 누락 `400`/write `0`, 기존 `401/403` 무쓰기만 확인했다. payment provider·실제 결제와 Production smoke는 미검증이다.
+
+### 후보 브라우저 QA의 방법 편차
+
+- [x] IAB bootstrap 자산을 만들 수 없어 IAB 실행은 시작되지 않았다. 실제 격리 QA는 승인된 `agent-browser` CLI fallback으로 현재 병합 후보 Replit `dist/public` archive의 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다. 후보 archive identity와 SHA-256은 후보별 `final-F3-browser/manifest.sha256` 및 manual QA evidence에 기록·검증되어 있다.
+- [x] 같은 격리 시나리오에서 mutation/unexpected API/cross-origin/external asset/console·page·runtime error counts가 모두 `0`이었고, loopback·임시 추출물 cleanup 및 SHA-256 manifest 검증을 완료했다.
+- [ ] native Development URL pre-navigation interception은 확인하지 못해 실행하지 않았고 `FAIL_BLOCKED`로 남긴다. 따라서 위 `[x]`는 `agent-browser` CLI synthetic/client-navigation QA일 뿐 IAB·native Development URL·실제 서버 응답·실제 계정 QA가 아니다.
+
+근거: `최종 후보의 candidate-metadata.json으로 식별한 증거 루트 아래 final-F3-browser/`.
+
 2026-07-27 운영 관리자 배지→`/admin` 스모크는 도구 privacy capability 미충족으로 기존 인증 페이지 attach 전 중단했다. 재로그인, 운영 mutation, Google Sheets 적용과 Production Database 변경은 실행하지 않았으므로 위 관리자 패널 진입 체크는 미완료로 유지하며, 실제 QA가 가능한 사용자가 추후 확인한다.
 
 ## Development 통합 QA 상태 (2026-07-16)
@@ -289,12 +311,16 @@
 - [x] 2026-07-18 Development와 Production Database에서 이름·정규화 전화번호가 정확히 일치하는 실제 카카오 회원을 각각 1명으로 확인하고, 카카오 회원번호 원문을 출력·커밋하지 않은 채 환경별 Replit Secret에 등록했다. 자동 복구·환경 선택·미설정·잘못된 형식·기존 관리자 비강등을 포함한 Replit 전체 테스트 317건, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
 - [x] 커뮤니티 홈의 관리자 배지를 `/admin` 링크로 바꾸고 관리자 조건·목적지·접근성 이름 계약을 추가했다. Replit 전체 테스트 318건, `npm run check`, `npm run build`, `git diff --check`가 통과했으며 실제 클릭은 다음 Republish 후 운영 관리자 세션에서 확인한다.
 - [x] 프로필·활동지역·회원 상태의 세션 권한, 허용 필드, `ClientUser` 응답 축소, KST 당해연도 연회비 집계와 결제 요약 축소를 실제 Express/session route 계약 9개 시나리오와 KST 연도 경계·연회비 집계 테스트로 고정했다. Replit 집중 테스트 25/25, 전체 338/338, `npm run check`, `npm run build`, `git diff --check`가 모두 종료 코드 `0`으로 통과했다.
-- [ ] 새 코드가 적용된 Development에서 재로그인 후 관리자 권한 자동 복구와 관리자 화면 진입을 확인한다. Production 재로그인 복구는 아래 운영 상태에서 확인했다.
+- [ ] 새 코드가 적용된 Development에서 재로그인 후 관리자 권한 자동 복구와 관리자 화면 진입을 확인한다. 이번 후보에서는 Development·Production 재로그인 복구를 재검증하지 않았으며, 아래 과거 기록은 후보 완료 근거로 사용하지 않는다.
+- [ ] 이번 후보의 Development·Production allowlist 로그인, 관리자 권한 복구와 실제 Kakao 통합 QA를 확인한다. synthetic/client-navigation QA는 이 항목을 완료 처리하지 않는다.
 - [ ] 실제 불일치 카카오 계정의 가입 대기·관리자 승인 또는 거절·카카오 연결 해제는 별도 불일치 테스트 계정이 필요하다.
 - [ ] 관리자 결제 기록 생성은 테스트 금액·정리 범위를 확정한 뒤 실행한다.
+- [ ] Production smoke, Google Sheets 적용, payment provider·실제 결제를 실제 계정과 운영 환경에서 확인한다.
 - [ ] 운영 일반회원·관리자 역할, 모바일 네 유형 입력, 외부 링크 대표 사례를 묶어 최종 통합 QA한다.
 
 ## Production 배포 smoke 상태 (2026-07-16)
+
+- [ ] 2026-07-27 Todo7 후보의 Production smoke는 실행하지 않았다. 아래의 이전 날짜 기록은 이번 후보의 운영·실계정 검증으로 재사용하지 않는다.
 
 - [x] 2026-07-18 관리자 자동 복구 커밋 `e021457` Republish 후 운영 `/`, `/api/categories`가 `200`, 제거된 `POST /api/debug/login`이 `404`, 비로그인 `/api/admin/sync-alumni/preview`와 `/api/events`가 `401`을 반환했다. 기존 실제 회원 세션의 홈도 정상 로드됐다.
 - [x] Republish 직후 `false`였던 지정 계정의 Production Database `isAdmin`이 운영 카카오 재로그인 뒤 `true`로 자동 복구됐고, 커뮤니티 홈의 `관리자` 표시를 실제 화면에서 확인했다. 관리자 패널 진입 링크는 다음 Republish 후 확인한다.

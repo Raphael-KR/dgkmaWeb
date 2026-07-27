@@ -208,6 +208,12 @@ function saveSession(req: Request): Promise<void> {
   });
 }
 
+function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((error) => error ? reject(error) : resolve());
+  });
+}
+
 class InvalidPendingKakaoIdError extends Error {
   constructor() {
     super("The pending registration has no trustworthy Kakao user id.");
@@ -295,6 +301,10 @@ export async function registerRoutes(
   app.get("/api/auth/kakao/start", async (req, res) => {
     try {
       const config = getKakaoOAuthConfig();
+      if (req.session.userId !== undefined) {
+        delete req.session.userId;
+        await saveSession(req);
+      }
       const state = randomBytes(32).toString("hex");
       const stateHash = hashKakaoOAuthState(state);
       const sessionBindingHash = hashKakaoOAuthSessionBinding(req.sessionID);
@@ -492,6 +502,7 @@ export async function registerRoutes(
 
         try {
           const saveAuthenticatedSession = async () => {
+            await regenerateSession(req);
             req.session.userId = synchronizedUser.id;
             await saveSession(req);
           };
