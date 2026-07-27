@@ -295,6 +295,10 @@ export async function registerRoutes(
   app.get("/api/auth/kakao/start", async (req, res) => {
     try {
       const config = getKakaoOAuthConfig();
+      if (req.session.userId !== undefined) {
+        delete req.session.userId;
+        await saveSession(req);
+      }
       const state = randomBytes(32).toString("hex");
       const stateHash = hashKakaoOAuthState(state);
       const sessionBindingHash = hashKakaoOAuthSessionBinding(req.sessionID);
