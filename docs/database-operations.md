@@ -11,14 +11,14 @@
 | 확인된 DB | `heliumdb` | `neondb` |
 | 기본 선택 여부 | 기본값 | 명시적으로 선택할 때만 사용 |
 
-2026-07-12 기준으로 Google Sheets 명부 3,458건을 양쪽 `alumni_database`에 1회 이관했다. 최종 전환 선언 전까지 Google Sheets는 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Google Sheets를 직접 조회하지 않으며, 명시적인 관리자 동기화로 PostgreSQL 복제본을 갱신한다. 양쪽 DB의 당시 휴대전화 중복과 필수값 누락은 0건이었고 `users`와 명부 연결은 0건이었다. 이 수치는 영구적인 운영 통계가 아니다.
+Google Sheets는 최종 전환 선언 전까지 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Google Sheets를 직접 조회하지 않으며, 명시적인 관리자 동기화로 PostgreSQL 복제본을 갱신한다. 이 문서는 행 데이터·개인정보·운영 건수를 기록하지 않는다.
 
 ## SSH 접속
 
 로컬 Mac에서 다음 SSH 명령으로 Replit 개발 워크스페이스에 접속한다.
 
 ```bash
-ssh -i ~/.ssh/replit -p 22 dc5e5541-525b-4ad6-b914-2d2db70cb4a9@dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev
+ssh -i ~/.ssh/replit -p 22 <replit-user>@<replit-host>
 cd /home/runner/workspace
 ```
 
@@ -40,6 +40,17 @@ cd /home/runner/workspace
 ## Development Database 사용
 
 개발 DB는 기본 연결이다. 앱 코드, 테스트, `db:push`와 일반 DB 검증은 별도 운영 URL 없이 실행한다.
+
+### 스키마 카탈로그 재검증
+
+현행 구조와 객체의 기준은 [database-schema.md](database-schema.md)다. Development 기본 metadata-only 재검증은 해당 문서의 catalog SQL을 실행하고 `heliumdb`, read-only, `ROLLBACK`, completion marker를 확인한다. 기존 운영 예시는 보존하며, 이 명령은 행 데이터를 조회하지 않는다.
+
+```bash
+psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
+  -f scripts/database-schema-catalog.sql
+```
+
+테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain, runtime DDL 또는 migration을 바꾸면 같은 PR에서 기준 문서를 갱신하고 이 metadata-only 검증을 다시 실행한다. Production은 명시적으로 대상 DB를 선택하고, 성공 catalog 전에는 일치나 drift를 추정하지 않는다.
 
 ```bash
 npm run check
@@ -181,7 +192,7 @@ CREATE TABLE IF NOT EXISTS kakao_identity_terminations (
 
 새 운영 연결에서 두 테이블의 컬럼과 `kakao_oauth_states_pkey`, `kakao_oauth_states_session_binding_hash_unique`, `kakao_identity_terminations_pkey`, 기존 `session`, `session_expire_idx`를 확인한 뒤에만 코드를 Republish한다.
 
-Development Database에는 2026-07-13 적용했으며, Production Database에는 별도 승인 작업 전까지 적용하지 않는다. 종료 marker에는 카카오 회원번호와 소문자 이메일의 원문 대신 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 hash를 저장하며, 각 identity key별 종료 시각의 최신 marker 1건만 보유한다.
+Development Database에는 2026-07-13 적용했으며, Production Database에는 별도 승인 작업 전까지 적용하지 않는다. 종료 marker에는 카카오 회원번호와 소문자 이메일의 원문 대신 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 hash를 저장하며, 각 identity key별 최신 종료 marker만 보유한다.
 
 ### 경조사 링크 파싱 제한 스키마 선행 순서
 
@@ -197,7 +208,7 @@ CREATE TABLE IF NOT EXISTS event_parse_rate_limits (
 );
 ```
 
-적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development Database에는 2026-07-14 적용·0건 초기 상태를 확인했다. Production Database에는 2026-07-14 적용해 같은 스키마와 0건 초기 상태를 확인했고, 2026-07-16 Republish 후 실제 회원의 문자 분석·초안 생성·삭제와 운영 DB의 경조사·초안 0건 정리를 확인했다.
+적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development와 Production의 적용·초기 상태·Republish 후 흐름은 개인정보 없는 검증 기록으로 확인한다.
 
 ## 정식 오픈 전 초기화
 

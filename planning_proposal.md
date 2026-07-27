@@ -1,7 +1,7 @@
 # 동국대학교한의과대학동문회 제품·개발 통합 계획서
 
 > 기준일: 2026-07-16
-> 이 문서는 제품 비전, 확정 정책, 현재 구현 상태, 개발 우선순위와 완료 조건을 함께 관리하는 단일 기준 문서입니다. 실제 회귀 검증 절차는 [walkthrough.md](./walkthrough.md), 개발·배포 환경은 [replit.md](./replit.md), 변경 이력은 [CHANGELOG.md](./CHANGELOG.md)를 참고합니다.
+> 이 문서는 제품 비전, 확정 정책, 현재 구현 상태, 개발 우선순위와 완료 조건을 함께 관리하는 단일 기준 문서입니다. 실제 회귀 검증 절차는 [walkthrough.md](./walkthrough.md), 개발·배포 환경은 [replit.md](./replit.md), DB 구조는 [docs/database-schema.md](./docs/database-schema.md), 변경 이력은 [CHANGELOG.md](./CHANGELOG.md)를 참고합니다.
 
 ## 1. 문서 운영 기준
 
@@ -18,6 +18,7 @@
 ### 개발과 통합 QA 운영
 
 - 핵심 기능 개발이 끝날 때까지 자동화 테스트, 타입 검사, 빌드, Development Database와 Replit 개발 서버 검증을 계속 수행합니다.
+- DB 구조 변경은 같은 변경에서 [docs/database-schema.md](./docs/database-schema.md)와 metadata-only catalog 재검증을 함께 갱신합니다.
 - 개발 서버에서 확인 가능한 화면과 사용자 흐름은 Codex가 인앱브라우저로 직접 검증합니다. 운영 환경에서만 확인 가능한 항목이 생겼을 때에만 사용자에게 Republish를 요청하며, 운영 확인 항목은 가능한 한 한 번에 모읍니다.
 - 실제 계정, 운영 역할, 데스크톱·모바일 화면을 사용하는 사용자 검증은 항목별로 요청하지 않고 `walkthrough.md`에 누적한 뒤 개발 완료 후 통합 QA에서 한 번에 진행합니다.
 - 외부 서비스에서 사용자 본인만 수행할 수 있는 설정, 실제 계정 없이는 개발을 계속할 수 없는 차단 요소, 보안 노출 또는 운영 데이터 손상 위험, 제품 방향을 바꾸는 결정만 통합 QA 전에 예외적으로 사용자 확인을 요청합니다.
