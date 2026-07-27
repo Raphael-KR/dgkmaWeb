@@ -10,7 +10,7 @@
 - 핵심 개발 범위가 끝나면 비로그인·일반회원·관리자 계정과 데스크톱·모바일 환경을 준비해 이 체크리스트를 통합 QA로 한 번에 실행한다.
 - 사용자 본인만 처리할 수 있는 외부 서비스 설정, 개발 차단 요소, 보안 노출·운영 데이터 손상 위험, 제품 방향 결정은 통합 QA 전에도 즉시 확인한다.
 - 체크되지 않은 항목은 실패를 뜻하지 않으며 통합 QA 대기 상태를 뜻한다. 실제 검증 전에는 완료로 기록하지 않는다.
-- 자동화 회귀와 synthetic/client-navigation QA의 `[x]`는 실제 계정·운영 통합 QA의 완료를 뜻하지 않는다. 2026-07-27 후보 `c1f98aa15c9e4b38cf576f49f6d0b36a4373ddcd`의 실제 계정 allowlist/login/recovery, Production smoke, 실제 Kakao 통합 QA, Sheets 적용, payment provider·실제 결제는 계속 `[ ]`로 관리한다.
+- 자동화 회귀와 synthetic/client-navigation QA의 `[x]`는 실제 계정·운영 통합 QA의 완료를 뜻하지 않는다. 2026-07-27 최종 테스트 후보 `f9d6da77ad3e7a1eff741fdba553e0ebfecb594a`의 실제 계정 allowlist/login/recovery, Production smoke, 실제 Kakao 통합 QA, Sheets 적용, payment provider·실제 결제는 계속 `[ ]`로 관리한다.
 
 ## 검증 전 조건
 
@@ -78,11 +78,11 @@
 
 ### 계약 회귀 자동화 (실제 계정 QA 아님)
 
-2026-07-27 Replit 후보 `c1f98aa15c9e4b38cf576f49f6d0b36a4373ddcd`에서 다음 서버 계약을 자동 검증했다. 이 체크는 실제 Kakao 로그인·allowlist·가입 승인/거절 통합 QA를 대체하지 않는다.
+2026-07-27 최종 테스트 후보 `f9d6da77ad3e7a1eff741fdba553e0ebfecb594a`에서 다음 서버 계약을 자동 검증했다. 이 체크는 실제 Kakao 로그인·allowlist·가입 승인/거절 통합 QA를 대체하지 않는다.
 
 - [x] 같은 OAuth cookie의 pending 등록 `202` 뒤 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성 `1`, member writes(사용자 생성·로그인 확정) `0`을 확인했다.
 - [x] 관리자 결제 valid payload `{ "userId": 41, "amount": 50000, "year": 2026, "type": "연회비", "status": "completed", "receiptUrl": null }`가 `201`·write `1`이고, `amount` 누락은 `400`·errors 배열·write `0`이며 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀도 통과했다.
-- [x] Replit focused `59/59`, full `340/340`, `npm run check`, `npm run build`, `git diff --check` 종료 코드 `0`, residue 14개 `0`, OAuth `0→0`, termination `2→2`, late cleanup 두 회 zero를 확인했다. 원시 근거는 `.omo/evidence/planning-proposal-next-approved-batch/c1f98aa15c9e4b38cf576f49f6d0b36a4373ddcd/task-5-replit/`이다.
+- [x] Replit exact-SHA preflight에서 non-production, `heliumdb`, tracked clean을 확인했고 `curl -i` loopback `/`는 `200`, 익명 `/api/auth/me`는 `401`과 정확한 `{"message":"Not authenticated"}`를 반환했다. 선행 후보의 focused/full/check/build/residue 자동화 결과는 재사용 근거로 구분하고, 최종 SHA 재실행 결과는 최종 동결 증거에 기록한다.
 
 ## 게시판·댓글·이미지
 
@@ -287,15 +287,15 @@
 - [ ] 관리자가 합의된 테스트 결제 기록을 생성하면 `201`을 반환한다.
 - [ ] Replit 실행 로그에 동문 원본 행, 이름, 전화번호, 주소, 이메일, 생일, 사용자 객체가 나타나지 않는다.
 
-2026-07-27 후보의 내부 route-contract 자동화는 위 실제 관리자 결제 기록 생성을 실행하지 않고, valid `201`/write `1`, `amount` 누락 `400`/write `0`, 기존 `401/403` 무쓰기만 확인했다. payment provider·실제 결제와 Production smoke는 미검증이다.
+2026-07-27 최종 후보의 내부 route-contract 자동화는 위 실제 관리자 결제 기록 생성을 실행하지 않고, valid `201`/write `1`, `amount` 누락 `400`/write `0`, 기존 `401/403` 무쓰기만 확인했다. payment provider·실제 결제와 Production smoke는 미검증이다.
 
 ### 후보 브라우저 QA의 방법 편차
 
-- [x] IAB isolated loopback에서 Replit 후보 `dist/public` archive의 실제 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다.
+- [x] IAB isolated loopback에서 exact SHA Replit `dist/public` archive의 실제 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다. 새 archive SHA-256은 `9dc0d68e4174ee8b69e12a0bc797980f26e4332e3492afdb0ef6cb3833de1d96`이다.
 - [x] 같은 격리 시나리오에서 mutation/unexpected API/cross-origin/external asset/console·page error counts가 모두 `0`이었다.
 - [ ] IAB native pre-navigation interception이 없어 Development URL synthetic interception은 실행하지 못했으며 `FAIL_BLOCKED`로 남긴다. 따라서 위 `[x]`는 synthetic/client-navigation QA일 뿐 실제 Development URL·실제 서버 응답·실제 계정 QA가 아니다.
 
-근거: `.omo/evidence/planning-proposal-next-approved-batch/c1f98aa15c9e4b38cf576f49f6d0b36a4373ddcd/task-6-browser/isolated-a4-20260727T043638Z/`.
+근거: `.omo/evidence/planning-proposal-next-approved-batch/f9d6da77ad3e7a1eff741fdba553e0ebfecb594a/final-F3-browser/`.
 
 2026-07-27 운영 관리자 배지→`/admin` 스모크는 도구 privacy capability 미충족으로 기존 인증 페이지 attach 전 중단했다. 재로그인, 운영 mutation, Google Sheets 적용과 Production Database 변경은 실행하지 않았으므로 위 관리자 패널 진입 체크는 미완료로 유지하며, 실제 QA가 가능한 사용자가 추후 확인한다.
 
