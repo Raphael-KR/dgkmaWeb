@@ -7,8 +7,12 @@
 | 항목 | 값 |
 | --- | --- |
 | code intent | `shared/schema.ts`의 12 `pgTable` + `server/index.ts` 런타임 `session` DDL |
-| verified KST | `2026-07-27 14:46:56 KST +0900` |
-| verified UTC | `2026-07-27 05:46:56 UTC +0000` |
+| source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
+| source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
+| Development catalog verification start KST | `2026-07-27 16:25:11 KST +0900` |
+| Development catalog verification start UTC | `2026-07-27 07:25:11 UTC +0000` |
+| Development catalog verification end KST | `2026-07-27 16:25:13 KST +0900` |
+| Development catalog verification end UTC | `2026-07-27 07:25:14 UTC +0000` |
 | local HEAD | `f8518c0d7ebeff957b5b20ad66ae7a46611981c2` |
 | Replit Development HEAD | `a0c421428081f375b4f72a72bff0e2b91a125ef5` |
 | code status | verified |
@@ -17,9 +21,11 @@
 | Production drift | unknown |
 | 기준 count (tables/columns/PK/FK/non-PK UNIQUE/index/sequence) | `13/112/13/9/6/20/9` |
 | catalog SQL SHA-256 | `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f` |
-| Development evidence | `task-7-development-normalized-rerun.json`, `task-7-development-summary-rerun.json` |
+| Development evidence | local/uncommitted orchestration evidence: `.omo/evidence/current-db-schema-documentation/task-7-development-normalized-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-summary-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-rerun-receipt.md` |
 
-Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0`.
+Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
+
+위 Development evidence는 현재 실행의 local/uncommitted 감사 기록이며, future checkout에서 파일이 없더라도 verification failure를 뜻하지 않는다. 재검증의 권위는 tracked catalog SQL과 runbook이다.
 
 Production의 성공 catalog가 없으므로 Production schema, Development와의 일치, Production drift 유무를 주장하지 않는다.
 
