@@ -396,8 +396,12 @@ test("a concurrent callback loser cannot overwrite the winner login session", as
 
     assert.deepEqual(callbackResponses.map(({ status }) => status).sort(), [200, 400]);
     assert.equal(tokenExchangeCalls, 1);
+    const winnerResponse = callbackResponses.find(({ status }) => status === 200);
+    assert.ok(winnerResponse, "one callback must complete the member login");
+    const authenticatedCookie = winnerResponse.headers.get("set-cookie");
+    assert.ok(authenticatedCookie, "winning callback must issue an authenticated session cookie");
     const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
-      headers: { cookie: authorization.cookie },
+      headers: { cookie: authenticatedCookie },
     });
     assert.equal(meResponse.status, 200);
     assert.equal((await meResponse.json()).user.id, createdUser.id);
@@ -861,6 +865,8 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
     );
 
     assert.equal(response.status, 200);
+    const authenticatedCookie = response.headers.get("set-cookie");
+    assert.ok(authenticatedCookie, "approved member login must issue an authenticated session cookie");
     const responseBody = await response.json();
     assert.equal(responseBody.user.id, approvedUser.id);
     assert.equal(responseBody.user.profileImage, null);
@@ -873,7 +879,7 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
     });
 
     const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
-      headers: { cookie: authorization.cookie },
+      headers: { cookie: authenticatedCookie },
     });
     assert.equal(meResponse.status, 200);
     assert.deepEqual((await meResponse.json()).user, responseBody.user);
