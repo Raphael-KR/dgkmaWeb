@@ -208,6 +208,12 @@ function saveSession(req: Request): Promise<void> {
   });
 }
 
+function regenerateSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    req.session.regenerate((error) => error ? reject(error) : resolve());
+  });
+}
+
 class InvalidPendingKakaoIdError extends Error {
   constructor() {
     super("The pending registration has no trustworthy Kakao user id.");
@@ -496,6 +502,7 @@ export async function registerRoutes(
 
         try {
           const saveAuthenticatedSession = async () => {
+            await regenerateSession(req);
             req.session.userId = synchronizedUser.id;
             await saveSession(req);
           };
