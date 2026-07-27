@@ -461,7 +461,7 @@ test("token exchange uses the same selected configuration", async () => {
   }
 });
 
-test("authorization completes member update and session save without returning Kakao PII", async () => {
+test("successful Kakao member login rotates the session before authentication", async () => {
   const requests: Array<{ input: string; init?: RequestInit }> = [];
   const userInfo = {
     id: 123456789,
@@ -546,6 +546,13 @@ test("authorization completes member update and session save without returning K
       authorization,
     );
     assert.equal(response.status, 200);
+    const authenticatedCookie = response.headers.get("set-cookie");
+    assert.ok(authenticatedCookie, "successful login must issue an authenticated session cookie");
+    assert.equal(
+      authenticatedCookie === authorization.cookie,
+      false,
+      "successful login must change the session identifier",
+    );
     assert.equal(requests.length, 2);
     assert.equal(requests[1]?.input, "https://kapi.kakao.com/v2/user/me?secure_resource=true");
     assert.equal(
@@ -576,11 +583,17 @@ test("authorization completes member update and session save without returning K
     });
     assert.doesNotMatch(JSON.stringify(responseBody), /kakaoId|updatedAt|test-access-token/);
 
-    const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+    const oldSessionResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
       headers: { cookie: authorization.cookie },
     });
-    assert.equal(meResponse.status, 200);
-    assert.deepEqual(await meResponse.json(), responseBody);
+    assert.equal(oldSessionResponse.status, 401);
+    assert.deepEqual(await oldSessionResponse.json(), { message: "Not authenticated" });
+
+    const authenticatedSessionResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie: authenticatedCookie },
+    });
+    assert.equal(authenticatedSessionResponse.status, 200);
+    assert.deepEqual(await authenticatedSessionResponse.json(), responseBody);
   } finally {
     await server.close();
   }
