@@ -10,6 +10,7 @@ import {
   type KakaoOAuthConfig,
 } from "./kakao-oauth-config";
 import { PendingRegistrationConflictError, PhoneRegistrationConflictError } from "./storage";
+import type { PendingRegistrationReviewInput } from "./storage";
 import { registerRoutes, type RouteDependencies } from "./routes";
 import type {
   KakaoOAuthStateBinding,
@@ -920,7 +921,7 @@ test("missing alumni match creates or refreshes pending review with not_found", 
         memberWriteCalls += 1;
         return createdUser;
       },
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingRegistrationCalls += 1;
         pendingUserData = registration.userData;
         return {

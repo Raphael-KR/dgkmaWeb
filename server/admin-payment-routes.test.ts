@@ -87,7 +87,6 @@ test("Given an administrator, When a valid payment is posted, Then it returns th
       createdAt: "2026-07-27T00:00:00.000Z",
     });
     assert.deepEqual(createPaymentCalls, [validPayload]);
-    assert.equal(createPaymentCalls.length, 1);
   } finally {
     await server.close();
   }
