@@ -83,8 +83,9 @@
 - [x] 익명 same-cookie OAuth의 pending 등록 `202` 뒤 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성 `1`, member writes(사용자 생성·로그인 확정) `0`을 확인했다.
 - [x] 사전 인증된 기존 회원 세션에서 시작 전 `/api/auth/me`가 `200`인 것을 확인한 뒤, 카카오 로그인 시작이 기존 `userId`를 제거·저장하고 다른 카카오 신원의 pending `202`로 진행하는지 확인했다. 이후 `/api/auth/me`는 `401`, pending 생성은 `1`, member writes와 로그인 확정 writes는 모두 `0`이었다.
 - [x] 이 회귀는 `/api/auth/kakao/start` 로그인 시작 경계에서 이전 회원 세션을 해제·저장하는 보안 수정으로 막았다. 수정 전 실패하도록 고정한 test-only SHA 증거와 수정 후 통과 SHA 증거는 후보별 증거에 보존한다.
+- [x] 성공한 카카오 회원 callback은 검증과 회원 확정 뒤 세션을 재생성하고 새 세션에만 `userId`를 저장한다. test-only SHA `227e99bfe8bf5dcfcc0f78f92f2bb906644cc6e2`의 선택 회귀는 새 인증 쿠키가 없어 `0/1`로 실패했고, fix SHA `c527e79ef7a71816bc35c2d08435cd9857e8b72e`에서는 이전 쿠키 `/api/auth/me` `401`, 새 쿠키 `200`으로 `1/1` 통과했다. 기존 성공·경쟁·승인 경로를 포함한 Kakao route 전체도 `26/26` 통과했다.
 - [x] 관리자 결제 valid payload `{ "userId": 41, "amount": 50000, "year": 2026, "type": "연회비", "status": "completed", "receiptUrl": null }`가 `201`·write `1`이고, `amount` 누락은 `400`·errors 배열·write `0`이며 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀도 통과했다.
-- [x] Replit 현재 병합 후보 preflight에서 non-production, `heliumdb`, tracked clean을 확인했고 `curl -i` loopback `/`는 `200`, 익명 `/api/auth/me`는 `401`과 정확한 `{"message":"Not authenticated"}`를 반환했다. focused `60/60`, 전체 `341/341`, `npm run check`, `npm run build`, `git diff --check`는 모두 통과했고, 14개 fixture residue는 모두 `0`, OAuth state는 `0→0`, termination은 `2→2`로 유지됐다.
+- [x] 이전 후보의 focused `60/60`·전체 `341/341` 근거는 성공 로그인 세션 회전 수정으로 최종 후보 근거에서 제외했다. 새 최종 후보의 정확한 focused·전체·JUnit·check·build·residue 수치와 SHA는 `최종 후보의 candidate-metadata.json으로 식별한 증거 루트`에서 확인한다.
 
 ## 게시판·댓글·이미지
 
@@ -293,9 +294,9 @@
 
 ### 후보 브라우저 QA의 방법 편차
 
-- [x] IAB isolated loopback에서 현재 병합 후보 Replit `dist/public` archive의 실제 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다. 후보 archive identity와 SHA-256은 후보별 `final-F3-browser/manifest.sha256` 및 manual QA evidence에 기록·검증되어 있다.
+- [x] IAB bootstrap 자산을 만들 수 없어 IAB 실행은 시작되지 않았다. 실제 격리 QA는 승인된 `agent-browser` CLI fallback으로 현재 병합 후보 Replit `dist/public` archive의 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다. 후보 archive identity와 SHA-256은 후보별 `final-F3-browser/manifest.sha256` 및 manual QA evidence에 기록·검증되어 있다.
 - [x] 같은 격리 시나리오에서 mutation/unexpected API/cross-origin/external asset/console·page·runtime error counts가 모두 `0`이었고, loopback·임시 추출물 cleanup 및 SHA-256 manifest 검증을 완료했다.
-- [ ] IAB native pre-navigation interception이 없어 Development URL synthetic interception은 실행하지 못했으며 `FAIL_BLOCKED`로 남긴다. 따라서 위 `[x]`는 synthetic/client-navigation QA일 뿐 실제 Development URL·실제 서버 응답·실제 계정 QA가 아니다.
+- [ ] native Development URL pre-navigation interception은 확인하지 못해 실행하지 않았고 `FAIL_BLOCKED`로 남긴다. 따라서 위 `[x]`는 `agent-browser` CLI synthetic/client-navigation QA일 뿐 IAB·native Development URL·실제 서버 응답·실제 계정 QA가 아니다.
 
 근거: `최종 후보의 candidate-metadata.json으로 식별한 증거 루트 아래 final-F3-browser/`.
 
