@@ -30,6 +30,7 @@ Never store either production URL in a local Mac `.env`, repository file, docume
 Until the user explicitly declares the final alumni-source cutover, Google Sheets remains the managed alumni source and PostgreSQL `alumni_database` is the login/runtime copy. Keep `ALUMNI_SPREADSHEET_ID`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, and the explicit admin sync path available during this transition. Do not remove or disable them merely because login no longer queries Google Sheets directly.
 Do not assume local Mac npm scripts are reliable. Local `node_modules`, `tsc`, build tools, or dev dependencies may be missing or stale.
 When validation is needed, run it in the Replit development workspace through SSH when available. Ask the user to run commands only when Codex cannot access the required Replit surface.
+`docs/database-schema.md`는 현재 DB 구조의 기준 문서다. DB 관련 설계·구현·리뷰 전에는 반드시 읽고 따른다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain 또는 runtime DDL/migration이 바뀌면 같은 변경에서 이 문서와 catalog 재검증을 함께 갱신해야 하며, 이를 하지 않으면 작업은 미완료다.
 Preferred validation commands:
 ```bash
 npm run check
