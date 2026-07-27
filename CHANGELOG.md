@@ -52,6 +52,7 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- 카카오 로그인 시작 시 기존 `userId`를 해제·저장해, 다른 카카오 계정의 가입 승인 대기 흐름이 이전 회원 세션을 유지하지 못하게 수정
 - 게시판 작성자·댓글 작성자 식별을 세션 기준으로 제한
 - 카테고리 생성 API를 관리자 전용으로 제한
 - 이미지 업로드를 10MB 이하 JPG, PNG, WebP, GIF로 제한하고 안전한 MIME만 인라인 제공

@@ -87,11 +87,13 @@
 | 회원 상태 표시 | 기능 검증 완료 | 코드·프로덕션 검증, Replit 계약 자동화 | 세션 사용자 기준 프로필·활동지역 허용 필드와 `ClientUser` 응답 축소, KST 당해연도 완료 `연회비` 합계 기반 권리회원 표시, 결제 요약의 `createdAt` 최소 노출 | 실제 결제 전까지 납부 데이터 신뢰는 관리자 입력에 의존 |
 | 개발·운영 DB 직접 작업 | 기능 검증 완료 | Replit SSH와 실제 양쪽 DB 확인 | 개발 DB 기본 연결, 운영 DB 명시적 선택, 변경 전후 확인, Secret 비노출 | 기능별 마이그레이션에 별도 복구 절차 필요 |
 
-2026-07-27 현재 병합 후보의 자동·격리 검증과 최종 동결 증거는 아래 범위만 확정한다. 이는 실제 계정·운영 통합 QA를 완료했다는 뜻이 아니다.
+2026-07-28 현재 병합 후보의 자동·격리 검증과 최종 동결 증거는 아래 범위만 확정한다. 이는 실제 계정·운영 통합 QA를 완료했다는 뜻이 아니다.
 
-- 같은 OAuth cookie로 pending 등록 `202` 직후 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성은 `1`, member writes(사용자 생성·로그인 확정)는 `0`이었다.
+- 익명 same-cookie OAuth에서 pending 등록 `202` 직후 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성은 `1`, member writes(사용자 생성·로그인 확정)는 `0`이었다.
+- 사전 인증된 기존 회원 세션에서는 시작 전 `/api/auth/me`가 `200`이고, 카카오 로그인 시작이 기존 `userId`를 제거·저장한 뒤 다른 카카오 신원의 pending `202`로 진행한다. 이후 `/api/auth/me`는 `401`, pending 생성은 `1`, member writes와 로그인 확정 writes는 모두 `0`이다.
+- 이 회귀는 `/api/auth/kakao/start` 로그인 시작 경계에서 이전 회원 세션을 해제·저장하는 보안 수정으로 막았다. 수정 전 실패하도록 고정한 test-only SHA 증거와 수정 후 통과 SHA 증거는 후보별 증거에 보존한다.
 - 관리자 결제 계약은 정확한 payload `{ "userId": 41, "amount": 50000, "year": 2026, "type": "연회비", "status": "completed", "receiptUrl": null }`에서 `201`·write `1`, `amount` 누락에서 `400`·errors 배열·write `0`을 확인했으며, 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀도 유지했다.
-- Replit 개발 런타임은 현재 병합 후보에서 non-production, `heliumdb`, clean을 확인했고 loopback `/`는 `200`, 익명 `/api/auth/me`는 `401`과 정확한 `{"message":"Not authenticated"}`를 반환했다. focused `59/59`, 전체 `340/340`, `npm run check`, `npm run build`, `git diff --check`는 모두 통과했고, 14개 fixture residue는 모두 `0`, OAuth state는 `0→0`, termination은 `2→2`로 유지됐다.
+- Replit 개발 런타임은 현재 병합 후보에서 non-production, `heliumdb`, clean을 확인했고 loopback `/`는 `200`, 익명 `/api/auth/me`는 `401`과 정확한 `{"message":"Not authenticated"}`를 반환했다. focused `60/60`, 전체 `341/341`, `npm run check`, `npm run build`, `git diff --check`는 모두 통과했고, 14개 fixture residue는 모두 `0`, OAuth state는 `0→0`, termination은 `2→2`로 유지됐다.
 - IAB native pre-navigation interception 부재로 Development URL synthetic interception 자체는 실행하지 못했고 `FAIL_BLOCKED`를 유지한다. 대신 현재 병합 후보의 Replit `dist/public` archive identity와 SHA-256은 후보별 `final-F3-browser/manifest.sha256` 및 manual QA evidence에 기록·검증되어 있으며 isolated loopback IAB에서 실제 JS/CSS/index를 실행해 관리자 control count `1`·name `관리자 화면으로 이동`·href `/admin`·click 후 `관리자 패널` heading `1`, member control `0`·direct `/admin` denial을 확인했다. mutation/unexpected API/cross-origin/external asset/console·page·runtime error는 모두 `0`이고, loopback·임시 추출물 cleanup 및 SHA-256 manifest 검증도 완료했다. 이는 synthetic/client-navigation QA이며 실제 Development URL·서버 응답 경로 QA가 아니다. 근거는 `최종 후보의 candidate-metadata.json으로 식별한 증거 루트 아래 final-F3-browser/`이다.
 
 실제 계정 allowlist/login/recovery, Production smoke, 실제 Kakao 통합 QA, Google Sheets 적용, payment provider 및 실제 결제는 현재 병합 후보에서 미검증으로 유지한다.
@@ -100,7 +102,7 @@
 
 | 우선순위 | 과제 | 현재 상태와 근거 | 완료 조건 | 선행 조건 |
 |---|---|---|---|---|
-| P0 | 관리자 API 보호 | 진행 중: 공개 개발 디버그 로그인 제거, 공통 `requireAdmin`, 전체 관리자 endpoint `401/403` 행렬과 안전한 오류 응답의 자동화·Replit 검증 완료. 현재 병합 후보에서 same-cookie pending OAuth `202→/api/auth/me 401`과 관리자/member UI 계약을 자동·격리 검증했지만, 실제 계정 allowlist/login/recovery와 Production 관리자 통합 QA는 미검증이다. 2026-07-27 실제 Development URL 스모크는 IAB native interception 부재로 안전상 실행하지 않고 격리 후보 번들 QA로 대체했다. | 프로덕션에서 모든 `/api/admin/*`가 비로그인 `401`, 일반회원 `403`, 관리자 성공이며 DB 초기화 뒤 지정 계정의 재로그인으로 관리자 권한 복구 | 실제 운영 관리자와 일반회원 계정의 통합 QA |
+| P0 | 관리자 API 보호 | 진행 중: 공개 개발 디버그 로그인 제거, 공통 `requireAdmin`, 전체 관리자 endpoint `401/403` 행렬과 안전한 오류 응답의 자동화·Replit 검증 완료. 현재 병합 후보에서 익명 same-cookie pending OAuth `202→/api/auth/me 401`과, 기존 회원 세션을 로그인 시작에서 해제·저장한 뒤 다른 카카오 신원의 pending `202→/api/auth/me 401`·pending `1`·member/finalize writes `0` 계약, 관리자/member UI 계약을 자동·격리 검증했지만, 실제 계정 allowlist/login/recovery와 Production 관리자 통합 QA는 미검증이다. 2026-07-27 실제 Development URL 스모크는 IAB native interception 부재로 안전상 실행하지 않고 격리 후보 번들 QA로 대체했다. | 프로덕션에서 모든 `/api/admin/*`가 비로그인 `401`, 일반회원 `403`, 관리자 성공이며 DB 초기화 뒤 지정 계정의 재로그인으로 관리자 권한 복구 | 실제 운영 관리자와 일반회원 계정의 통합 QA |
 | P0 | 결제 기록 보호 | 진행 중: 후보 자동화에서 정확한 valid payload의 `201`·write `1`, `amount` 누락의 `400`·write `0`, 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀를 확인했다. 이는 내부 관리자 기록 계약이며 payment provider·실제 결제나 Production smoke를 검증한 것이 아니다. | 프로덕션에서 비로그인 `401`, 일반회원 `403`, 관리자 테스트 기록 성공과 데이터 불변 확인 | 테스트 결제 기록 범위 합의 |
 | P1 | 개인정보 로그 제거 | 진행 중: 카카오·Google Sheets 로그 정제 코드와 자동화 검증 완료 | Replit 실행 로그에서 이름·전화번호·주소·이메일·생일·원본 행·사용자 객체가 보이지 않고 건수·단계·마스킹 식별자만 기록 | 실제 동기화와 로그인 로그 관찰 |
 | P1 | 부고·경조사 접근 정책 | 진행 중: 비로그인 운영 `401`, 실제 회원 `/events` 진입·문자 파싱·초안 생성·삭제 확인 | 실제 회원이 레거시 부고와 통합 경조사의 목록·상세·파싱·초안·등록을 정상 사용 | 통합 QA의 역할·모바일 검증 |

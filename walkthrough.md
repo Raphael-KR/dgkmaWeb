@@ -78,11 +78,13 @@
 
 ### 계약 회귀 자동화 (실제 계정 QA 아님)
 
-2026-07-27 현재 병합 후보의 최종 동결 증거에서 다음 서버 계약을 자동 검증했다. 이 체크는 실제 Kakao 로그인·allowlist·가입 승인/거절 통합 QA를 대체하지 않는다.
+2026-07-28 현재 병합 후보의 최종 동결 증거에서 다음 서버 계약을 자동 검증했다. 이 체크는 실제 Kakao 로그인·allowlist·가입 승인/거절 통합 QA를 대체하지 않는다.
 
-- [x] 같은 OAuth cookie의 pending 등록 `202` 뒤 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성 `1`, member writes(사용자 생성·로그인 확정) `0`을 확인했다.
+- [x] 익명 same-cookie OAuth의 pending 등록 `202` 뒤 `/api/auth/me`가 정확히 `401`과 `{ "message": "Not authenticated" }`를 반환하고, pending 생성 `1`, member writes(사용자 생성·로그인 확정) `0`을 확인했다.
+- [x] 사전 인증된 기존 회원 세션에서 시작 전 `/api/auth/me`가 `200`인 것을 확인한 뒤, 카카오 로그인 시작이 기존 `userId`를 제거·저장하고 다른 카카오 신원의 pending `202`로 진행하는지 확인했다. 이후 `/api/auth/me`는 `401`, pending 생성은 `1`, member writes와 로그인 확정 writes는 모두 `0`이었다.
+- [x] 이 회귀는 `/api/auth/kakao/start` 로그인 시작 경계에서 이전 회원 세션을 해제·저장하는 보안 수정으로 막았다. 수정 전 실패하도록 고정한 test-only SHA 증거와 수정 후 통과 SHA 증거는 후보별 증거에 보존한다.
 - [x] 관리자 결제 valid payload `{ "userId": 41, "amount": 50000, "year": 2026, "type": "연회비", "status": "completed", "receiptUrl": null }`가 `201`·write `1`이고, `amount` 누락은 `400`·errors 배열·write `0`이며 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀도 통과했다.
-- [x] Replit 현재 병합 후보 preflight에서 non-production, `heliumdb`, tracked clean을 확인했고 `curl -i` loopback `/`는 `200`, 익명 `/api/auth/me`는 `401`과 정확한 `{"message":"Not authenticated"}`를 반환했다. focused `59/59`, 전체 `340/340`, `npm run check`, `npm run build`, `git diff --check`는 모두 통과했고, 14개 fixture residue는 모두 `0`, OAuth state는 `0→0`, termination은 `2→2`로 유지됐다.
+- [x] Replit 현재 병합 후보 preflight에서 non-production, `heliumdb`, tracked clean을 확인했고 `curl -i` loopback `/`는 `200`, 익명 `/api/auth/me`는 `401`과 정확한 `{"message":"Not authenticated"}`를 반환했다. focused `60/60`, 전체 `341/341`, `npm run check`, `npm run build`, `git diff --check`는 모두 통과했고, 14개 fixture residue는 모두 `0`, OAuth state는 `0→0`, termination은 `2→2`로 유지됐다.
 
 ## 게시판·댓글·이미지
 
