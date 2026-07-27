@@ -291,7 +291,7 @@
 
 ### 후보 브라우저 QA의 방법 편차
 
-- [x] IAB isolated loopback에서 현재 병합 후보 Replit `dist/public` archive의 실제 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다. archive SHA-256은 `1fda5a772b89b75f3ecdc863f5f263746c1271ddad3ac27489dda0d3ee4e591b`이다.
+- [x] IAB isolated loopback에서 현재 병합 후보 Replit `dist/public` archive의 실제 JS/CSS/index를 실행해 관리자 control count `1`, accessible name `관리자 화면으로 이동`, href `/admin`, 실제 click 후 `관리자 패널` heading `1`을 확인했다. member control은 `0`, direct `/admin`은 `접근 권한이 없습니다` heading `1`·`관리자 패널` `0`이었다. 후보 archive identity와 SHA-256은 후보별 `final-F3-browser/manifest.sha256` 및 manual QA evidence에 기록·검증되어 있다.
 - [x] 같은 격리 시나리오에서 mutation/unexpected API/cross-origin/external asset/console·page·runtime error counts가 모두 `0`이었고, loopback·임시 추출물 cleanup 및 SHA-256 manifest 검증을 완료했다.
 - [ ] IAB native pre-navigation interception이 없어 Development URL synthetic interception은 실행하지 못했으며 `FAIL_BLOCKED`로 남긴다. 따라서 위 `[x]`는 synthetic/client-navigation QA일 뿐 실제 Development URL·실제 서버 응답·실제 계정 QA가 아니다.
 
