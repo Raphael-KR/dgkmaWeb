@@ -894,11 +894,34 @@ test("transactional email race creates an email_conflict review instead of retur
 
 test("missing alumni match creates or refreshes pending review with not_found", async () => {
   let pendingUserData: Record<string, unknown> | undefined;
+  let pendingRegistrationCalls = 0;
+  let memberWriteCalls = 0;
   const server = await startServer({
     getKakaoOAuthConfig: () => config,
     kakaoFetch: kakaoResponses(),
     kakaoAuthStorage: kakaoAuthStorageDouble({
+      createUser: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      createUserWithAlumniClaim: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      updateUser: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      claimAlumniRecord: async () => {
+        memberWriteCalls += 1;
+        return alumniRecord;
+      },
+      finalizeKakaoLogin: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
       createOrRefreshPendingRegistration: async (registration: any) => {
+        pendingRegistrationCalls += 1;
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -908,9 +931,21 @@ test("missing alumni match creates or refreshes pending review with not_found", 
     }),
   });
   try {
-    const response = await postKakaoAuthorize(server.baseUrl);
+    const authorization = await beginKakaoAuthorization(server.baseUrl);
+    const response = await postKakaoAuthorize(
+      server.baseUrl,
+      { code: "test-code" },
+      authorization,
+    );
     assert.equal(response.status, 202);
+    assert.equal(pendingRegistrationCalls, 1);
+    assert.equal(memberWriteCalls, 0);
     assert.equal(pendingUserData?.conflictReason, "not_found");
+    const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie: authorization.cookie },
+    });
+    assert.equal(meResponse.status, 401);
+    assert.deepEqual(await meResponse.json(), { message: "Not authenticated" });
   } finally {
     await server.close();
   }
