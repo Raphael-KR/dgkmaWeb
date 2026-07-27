@@ -295,7 +295,7 @@
 - [x] 같은 격리 시나리오에서 mutation/unexpected API/cross-origin/external asset/console·page·runtime error counts가 모두 `0`이었고, loopback·임시 추출물 cleanup 및 SHA-256 manifest 검증을 완료했다.
 - [ ] IAB native pre-navigation interception이 없어 Development URL synthetic interception은 실행하지 못했으며 `FAIL_BLOCKED`로 남긴다. 따라서 위 `[x]`는 synthetic/client-navigation QA일 뿐 실제 Development URL·실제 서버 응답·실제 계정 QA가 아니다.
 
-근거: `.omo/evidence/planning-proposal-next-approved-batch/<candidate-sha>/final-F3-browser/`.
+근거: `최종 후보의 candidate-metadata.json으로 식별한 증거 루트 아래 final-F3-browser/`.
 
 2026-07-27 운영 관리자 배지→`/admin` 스모크는 도구 privacy capability 미충족으로 기존 인증 페이지 attach 전 중단했다. 재로그인, 운영 mutation, Google Sheets 적용과 Production Database 변경은 실행하지 않았으므로 위 관리자 패널 진입 체크는 미완료로 유지하며, 실제 QA가 가능한 사용자가 추후 확인한다.
 
