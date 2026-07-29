@@ -273,7 +273,7 @@ test("all community event types support draft, publish, and filtered list routes
       title: "서버 회원 동문 부친상",
       eventDate: "2026-08-03",
       location: "동국병원 장례식장",
-      relatedMemberName: "요청 이름",
+      relatedMemberName: "서버 회원",
       contactNumber: "010-0000-0000",
       details: {
         deceasedName: "김한의",
@@ -934,7 +934,7 @@ test("obituary publish canonicalizes profile fields and retries idempotently for
       headers: { "content-type": "application/json", "x-test-user-id": String(noAlumniMemberId) },
       body: JSON.stringify({
         ...publishBody,
-        relatedMemberName: "요청 위조 이름",
+        relatedMemberName: "서버 회원",
         contactNumber: "010-0000-0000",
       }),
     });
