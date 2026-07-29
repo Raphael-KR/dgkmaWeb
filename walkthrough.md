@@ -246,6 +246,8 @@
 
 2026-07-16 Production Database의 `event_parse_rate_limits` 스키마를 확인한 뒤 Republish했다. 운영 실제 회원으로 `/events`의 유형 선택·문자 입력·분석 완료·필수 누락 안내·초안 자동저장·삭제를 확인했고, 배포 JavaScript 자산의 SHA-256이 Replit 빌드와 일치하며 브라우저 경고·오류가 없음을 확인했다. 검증 후 운영 `community_events`와 초안은 모두 `0`건이며, 호출 제한 상태 1건만 정상적으로 남았다. 공개 링크별 정확도와 전체 게시 흐름은 통합 QA에서 확인한다.
 
+2026-07-29 Development 실제 회원으로 `chumo.daqda.kr` 공개 부고 링크를 입력했을 때 앱 수집기는 `User-Agent` 없이 요청해 원본의 `500` 응답을 받았고, 링크를 `unavailable`로 오판했다. 같은 Replit 환경에서 `User-Agent`가 없으면 `500`, 개인정보 없는 고정 식별자를 보내면 `200`이 되는 것을 반복 확인했다. `requestPublicAddress`가 식별자를 보내야 통과하는 회귀 테스트를 먼저 추가했으며, 수정 전 Replit 집중 테스트는 해당 사례만 `500 !== 200`으로 실패하고 기존 15개는 통과했다.
+
 ## 프로필·권리회원
 
 실제 회원 계정으로 `/profile`에 접근한다.
