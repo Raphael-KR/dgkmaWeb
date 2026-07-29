@@ -88,7 +88,8 @@ function extractFuneralDate(text: string): string {
 }
 
 function extractDeceasedAge(text: string): number | undefined {
-  const match = text.match(/향년\s*(\d{1,3})\s*세/);
+  const match = text.match(/향년\s*(\d{1,3})\s*세/)
+    ?? text.match(/(?:^|\n)\s*(\d{1,3})\s*세(?:\s*\/[^\n]*)?(?=\n|$)/);
   if (!match) return undefined;
   const age = Number(match[1]);
   return age > 0 && age <= 130 ? age : undefined;
@@ -120,7 +121,9 @@ function extractDateOfDeath(text: string): string {
 
 function extractLabeled(text: string, labels: string[]): string {
   const labelGroup = labels.join("|");
-  const pattern = new RegExp(`(?:${labelGroup})\\s*[：:\\s]\\s*([^\\n]+)`);
+  const pattern = new RegExp(
+    `(?:^|\\n)\\s*(?:${labelGroup})\\s*(?:[：:]\\s*|\\n\\s*)([^\\n]+)`,
+  );
   const m = text.match(pattern);
   return m ? m[1].trim() : "";
 }
