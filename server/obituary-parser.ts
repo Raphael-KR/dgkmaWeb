@@ -128,6 +128,20 @@ function extractLabeled(text: string, labels: string[]): string {
   return m ? m[1].trim() : "";
 }
 
+function extractFuneralHome(text: string): string {
+  const splitRoom = text.match(
+    /(?:^|\n)\s*(?:빈소|장례식장)\s*(?:[：:]\s*|\n\s*)([^\n]+)\n\s*(제?\s*\d{1,4}\s*호실)(?=\n|$)/,
+  );
+  return splitRoom
+    ? `${splitRoom[1].trim()} ${splitRoom[2].replace(/\s+/g, "")}`
+    : extractLabeled(text, ["빈소", "장례식장"]);
+}
+
+function extractAccountInfo(text: string): string {
+  const candidate = extractLabeled(text, ["계좌", "마음전하실곳", "마음 전하실 곳"]);
+  return /\d[\d -]{4,}\d/.test(candidate) ? candidate : "";
+}
+
 function extractPhone(text: string): string {
   // 연락처 레이블 뒤 전화번호
   const labelMatch = text.match(/(?:연락처|전화|tel)\s*[：:\s]\s*([\d\-\s]+)/i);
@@ -144,10 +158,10 @@ export function parseObituarySms(text: string): Partial<ParsedObituary> {
     deceasedName: extractDeceasedName(text),
     ...(deceasedRelation ? { deceasedRelation } : {}),
     dateOfDeath: extractDateOfDeath(text),
-    funeralHome: extractLabeled(text, ["빈소", "장례식장"]),
+    funeralHome: extractFuneralHome(text),
     jangji: extractLabeled(text, ["장지"]),
     chiefMourner: extractLabeled(text, ["상주"]),
-    bankAccount: extractLabeled(text, ["계좌", "마음전하실곳", "마음 전하실 곳"]),
+    bankAccount: extractAccountInfo(text),
     contactNumber: extractPhone(text),
   };
 }
