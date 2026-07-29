@@ -27,6 +27,22 @@ test("recognizes explicit relationship expressions and normalizes in-laws", () =
   assert.equal(parseObituarySms("김동국 동문 모친께서 별세하셨습니다").deceasedRelation, "모친");
 });
 
+test("Given a dated possessive obituary sentence, When parsing, Then it keeps the relationship", () => {
+  const parsed = parseObituarySms(
+    "동국한의 07학번 김동국동문의 부친께서 2026년 10월 28일 별세하셨기에 삼가 알려드립니다.",
+  );
+
+  assert.equal(parsed.deceasedRelation, "부친");
+});
+
+test("Given a possessive alumni obituary sentence, When parsing, Then it keeps the member name", () => {
+  const parsed = parseObituaryEventSource(
+    "동국한의 07학번 김동국동문의 부친께서 2026년 10월 28일 별세하셨기에 삼가 알려드립니다.",
+  );
+
+  assert.equal(parsed.draft.relatedMemberName, "김동국");
+});
+
 test("maps a standard obituary message into the community-event draft", () => {
   const parsed = parseObituaryEventSource(`
 김동국 동문 부친상
@@ -60,6 +76,45 @@ https://example.com/obituary
     burialPlace: "동국추모공원",
     chiefMourner: "김동국",
   });
+});
+
+test("extracts a deceased age without an explicit lifespan label from public obituary profiles", () => {
+  const parsed = parseObituaryEventSource("故김한의\n76세/ 남");
+
+  assert.equal(parsed.draft.details.deceasedAge, 76);
+});
+
+test("skips the obituary section heading when extracting chief mourners", () => {
+  const parsed = parseObituaryEventSource(`
+상주 정보
+상주
+김동국 김한방
+사위
+이동국
+  `.trim());
+
+  assert.equal(parsed.draft.details.chiefMourner, "김동국 김한방");
+});
+
+test("does not treat account selection instructions as a condolence account", () => {
+  const parsed = parseObituaryEventSource(`
+마음 전하실 곳
+조의금을 받으실 상주를 선택하세요.
+  `.trim());
+
+  assert.equal(parsed.draft.accountInfo, undefined);
+  assert.equal(parsed.draft.details.accountInfo, undefined);
+});
+
+test("joins a funeral room split onto the next public page line", () => {
+  const parsed = parseObituaryEventSource(`
+빈소
+동국병원 장례식장
+8호실
+  `.trim());
+
+  assert.equal(parsed.draft.location, "동국병원 장례식장 8호실");
+  assert.equal(parsed.draft.details.funeralHome, "동국병원 장례식장 8호실");
 });
 
 test("reports required obituary fields that have no source evidence", () => {
