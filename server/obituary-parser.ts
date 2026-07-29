@@ -66,7 +66,7 @@ function extractRelation(text: string): string | undefined {
   for (const { aliases, relation } of RELATION_ALIASES) {
     for (const alias of aliases) {
       const expression = new RegExp(
-        `${alias}(?:상(?:입니다|으로|을|이)?(?=$|\\s|[.,])|께서\\s*(?:별세|소천|작고)|\\s+(?:별세|소천|작고))`,
+        `${alias}(?:상(?:입니다|으로|을|이)?(?=$|\\s|[.,])|께서\\s*(?:\\d{4}년\\s*\\d{1,2}월\\s*\\d{1,2}일\\s*)?(?:별세|소천|작고)|\\s+(?:별세|소천|작고))`,
         "m",
       );
       if (expression.test(text)) return relation;
@@ -96,7 +96,9 @@ function extractDeceasedAge(text: string): number | undefined {
 }
 
 function extractRelatedMemberName(text: string): string | undefined {
-  const match = text.match(/([가-힣]{2,5})\s*(?:동문|회원)\s*(?:본인|부친|모친|빙부|빙모|장인|장모|시부|시모|자녀|아들|딸)?상/);
+  const match = text.match(
+    /([가-힣]{2,5})\s*(?:동문|회원)(?:의)?\s*(?:본인|부친|모친|빙부|빙모|장인|장모|시부|시모|자녀|아들|딸)(?:상|께서)/,
+  );
   return match?.[1];
 }
 
