@@ -80,6 +80,27 @@ test("skips the obituary section heading when extracting chief mourners", () => 
   assert.equal(parsed.draft.details.chiefMourner, "김동국 김한방");
 });
 
+test("does not treat account selection instructions as a condolence account", () => {
+  const parsed = parseObituaryEventSource(`
+마음 전하실 곳
+조의금을 받으실 상주를 선택하세요.
+  `.trim());
+
+  assert.equal(parsed.draft.accountInfo, undefined);
+  assert.equal(parsed.draft.details.accountInfo, undefined);
+});
+
+test("joins a funeral room split onto the next public page line", () => {
+  const parsed = parseObituaryEventSource(`
+빈소
+동국병원 장례식장
+8호실
+  `.trim());
+
+  assert.equal(parsed.draft.location, "동국병원 장례식장 8호실");
+  assert.equal(parsed.draft.details.funeralHome, "동국병원 장례식장 8호실");
+});
+
 test("reports required obituary fields that have no source evidence", () => {
   const parsed = parseObituaryEventSource("故김한의\n관계: 모친\n발인: 2026년 6월 12일");
 
