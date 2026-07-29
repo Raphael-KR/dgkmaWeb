@@ -350,6 +350,7 @@ export const REGION_OPTIONS = [
   '전북특별자치도', '전라남도', '경상북도', '경상남도',
   '제주특별자치도', '해외',
 ] as const;
+export const activityRegionSchema = z.enum(REGION_OPTIONS);
 
 // 연회비 기준액(원). 권리회원 판정 안내 및 미납 표시에 사용.
 export const ANNUAL_DUES = 50000;
@@ -365,11 +366,11 @@ export type MembershipStatus = {
   isPaid: boolean;
   paidAmount: number; // 당해년도 완료 납부 합계(원)
   annualDues: number; // 연회비 기준액(원)
-  currentYearPayment: Payment | null; // 당해년도 완료된 연회비 중 최신 1건(표시용)
+  currentYearPayment: Pick<Payment, "createdAt"> | null;
 };
 
 // 프로필에서 본인이 수정 가능한 항목만 허용 (이름·졸업년도 등 검증 항목 제외).
-export const updateProfileSchema = insertUserSchema
-  .pick({ activityRegion: true })
-  .partial();
+export const updateProfileSchema = z.object({
+  activityRegion: activityRegionSchema.nullable().optional(),
+});
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;

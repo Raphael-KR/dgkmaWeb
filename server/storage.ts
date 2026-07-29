@@ -700,8 +700,9 @@ export class DatabaseStorage implements IStorage {
       isPaid,
       paidAmount,
       annualDues: ANNUAL_DUES,
-      // 표시용: 완료된 연회비 중 최신 1건(없으면 null) — 납부완료 카드에서만 사용.
-      currentYearPayment: completedDues[0] ?? null,
+      currentYearPayment: completedDues[0]
+        ? { createdAt: completedDues[0].createdAt }
+        : null,
     };
   }
 

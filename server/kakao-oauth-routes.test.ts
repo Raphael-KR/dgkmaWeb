@@ -10,6 +10,7 @@ import {
   type KakaoOAuthConfig,
 } from "./kakao-oauth-config";
 import { PendingRegistrationConflictError, PhoneRegistrationConflictError } from "./storage";
+import type { PendingRegistrationReviewInput } from "./storage";
 import { registerRoutes, type RouteDependencies } from "./routes";
 import type {
   KakaoOAuthStateBinding,
@@ -26,6 +27,8 @@ const config: KakaoOAuthConfig = {
   redirectUri: "https://dev.example/kakao-callback",
 };
 
+type KakaoAuthStorage = NonNullable<RouteDependencies["kakaoAuthStorage"]>;
+
 const newKakaoUserInfo = {
   id: 987654321,
   kakao_account: {
@@ -36,12 +39,18 @@ const newKakaoUserInfo = {
   },
 };
 
+function takeKakaoResponse(responses: Response[]): Response {
+  const response = responses.shift();
+  assert.ok(response, "unexpected Kakao fetch call");
+  return response;
+}
+
 function kakaoResponses(userInfo = newKakaoUserInfo) {
   const responses = [
     new Response(JSON.stringify({ access_token: "test-access-token" })),
     new Response(JSON.stringify(userInfo)),
   ];
-  return async () => responses.shift()!;
+  return async () => takeKakaoResponse(responses);
 }
 
 const alumniRecord: AlumniRecord = {
@@ -92,7 +101,7 @@ function finalizeKakaoLoginDouble(user: User = createdUser) {
   };
 }
 
-function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
+function kakaoAuthStorageDouble(overrides: Partial<KakaoAuthStorage> = {}) {
   return {
     getUser: async () => createdUser,
     getUserByEmail: async () => undefined,
@@ -104,7 +113,7 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
     updateUser: async () => createdUser,
     claimAlumniRecord: async () => undefined,
     finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-    createOrRefreshPendingRegistration: async (registration: any) => ({
+    createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => ({
       kind: "pending" as const,
       registration: {
         id: 1,
@@ -114,7 +123,7 @@ function kakaoAuthStorageDouble(overrides: Record<string, unknown> = {}) {
       },
     }),
     ...overrides,
-  } as any;
+  } satisfies KakaoAuthStorage;
 }
 
 function kakaoOAuthStateStoreDouble(): KakaoOAuthStateStore {
@@ -387,8 +396,12 @@ test("a concurrent callback loser cannot overwrite the winner login session", as
 
     assert.deepEqual(callbackResponses.map(({ status }) => status).sort(), [200, 400]);
     assert.equal(tokenExchangeCalls, 1);
+    const winnerResponse = callbackResponses.find(({ status }) => status === 200);
+    assert.ok(winnerResponse, "one callback must complete the member login");
+    const authenticatedCookie = winnerResponse.headers.get("set-cookie");
+    assert.ok(authenticatedCookie, "winning callback must issue an authenticated session cookie");
     const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
-      headers: { cookie: authorization.cookie },
+      headers: { cookie: authenticatedCookie },
     });
     assert.equal(meResponse.status, 200);
     assert.equal((await meResponse.json()).user.id, createdUser.id);
@@ -452,7 +465,7 @@ test("token exchange uses the same selected configuration", async () => {
   }
 });
 
-test("authorization completes member update and session save without returning Kakao PII", async () => {
+test("successful Kakao member login rotates the session before authentication", async () => {
   const requests: Array<{ input: string; init?: RequestInit }> = [];
   const userInfo = {
     id: 123456789,
@@ -537,6 +550,13 @@ test("authorization completes member update and session save without returning K
       authorization,
     );
     assert.equal(response.status, 200);
+    const authenticatedCookie = response.headers.get("set-cookie");
+    assert.ok(authenticatedCookie, "successful login must issue an authenticated session cookie");
+    assert.equal(
+      authenticatedCookie === authorization.cookie,
+      false,
+      "successful login must change the session identifier",
+    );
     assert.equal(requests.length, 2);
     assert.equal(requests[1]?.input, "https://kapi.kakao.com/v2/user/me?secure_resource=true");
     assert.equal(
@@ -567,11 +587,17 @@ test("authorization completes member update and session save without returning K
     });
     assert.doesNotMatch(JSON.stringify(responseBody), /kakaoId|updatedAt|test-access-token/);
 
-    const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+    const oldSessionResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
       headers: { cookie: authorization.cookie },
     });
-    assert.equal(meResponse.status, 200);
-    assert.deepEqual(await meResponse.json(), responseBody);
+    assert.equal(oldSessionResponse.status, 401);
+    assert.deepEqual(await oldSessionResponse.json(), { message: "Not authenticated" });
+
+    const authenticatedSessionResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie: authenticatedCookie },
+    });
+    assert.equal(authenticatedSessionResponse.status, 200);
+    assert.deepEqual(await authenticatedSessionResponse.json(), responseBody);
   } finally {
     await server.close();
   }
@@ -683,7 +709,7 @@ test("missing optional Kakao birthday clears the existing saved birthday", async
   let savedUpdates: Partial<User> | undefined;
   const server = await startServer({
     getKakaoOAuthConfig: () => config,
-    kakaoFetch: async () => responses.shift()!,
+    kakaoFetch: async () => takeKakaoResponse(responses),
     kakaoAuthStorage: {
       getUser: async () => existingUser,
       getUserByEmail: async () => undefined,
@@ -773,7 +799,7 @@ test("same email with a different or missing Kakao ID never auto-links and creat
         createUserCalled = true;
         return createdUser;
       },
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -839,6 +865,8 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
     );
 
     assert.equal(response.status, 200);
+    const authenticatedCookie = response.headers.get("set-cookie");
+    assert.ok(authenticatedCookie, "approved member login must issue an authenticated session cookie");
     const responseBody = await response.json();
     assert.equal(responseBody.user.id, approvedUser.id);
     assert.equal(responseBody.user.profileImage, null);
@@ -851,7 +879,7 @@ test("pending refresh that finds an approved Kakao member logs that member in", 
     });
 
     const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
-      headers: { cookie: authorization.cookie },
+      headers: { cookie: authenticatedCookie },
     });
     assert.equal(meResponse.status, 200);
     assert.deepEqual((await meResponse.json()).user, responseBody.user);
@@ -873,7 +901,7 @@ test("transactional email race creates an email_conflict review instead of retur
       createUserWithAlumniClaim: async () => {
         throw emailConflict;
       },
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingReason = registration.userData.conflictReason;
         return {
           kind: "pending" as const,
@@ -894,11 +922,34 @@ test("transactional email race creates an email_conflict review instead of retur
 
 test("missing alumni match creates or refreshes pending review with not_found", async () => {
   let pendingUserData: Record<string, unknown> | undefined;
+  let pendingRegistrationCalls = 0;
+  let memberWriteCalls = 0;
   const server = await startServer({
     getKakaoOAuthConfig: () => config,
     kakaoFetch: kakaoResponses(),
     kakaoAuthStorage: kakaoAuthStorageDouble({
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createUser: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      createUserWithAlumniClaim: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      updateUser: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      claimAlumniRecord: async () => {
+        memberWriteCalls += 1;
+        return alumniRecord;
+      },
+      finalizeKakaoLogin: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
+        pendingRegistrationCalls += 1;
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -908,9 +959,110 @@ test("missing alumni match creates or refreshes pending review with not_found", 
     }),
   });
   try {
-    const response = await postKakaoAuthorize(server.baseUrl);
+    const authorization = await beginKakaoAuthorization(server.baseUrl);
+    const response = await postKakaoAuthorize(
+      server.baseUrl,
+      { code: "test-code" },
+      authorization,
+    );
     assert.equal(response.status, 202);
+    assert.equal(pendingRegistrationCalls, 1);
+    assert.equal(memberWriteCalls, 0);
     assert.equal(pendingUserData?.conflictReason, "not_found");
+    const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie: authorization.cookie },
+    });
+    assert.equal(meResponse.status, 401);
+    assert.deepEqual(await meResponse.json(), { message: "Not authenticated" });
+  } finally {
+    await server.close();
+  }
+});
+
+test("pending registration revokes a pre-authenticated session for a different Kakao identity", async () => {
+  const preAuthenticatedMember: User = {
+    ...createdUser,
+    id: 1,
+    kakaoId: "111222333",
+    email: "pre-authenticated@example.com",
+  };
+  let pendingRegistrationCalls = 0;
+  let memberWriteCalls = 0;
+  let finalizeLoginCalls = 0;
+  let pendingRegistration: PendingRegistrationReviewInput | undefined;
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoFetch: kakaoResponses(),
+    kakaoAuthStorage: kakaoAuthStorageDouble({
+      getUser: async (userId) => userId === preAuthenticatedMember.id
+        ? preAuthenticatedMember
+        : undefined,
+      createUser: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      createUserWithAlumniClaim: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      updateUser: async () => {
+        memberWriteCalls += 1;
+        return createdUser;
+      },
+      claimAlumniRecord: async () => {
+        memberWriteCalls += 1;
+        return alumniRecord;
+      },
+      finalizeKakaoLogin: async () => {
+        finalizeLoginCalls += 1;
+        return createdUser;
+      },
+      createOrRefreshPendingRegistration: async (registration) => {
+        pendingRegistrationCalls += 1;
+        pendingRegistration = registration;
+        return {
+          kind: "pending" as const,
+          registration: { id: 1, ...registration, status: "pending", createdAt: new Date() },
+        };
+      },
+    }),
+  });
+  try {
+    const cookie = await createAdminSession(server.baseUrl);
+    const beforeAuthorizationResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie },
+    });
+    assert.equal(beforeAuthorizationResponse.status, 200);
+    assert.equal((await beforeAuthorizationResponse.json()).user.id, preAuthenticatedMember.id);
+
+    const startResponse = await fetch(`${server.baseUrl}/api/auth/kakao/start`, {
+      headers: { cookie },
+      redirect: "manual",
+    });
+    assert.equal(startResponse.status, 302);
+    const startLocation = new URL(startResponse.headers.get("location") ?? "");
+    const state = startLocation.searchParams.get("state");
+    assert.ok(state, "OAuth state query parameter is required");
+
+    const pendingResponse = await postKakaoAuthorize(
+      server.baseUrl,
+      { code: "test-code" },
+      { cookie, state },
+    );
+    assert.equal(pendingResponse.status, 202);
+    assert.equal((await pendingResponse.json()).requiresApproval, true);
+    assert.equal(pendingRegistrationCalls, 1);
+    assert.equal(memberWriteCalls, 0);
+    assert.equal(finalizeLoginCalls, 0);
+    assert.equal(pendingRegistration?.userData.conflictReason, "not_found");
+    assert.equal(pendingRegistration?.kakaoId, String(newKakaoUserInfo.id));
+    assert.notEqual(pendingRegistration?.kakaoId, preAuthenticatedMember.kakaoId);
+
+    const afterPendingResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie },
+    });
+    assert.equal(afterPendingResponse.status, 401);
+    assert.deepEqual(await afterPendingResponse.json(), { message: "Not authenticated" });
   } finally {
     await server.close();
   }
@@ -924,7 +1076,7 @@ test("alumni claim race creates or refreshes pending review with alumni_race", a
     kakaoAuthStorage: kakaoAuthStorageDouble({
       findAlumniByName: async () => [alumniRecord],
       createUserWithAlumniClaim: async () => undefined,
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -972,7 +1124,7 @@ test("normalized phone duplicate creates or refreshes one pending review without
       updateUser: async () => undefined,
       claimAlumniRecord: async () => alumniRecord,
       finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -1018,7 +1170,7 @@ test("already claimed alumni record requires approval without creating a member"
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
       finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,
@@ -1097,7 +1249,7 @@ test("transactional phone race creates or refreshes a pending review", async () 
       updateUser: async () => undefined,
       claimAlumniRecord: async () => undefined,
       finalizeKakaoLogin: finalizeKakaoLoginDouble(),
-      createOrRefreshPendingRegistration: async (registration: any) => {
+      createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => {
         pendingUserData = registration.userData;
         return {
           kind: "pending" as const,

@@ -60,6 +60,31 @@ test("includes only approved scalar JSON-LD metadata", () => {
   assert.doesNotMatch(text, /schema\.org|무시할 명령|tracking\.example/);
 });
 
+test("extracts visible obituary text inside an ASP.NET form without including controls", () => {
+  const text = extractPublicPageText({
+    requestedUrl: "https://example.com/obituary",
+    finalUrl: "https://example.com/obituary",
+    contentType: "text/html",
+    body: `
+      <html><body>
+        <form method="post">
+          <div>
+            <h1>故김한의 부고</h1>
+            <p>빈소: 동국병원 장례식장 202호실</p>
+          </div>
+          <label for="search">검색어</label>
+          <input id="search" value="내부 입력값">
+          <button type="submit">검색 실행</button>
+        </form>
+      </body></html>
+    `,
+  });
+
+  assert.match(text, /故김한의 부고/);
+  assert.match(text, /빈소: 동국병원 장례식장 202호실/);
+  assert.doesNotMatch(text, /검색어|내부 입력값|검색 실행/);
+});
+
 test("normalizes plain text whitespace and caps extracted output", () => {
   const normalized = extractPublicPageText({
     requestedUrl: "https://example.com/event.txt",

@@ -78,6 +78,34 @@ test("requestPublicAddress pins the supplied address and preserves the HTTP host
   }
 });
 
+test("requestPublicAddress identifies the parser to upstream servers that reject missing user agents", async () => {
+  let receivedUserAgent = "";
+  const server = createServer((request, response) => {
+    receivedUserAgent = request.headers["user-agent"] ?? "";
+    if (!receivedUserAgent) {
+      response.writeHead(500, { "Content-Type": "text/plain" });
+      response.end("missing user agent");
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end("<p>부고 안내</p>");
+  });
+  const port = await listen(server);
+
+  try {
+    const response = await requestPublicAddress(
+      new URL(`http://source.example:${port}/obituary`),
+      "127.0.0.1",
+      4,
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(receivedUserAgent, "dgkma-events-parser/1.0");
+  } finally {
+    await close(server);
+  }
+});
+
 test("requestPublicAddress aborts when the body stalls after headers", async () => {
   const server = createServer((_request, response) => {
     response.writeHead(200, { "Content-Type": "text/plain" });

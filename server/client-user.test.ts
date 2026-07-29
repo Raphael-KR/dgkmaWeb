@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { updateProfileSchema, type ClientUser, type User } from "@shared/schema";
+import {
+  updateProfileSchema,
+  type ClientUser,
+  type User,
+} from "@shared/schema";
 import { toClientUser } from "./client-user";
 
 test("toClientUser returns only fields required by the signed-in member UI", () => {
@@ -43,6 +47,21 @@ test("toClientUser returns only fields required by the signed-in member UI", () 
     JSON.stringify(toClientUser(user)),
     /kakaoId|kakaoSyncEnabled|updatedAt|private-kakao-id/,
   );
+  assert.deepEqual(Object.keys(clientUser).sort(), [
+    "activityRegion",
+    "birthday",
+    "birthdayType",
+    "createdAt",
+    "email",
+    "graduationYear",
+    "id",
+    "isAdmin",
+    "isLeapMonth",
+    "isVerified",
+    "name",
+    "phoneNumber",
+    "profileImage",
+  ]);
 });
 
 test("toClientUser keeps a missing creation time as JSON null", () => {
@@ -68,7 +87,40 @@ test("toClientUser keeps a missing creation time as JSON null", () => {
   assert.equal(toClientUser(user).createdAt, null);
 });
 
-test("profile updates do not expose the unused Kakao sync setting", () => {
-  assert.equal("kakaoSyncEnabled" in updateProfileSchema.shape, false);
-  assert.deepEqual(updateProfileSchema.parse({ kakaoSyncEnabled: true }), {});
+test("profile updates strip every protected user field", () => {
+  assert.deepEqual(
+    updateProfileSchema.parse({
+      id: 99,
+      kakaoId: "attacker-kakao-id",
+      email: "attacker@example.com",
+      name: "공격자",
+      graduationYear: 1999,
+      isVerified: false,
+      isAdmin: true,
+      kakaoSyncEnabled: true,
+      profileImage: "https://attacker.example.com/profile.jpg",
+      phoneNumber: "010-0000-0000",
+      birthday: "0101",
+      birthdayType: "SOLAR",
+      isLeapMonth: false,
+      activityRegion: "서울특별시",
+      createdAt: new Date("2024-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+    }),
+    { activityRegion: "서울특별시" },
+  );
+});
+
+test("profile updates accept a valid activity region", () => {
+  assert.deepEqual(
+    updateProfileSchema.parse({ activityRegion: "부산광역시" }),
+    { activityRegion: "부산광역시" },
+  );
+});
+
+test("profile updates reject an invalid activity region", () => {
+  assert.equal(
+    updateProfileSchema.safeParse({ activityRegion: "서울" }).success,
+    false,
+  );
 });
