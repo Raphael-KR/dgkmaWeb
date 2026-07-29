@@ -13,6 +13,7 @@ const MAX_REDIRECTS = 3;
 const MAX_BODY_BYTES = 512 * 1024;
 const REQUEST_TIMEOUT_MS = 5_000;
 const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
+const PARSER_USER_AGENT = "dgkma-events-parser/1.0";
 
 export type PublicPageResult = {
   requestedUrl: string;
@@ -161,6 +162,7 @@ export function requestPublicAddress(
         "Accept-Encoding": "identity",
         Connection: "close",
         Host: url.host,
+        "User-Agent": PARSER_USER_AGENT,
       },
       agent: false,
       lookup: pinnedLookup,

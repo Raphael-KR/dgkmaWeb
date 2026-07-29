@@ -62,6 +62,24 @@ https://example.com/obituary
   });
 });
 
+test("extracts a deceased age without an explicit lifespan label from public obituary profiles", () => {
+  const parsed = parseObituaryEventSource("故김한의\n76세/ 남");
+
+  assert.equal(parsed.draft.details.deceasedAge, 76);
+});
+
+test("skips the obituary section heading when extracting chief mourners", () => {
+  const parsed = parseObituaryEventSource(`
+상주 정보
+상주
+김동국 김한방
+사위
+이동국
+  `.trim());
+
+  assert.equal(parsed.draft.details.chiefMourner, "김동국 김한방");
+});
+
 test("reports required obituary fields that have no source evidence", () => {
   const parsed = parseObituaryEventSource("故김한의\n관계: 모친\n발인: 2026년 6월 12일");
 
