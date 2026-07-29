@@ -100,7 +100,7 @@ export function assembleObituaryPreview({
   const details = draft.details;
   const graduationClass = requiredText(alumni?.generation);
   const admissionYear = admissionYearLabel(alumni?.admissionDate);
-  const memberName = requiredText(user?.name);
+  const memberName = requiredText(user?.name) ?? requiredText(alumni?.name);
   const membershipTier = membership.tier === "권리회원" || membership.tier === "일반회원"
     ? membership.tier
     : undefined;
