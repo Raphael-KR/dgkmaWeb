@@ -273,7 +273,7 @@ test("all community event types support draft, publish, and filtered list routes
       title: "서버 회원 동문 부친상",
       eventDate: "2026-08-03",
       location: "동국병원 장례식장",
-      relatedMemberName: "요청 이름",
+      relatedMemberName: "서버 회원",
       contactNumber: "010-0000-0000",
       details: {
         deceasedName: "김한의",
@@ -441,7 +441,7 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     title: "김동국 동문 부친상",
     eventDate: "2026-08-01",
     location: "동국병원 장례식장",
-    relatedMemberName: "본문 위조 이름",
+    relatedMemberName: "김동국",
     contactNumber: "본문 위조 연락처",
     accountInfo: "동국은행 123-456 김동국",
     details: {
@@ -476,6 +476,11 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     ...completeDraft,
     id: 8,
     details: { ...completeDraft.details, sourceUrl: "not-a-url" },
+  });
+  const anotherMemberDraft = event({
+    ...completeDraft,
+    id: 9,
+    relatedMemberName: "다른동문",
   });
   const user = {
     id: memberId,
@@ -521,6 +526,7 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     if (id === 6 && authorId === memberId) return corruptDraft;
     if (id === 7 && authorId === memberId) return overAgeDraft;
     if (id === 8 && authorId === memberId) return invalidUrlDraft;
+    if (id === 9 && authorId === memberId) return anotherMemberDraft;
     return undefined;
   });
   t.mock.method(storage, "getUser", async (id) => {
@@ -602,6 +608,16 @@ test("obituary preview uses only server-sourced owner profile data", async (t) =
     assert.deepEqual(await incomplete.json(), {
       message: "부고문 미리보기에 필요한 정보가 부족합니다",
       missingFields: ["deceasedName", "deceasedAge", "funeralHome", "funeralDate"],
+    });
+
+    const anotherMember = await fetch(`${server.baseUrl}/api/events/9/preview`, {
+      method: "POST",
+      headers: memberHeaders,
+    });
+    assert.equal(anotherMember.status, 400);
+    assert.deepEqual(await anotherMember.json(), {
+      message: "일반회원은 본인 경조사만 등록할 수 있습니다",
+      missingFields: ["relatedMemberName"],
     });
 
     for (const [id, missingFields] of [
@@ -805,7 +821,7 @@ test("obituary publish canonicalizes profile fields and retries idempotently for
     id: obituaryId,
     eventType: "obituary",
     authorId: memberId,
-    relatedMemberName: "저장된 위조 이름",
+    relatedMemberName: "서버 회원",
     contactNumber: "저장된 위조 연락처",
     details: {},
   });
@@ -918,7 +934,7 @@ test("obituary publish canonicalizes profile fields and retries idempotently for
       headers: { "content-type": "application/json", "x-test-user-id": String(noAlumniMemberId) },
       body: JSON.stringify({
         ...publishBody,
-        relatedMemberName: "요청 위조 이름",
+        relatedMemberName: "서버 회원",
         contactNumber: "010-0000-0000",
       }),
     });

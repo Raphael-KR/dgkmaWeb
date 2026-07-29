@@ -42,8 +42,7 @@ import {
   type KakaoOAuthConfig,
 } from "./kakao-oauth-config";
 import { isSelectablePostCategory } from "@shared/category-policy";
-import { renderObituaryAnnouncement } from "@shared/obituary-announcement";
-import { assembleObituaryPreview, parseStoredObituaryDraft } from "./obituary-preview";
+import { assembleTrustedObituary } from "./obituary-member-policy";
 import { toClientUser } from "./client-user";
 import {
   KakaoAdminConfigurationError,
@@ -120,41 +119,6 @@ function sanitizePublishedEvent(event: CommunityEvent) {
   const safeEvent = sanitizeStoredCommunityEventSources(event);
   const { sourceText: _sourceText, ...publishedEvent } = safeEvent;
   return publishedEvent;
-}
-
-type TrustedObituaryAssembly =
-  | { kind: "invalid"; missingFields: string[] }
-  | { kind: "missing"; missingFields: string[] }
-  | {
-    kind: "ready";
-    input: NonNullable<ReturnType<typeof assembleObituaryPreview>["input"]>;
-    text: string;
-  };
-
-async function assembleTrustedObituary(
-  draft: CommunityEvent,
-  userId: number,
-): Promise<TrustedObituaryAssembly> {
-  const validatedDraft = parseStoredObituaryDraft(draft);
-  if (!validatedDraft.draft) {
-    return { kind: "invalid", missingFields: validatedDraft.missingFields };
-  }
-
-  const [user, alumni, membership] = await Promise.all([
-    storage.getUser(userId),
-    storage.getAlumniRecordByUserId(userId),
-    storage.getMembershipStatus(userId),
-  ]);
-  const preview = assembleObituaryPreview({ draft: validatedDraft.draft, user, alumni, membership });
-  if (!preview.input) {
-    return { kind: "missing", missingFields: preview.missingFields };
-  }
-
-  return {
-    kind: "ready",
-    input: preview.input,
-    text: renderObituaryAnnouncement(preview.input),
-  };
 }
 
 // 카카오 인증/온보딩 디버그 로그 게이팅. 운영 환경에서는 기본 OFF.
@@ -1191,7 +1155,7 @@ export async function registerRoutes(
       if (!draft || draft.eventType !== "obituary") {
         return res.status(404).json({ message: "임시 저장된 부고를 찾을 수 없습니다" });
       }
-      const preview = await assembleTrustedObituary(draft, userId);
+      const preview = await assembleTrustedObituary(draft, userId, storage);
       if (preview.kind === "invalid") {
         return res.status(400).json({
           message: "저장된 부고 초안이 올바르지 않습니다",
@@ -1201,6 +1165,12 @@ export async function registerRoutes(
       if (preview.kind === "missing") {
         return res.status(400).json({
           message: "부고문 미리보기에 필요한 정보가 부족합니다",
+          missingFields: preview.missingFields,
+        });
+      }
+      if (preview.kind === "blocked") {
+        return res.status(400).json({
+          message: preview.message,
           missingFields: preview.missingFields,
         });
       }
@@ -1240,12 +1210,14 @@ export async function registerRoutes(
           ...draftData,
           details: draftData.details,
         } as CommunityEvent;
-        const announcement = await assembleTrustedObituary(candidate, userId);
+        const announcement = await assembleTrustedObituary(candidate, userId, storage);
         if (announcement.kind !== "ready") {
           return res.status(400).json({
             message: announcement.kind === "invalid"
               ? "저장된 부고 초안이 올바르지 않습니다"
-              : "부고문 게시에 필요한 정보가 부족합니다",
+              : announcement.kind === "blocked"
+                ? announcement.message
+                : "부고문 게시에 필요한 정보가 부족합니다",
             missingFields: announcement.missingFields,
           });
         }
