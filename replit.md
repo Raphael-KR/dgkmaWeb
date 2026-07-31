@@ -19,6 +19,7 @@
 - SSH 프로세스는 Replit Secret의 `PROD_DATABASE_URL`을 명시적으로 선택할 때 Production Database에 직접 연결할 수 있습니다. 개발 중 반복되는 운영 스키마·데이터 작업을 위해 Secret은 유지하되 기본 연결로 사용하지 않습니다.
 - 개발 DB에 적용한 SQL과 seed는 프로덕션 DB에 자동 반영되지 않습니다.
 - 개발·운영 DB 직접 연결과 안전한 변경 절차는 [데이터베이스 운영 런북](./docs/database-operations.md)을 따릅니다.
+- 현재 DB 구조의 기준은 [docs/database-schema.md](./docs/database-schema.md)입니다.
 
 ### 개발 중 확인 원칙
 
@@ -77,7 +78,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 최종 원본 전환을 선언하기 전까지 Google Sheets를 동문 명부의 **관리 원본**으로 유지하고, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**으로 운용합니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다.
+최종 원본 전환을 선언하기 전까지 Google Sheets를 동문 명부의 **관리 원본**으로 유지하고, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**으로 운용합니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다. 이 문서는 행 데이터·개인정보·운영 건수를 기록하지 않습니다.
 
 ### 선택 운영 설정
 
@@ -124,7 +125,7 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 
 ### 스키마 변경
 
-스키마 변경은 자동 실행하지 않습니다. Development Database와 Production Database에 각각 additive 변경 SQL을 명시적으로 검토한 뒤 수동 적용하고, 테이블과 컬럼을 확인합니다. 개발 환경에서 `db:push`를 사용해야 할 때도 변경 내용을 먼저 확인한 뒤 Replit Shell에서 직접 실행합니다.
+스키마 변경은 자동 실행하지 않습니다. Development Database와 Production Database에 각각 additive 변경 SQL을 명시적으로 검토한 뒤 수동 적용하고, 테이블과 컬럼을 확인합니다. 개발 환경에서 `db:push`를 사용해야 할 때도 변경 내용을 먼저 확인한 뒤 Replit Shell에서 직접 실행합니다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain, runtime DDL 또는 migration 변경은 같은 PR에서 [docs/database-schema.md](./docs/database-schema.md)를 갱신하고 metadata-only catalog를 재검증해야 합니다.
 
 ```bash
 npm run db:push

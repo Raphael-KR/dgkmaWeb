@@ -1,0 +1,47 @@
+{
+  "schema_version": "dgkma-task-1-provider-negative-fixtures-v2",
+  "cases": [
+    {
+      "name": "absent_project",
+      "mutation": "remove_project",
+      "expected_error": "provider projection: exact project resolution required"
+    },
+    {
+      "name": "absent_thread",
+      "mutation": "remove_ready_thread",
+      "expected_error": "provider projection: exact ready thread resolution required"
+    },
+    {
+      "name": "queued_only_without_ready_thread",
+      "mutation": "leave_thread_queued",
+      "expected_error": "provider projection: queued-only thread rejected"
+    },
+    {
+      "name": "changed_create_response_digest",
+      "mutation": "forge_create_response_digest",
+      "expected_error": "provider capability: create_response_sha256 projection digest mismatch"
+    },
+    {
+      "name": "changed_wait_response_digest",
+      "mutation": "forge_wait_response_digest",
+      "expected_error": "provider capability: wait_response_sha256 projection digest mismatch"
+    },
+    {
+      "name": "changed_read_response_digest",
+      "mutation": "forge_read_response_digest",
+      "expected_error": "provider capability: read_response_sha256 projection digest mismatch"
+    },
+    {
+      "name": "altered_catalog_object_count",
+      "mutation": "decrement_catalog_object_count",
+      "expected_error": "Development read-only baseline mismatch"
+    },
+    {
+      "name": "nonce_mismatch",
+      "mutation": "replace_nonce",
+      "expected_error": "provider capability: nonce mismatch"
+    }
+  ],
+  "expected_result": "rejected_before_schema_write",
+  "expected_schema_writes": 0
+}
