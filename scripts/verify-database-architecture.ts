@@ -25,6 +25,12 @@ function value(flag: string): string | undefined {
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
+function values(flag: string): string[] {
+  return process.argv.flatMap((argument, index) =>
+    argument === flag && process.argv[index + 1] ? [process.argv[index + 1]] : [],
+  );
+}
+
 function fail(message: string): never {
   throw new Error(message);
 }
@@ -1454,6 +1460,122 @@ function runTaskFive(): void {
   process.exitCode = 1;
 }
 
+function writeTaskElevenEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 11,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-plan-contract",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: 0,
+    assertions,
+    attachment_digests: attachments
+      .filter(existsSync)
+      .sort()
+      .map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })),
+    result: "approved",
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskEleven(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const planPath = value("--plan") ?? fail("--plan is required");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory = value("--fixtures") ?? "server/fixtures/database-architecture/task-11";
+  const expectedRules = values("--expect-rule");
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const lintLog = evidencePath.replace(/\.json$/, "-plan-lint.log");
+  const tests = runLogged("npx", ["tsx", "--test", "server/accounting-plan.test.ts"], testLog);
+  const lint = runLogged("npx", ["tsx", "scripts/validate-accounting-plan.ts", "--plan", planPath], lintLog);
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "docs/plans/accounting-dues-prd.md",
+    "docs/plans/database-architecture-audit.md",
+    "scripts/validate-accounting-plan.ts",
+    "server/accounting-plan.test.ts",
+    testLog,
+    lintLog,
+    ...(existsSync(fixtureDirectory)
+      ? readdirSync(fixtureDirectory).map((name) => path.join(fixtureDirectory, name))
+      : []),
+  ];
+  if (tests.status !== 0) fail("task_11_self_test_failed");
+  const lintResult = lastJsonLine(lint.stdout ?? "");
+  const violations = arrayValue(lintResult.violations, "task 11 violations").map((entry) =>
+    objectValue(entry, "task 11 violation"),
+  );
+  const observedRules = violations.map((violation) => String(violation.rule));
+
+  if (caseName === "happy") {
+    if (lint.status !== 0 || lintResult.result !== "approved" || violations.length !== 0) {
+      fail("task_11_happy_plan_lint_failed");
+    }
+    if (
+      lintResult.manifest_sha256 !== "ea8f0d484b99cf93ffb51f11681e5f62e4474f5bbac1735286f1173c0132e785" ||
+      lintResult.manifest_commit !== "47a9cf63545371ea258fc1c2264acf531fe5facf" ||
+      lintResult.owner_decision_count !== 35 ||
+      lintResult.accounting_gate_pairs !== 1 ||
+      lintResult.architecture_gate_pairs !== 1
+    ) {
+      fail("task_11_happy_binding_mismatch");
+    }
+    writeTaskElevenEvidence(evidencePath, caseName, {
+      self_test_exit_code: 0,
+      inner_plan_lint_exit_code: 0,
+      canonical_manifest_references: 1,
+      manifest_sha256_binding: "approved",
+      todo_2_commit_binding: "47a9cf63545371ea258fc1c2264acf531fe5facf",
+      owner_decision_rows: 35,
+      obsolete_executable_contracts: 0,
+      accounting_attestation_gate_pairs: 1,
+      architecture_attestation_gate_pairs: 1,
+      gate_payload_bytes: 0,
+      monthly_annual_independence: "approved",
+      database_calls: 0,
+      source_mutations: 0,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+
+  const requiredRules = ["obsolete-overlap-role", "fixed-new-table-count"];
+  if (
+    expectedRules.length !== requiredRules.length ||
+    requiredRules.some((rule) => !expectedRules.includes(rule)) ||
+    lint.status === 0 ||
+    lintResult.result !== "rejected" ||
+    requiredRules.some((rule) => !observedRules.includes(rule))
+  ) {
+    fail("task_11_failure_fixture_not_rejected_as_expected");
+  }
+  writeTaskElevenEvidence(evidencePath, caseName, {
+    self_test_exit_code: 0,
+    inner_plan_lint_exit_code: lint.status,
+    inner_plan_result: "rejected",
+    expected_rules: requiredRules,
+    observed_expected_rules: requiredRules,
+    outer_expected_failure_result: "approved",
+    database_calls: 0,
+    source_mutations: 0,
+    production_operations: 0,
+  }, attachments);
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -1468,6 +1590,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskFive();
 } else if (process.argv[2] === "task" && process.argv[3] === "8") {
   runTaskEight();
+} else if (process.argv[2] === "task" && process.argv[3] === "11") {
+  runTaskEleven();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
