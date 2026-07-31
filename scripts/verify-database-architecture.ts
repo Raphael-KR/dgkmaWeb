@@ -10,6 +10,13 @@ import {
 } from "./database-architecture-verifier-contracts";
 import { runTaskEight } from "./verify-database-index-workload";
 import { readArtifactDescriptors, readManifest, verifyArtifactBytes } from "./schema-ledger";
+import {
+  authorizeRestoreReconcile,
+  readRestoreReceipt,
+  readSyntheticSequence60Descriptor,
+  RESTORE_READINESS,
+  type RestoreTargetKind,
+} from "./database-restore-contract";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1297,6 +1304,154 @@ function runTaskFour(): void {
   process.exitCode = 1;
 }
 
+function writeTaskFiveEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 5,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: readManifest().sha256,
+    db_target: caseName === "happy" ? "synthetic-disposable-test" : "static-refusal",
+    db_mode: "restore-authorization-only-no-sql",
+    command: process.argv.join(" "),
+    exit_code: result === "approved" ? 0 : 1,
+    assertions,
+    attachment_digests: attachments
+      .filter(existsSync)
+      .sort()
+      .map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })),
+    result,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskFive(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory = value("--fixtures") ?? "server/fixtures/database-architecture/task-5";
+  const receiptPath = path.join(fixtureDirectory, "synthetic-restore-receipt.json");
+  const descriptorPath = path.join(fixtureDirectory, "synthetic-sequence-60.json");
+  const failureCasesPath = path.join(fixtureDirectory, "failure-cases.json");
+  const testPath = "server/database-restore-contract.test.ts";
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const tests = runLogged("npx", ["tsx", "--test", testPath], testLog);
+  const attachments = [
+    "docs/database-operations.md",
+    "docs/restore-contracts/restore-validation.schema.json",
+    "docs/restore-contracts/restore-validation.descriptor.json",
+    "scripts/database-restore-contract.ts",
+    testPath,
+    receiptPath,
+    descriptorPath,
+    path.join(fixtureDirectory, "drifted-sequence-60.json"),
+    path.join(fixtureDirectory, "synthetic-0060-database-security.sql"),
+    path.join(fixtureDirectory, "synthetic-0060-restore-security-reconcile.sql"),
+    failureCasesPath,
+    testLog,
+  ];
+  if (tests.status !== 0) {
+    writeTaskFiveEvidence(evidencePath, caseName, "rejected", {
+      self_test_exit_code: tests.status,
+      error_class: "restore_contract_self_test_failed",
+      sql_executions: 0,
+    }, attachments);
+    fail("restore_contract_self_test_failed");
+  }
+
+  if (caseName === "happy") {
+    const descriptor = readSyntheticSequence60Descriptor(descriptorPath);
+    const receipt = readRestoreReceipt(receiptPath);
+    const authorization = authorizeRestoreReconcile({
+      targetKind: "disposable-test",
+      descriptorPath,
+      receiptPath,
+    });
+    if (
+      authorization.result !== "authorized" ||
+      authorization.sql_executions !== 0 ||
+      receipt.sequence_60_artifact_sha256 !== descriptor.artifact_sha256 ||
+      receipt.restore_reconcile_sha256 !== descriptor.restore_reconcile_sha256 ||
+      RESTORE_READINESS !== "pending Todo 22 measured drill"
+    ) {
+      fail("restore_contract_happy_assertion_failed");
+    }
+    writeTaskFiveEvidence(evidencePath, caseName, "approved", {
+      self_test_exit_code: 0,
+      target_kind: "disposable-test",
+      target_authorization: "authorized",
+      sequence_60_artifact_sha256: descriptor.artifact_sha256,
+      restore_reconcile_sha256: descriptor.restore_reconcile_sha256,
+      receipt_self_hash: "verified",
+      receipt_field_count: 31,
+      sql_executions: 0,
+      database_calls: 0,
+      restore_readiness: RESTORE_READINESS,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+
+  const fixtures = parseJson(failureCasesPath);
+  exactKeys(fixtures, ["schema_version", "cases"], "task 5 failure fixtures");
+  if (fixtures.schema_version !== "dgkma-task-5-failure-fixtures-v1") {
+    fail("task_5_failure_fixture_version_mismatch");
+  }
+  const cases = arrayValue(fixtures.cases, "task 5 failure cases").map((entry) =>
+    objectValue(entry, "task 5 failure case"),
+  );
+  if (cases.length !== 3) fail("task_5_failure_case_count_mismatch");
+  const observations: JsonObject[] = [];
+  for (const fixture of cases) {
+    exactKeys(
+      fixture,
+      ["name", "target_kind", "descriptor", "expected_error"],
+      "task 5 failure case",
+    );
+    const descriptor = fixture.descriptor;
+    if (descriptor !== null && typeof descriptor !== "string") fail("task_5_descriptor_fixture_invalid");
+    let observed = "not_rejected";
+    try {
+      authorizeRestoreReconcile({
+        targetKind: String(fixture.target_kind) as RestoreTargetKind,
+        descriptorPath: descriptor === null ? null : path.join(fixtureDirectory, descriptor),
+        receiptPath,
+      });
+    } catch (error) {
+      observed = error instanceof Error ? error.message : String(error);
+    }
+    if (observed !== fixture.expected_error) fail(`task_5_unexpected_refusal:${String(fixture.name)}`);
+    observations.push({
+      name: fixture.name,
+      expected_error: fixture.expected_error,
+      observed_error: observed,
+      sql_executions: 0,
+      database_calls: 0,
+      result: "rejected",
+    });
+  }
+  writeTaskFiveEvidence(evidencePath, caseName, "rejected", {
+    self_test_exit_code: 0,
+    refusal_cases_executed: observations.length,
+    refusal_cases_rejected_before_sql: observations.length,
+    cases: observations,
+    sql_executions: 0,
+    database_calls: 0,
+    production_operations: 0,
+    restore_readiness: RESTORE_READINESS,
+  }, attachments);
+  process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -1307,6 +1462,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskThree();
 } else if (process.argv[2] === "task" && process.argv[3] === "4") {
   runTaskFour();
+} else if (process.argv[2] === "task" && process.argv[3] === "5") {
+  runTaskFive();
 } else if (process.argv[2] === "task" && process.argv[3] === "8") {
   runTaskEight();
 } else {

@@ -1,0 +1,23 @@
+{
+  "schema_version": "dgkma-task-5-failure-fixtures-v1",
+  "cases": [
+    {
+      "name": "missing_sequence_60",
+      "target_kind": "disposable-test",
+      "descriptor": null,
+      "expected_error": "restore_reconcile_sequence_60_missing"
+    },
+    {
+      "name": "drifted_sequence_60",
+      "target_kind": "disposable-test",
+      "descriptor": "drifted-sequence-60.json",
+      "expected_error": "restore_reconcile_sequence_60_artifact_drift"
+    },
+    {
+      "name": "development_reconcile_target",
+      "target_kind": "development",
+      "descriptor": "synthetic-sequence-60.json",
+      "expected_error": "restore_reconcile_target_forbidden"
+    }
+  ]
+}

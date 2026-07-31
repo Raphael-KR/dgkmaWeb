@@ -136,6 +136,155 @@ npx tsx scripts/apply-schema.ts --target development --dry-run
 
 이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. sequence 1 실제 적용은 UUID-bound disposable target에서만 수행하며, artifact와 ledger row가 같은 transaction에 commit되고 teardown 후 database 부재를 확인해야 한다. Production target, runtime 객체 변환, 전체 스키마 apply는 이 scaffold의 완료 주장에 포함하지 않는다.
 
+## 가역 rollout과 복원 검증 계약
+
+복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
+
+### 동일 snapshot의 custom dump
+
+Todo 22 exporter는 Development resolver가 검증한 연결 A에서 다음 순서로 동작한다.
+
+1. `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY`를 실행한다.
+2. 같은 연결에서 `pg_export_snapshot()`, `txid_current_snapshot()`, `current_database()`, `current_user`, UTC 관찰 시각과 `pg_current_wal_lsn()`을 한 번에 읽는다. raw snapshot ID는 로그·receipt·명령 기록에 남기지 않고 SHA-256만 기록한다.
+3. 같은 A snapshot에서 source catalog, 테이블별 count와 content digest를 생성한다. A는 dump와 evidence 직렬화가 모두 끝날 때까지 열어 둔다.
+4. 전용 임시 디렉터리와 dump는 각각 `0700`, `0600`이어야 한다. dump는 저장소·Object Storage·외부 서비스에 commit 또는 upload하지 않는다.
+5. dump 종료와 receipt 직렬화 뒤에만 A를 commit한다. 실패 시 rollback하고 임시 파일을 정리한다.
+
+실행기가 생성한 private 환경값을 사용하는 shell 단계는 다음과 같이 고정한다. 빈 값, 예상 밖 임시 경로 또는 Development가 아닌 source는 dump 전에 거부한다.
+
+```bash
+set -eu
+test "${PGDATABASE:-}" = "heliumdb"
+test -n "${restore_snapshot_id:-}"
+
+restore_work_dir="$(mktemp -d /tmp/dgkma-restore.XXXXXXXX)"
+case "$restore_work_dir" in
+  /tmp/dgkma-restore.*) ;;
+  *) exit 64 ;;
+esac
+chmod 0700 "$restore_work_dir"
+dump_path="$restore_work_dir/development.dump"
+install -m 0600 /dev/null "$dump_path"
+
+pg_dump --format=custom --compress=9 --no-owner --no-acl --snapshot="$restore_snapshot_id" \
+  --file="$dump_path" heliumdb
+test -s "$dump_path"
+test "$(stat -c '%a' "$restore_work_dir")" = "700"
+test "$(stat -c '%a' "$dump_path")" = "600"
+dump_sha256="$(sha256sum "$dump_path" | cut -d ' ' -f 1)"
+test "${#dump_sha256}" -eq 64
+```
+
+Todo 22 executor는 raw snapshot ID가 process output이나 evidence에 유출되지 않았는지 검사한다. receipt timing은 `snapshot-start ≤ snapshot-observed ≤ dump-start ≤ dump-finish ≤ snapshot-finish ≤ restore-start ≤ restore-finish ≤ observed`이고 duration은 음수가 아니어야 한다. WAL LSN은 소문자 canonical 값만 허용한다.
+
+### UUID-bound disposable restore와 sequence 60 gate
+
+대상 resolver가 별도 lowercase UUIDv4에 결합된 `disposable-test`를 만들고 source와 다른 target fingerprint를 검증한 뒤에만 다음 명령을 호출한다. `development`나 `production-readonly` 대상, `heliumdb`, `neondb`, 임의 DB 이름은 restore 전에 거부한다.
+
+```bash
+set -eu
+test "${restore_target_kind:-}" = "disposable-test"
+test -n "${restore_database_name:-}"
+test "${restore_database_name}" != "heliumdb"
+test "${restore_database_name}" != "neondb"
+test -s "${dump_path:-/nonexistent}"
+
+PGDATABASE="$restore_database_name" \
+  pg_restore --exit-on-error --single-transaction --no-owner --no-acl \
+  --dbname="$restore_database_name" "$dump_path"
+```
+
+복원된 DB는 validation-only다. 앱을 시작하거나 일반 migration apply/reapply를 실행하지 않으며, schema ledger fingerprint 비교나 합성 관리자를 만들지 않는다. 정식 sequence 60이 Todo 16에서 materialize된 뒤에도 standalone reconcile은 오직 `migrations/manual/0060_restore_security_reconcile.sql` 전체 파일만 허용한다. migration runner 또는 `0060_database_security.sql`의 파싱된 일부를 재사용하지 않는다.
+
+reconcile 전에는 다음 순서를 모두 통과해야 한다: disposable target kind → materialized sequence 60 descriptor → sequence 60 artifact checksum → reconcile checksum → restore receipt binding → statement allowlist. 허용 범위는 owner, ACL, default privileges 복원뿐이다. extension·table·function·trigger·ledger·capability DDL/DML은 금지한다. 하나라도 누락·drift이면 SQL 실행 횟수 0으로 거부한다. 현재 정식 sequence 60과 reconcile SQL은 materialize되지 않았으므로 합성 fixture 외 실행은 항상 거부한다.
+
+### checksum-bound restore receipt
+
+[restore-validation.schema.json](restore-contracts/restore-validation.schema.json)은 추가 필드를 금지하는 31-field receipt 계약이다. [restore-validation.descriptor.json](restore-contracts/restore-validation.descriptor.json)이 schema checksum, required sequence/artifact, future reconcile 경로, 대상과 authorization order를 고정한다.
+
+receipt와 검증 입력은 RFC 8785 방식의 key-sorted canonical JSON 뒤 LF 한 바이트로 직렬화한다. `receipt_sha256`은 그 필드 자체를 제외한 canonical bytes의 SHA-256이다. receipt는 source/disposable fingerprint, UUID restore run, 서버와 dump/restore 버전, snapshot ID hash와 txid snapshot, WAL LSN, dump/restore 시각·duration, dump/source manifest/sequence 60/reconcile/pre-post security/schema/data checksum, 결과를 모두 포함한다. raw snapshot ID나 credential은 포함하지 않는다.
+
+### 임시 파일 폐기와 teardown
+
+receipt와 비식별 검증 로그를 evidence에 직렬화한 뒤, dump를 안전하게 unlink하고 disposable DB를 teardown한다. 삭제 대상은 위에서 검증한 `/tmp/dgkma-restore.` prefix와 정확한 dump 파일 하나뿐이다.
+
+```bash
+set -eu
+case "${restore_work_dir:-}" in
+  /tmp/dgkma-restore.*) ;;
+  *) exit 64 ;;
+esac
+test "${dump_path:-}" = "$restore_work_dir/development.dump"
+test -f "$dump_path"
+shred --remove=unlink --zero "$dump_path"
+rmdir "$restore_work_dir"
+test ! -e "$dump_path"
+test ! -e "$restore_work_dir"
+```
+
+Todo 22는 새 control 연결에서 disposable DB 부재까지 확인한다. dump cleanup이나 target teardown 중 하나라도 실패하면 drill은 verified가 아니다.
+
+### rollout 순서, 잠금과 복구 판단
+
+모든 스키마 release 순서는 `expand → capability/catalog preflight → ordinary → manual variant → verify → backfill → compatibility compare → explicit cutover`로 고정한다. 각 artifact 적용과 ledger 기록은 같은 transaction이다. 실패하면 현재 transaction만 rollback하고 이전 additive artifact는 inert 상태로 남긴 채 forward resume한다. destructive contraction은 이 계획에 포함하지 않는다.
+
+rollout과 backfill·retention worker는 서로 다른 고정 PostgreSQL advisory-lock namespace를 사용한다. 한 release에는 전역 rollout lock 하나만 허용하며, 동일 target fingerprint에서 중복 실행은 lock 획득 전에 아무것도 쓰지 않는다. backfill은 manifest가 정한 안정 키 범위별 lock을 잡고 receipt checkpoint 뒤 재개한다. explicit cutover 뒤 문제가 발견되면 feature read를 이전 호환 경로로 되돌리거나 additive forward-fix를 적용한다. 이미 적용된 artifact나 ledger row를 삭제·수정해 rollback하지 않는다.
+
+| 실패 시점 | 즉시 조치 | 재개 조건 | 금지 사항 |
+|---|---|---|---|
+| capability/catalog preflight 전·중 | 현재 probe transaction rollback | 동일 target identity와 capability receipt 재검증 | DDL 시작, 실패한 probe 결과 추정 |
+| ordinary 또는 manual artifact 적용 중 | 현재 artifact transaction rollback | 이전 ledger checksum 재검증 후 첫 missing sequence부터 forward resume | 이전 ledger/artifact 삭제·수정 |
+| verify 또는 backfill 중 | feature를 legacy/shadow에 유지하고 현재 batch rollback | catalog·checkpoint·호환 비교가 다시 일치 | 부분 cutover, destructive contraction |
+| explicit cutover 후 read mismatch | feature read rollback 또는 additive forward-fix | 고정 comparison digest와 새 검증 receipt | legacy write 재개, 적용 artifact 역실행 |
+| restore/reconcile drill 중 | exporter rollback, disposable teardown, dump 안전 폐기 | 새 UUID run과 새 snapshot으로 처음부터 재시도 | 실패 receipt를 verified로 변경, Development/Production reconcile |
+
+Todo 22의 validation query는 같은 exported snapshot의 source digest와 restored target을 비교하되 대상 중립 필드만 사용한다. restore 직후에는 다음 read-only query를 실행해 disposable identity, row counts, schema/security catalog와 copied Development ledger bytes를 별도 evidence로 직렬화한다. `<expected_disposable_database>`는 resolver가 UUID에서 생성하고 descriptor에 결합한 이름이며 임의 입력이 아니다.
+
+```bash
+psql -X --csv -v ON_ERROR_STOP=1 \
+  -v expected_database="$restore_database_name" \
+  --dbname="$restore_database_name" <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SELECT current_database() = :'expected_database' AS target_ok \gset
+\if :target_ok
+\echo 'target_gate=ok'
+\else
+ROLLBACK;
+\quit 64
+\endif
+SELECT current_database(), current_user,
+       current_setting('server_version_num')::integer AS server_version_num;
+SELECT schemaname, relname, n_live_tup::bigint
+FROM pg_stat_user_tables
+ORDER BY schemaname, relname;
+SELECT sequence_no, artifact_id, artifact_sha256, target_fingerprint
+FROM schema_migration_ledger
+ORDER BY sequence_no;
+SELECT n.nspname, c.relname, c.relkind, c.relowner, c.relacl
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public'
+ORDER BY c.relkind, c.relname;
+ROLLBACK;
+SQL
+```
+
+위 target gate 결과가 `ok`가 아니거나 source의 table별 count/content digest, target-neutral schema catalog, sequence 60 이후 expected disposable-owner security catalog 중 하나라도 다르면 reconcile transaction을 rollback하고 drill을 rejected로 기록한다. DB name/OID/owner identity와 외부 receipt 자체는 source-target equality 대상에서 제외한다.
+
+### retention worker 계약
+
+retention worker는 매시간 전용 advisory lock을 하나 획득하고, 각 정책을 안정 키 순서의 `500행 또는 5초` 단위로 처리하며 실행당 `최대 10개 batch`에서 멈춘다. 동일 정책 checkpoint와 HMAC 입력 버전을 receipt에 남겨 재실행 가능하게 한다. HMAC secret이 없으면 삭제를 시작하지 않는다.
+
+- 만료된 `session`은 현재 시각 기준으로 삭제한다.
+- OAuth state는 만료 후 24시간이 지난 행을 삭제한다.
+- identity termination은 30일이 지난 행을 삭제한다.
+- rejected pending registration은 reject 후 30일이 지났고 `pii_redacted_at IS NULL`인 행만 redact 대상으로 삼는다.
+- actor, audit, source와 financial 기록은 retention worker가 삭제하지 않는다.
+
+### Production gate
+
+Production cutover에는 materialized artifact checksum, capability/catalog preflight, Development validation, Todo 22의 measured restore receipt와 명시적 사용자 승인이 모두 필요하다. 이 중 하나라도 없으면 Production backup, restore, reconcile, migration, deploy 또는 Republish를 실행하지 않는다. 이 문서의 command를 Production credential이나 `neondb`에 맞게 치환하는 것도 승인된 경로가 아니다.
+
 ## 변경 절차
 
 1. Development Database의 대상 DB 이름과 변경 전 건수를 확인한다.

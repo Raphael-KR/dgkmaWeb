@@ -1,0 +1,18 @@
+{
+  "schema_version": "dgkma-restore-contract-descriptor-v1",
+  "receipt_schema_path": "docs/restore-contracts/restore-validation.schema.json",
+  "receipt_schema_sha256": "9ec12cf719da1869f924000de2e49dbbbbc2251e5146f1b83774627470cf86ac",
+  "required_sequence_no": 60,
+  "required_artifact_id": "database-security-v1",
+  "restore_reconcile_path": "migrations/manual/0060_restore_security_reconcile.sql",
+  "allowed_target_kind": "disposable-test",
+  "authorization_order": [
+    "target_kind",
+    "sequence_60_descriptor",
+    "sequence_60_artifact_sha256",
+    "restore_reconcile_sha256",
+    "receipt_binding",
+    "statement_allowlist"
+  ],
+  "readiness": "pending Todo 22 measured drill"
+}
