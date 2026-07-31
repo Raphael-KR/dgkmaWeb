@@ -1,0 +1,48 @@
+{
+  "schema_version": "dgkma-task-4-catalog-fixtures-v1",
+  "required_sections": [
+    "database_security",
+    "schemas",
+    "identity",
+    "tables",
+    "relation_security",
+    "views",
+    "columns",
+    "constraints",
+    "indexes",
+    "sequences",
+    "triggers",
+    "row_security",
+    "policies",
+    "routines",
+    "default_privileges",
+    "enum_types",
+    "domains",
+    "domain_constraints",
+    "extensions",
+    "extension_capabilities",
+    "extension_relation_dependencies",
+    "extension_routine_dependencies",
+    "extension_type_dependencies",
+    "schema_release_runs",
+    "schema_change_ledger",
+    "schema_capability_receipts"
+  ],
+  "failure_cases": [
+    {
+      "name": "wrong_expected_database",
+      "mutation": "expected_database_mismatch",
+      "expected_result": "nonzero_before_catalog_body"
+    },
+    {
+      "name": "writable_transaction",
+      "mutation": "remove_read_only_transaction",
+      "expected_result": "nonzero_before_catalog_body"
+    },
+    {
+      "name": "statement_timeout",
+      "mutation": "force_statement_timeout",
+      "expected_result": "nonzero_before_catalog_body"
+    }
+  ]
+}

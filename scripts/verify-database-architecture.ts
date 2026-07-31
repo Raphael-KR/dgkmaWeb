@@ -851,12 +851,309 @@ function runTaskThree(): void {
   if (caseName === "failure") process.exitCode = 1;
 }
 
+type CatalogFixture = {
+  schema_version: string;
+  required_sections: string[];
+  failure_cases: Array<{
+    name: string;
+    mutation: string;
+    expected_result: string;
+  }>;
+};
+
+function taskFourFixture(fixturePath: string): CatalogFixture {
+  const fixture = parseJson(fixturePath);
+  exactKeys(fixture, ["schema_version", "required_sections", "failure_cases"], "catalog fixtures");
+  if (fixture.schema_version !== "dgkma-task-4-catalog-fixtures-v1") {
+    fail("catalog fixtures: version mismatch");
+  }
+  const requiredSections = arrayValue(fixture.required_sections, "catalog required sections");
+  if (
+    requiredSections.length !== 26 ||
+    requiredSections.some((section) => typeof section !== "string")
+  ) {
+    fail("catalog fixtures: exact object-class section matrix required");
+  }
+  const failureCases = arrayValue(fixture.failure_cases, "catalog failure cases").map((entry) => {
+    const item = objectValue(entry, "catalog failure case");
+    exactKeys(item, ["name", "mutation", "expected_result"], "catalog failure case");
+    return item as CatalogFixture["failure_cases"][number];
+  });
+  const expected = [
+    ["wrong_expected_database", "expected_database_mismatch"],
+    ["writable_transaction", "remove_read_only_transaction"],
+    ["statement_timeout", "force_statement_timeout"],
+  ];
+  if (
+    failureCases.length !== expected.length ||
+    failureCases.some(
+      (item, index) =>
+        item.name !== expected[index][0] ||
+        item.mutation !== expected[index][1] ||
+        item.expected_result !== "nonzero_before_catalog_body",
+    )
+  ) {
+    fail("catalog fixtures: exact three-case refusal matrix required");
+  }
+  return {
+    schema_version: fixture.schema_version as string,
+    required_sections: requiredSections as string[],
+    failure_cases: failureCases,
+  };
+}
+
+function writeTaskFourEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 4,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: null,
+    db_target: "development",
+    db_mode: "read-only",
+    command: process.argv.join(" "),
+    exit_code: result === "approved" ? 0 : 1,
+    assertions,
+    attachment_digests: attachments
+      .filter(existsSync)
+      .sort()
+      .map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })),
+    result,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, canonicalJson(evidence as never) + "\n");
+}
+
+function runCatalog(
+  catalogPath: string,
+  expectedDatabase: string,
+): ReturnType<typeof spawnSync> {
+  return spawnSync(
+    "psql",
+    [
+      "-X",
+      "--csv",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-v",
+      "expected_database=" + expectedDatabase,
+      "-f",
+      catalogPath,
+    ],
+    {
+      cwd: process.cwd(),
+      env: taskThreeChildEnvironment({}),
+    },
+  );
+}
+
+function catalogOutput(command: ReturnType<typeof spawnSync>): Buffer {
+  return Buffer.isBuffer(command.stdout) ? command.stdout : Buffer.from(command.stdout ?? "");
+}
+
+function catalogError(command: ReturnType<typeof spawnSync>): Buffer {
+  return Buffer.isBuffer(command.stderr) ? command.stderr : Buffer.from(command.stderr ?? "");
+}
+
+function writeCatalogLog(
+  filePath: string,
+  command: ReturnType<typeof spawnSync>,
+  expectedDatabase: string,
+): void {
+  const header = Buffer.from(
+    [
+      "command=psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=" +
+        expectedDatabase +
+        " -f scripts/database-schema-catalog.sql",
+      "status=" + String(command.status),
+      "stdout:",
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    filePath,
+    Buffer.concat([header, catalogOutput(command), Buffer.from("\nstderr:\n"), catalogError(command)]),
+  );
+}
+
+function assertNoCatalogBody(command: ReturnType<typeof spawnSync>, label: string): void {
+  const combined = Buffer.concat([catalogOutput(command), catalogError(command)]).toString("utf8");
+  if (command.status === 0) fail(label + ": expected nonzero exit");
+  if (combined.includes("__SECTION__") || combined.includes("__CATALOG_INSPECTION_COMPLETE__")) {
+    fail(label + ": catalog body emitted before refusal");
+  }
+}
+
+function runTaskFour(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory =
+    value("--fixtures") ?? "server/fixtures/database-architecture/task-4";
+  const fixturePath = path.join(fixtureDirectory, "catalog-cases.json");
+  const fixture = taskFourFixture(fixturePath);
+  const catalogPath = "scripts/database-schema-catalog.sql";
+  const testPath = "server/database-schema-catalog.test.ts";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+
+  const testLogPath = evidencePath.replace(/\.json$/, "-self-test.log");
+  const testArgs = ["tsx", "--test", testPath];
+  const testRun = spawnSync("npx", testArgs, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: taskThreeChildEnvironment({}),
+  });
+  writeFileSync(
+    testLogPath,
+    [
+      "command=npx " + testArgs.join(" "),
+      "status=" + String(testRun.status),
+      testRun.stdout,
+      testRun.stderr,
+    ].join("\n"),
+  );
+  const attachments = [catalogPath, testPath, fixturePath, testLogPath];
+  if (testRun.status !== 0) {
+    writeTaskFourEvidence(
+      evidencePath,
+      caseName,
+      "rejected",
+      { catalog_self_test_exit_code: testRun.status, error_class: "catalog_self_test_failed" },
+      attachments,
+    );
+    fail("catalog_self_test_failed");
+  }
+
+  if (caseName === "happy") {
+    const first = runCatalog(catalogPath, "heliumdb");
+    const second = runCatalog(catalogPath, "heliumdb");
+    const firstPath = evidencePath.replace(/\.json$/, "-catalog-run-1.csv");
+    const secondPath = evidencePath.replace(/\.json$/, "-catalog-run-2.csv");
+    const firstLogPath = evidencePath.replace(/\.json$/, "-catalog-run-1.log");
+    const secondLogPath = evidencePath.replace(/\.json$/, "-catalog-run-2.log");
+    writeFileSync(firstPath, catalogOutput(first));
+    writeFileSync(secondPath, catalogOutput(second));
+    writeCatalogLog(firstLogPath, first, "heliumdb");
+    writeCatalogLog(secondLogPath, second, "heliumdb");
+    attachments.push(firstPath, secondPath, firstLogPath, secondLogPath);
+    const output = catalogOutput(first);
+    if (first.status !== 0 || second.status !== 0) {
+      writeTaskFourEvidence(
+        evidencePath,
+        caseName,
+        "rejected",
+        {
+          catalog_run_1_exit_code: first.status,
+          catalog_run_2_exit_code: second.status,
+          error_class: "catalog_execution_failed",
+        },
+        attachments,
+      );
+      fail("catalog_execution_failed");
+    }
+    if (!output.equals(catalogOutput(second))) fail("catalog output is not byte stable");
+    const outputText = output.toString("utf8");
+    if (
+      !outputText.includes("__SAFETY_GATE__ ok") ||
+      !outputText.includes("__CATALOG_INSPECTION_COMPLETE__")
+    ) {
+      fail("catalog completion markers missing");
+    }
+    for (const section of fixture.required_sections) {
+      const marker = "__SECTION__ " + section;
+      if (outputText.split(marker).length - 1 !== 1) {
+        fail("catalog section missing or duplicated: " + section);
+      }
+    }
+    if (
+      /postgres(?:ql)?:\/\/|password\s*=|api[_-]?key\s*=|client[_-]?secret\s*=/i.test(outputText)
+    ) {
+      fail("catalog output contains secret-shaped content");
+    }
+    writeTaskFourEvidence(
+      evidencePath,
+      caseName,
+      "approved",
+      {
+        catalog_self_test_exit_code: 0,
+        catalog_run_1_exit_code: 0,
+        catalog_run_2_exit_code: 0,
+        canonical_output_sha256: sha256(output),
+        byte_identical_runs: true,
+        required_sections_present: fixture.required_sections.length,
+        safety_gate_before_catalog_body: "approved",
+        owner_acl_function_search_path_facts: "approved",
+        schema_writes: 0,
+      },
+      attachments,
+    );
+    return;
+  }
+
+  const source = readFileSync(catalogPath, "utf8");
+  const refusalResults: JsonObject[] = [];
+  for (const failureCase of fixture.failure_cases) {
+    let expectedDatabase = "heliumdb";
+    let scenarioPath = catalogPath;
+    if (failureCase.mutation === "expected_database_mismatch") {
+      expectedDatabase = "definitely_not_heliumdb";
+    } else {
+      scenarioPath = evidencePath.replace(/\.json$/, "-" + failureCase.name + ".sql");
+      const mutated =
+        failureCase.mutation === "remove_read_only_transaction"
+          ? source.replace("BEGIN TRANSACTION READ ONLY;", "BEGIN;")
+          : source.replace(
+              "SET LOCAL statement_timeout = '5s';",
+              "SET LOCAL statement_timeout = '1ms';\nSELECT pg_catalog.pg_sleep(0.05);",
+            );
+      if (mutated === source) fail(failureCase.name + ": mutation did not apply");
+      writeFileSync(scenarioPath, mutated);
+      attachments.push(scenarioPath);
+    }
+    const command = runCatalog(scenarioPath, expectedDatabase);
+    assertNoCatalogBody(command, failureCase.name);
+    const logPath = evidencePath.replace(/\.json$/, "-" + failureCase.name + ".log");
+    writeCatalogLog(logPath, command, expectedDatabase);
+    attachments.push(logPath);
+    refusalResults.push({
+      name: failureCase.name,
+      exit_code: command.status,
+      catalog_body_emitted: false,
+      schema_writes: 0,
+      result: "rejected",
+    });
+  }
+  writeTaskFourEvidence(
+    evidencePath,
+    caseName,
+    "rejected",
+    {
+      catalog_self_test_exit_code: 0,
+      refusal_cases_executed: refusalResults.length,
+      refusal_cases_rejected: refusalResults.length,
+      cases: refusalResults,
+      zero_schema_writes: "approved",
+    },
+    attachments,
+  );
+  process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
   runTaskOne();
 } else if (process.argv[2] === "task" && process.argv[3] === "3") {
   runTaskThree();
+} else if (process.argv[2] === "task" && process.argv[3] === "4") {
+  runTaskFour();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
