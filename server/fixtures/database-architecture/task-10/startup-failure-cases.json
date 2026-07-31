@@ -1,0 +1,1 @@
+{"cases":[{"expected_code":"startup_ledger_missing","kind":"missing","ledger_rows":[]},{"expected_code":"startup_ledger_missing_required_sequence","kind":"old","remove_sequence":60}],"schema_version":"dgkma-startup-failure-fixtures-v1"}

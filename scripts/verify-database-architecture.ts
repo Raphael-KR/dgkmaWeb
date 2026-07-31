@@ -45,6 +45,18 @@ import {
   type IdentityFixture,
   validateIdentityAnchorContract,
 } from "./member-identity-anchor";
+import {
+  planRetentionRun,
+  RETENTION_CONTRACT,
+  RETENTION_JOBS,
+  resolveTaskTenCommitSha,
+  STARTUP_LATEST_REQUIRED,
+  startupLedgerInventorySql,
+  type StartupDescriptor,
+  type StartupLedgerRow,
+  verifyRuntimeBoundary,
+  verifyStartupLedger,
+} from "./startup-retention-contract";
 
 type JsonObject = Record<string, unknown>;
 
@@ -2011,6 +2023,149 @@ function runTaskNine(): void {
   process.exitCode = 1;
 }
 
+function writeTaskTenEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const taskCommitSha = resolveTaskTenCommitSha(
+    process.env.TASK_COMMIT_SHA,
+    () => execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  );
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 10,
+    task_commit_sha: taskCommitSha,
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-contract-and-synthetic-fixtures",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: exitCode,
+    assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result,
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskTen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures") ?? "server/fixtures/database-architecture/task-10";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const inventorySqlPath = evidencePath.replace(/\.json$/, "-startup-inventory.sql");
+  const tests = runLogged("npx", ["tsx", "--test", "server/startup-retention-contract.test.ts"], testLog);
+  if (tests.status !== 0) fail("task_10_self_test_failed");
+  verifyRuntimeBoundary();
+  writeFileSync(inventorySqlPath, startupLedgerInventorySql());
+
+  const readyPath = path.join(fixturesPath, "startup-ready.json");
+  const failurePath = path.join(fixturesPath, "startup-failure-cases.json");
+  const retentionPath = path.join(fixturesPath, "retention-cases.json");
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "docs/startup-retention-replacement.md",
+    "server/index.ts",
+    "scripts/startup-retention-contract.ts",
+    "server/startup-retention-contract.test.ts",
+    readyPath,
+    failurePath,
+    retentionPath,
+    testLog,
+    inventorySqlPath,
+  ];
+  const readyFixture = parseJson(readyPath);
+  const descriptors = arrayValue(readyFixture.descriptors, "task 10 startup descriptors") as unknown as StartupDescriptor[];
+  const readyRows = arrayValue(readyFixture.ledger_rows, "task 10 startup ledger rows") as unknown as StartupLedgerRow[];
+
+  if (caseName === "happy") {
+    const startup = verifyStartupLedger(readyRows, descriptors);
+    const retentionFixture = parseJson(retentionPath);
+    const now = String(retentionFixture.now);
+    const retentionCases = arrayValue(retentionFixture.cases, "task 10 retention cases");
+    let eligibleRows = 0;
+    for (const rawCase of retentionCases) {
+      const fixture = objectValue(rawCase, "task 10 retention case");
+      const plan = planRetentionRun(
+        String(fixture.job_id) as Parameters<typeof planRetentionRun>[0],
+        arrayValue(fixture.rows, "task 10 retention rows") as Parameters<typeof planRetentionRun>[1],
+        now,
+        { hmacKeyPresent: true },
+      );
+      const expected = arrayValue(fixture.expected_selected_keys, "task 10 expected retention keys");
+      if (canonicalJson(plan.selected_keys as never) !== canonicalJson(expected as never) || plan.writes_executed !== 0) {
+        fail("task_10_retention_fixture_mismatch");
+      }
+      eligibleRows += plan.selected_keys.length;
+    }
+    if (!startup.ready || startup.observed_latest_sequence !== 60 || startup.emitted_ddl.length !== 0) {
+      fail("task_10_startup_ready_fixture_rejected");
+    }
+    writeTaskTenEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0,
+      startup_ready: true,
+      required_latest_sequence: STARTUP_LATEST_REQUIRED.sequence_no,
+      required_latest_artifact_id: STARTUP_LATEST_REQUIRED.artifact_id,
+      required_ledger_row_count: 8,
+      exact_capability_variant: startup.capability_variant,
+      emitted_ddl_statements: 0,
+      schema_writes: 0,
+      runtime_index_changed: false,
+      runtime_old_path_present: true,
+      runtime_replacement_wired: false,
+      retention_schedule: RETENTION_CONTRACT.schedule,
+      retention_advisory_lock: RETENTION_CONTRACT.lock_scope,
+      retention_rows_per_batch: RETENTION_CONTRACT.rows_per_batch,
+      retention_batch_time_limit_ms: RETENTION_CONTRACT.batch_time_limit_ms,
+      retention_max_batches: RETENTION_CONTRACT.max_batches,
+      retention_job_count: RETENTION_JOBS.length,
+      fixture_eligible_rows: eligibleRows,
+      retention_writes_executed: 0,
+      database_calls: 0,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+
+  const failureFixture = parseJson(failurePath);
+  const failureCases = arrayValue(failureFixture.cases, "task 10 failure cases");
+  const observedCodes: string[] = [];
+  for (const rawCase of failureCases) {
+    const fixture = objectValue(rawCase, "task 10 failure case");
+    const rows = fixture.kind === "old"
+      ? readyRows.filter((row) => row.sequence_no !== Number(fixture.remove_sequence))
+      : arrayValue(fixture.ledger_rows, "task 10 missing ledger rows") as unknown as StartupLedgerRow[];
+    const result = verifyStartupLedger(rows, descriptors);
+    if (result.ready || result.code !== fixture.expected_code || result.emitted_ddl.length !== 0 || result.schema_writes !== 0) {
+      fail("task_10_missing_or_old_ledger_not_rejected");
+    }
+    observedCodes.push(result.code);
+  }
+  writeTaskTenEvidence(evidencePath, caseName, "rejected", 1, {
+    self_test_exit_code: 0,
+    observed_failure_codes: observedCodes,
+    fail_closed_cases: observedCodes.length,
+    emitted_ddl_statements: 0,
+    schema_writes: 0,
+    retention_writes_executed: 0,
+    runtime_index_changed: false,
+    runtime_replacement_wired: false,
+    database_calls: 0,
+    production_operations: 0,
+  }, attachments);
+  process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -2029,6 +2184,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskSeven();
 } else if (process.argv[2] === "task" && process.argv[3] === "9") {
   runTaskNine();
+} else if (process.argv[2] === "task" && process.argv[3] === "10") {
+  runTaskTen();
 } else if (process.argv[2] === "task" && process.argv[3] === "8") {
   runTaskEight();
 } else if (process.argv[2] === "task" && process.argv[3] === "11") {
