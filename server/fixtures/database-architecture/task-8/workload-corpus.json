@@ -1,0 +1,324 @@
+{
+  "schema_version": "dgkma-task-8-workload-corpus-v1",
+  "expected_database": "heliumdb",
+  "cardinality_tables": [
+    "alumni_database",
+    "categories",
+    "comments",
+    "community_events",
+    "event_parse_rate_limits",
+    "kakao_identity_terminations",
+    "kakao_oauth_states",
+    "obituaries",
+    "payments",
+    "pending_registrations",
+    "posts",
+    "session",
+    "users"
+  ],
+  "existing_indexes": [
+    "alumni_database_mobile_unique",
+    "alumni_database_pkey",
+    "categories_name_unique",
+    "categories_pkey",
+    "comments_pkey",
+    "community_events_legacy_obituary_id_unique",
+    "community_events_pkey",
+    "event_parse_rate_limits_pkey",
+    "kakao_identity_terminations_pkey",
+    "kakao_oauth_states_pkey",
+    "kakao_oauth_states_session_binding_hash_unique",
+    "obituaries_pkey",
+    "payments_pkey",
+    "pending_registrations_pkey",
+    "posts_pkey",
+    "session_expire_idx",
+    "session_pkey",
+    "users_email_unique",
+    "users_kakao_id_unique",
+    "users_pkey"
+  ],
+  "manifest_owned_indexes": [
+    {
+      "name": "posts__category_id__idx",
+      "table": "posts",
+      "columns": ["category_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "posts__author_id__idx",
+      "table": "posts",
+      "columns": ["author_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "comments__post_id__idx",
+      "table": "comments",
+      "columns": ["post_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "comments__author_id__idx",
+      "table": "comments",
+      "columns": ["author_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "payments__user_id__idx",
+      "table": "payments",
+      "columns": ["user_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "alumni_database__matched_user_id__key",
+      "table": "alumni_database",
+      "columns": ["matched_user_id"],
+      "kind": "unique",
+      "purpose": "fk_and_identity",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "obituaries__author_id__idx",
+      "table": "obituaries",
+      "columns": ["author_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "community_events__author_id__idx",
+      "table": "community_events",
+      "columns": ["author_id"],
+      "kind": "index",
+      "purpose": "fk",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "event_parse_rate_limits_pkey",
+      "table": "event_parse_rate_limits",
+      "columns": ["user_id"],
+      "kind": "index",
+      "purpose": "fk_reuse",
+      "state": "existing_reused"
+    },
+    {
+      "name": "community_events_legacy_obituary_id_unique",
+      "table": "community_events",
+      "columns": ["legacy_obituary_id"],
+      "kind": "unique",
+      "purpose": "fk_reuse",
+      "state": "existing_reused"
+    },
+    {
+      "name": "pending_registrations__kakao_id__key",
+      "table": "pending_registrations",
+      "columns": ["kakao_id"],
+      "kind": "unique",
+      "purpose": "idempotency_state",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "pending_registrations__email_canonical__key",
+      "table": "pending_registrations",
+      "columns": ["email_canonical"],
+      "kind": "unique",
+      "purpose": "idempotency_state",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "pending_registrations__created_at_id__idx",
+      "table": "pending_registrations",
+      "columns": ["created_at", "id"],
+      "kind": "index",
+      "purpose": "state_retention",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "kakao_oauth_states__expires_at_state_hash__idx",
+      "table": "kakao_oauth_states",
+      "columns": ["expires_at", "state_hash"],
+      "kind": "index",
+      "purpose": "idempotency_retention",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "kakao_identity_terminations__terminated_at_identity_hash__idx",
+      "table": "kakao_identity_terminations",
+      "columns": ["terminated_at", "identity_hash"],
+      "kind": "index",
+      "purpose": "idempotency_retention",
+      "state": "fixed_not_yet_applied"
+    },
+    {
+      "name": "session__expire_sid__idx",
+      "table": "session",
+      "columns": ["expire", "sid"],
+      "kind": "index",
+      "purpose": "state_retention",
+      "state": "fixed_not_yet_applied"
+    }
+  ],
+  "workloads": [
+    {
+      "id": "payment_history",
+      "query": "SELECT * FROM public.payments WHERE user_id = 0 ORDER BY created_at DESC",
+      "required_prefix": ["user_id"],
+      "manifest_index": "payments__user_id__idx"
+    },
+    {
+      "id": "payment_delete_locator",
+      "query": "SELECT id FROM public.payments WHERE user_id = 0",
+      "required_prefix": ["user_id"],
+      "manifest_index": "payments__user_id__idx"
+    },
+    {
+      "id": "alumni_matched_user_lookup",
+      "query": "SELECT id FROM public.alumni_database WHERE matched_user_id = 0 LIMIT 1",
+      "required_prefix": ["matched_user_id"],
+      "manifest_index": "alumni_database__matched_user_id__key"
+    },
+    {
+      "id": "alumni_normalized_name_lookup",
+      "query": "SELECT id FROM public.alumni_database WHERE regexp_replace(name, '[[:space:]]', '', 'g') = '__dgkma_measurement_no_match__'",
+      "required_prefix": [],
+      "manifest_index": null
+    },
+    {
+      "id": "alumni_sync_full_read",
+      "query": "SELECT * FROM public.alumni_database",
+      "required_prefix": [],
+      "manifest_index": null
+    },
+    {
+      "id": "posts_category_list",
+      "query": "SELECT p.id FROM public.posts p JOIN public.categories c ON c.id = p.category_id WHERE p.is_published = true AND c.name = '__dgkma_measurement_no_match__' ORDER BY p.created_at DESC LIMIT 50",
+      "required_prefix": ["category_id"],
+      "manifest_index": "posts__category_id__idx"
+    },
+    {
+      "id": "posts_author_delete_locator",
+      "query": "SELECT id FROM public.posts WHERE author_id = 0",
+      "required_prefix": ["author_id"],
+      "manifest_index": "posts__author_id__idx"
+    },
+    {
+      "id": "comments_post_list",
+      "query": "SELECT c.id FROM public.comments c LEFT JOIN public.users u ON u.id = c.author_id WHERE c.post_id = 0 ORDER BY c.created_at ASC",
+      "required_prefix": ["post_id"],
+      "manifest_index": "comments__post_id__idx"
+    },
+    {
+      "id": "comments_author_delete_locator",
+      "query": "SELECT id FROM public.comments WHERE author_id = 0",
+      "required_prefix": ["author_id"],
+      "manifest_index": "comments__author_id__idx"
+    },
+    {
+      "id": "obituaries_author_delete_locator",
+      "query": "SELECT id FROM public.obituaries WHERE author_id = 0",
+      "required_prefix": ["author_id"],
+      "manifest_index": "obituaries__author_id__idx"
+    },
+    {
+      "id": "events_published_list",
+      "query": "SELECT id FROM public.community_events WHERE status = 'published' AND event_type = 'other' ORDER BY published_at DESC",
+      "required_prefix": [],
+      "manifest_index": null
+    },
+    {
+      "id": "events_author_delete_locator",
+      "query": "SELECT id FROM public.community_events WHERE author_id = 0",
+      "required_prefix": ["author_id"],
+      "manifest_index": "community_events__author_id__idx"
+    },
+    {
+      "id": "event_rate_limit_user_locator",
+      "query": "SELECT user_id FROM public.event_parse_rate_limits WHERE user_id = 0",
+      "required_prefix": ["user_id"],
+      "manifest_index": "event_parse_rate_limits_pkey"
+    },
+    {
+      "id": "pending_review_list",
+      "query": "SELECT id FROM public.pending_registrations WHERE status = 'pending' ORDER BY created_at DESC",
+      "required_prefix": [],
+      "manifest_index": null
+    },
+    {
+      "id": "pending_identity_locator",
+      "query": "SELECT id FROM public.pending_registrations WHERE status = 'pending' AND (kakao_id = '__dgkma_measurement_no_match__' OR lower(email) = '__dgkma_measurement_no_match__') ORDER BY id FOR UPDATE",
+      "required_prefix": ["kakao_id", "email_canonical"],
+      "manifest_index": "pending_registrations__kakao_id__key+pending_registrations__email_canonical__key"
+    }
+  ],
+  "rejected_future_candidates": [
+    {
+      "name": "payments__user_id_created_at__idx",
+      "table": "payments",
+      "columns": ["user_id", "created_at"],
+      "kind": "index",
+      "definition": "CREATE INDEX ON public.payments (user_id, created_at DESC)",
+      "workload_id": "payment_history",
+      "reason": "rejected_future_duplicate_prefix_of_manifest_fk_index"
+    },
+    {
+      "name": "alumni_database__name__idx",
+      "table": "alumni_database",
+      "columns": ["name"],
+      "kind": "index",
+      "definition": "CREATE INDEX ON public.alumni_database ((regexp_replace(name, '[[:space:]]', '', 'g')))",
+      "workload_id": "alumni_normalized_name_lookup",
+      "reason": "rejected_future_expression_index_requires_separate_manifest_approval"
+    },
+    {
+      "name": "posts__is_published_created_at__idx",
+      "table": "posts",
+      "columns": ["is_published", "created_at"],
+      "kind": "index",
+      "definition": "CREATE INDEX ON public.posts (is_published, created_at DESC)",
+      "workload_id": "posts_category_list",
+      "reason": "rejected_future_non_fk_composite"
+    },
+    {
+      "name": "comments__post_id_created_at__idx",
+      "table": "comments",
+      "columns": ["post_id", "created_at"],
+      "kind": "index",
+      "definition": "CREATE INDEX ON public.comments (post_id, created_at)",
+      "workload_id": "comments_post_list",
+      "reason": "rejected_future_duplicate_prefix_of_manifest_fk_index"
+    },
+    {
+      "name": "community_events__status_event_type_published_at__idx",
+      "table": "community_events",
+      "columns": ["status", "event_type", "published_at"],
+      "kind": "index",
+      "definition": "CREATE INDEX ON public.community_events (status, event_type, published_at DESC)",
+      "workload_id": "events_published_list",
+      "reason": "rejected_future_non_fk_composite"
+    },
+    {
+      "name": "pending_registrations__status_created_at__idx",
+      "table": "pending_registrations",
+      "columns": ["status", "created_at"],
+      "kind": "index",
+      "definition": "CREATE INDEX ON public.pending_registrations (status, created_at DESC)",
+      "workload_id": "pending_review_list",
+      "reason": "rejected_future_non_fk_composite"
+    }
+  ],
+  "forbidden_candidate_families": [
+    "trigram",
+    "full_text_search",
+    "duplicate_left_prefix"
+  ]
+}

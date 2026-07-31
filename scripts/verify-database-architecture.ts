@@ -8,6 +8,7 @@ import {
   sha256,
   verifierInventoryPaths,
 } from "./database-architecture-verifier-contracts";
+import { runTaskEight } from "./verify-database-index-workload";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1154,6 +1155,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskThree();
 } else if (process.argv[2] === "task" && process.argv[3] === "4") {
   runTaskFour();
+} else if (process.argv[2] === "task" && process.argv[3] === "8") {
+  runTaskEight();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
