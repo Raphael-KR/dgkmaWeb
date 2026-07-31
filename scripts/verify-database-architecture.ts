@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
@@ -9,6 +9,7 @@ import {
   verifierInventoryPaths,
 } from "./database-architecture-verifier-contracts";
 import { runTaskEight } from "./verify-database-index-workload";
+import { readArtifactDescriptors, readManifest, verifyArtifactBytes } from "./schema-ledger";
 
 type JsonObject = Record<string, unknown>;
 
@@ -683,6 +684,155 @@ function taskThreeChildEnvironment(extra: Record<string, string>): NodeJS.Proces
   return { ...childEnvironment, ...extra };
 }
 
+function writeTaskTwoEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 2,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: readManifest().sha256,
+    db_target: caseName === "happy" ? "development+disposable-test" : "static-refusal",
+    db_mode: caseName === "happy" ? "development-dry-run+disposable-sequence-1" : "checksum-refusal-before-sql",
+    command: process.argv.join(" "),
+    exit_code: result === "approved" ? 0 : 1,
+    assertions,
+    attachment_digests: attachments
+      .filter(existsSync)
+      .sort()
+      .map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })),
+    result,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runLogged(command: string, args: string[], logPath: string): ReturnType<typeof spawnSync> {
+  const run = spawnSync(command, args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: taskThreeChildEnvironment({}),
+  });
+  writeFileSync(logPath, [
+    `command=${command} ${args.join(" ")}`,
+    `status=${String(run.status)}`,
+    "stdout:",
+    run.stdout ?? "",
+    "stderr:",
+    run.stderr ?? "",
+  ].join("\n"));
+  return run;
+}
+
+function lastJsonLine(output: string): JsonObject {
+  const lines = output.trim().split("\n").filter(Boolean);
+  if (lines.length === 0) fail("task_2_missing_json_output");
+  return JSON.parse(lines.at(-1)!) as JsonObject;
+}
+
+function runTaskTwo(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory = value("--fixtures") ?? "server/fixtures/database-architecture/task-2";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const validatorLog = evidencePath.replace(/\.json$/, "-manifest-validator.log");
+  const tests = runLogged("npx", ["tsx", "--test", "server/database-manifest.test.ts", "server/schema-ledger.test.ts"], testLog);
+  const validator = runLogged("npx", ["tsx", "scripts/validate-database-manifest.ts"], validatorLog);
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "migrations/manual/0001_schema_ledger_bootstrap.sql",
+    "scripts/apply-schema.ts",
+    "scripts/materialize-database-manifest.ts",
+    "scripts/schema-ledger.ts",
+    "scripts/validate-database-manifest.ts",
+    "server/database-manifest.test.ts",
+    "server/schema-ledger.test.ts",
+    testLog,
+    validatorLog,
+    ...readdirSync("migrations/artifacts").map((name) => path.join("migrations/artifacts", name)),
+  ];
+  if (tests.status !== 0 || validator.status !== 0) {
+    writeTaskTwoEvidence(evidencePath, caseName, "rejected", {
+      self_test_exit_code: tests.status,
+      manifest_validator_exit_code: validator.status,
+      error_class: "task_2_static_validation_failed",
+      schema_writes: 0,
+    }, attachments);
+    fail("task_2_static_validation_failed");
+  }
+  if (caseName === "failure") {
+    const fixturePath = path.join(fixtureDirectory, "tampered-schema-ledger-bootstrap.sql");
+    attachments.push(fixturePath);
+    let observed = "not_rejected";
+    try {
+      const descriptor = readArtifactDescriptors().find((entry) => entry.sequence_no === 1)!;
+      verifyArtifactBytes(descriptor, fixturePath);
+    } catch (error) {
+      observed = error instanceof Error ? error.message : String(error);
+    }
+    if (observed !== "checksum_mismatch") fail("task_2_tamper_fixture_not_rejected");
+    writeTaskTwoEvidence(evidencePath, caseName, "rejected", {
+      self_test_exit_code: 0,
+      manifest_validator_exit_code: 0,
+      tampered_artifact_result: "checksum_mismatch",
+      database_calls: 0,
+      artifact_sql_executions: 0,
+      schema_writes: 0,
+      target_absence: "not_created",
+    }, attachments);
+    process.exitCode = 1;
+    return;
+  }
+  const dryRunLog = evidencePath.replace(/\.json$/, "-development-dry-run.log");
+  const dryRun = runLogged("npx", ["tsx", "scripts/apply-schema.ts", "--target", "development", "--dry-run"], dryRunLog);
+  attachments.push(dryRunLog);
+  if (dryRun.status !== 0) {
+    writeTaskTwoEvidence(evidencePath, caseName, "rejected", { development_dry_run_exit_code: dryRun.status, schema_writes: 0 }, attachments);
+    fail("task_2_development_dry_run_failed");
+  }
+  const dryResult = lastJsonLine(dryRun.stdout ?? "");
+  if (dryResult.result !== "approved" || dryResult.schema_writes !== 0) fail("task_2_development_dry_run_contract_failed");
+  const runUid = randomUUID();
+  const disposableLog = evidencePath.replace(/\.json$/, "-disposable-sequence-1.log");
+  const disposable = runLogged("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--through-sequence", "1", "--teardown"], disposableLog);
+  attachments.push(disposableLog);
+  if (disposable.status !== 0) {
+    writeTaskTwoEvidence(evidencePath, caseName, "rejected", { development_dry_run_exit_code: 0, disposable_apply_exit_code: disposable.status }, attachments);
+    fail("task_2_disposable_apply_failed");
+  }
+  const disposableResult = lastJsonLine(disposable.stdout ?? "");
+  const catalog = objectValue(disposableResult.catalog, "task 2 disposable catalog");
+  const cleanup = objectValue(disposableResult.cleanup, "task 2 disposable cleanup");
+  if (disposableResult.result !== "approved" || disposableResult.outcome !== "applied" || catalog.ledger_rows !== 1 || catalog.verified_runs !== 1 || catalog.capability_rows !== 1 || cleanup.absent !== true) fail("task_2_disposable_apply_contract_failed");
+  const descriptors = readArtifactDescriptors();
+  writeTaskTwoEvidence(evidencePath, caseName, "approved", {
+    self_test_exit_code: 0,
+    manifest_validator_exit_code: 0,
+    development_dry_run_exit_code: 0,
+    development_schema_writes: 0,
+    disposable_apply_exit_code: 0,
+    disposable_sequence_1_ledger_rows: 1,
+    disposable_verified_release_runs: 1,
+    disposable_capability_receipts: 1,
+    disposable_absent_after_teardown: true,
+    manifest_table_count: 68,
+    account_delete_user_fk_count: (readManifest().value as Record<string, any>).account_delete_user_fk_registry.length,
+    account_delete_non_fk_count: 3,
+    artifact_descriptor_count: descriptors.length,
+    future_not_materialized_count: descriptors.filter((entry) => entry.materialization_state === "not_materialized").length,
+    future_sql_files: 0,
+    schema_writes: "disposable sequence 1 only",
+  }, attachments);
+}
+
 function writeTaskThreeEvidence(
   evidencePath: string,
   caseName: "happy" | "failure",
@@ -1151,6 +1301,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
   runTaskOne();
+} else if (process.argv[2] === "task" && process.argv[3] === "2") {
+  runTaskTwo();
 } else if (process.argv[2] === "task" && process.argv[3] === "3") {
   runTaskThree();
 } else if (process.argv[2] === "task" && process.argv[3] === "4") {

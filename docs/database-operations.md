@@ -122,6 +122,20 @@ Production read-only 경로는 catalog SELECT만 실행하며 privilege probe나
 
 모든 resolver pool은 `max=10`, `min=0`, 연결 대기 10초, idle 30초, `maxUses=10000`을 사용한다. 세션에는 statement 30초, lock 5초, idle transaction 30초 timeout을 설정한다. 종료는 신규 사용을 막고 최대 10초 동안 borrower 반환을 기다리며, 남은 borrower가 있으면 성공으로 처리하지 않는다.
 
+## 스키마 manifest와 ledger 진입점
+
+확장된 스키마 계약은 [`database-manifest.yaml`](database-manifest.yaml)이 단일 기준이다. `scripts/validate-database-manifest.ts`는 canonical serialization, plan digest, 68개 테이블 계약, actor/action·lock·account-delete registry와 artifact descriptor 폐쇄성을 검사한다.
+
+현재 ledger scaffold에서 실제 materialize된 artifact는 sequence 1 `schema-ledger-bootstrap-v1`뿐이다. sequence 10·15·20·30·40·50·60과 선택 sequence 65는 `migrations/artifacts/`에 `not_materialized` descriptor로만 등록되어 있으며 SQL 파일은 없다. Todo 16 전에는 이 descriptor를 실행 가능 artifact로 간주하거나 누락된 SQL을 실행 시점에 생성하지 않는다.
+
+Development의 Todo 2 확인은 쓰기 없는 다음 명령만 허용한다.
+
+```bash
+npx tsx scripts/apply-schema.ts --target development --dry-run
+```
+
+이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. sequence 1 실제 적용은 UUID-bound disposable target에서만 수행하며, artifact와 ledger row가 같은 transaction에 commit되고 teardown 후 database 부재를 확인해야 한다. Production target, runtime 객체 변환, 전체 스키마 apply는 이 scaffold의 완료 주장에 포함하지 않는다.
+
 ## 변경 절차
 
 1. Development Database의 대상 DB 이름과 변경 전 건수를 확인한다.
