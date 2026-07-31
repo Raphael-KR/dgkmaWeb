@@ -1,23 +1,40 @@
 {
-  "schema_version": "dgkma-task-5-failure-fixtures-v1",
+  "schema_version": "dgkma-task-5-failure-fixtures-v2",
   "cases": [
     {
       "name": "missing_sequence_60",
       "target_kind": "disposable-test",
       "descriptor": null,
+      "receipt": "synthetic-restore-receipt.json",
       "expected_error": "restore_reconcile_sequence_60_missing"
     },
     {
       "name": "drifted_sequence_60",
       "target_kind": "disposable-test",
       "descriptor": "drifted-sequence-60.json",
+      "receipt": "synthetic-restore-receipt.json",
       "expected_error": "restore_reconcile_sequence_60_artifact_drift"
     },
     {
       "name": "development_reconcile_target",
       "target_kind": "development",
       "descriptor": "synthetic-sequence-60.json",
+      "receipt": "synthetic-restore-receipt.json",
       "expected_error": "restore_reconcile_target_forbidden"
+    },
+    {
+      "name": "checksum_consistent_role_membership_revoke",
+      "target_kind": "disposable-test",
+      "descriptor": "adversarial-role-membership-sequence-60.json",
+      "receipt": "adversarial-role-membership-receipt.json",
+      "expected_error": "restore_reconcile_statement_not_allowlisted"
+    },
+    {
+      "name": "checksum_consistent_default_privilege_grant",
+      "target_kind": "disposable-test",
+      "descriptor": "adversarial-default-privileges-sequence-60.json",
+      "receipt": "adversarial-default-privileges-receipt.json",
+      "expected_error": "restore_reconcile_statement_not_allowlisted"
     }
   ]
 }

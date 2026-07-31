@@ -139,12 +139,88 @@ export function readSyntheticSequence60Descriptor(filePath: string): SyntheticSe
   return descriptor;
 }
 
+const RECONCILE_STATEMENT_ALLOWLIST = new Set([
+  "REVOKE ALL ON SCHEMA public FROM PUBLIC",
+  "REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC",
+  "REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC",
+  "REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC",
+  "REVOKE ALL PRIVILEGES ON ALL PROCEDURES IN SCHEMA public FROM PUBLIC",
+  "ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC",
+  "ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC",
+  "ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON ROUTINES FROM PUBLIC",
+  [
+    "DO $dgkma_restore$",
+    "BEGIN",
+    "EXECUTE pg_catalog.format('GRANT CONNECT ON DATABASE %I TO PUBLIC', pg_catalog.current_database());",
+    "EXECUTE pg_catalog.format('REVOKE CREATE,TEMPORARY ON DATABASE %I FROM PUBLIC', pg_catalog.current_database());",
+    "END",
+    "$dgkma_restore$",
+  ].join(" "),
+].map((statement) => statement.replace(/\s+/g, " ").trim().toLowerCase()));
+
+function splitSqlStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let start = 0;
+  let quote: "single" | "double" | string | null = null;
+  for (let index = 0; index < sql.length; index += 1) {
+    const character = sql[index];
+    if (quote === "single") {
+      if (character === "'" && sql[index + 1] === "'") index += 1;
+      else if (character === "'") quote = null;
+      continue;
+    }
+    if (quote === "double") {
+      if (character === '"' && sql[index + 1] === '"') index += 1;
+      else if (character === '"') quote = null;
+      continue;
+    }
+    if (quote?.startsWith("$")) {
+      if (sql.startsWith(quote, index)) {
+        index += quote.length - 1;
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "'") quote = "single";
+    else if (character === '"') quote = "double";
+    else if (character === "$") {
+      const tag = sql.slice(index).match(/^\$[a-z_][a-z0-9_]*\$/i)?.[0] ?? null;
+      if (tag) {
+        quote = tag;
+        index += tag.length - 1;
+      }
+    } else if (character === ";") {
+      statements.push(sql.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  if (quote !== null) fail("restore_reconcile_unterminated_quote");
+  const trailing = sql.slice(start).trim();
+  if (trailing) statements.push(trailing);
+  return statements.filter(Boolean);
+}
+
 function validateReconcileSql(sql: string): void {
+  if (sql.includes("/*")) fail("restore_reconcile_block_comment_forbidden");
   const withoutComments = sql.replace(/--[^\n]*/g, "").trim();
   if (!withoutComments) fail("restore_reconcile_empty");
-  if (/\b(?:CREATE|DROP|TRUNCATE|INSERT|UPDATE|DELETE|MERGE|ALTER\s+(?:TABLE|SEQUENCE|FUNCTION|PROCEDURE|TYPE|EXTENSION)|GRANT)\b/i.test(withoutComments)) fail("restore_reconcile_forbidden_statement");
-  const statements = withoutComments.split(";").map((statement) => statement.trim()).filter(Boolean);
-  if (statements.some((statement) => !/^(?:REVOKE\s+|ALTER\s+DEFAULT\s+PRIVILEGES\s+)/i.test(statement))) fail("restore_reconcile_statement_not_allowlisted");
+  const statements = splitSqlStatements(withoutComments);
+  if (statements.length === 0) fail("restore_reconcile_empty");
+  const observed = new Set<string>();
+  for (const statement of statements) {
+    const normalized = statement.replace(/\s+/g, " ").trim().toLowerCase();
+    if (!RECONCILE_STATEMENT_ALLOWLIST.has(normalized)) {
+      fail("restore_reconcile_statement_not_allowlisted");
+    }
+    if (observed.has(normalized)) fail("restore_reconcile_statement_duplicate");
+    observed.add(normalized);
+  }
+  if (
+    observed.size !== RECONCILE_STATEMENT_ALLOWLIST.size ||
+    [...RECONCILE_STATEMENT_ALLOWLIST].some((statement) => !observed.has(statement))
+  ) {
+    fail("restore_reconcile_statement_set_mismatch");
+  }
 }
 
 export function authorizeRestoreReconcile(input: {

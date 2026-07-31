@@ -198,6 +198,16 @@ PGDATABASE="$restore_database_name" \
 
 reconcile 전에는 다음 순서를 모두 통과해야 한다: disposable target kind → materialized sequence 60 descriptor → sequence 60 artifact checksum → reconcile checksum → restore receipt binding → statement allowlist. 허용 범위는 owner, ACL, default privileges 복원뿐이다. extension·table·function·trigger·ledger·capability DDL/DML은 금지한다. 하나라도 누락·drift이면 SQL 실행 횟수 0으로 거부한다. 현재 정식 sequence 60과 reconcile SQL은 materialize되지 않았으므로 합성 fixture 외 실행은 항상 거부한다.
 
+statement allowlist는 `REVOKE`나 `ALTER DEFAULT PRIVILEGES` 접두어를 일반 허용하지 않는다. 다음 exact form만 허용한다.
+
+- database ACL은 `pg_catalog.format`과 `pg_catalog.current_database()`만 사용하는 고정 `$dgkma_restore$` DO block 안의 `GRANT CONNECT ... TO PUBLIC` 및 `REVOKE CREATE,TEMPORARY ... FROM PUBLIC` 두 문장이다.
+- schema ACL은 `REVOKE ALL ON SCHEMA public FROM PUBLIC` 하나다.
+- current relation ACL은 `public`의 `ALL TABLES`, `ALL SEQUENCES`, `ALL FUNCTIONS`, `ALL PROCEDURES`에서 PUBLIC의 모든 권한을 회수하는 네 exact form이다.
+- default privileges는 `public`의 TABLES·SEQUENCES에서 PUBLIC의 모든 권한을 회수하는 두 form과, `IN SCHEMA` 또는 `FOR ROLE` 없이 전역 ROUTINES의 PUBLIC EXECUTE를 회수하는 한 form뿐이다.
+- `--no-owner` restore로 생성된 application object는 검증된 disposable current user가 소유하고 `public` schema는 `pg_database_owner`가 소유해야 한다. reconcile은 임의 `ALTER ... OWNER`로 이를 교정하지 않고 pre/post owner catalog mismatch를 거부한다.
+
+따라서 `REVOKE admin_role FROM app_owner`, 객체별 임의 REVOKE, 다른 schema/role/grantee, positive GRANT, `FOR ROLE`, schema-local routine default, owner 변경은 checksum과 receipt binding이 일치해도 transaction·DB 호출 전에 거부한다. Role membership은 pre/post catalog가 byte-identical해야 하며 reconcile이 변경할 수 없다.
+
 ### checksum-bound restore receipt
 
 [restore-validation.schema.json](restore-contracts/restore-validation.schema.json)은 추가 필드를 금지하는 31-field receipt 계약이다. [restore-validation.descriptor.json](restore-contracts/restore-validation.descriptor.json)이 schema checksum, required sequence/artifact, future reconcile 경로, 대상과 authorization order를 고정한다.

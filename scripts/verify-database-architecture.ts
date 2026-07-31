@@ -1351,12 +1351,7 @@ function runTaskFive(): void {
     "docs/restore-contracts/restore-validation.descriptor.json",
     "scripts/database-restore-contract.ts",
     testPath,
-    receiptPath,
-    descriptorPath,
-    path.join(fixtureDirectory, "drifted-sequence-60.json"),
-    path.join(fixtureDirectory, "synthetic-0060-database-security.sql"),
-    path.join(fixtureDirectory, "synthetic-0060-restore-security-reconcile.sql"),
-    failureCasesPath,
+    ...readdirSync(fixtureDirectory).map((name) => path.join(fixtureDirectory, name)),
     testLog,
   ];
   if (tests.status !== 0) {
@@ -1403,28 +1398,29 @@ function runTaskFive(): void {
 
   const fixtures = parseJson(failureCasesPath);
   exactKeys(fixtures, ["schema_version", "cases"], "task 5 failure fixtures");
-  if (fixtures.schema_version !== "dgkma-task-5-failure-fixtures-v1") {
+  if (fixtures.schema_version !== "dgkma-task-5-failure-fixtures-v2") {
     fail("task_5_failure_fixture_version_mismatch");
   }
   const cases = arrayValue(fixtures.cases, "task 5 failure cases").map((entry) =>
     objectValue(entry, "task 5 failure case"),
   );
-  if (cases.length !== 3) fail("task_5_failure_case_count_mismatch");
+  if (cases.length !== 5) fail("task_5_failure_case_count_mismatch");
   const observations: JsonObject[] = [];
   for (const fixture of cases) {
     exactKeys(
       fixture,
-      ["name", "target_kind", "descriptor", "expected_error"],
+      ["name", "target_kind", "descriptor", "receipt", "expected_error"],
       "task 5 failure case",
     );
     const descriptor = fixture.descriptor;
     if (descriptor !== null && typeof descriptor !== "string") fail("task_5_descriptor_fixture_invalid");
+    if (typeof fixture.receipt !== "string") fail("task_5_receipt_fixture_invalid");
     let observed = "not_rejected";
     try {
       authorizeRestoreReconcile({
         targetKind: String(fixture.target_kind) as RestoreTargetKind,
         descriptorPath: descriptor === null ? null : path.join(fixtureDirectory, descriptor),
-        receiptPath,
+        receiptPath: path.join(fixtureDirectory, fixture.receipt),
       });
     } catch (error) {
       observed = error instanceof Error ? error.message : String(error);
@@ -1434,6 +1430,9 @@ function runTaskFive(): void {
       name: fixture.name,
       expected_error: fixture.expected_error,
       observed_error: observed,
+      ...(String(fixture.name).startsWith("checksum_consistent_")
+        ? { descriptor_artifact_receipt_checksums: "verified_before_statement_refusal" }
+        : {}),
       sql_executions: 0,
       database_calls: 0,
       result: "rejected",
@@ -1443,6 +1442,9 @@ function runTaskFive(): void {
     self_test_exit_code: 0,
     refusal_cases_executed: observations.length,
     refusal_cases_rejected_before_sql: observations.length,
+    checksum_consistent_statement_refusals: observations.filter((entry) =>
+      String(entry.name).startsWith("checksum_consistent_"),
+    ).length,
     cases: observations,
     sql_executions: 0,
     database_calls: 0,

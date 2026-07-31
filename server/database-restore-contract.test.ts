@@ -55,25 +55,36 @@ test("checksum-bound synthetic sequence 60 authorizes only a disposable dry auth
   );
 });
 
-test("missing or drifted sequence 60 and Development target reject before SQL", () => {
+test("target, checksum, role-membership, and default-privilege attacks reject before SQL", () => {
   const fixtures = JSON.parse(readFileSync(path.join(fixtureRoot, "failure-cases.json"), "utf8")) as {
     cases: Array<{
       name: string;
       target_kind: RestoreTargetKind;
       descriptor: string | null;
+      receipt: string;
       expected_error: string;
     }>;
   };
 
-  assert.equal(fixtures.cases.length, 3);
+  assert.equal(fixtures.cases.length, 5);
   for (const fixture of fixtures.cases) {
     let sqlExecutions = 0;
+    if (fixture.name.startsWith("checksum_consistent_")) {
+      assert.notEqual(fixture.descriptor, null);
+      const adversarialDescriptorPath = path.join(fixtureRoot, fixture.descriptor!);
+      const descriptor = readSyntheticSequence60Descriptor(adversarialDescriptorPath);
+      const receipt = readRestoreReceipt(path.join(fixtureRoot, fixture.receipt));
+      assert.equal(sha256(readFileSync(descriptor.artifact_path)), descriptor.artifact_sha256);
+      assert.equal(sha256(readFileSync(descriptor.restore_reconcile_path)), descriptor.restore_reconcile_sha256);
+      assert.equal(receipt.sequence_60_artifact_sha256, descriptor.artifact_sha256);
+      assert.equal(receipt.restore_reconcile_sha256, descriptor.restore_reconcile_sha256);
+    }
     assert.throws(
       () => {
         authorizeRestoreReconcile({
           targetKind: fixture.target_kind,
           descriptorPath: fixture.descriptor ? path.join(fixtureRoot, fixture.descriptor) : null,
-          receiptPath,
+          receiptPath: path.join(fixtureRoot, fixture.receipt),
         });
         sqlExecutions += 1;
       },

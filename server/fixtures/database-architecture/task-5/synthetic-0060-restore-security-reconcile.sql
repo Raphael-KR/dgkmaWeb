@@ -1,4 +1,11 @@
 -- Synthetic restore-only reconciliation fixture. Static validation only; never execute.
+DO $dgkma_restore$
+BEGIN
+  EXECUTE pg_catalog.format('GRANT CONNECT ON DATABASE %I TO PUBLIC', pg_catalog.current_database());
+  EXECUTE pg_catalog.format('REVOKE CREATE,TEMPORARY ON DATABASE %I FROM PUBLIC', pg_catalog.current_database());
+END
+$dgkma_restore$;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
