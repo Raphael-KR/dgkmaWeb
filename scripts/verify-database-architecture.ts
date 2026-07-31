@@ -36,6 +36,15 @@ import {
   type RelationshipFixture,
   validateRelationshipContract,
 } from "./database-relationship-constraints";
+import {
+  developmentIdentityAnchorPreflightSql,
+  IDENTITY_ANCHOR_DEFINITIONS,
+  previewCurrentExactLinks,
+  requireExpectedIdentityBlockers,
+  resolveTaskNineCommitSha,
+  type IdentityFixture,
+  validateIdentityAnchorContract,
+} from "./member-identity-anchor";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1850,6 +1859,158 @@ function runTaskSeven(): void {
   process.exitCode = 1;
 }
 
+function writeTaskNineEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const taskCommitSha = resolveTaskNineCommitSha(
+    process.env.TASK_COMMIT_SHA,
+    () => execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  );
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 9,
+    task_commit_sha: taskCommitSha,
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-contract-and-read-only-development-preflight-query",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: exitCode,
+    assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result,
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskNine(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures") ?? "server/fixtures/database-architecture/task-9";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const deletionStaticLog = evidencePath.replace(/\.json$/, "-account-deletion-static-test.log");
+  const preflightSqlPath = evidencePath.replace(/\.json$/, "-development-preflight.sql");
+  const tests = runLogged("npx", ["tsx", "--test", "server/member-identity-anchor.test.ts"], testLog);
+  if (tests.status !== 0) fail("task_9_self_test_failed");
+  const deletionStatic = runLogged("npx", [
+    "tsx", "--test",
+    "--test-name-pattern=deleteUserAccount processes every approved relation in one transaction",
+    "server/account-deletion-storage.test.ts",
+  ], deletionStaticLog);
+  if (deletionStatic.status !== 0) fail("task_9_account_deletion_static_test_failed");
+  const definitions = validateIdentityAnchorContract();
+  writeFileSync(preflightSqlPath, developmentIdentityAnchorPreflightSql());
+
+  const normalizationPath = path.join(fixturesPath, "normalization-cases.json");
+  const exactPath = path.join(fixturesPath, "exact-link-cases.json");
+  const conflictPath = path.join(fixturesPath, "conflict-cases.json");
+  const nameOnlyPath = path.join(fixturesPath, "name-only-cases.json");
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "docs/member-identity-anchor.md",
+    "scripts/member-identity-anchor.ts",
+    "server/member-identity-anchor.test.ts",
+    normalizationPath,
+    exactPath,
+    conflictPath,
+    nameOnlyPath,
+    testLog,
+    deletionStaticLog,
+    preflightSqlPath,
+  ];
+
+  if (caseName === "happy") {
+    const exact = parseJson(exactPath);
+    const exactState = objectValue(exact.state, "task 9 exact-link state") as unknown as IdentityFixture;
+    const preview = previewCurrentExactLinks(exactState);
+    const expectedLinks = arrayValue(exact.expected_links, "task 9 expected exact links");
+    const rerun = previewCurrentExactLinks(exactState);
+    const nameOnly = parseJson(nameOnlyPath);
+    const nameOnlyPreview = previewCurrentExactLinks(
+      objectValue(nameOnly.state, "task 9 name-only state") as unknown as IdentityFixture,
+    );
+    if (
+      definitions.length !== 3 || preview.result !== "ready_for_todo_12_input" ||
+      canonicalJson(preview.links as never) !== canonicalJson(expectedLinks as never) ||
+      canonicalJson(rerun as never) !== canonicalJson(preview as never) ||
+      nameOnlyPreview.links.length !== 0 || preview.source_mutations !== 0 || preview.rows_backfilled !== 0
+    ) fail("task_9_exact_link_preview_mismatch");
+    writeTaskNineEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0,
+      account_deletion_static_test_exit_code: 0,
+      audited_write_integration_selected: false,
+      identity_definition_count: definitions.length,
+      identity_blocker_rule_count: 12,
+      normalization_application_sql_outcomes: "identical",
+      email_normalization_vector_count: 14,
+      email_normalization_generated_sql_surfaces: ["pending_registrations.email", "users.email"],
+      phone_normalization_vector_count: 12,
+      phone_normalization_generated_sql_surfaces: ["alumni_database.mobile", "users.phone_number"],
+      exact_link_count: preview.links.length,
+      exact_link_source: "alumni_database.matched_user_id",
+      exact_link_fk_backed: true,
+      rerun_stable: true,
+      name_only_links: 0,
+      partial_backfill_rows: 0,
+      sequence_20_materialized: false,
+      sequence_20_applied: false,
+      development_admin_approved_receipts: 0,
+      association_or_history_tables_created: 0,
+      schema_writes: 0,
+      source_rewrites: 0,
+      database_calls: 0,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+
+  const conflict = parseJson(conflictPath);
+  const state = objectValue(conflict.state, "task 9 conflict state") as unknown as IdentityFixture;
+  const expectedCodes = arrayValue(conflict.expected_blocker_codes, "task 9 expected blocker codes");
+  const blockers = requireExpectedIdentityBlockers(state, expectedCodes.map(String));
+  const observedCodes = [...new Set(blockers.map((entry) => entry.blocker_code))].sort();
+  const preview = previewCurrentExactLinks(state);
+  const nameOnly = parseJson(nameOnlyPath);
+  const nameOnlyPreview = previewCurrentExactLinks(
+    objectValue(nameOnly.state, "task 9 failure name-only state") as unknown as IdentityFixture,
+  );
+  if (
+    blockers.some((entry) => !entry.terminal || entry.exception_class !== "pre_anchor_blocking") ||
+    preview.result !== "blocked_pre_anchor" || preview.links.length !== 0 || nameOnlyPreview.links.length !== 0
+  ) fail("task_9_conflict_fixture_not_rejected_as_expected");
+  writeTaskNineEvidence(evidencePath, caseName, "rejected", 1, {
+    self_test_exit_code: 0,
+    account_deletion_static_test_exit_code: 0,
+    audited_write_integration_selected: false,
+    observed_blocker_codes: observedCodes,
+    terminal_pre_anchor_blockers: blockers.length,
+    exact_links_after_blocker: 0,
+    name_only_links: 0,
+    winners_selected: 0,
+    null_bypass: false,
+    partial_backfill_rows: 0,
+    sequence_20_materialized: false,
+    sequence_20_applied: false,
+    development_admin_approved_receipts: 0,
+    schema_writes: 0,
+    source_rewrites: 0,
+    database_calls: 0,
+    production_operations: 0,
+  }, attachments);
+  process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -1866,6 +2027,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskSix();
 } else if (process.argv[2] === "task" && process.argv[3] === "7") {
   runTaskSeven();
+} else if (process.argv[2] === "task" && process.argv[3] === "9") {
+  runTaskNine();
 } else if (process.argv[2] === "task" && process.argv[3] === "8") {
   runTaskEight();
 } else if (process.argv[2] === "task" && process.argv[3] === "11") {

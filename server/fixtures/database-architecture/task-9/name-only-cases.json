@@ -1,0 +1,1 @@
+{"expected_blocker_count":0,"expected_link_count":0,"schema_version":"dgkma-member-name-only-no-link-v1","state":{"alumni_database":[{"id":10,"matched_user_id":null,"mobile":"010-5555-6666","name":"동명이인"}],"pending_registrations":[],"users":[{"email":"one@example.com","id":1,"name":"동명이인","phone_number":"010-1111-2222"}]}}
