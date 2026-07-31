@@ -1,0 +1,1 @@
+{"expected_error":"unregistered_schema_exception_rule","observed_predicate_id":"users.email_canonical_nonblank","omitted_contract_predicate_id":"users.email_canonical_nonblank","schema_version":"dgkma-domain-constraint-omission-v1"}

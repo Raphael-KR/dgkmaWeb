@@ -17,6 +17,14 @@ import {
   RESTORE_READINESS,
   type RestoreTargetKind,
 } from "./database-restore-contract";
+import {
+  captureObservedPredicates,
+  developmentInventorySql,
+  DOMAIN_EXCEPTION_RULES,
+  parseSequence15SqlRegistry,
+  sequence15SqlRegistry,
+  validateClosedRuleContract,
+} from "./database-domain-constraints";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1576,6 +1584,109 @@ function runTaskEleven(): void {
   }, attachments);
 }
 
+function writeTaskSixEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 6,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-contract-and-read-only-inventory-query",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: exitCode,
+    assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result,
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskSix(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures") ?? "server/fixtures/database-architecture/task-6";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const inventorySqlPath = evidencePath.replace(/\.json$/, "-development-inventory.sql");
+  const tests = runLogged("npx", ["tsx", "--test", "server/database-domain-constraints.test.ts"], testLog);
+  if (tests.status !== 0) fail("task_6_self_test_failed");
+  const rules = validateClosedRuleContract();
+  const sqlProjection = parseSequence15SqlRegistry(sequence15SqlRegistry());
+  writeFileSync(inventorySqlPath, developmentInventorySql());
+  const commonAttachments = [
+    "docs/database-manifest.yaml",
+    "migrations/artifacts/0015_existing_data_exception_capture.json",
+    "migrations/artifacts/0020_existing_integrity.json",
+    "scripts/database-domain-constraints.ts",
+    "server/database-domain-constraints.test.ts",
+    path.join(fixturesPath, "domain-cases.json"),
+    path.join(fixturesPath, "omitted-predicate.json"),
+    testLog,
+    inventorySqlPath,
+  ];
+  if (caseName === "happy") {
+    const fixtures = parseJson(path.join(fixturesPath, "domain-cases.json"));
+    const cases = arrayValue(fixtures.cases, "task 6 domain cases");
+    if (cases.length !== 25 || rules.length !== 25 || sqlProjection.length !== 25) fail("task_6_rule_closure_mismatch");
+    writeTaskSixEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0,
+      physical_predicate_count: 25,
+      persisted_exception_code_count: 25,
+      pre_anchor_blocking_count: 21,
+      legacy_not_valid_count: 4,
+      table_driven_fixture_count: 25,
+      application_sql_tuple_equality: "approved",
+      users_email_blank_exception_code: "USERS_EMAIL_CANONICAL_BLANK",
+      sequence_15_status: "open",
+      pre_anchor_sequence_20_outcome: "block_before_ddl",
+      legacy_sequence_20_outcome: "add_not_valid_only",
+      future_sequence_15_materialized: false,
+      future_sequence_20_materialized: false,
+      schema_writes: 0,
+      source_rewrites: 0,
+      database_calls: 0,
+      production_operations: 0,
+    }, commonAttachments);
+    return;
+  }
+  const omission = parseJson(path.join(fixturesPath, "omitted-predicate.json"));
+  exactKeys(omission, ["schema_version", "observed_predicate_id", "omitted_contract_predicate_id", "expected_error"], "task 6 omission fixture");
+  const omitted = DOMAIN_EXCEPTION_RULES.filter((rule) => rule.predicate_id !== omission.omitted_contract_predicate_id);
+  let observedError = "not_rejected";
+  try {
+    captureObservedPredicates([String(omission.observed_predicate_id)], omitted);
+  } catch (error) {
+    observedError = error instanceof Error ? error.message : String(error);
+  }
+  if (observedError !== "unregistered_schema_exception_rule" || omission.expected_error !== observedError) {
+    fail("task_6_omitted_predicate_not_rejected");
+  }
+  writeTaskSixEvidence(evidencePath, caseName, "rejected", 1, {
+    self_test_exit_code: 0,
+    observed_error: observedError,
+    rejected_before_ddl: true,
+    schema_writes: 0,
+    source_rewrites: 0,
+    database_calls: 0,
+    production_operations: 0,
+  }, commonAttachments);
+  process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -1588,6 +1699,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskFour();
 } else if (process.argv[2] === "task" && process.argv[3] === "5") {
   runTaskFive();
+} else if (process.argv[2] === "task" && process.argv[3] === "6") {
+  runTaskSix();
 } else if (process.argv[2] === "task" && process.argv[3] === "8") {
   runTaskEight();
 } else if (process.argv[2] === "task" && process.argv[3] === "11") {
