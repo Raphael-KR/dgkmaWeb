@@ -3,6 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import {
   captureObservedPredicates,
+  canonicalPhone,
+  canonicalPhoneSql,
+  canonicalPhoneVectorSql,
+  CANONICAL_PHONE_VECTORS,
   decideSequence20,
   developmentInventorySql,
   DOMAIN_EXCEPTION_RULES,
@@ -115,7 +119,22 @@ test("Development inventory is a raw-value read-only transaction with both class
   assert.match(sql, /WITH users_projected AS/);
   assert.match(sql, /lower\(btrim\(email\)\) AS email_canonical/);
   assert.match(sql, /SUM\(violation_count\) OVER \(PARTITION BY exception_class\)/);
+  assert.match(sql, /\^10\[0-9\]\{8\}\$' THEN '0'\|\|regexp_replace/);
+  assert.match(sql, /projection_equal/);
   assert.equal((sql.match(/ AS predicate_id/g) ?? []).length, 25);
   assert.doesNotMatch(sql, /\b(?:ALTER|CREATE|DROP|TRUNCATE|INSERT|UPDATE|DELETE)\b/i);
   assert.match(sql, /ROLLBACK;\n$/);
+});
+
+test("application and manifest-derived SQL cover every canonical phone branch on both surfaces", () => {
+  assert.equal(CANONICAL_PHONE_VECTORS.length, 6);
+  for (const vector of CANONICAL_PHONE_VECTORS) {
+    assert.equal(canonicalPhone(vector.raw), vector.expected, vector.vector_id);
+  }
+  const manifest = JSON.parse(readFileSync("docs/database-manifest.yaml", "utf8"));
+  assert.equal(canonicalPhoneSql("phone_number"), manifest.canonical_phone_sql.replace(/\braw\b/g, "phone_number"));
+  const vectorSql = canonicalPhoneVectorSql();
+  assert.equal((vectorSql.match(/\('users\.phone_number'/g) ?? []).length, 6);
+  assert.equal((vectorSql.match(/\('alumni_database\.mobile'/g) ?? []).length, 6);
+  for (const vector of CANONICAL_PHONE_VECTORS) assert.match(vectorSql, new RegExp(vector.vector_id));
 });

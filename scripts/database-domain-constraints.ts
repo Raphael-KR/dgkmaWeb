@@ -79,12 +79,60 @@ export const DOMAIN_EXCEPTION_RULES: readonly DomainExceptionRule[] = [
 
 export const EXACT_EXCEPTION_CODES = DOMAIN_EXCEPTION_RULES.map((rule) => rule.exception_code);
 
+export const CANONICAL_PHONE_VECTORS = [
+  { vector_id: "raw_10", raw: "1012345678", expected: "01012345678" },
+  { vector_id: "raw_8210", raw: "82 10-1234-5678", expected: "01012345678" },
+  { vector_id: "raw_0", raw: "010-1234-5678", expected: "01012345678" },
+  { vector_id: "blank", raw: "   ", expected: null },
+  { vector_id: "null", raw: null, expected: null },
+  { vector_id: "invalid", raw: "12345", expected: null },
+] as const;
+
 function fail(): never {
   throw new Error("unregistered_schema_exception_rule");
 }
 
 function duplicate(values: string[]): boolean {
   return new Set(values).size !== values.length;
+}
+
+export function canonicalPhone(raw: string | null): string | null {
+  if (raw === null || raw.trim() === "") return null;
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (/^8210[0-9]{8}$/.test(digits)) return `0${digits.slice(2)}`;
+  if (/^10[0-9]{8}$/.test(digits)) return `0${digits}`;
+  if (/^0[0-9]{9,10}$/.test(digits)) return digits;
+  return null;
+}
+
+export function canonicalPhoneSql(rawExpression: string, manifestPath = "docs/database-manifest.yaml"): string {
+  if (!/^[a-z_][a-z0-9_.]*$/i.test(rawExpression)) throw new Error("canonical_phone_raw_expression_invalid");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const expression = manifest.canonical_phone_sql;
+  if (typeof expression !== "string" || !expression.includes("~ '^10[0-9]{8}$' THEN '0'||")) {
+    throw new Error("canonical_phone_manifest_expression_mismatch");
+  }
+  return expression.replace(/\braw\b/g, rawExpression);
+}
+
+export function canonicalPhoneVectorSql(): string {
+  const rows = ["users.phone_number", "alumni_database.mobile"].flatMap((surface) =>
+    CANONICAL_PHONE_VECTORS.map((vector) => {
+      const raw = vector.raw === null ? "NULL" : `'${vector.raw.replaceAll("'", "''")}'`;
+      const expected = vector.expected === null ? "NULL" : `'${vector.expected}'`;
+      return `('${surface}','${vector.vector_id}',${raw}::text,${expected}::text)`;
+    }),
+  );
+  const projection = canonicalPhoneSql("phone_vectors.raw_value");
+  return [
+    "WITH phone_vectors(surface, vector_id, raw_value, expected) AS (VALUES",
+    `  ${rows.join(",\n  ")}`,
+    ")",
+    "SELECT surface, vector_id, expected,",
+    `       ${projection} AS actual,`,
+    `       (${projection}) IS NOT DISTINCT FROM expected AS projection_equal`,
+    "FROM phone_vectors ORDER BY surface, vector_id;",
+  ].join("\n");
 }
 
 export function validateClosedRuleContract(
@@ -190,19 +238,13 @@ export function developmentInventorySql(contract: readonly DomainExceptionRule[]
     `COUNT(*)::bigint AS violation_count FROM ${projectedTable[rule.table] ?? rule.table} ` +
     `WHERE ${projectedPredicate[rule.predicate_id] ?? rule.predicate_sql}`,
   );
-  const phoneProjection = (column: string) =>
-    `CASE WHEN ${column} IS NULL OR btrim(${column}) = '' THEN NULL ` +
-    `WHEN regexp_replace(${column}, '[^0-9]', '', 'g') ~ '^8210[0-9]{8}$' ` +
-    `THEN '0' || substring(regexp_replace(${column}, '[^0-9]', '', 'g') FROM 3) ` +
-    `WHEN regexp_replace(${column}, '[^0-9]', '', 'g') ~ '^0[0-9]{9,10}$' ` +
-    `THEN regexp_replace(${column}, '[^0-9]', '', 'g') ELSE NULL END`;
   return [
     "BEGIN TRANSACTION READ ONLY;",
     "SELECT current_database() AS current_database, current_user AS current_user;",
     "WITH users_projected AS (",
-    `  SELECT users.*, lower(btrim(email)) AS email_canonical, ${phoneProjection("phone_number")} AS phone_canonical FROM users`,
+    `  SELECT users.*, lower(btrim(email)) AS email_canonical, ${canonicalPhoneSql("phone_number")} AS phone_canonical FROM users`,
     "), alumni_database_projected AS (",
-    `  SELECT alumni_database.*, ${phoneProjection("mobile")} AS mobile_canonical FROM alumni_database`,
+    `  SELECT alumni_database.*, ${canonicalPhoneSql("mobile")} AS mobile_canonical FROM alumni_database`,
     "), pending_registrations_projected AS (",
     "  SELECT pending_registrations.*, lower(btrim(email)) AS email_canonical FROM pending_registrations",
     "), rule_counts AS (",
@@ -211,6 +253,7 @@ export function developmentInventorySql(contract: readonly DomainExceptionRule[]
     "SELECT predicate_id, exception_code, exception_class, violation_count,",
     "       SUM(violation_count) OVER (PARTITION BY exception_class)::bigint AS class_violation_count",
     "FROM rule_counts ORDER BY predicate_id;",
+    canonicalPhoneVectorSql(),
     "ROLLBACK;",
     "",
   ].join("\n");
