@@ -1,0 +1,16 @@
+{
+  "schema_version": "dgkma-task-7-pinned-baseline-v1",
+  "source_commit": "0e299abce9509456de0e8bfe224cb7ef392228d8",
+  "source_path": "docs/database-schema.md",
+  "source_git_blob_oid": "ff62cdec5c87794c8888d1d0c758cbdef7958d93",
+  "source_sha256": "6d6fc85bc51ebf00213c76a29a299f28bc619074e1d95e1c621b50cb9dac9778",
+  "facts": {
+    "alumni_matched_user_fk": "alumni_database_matched_user_id_users_id_fk",
+    "alumni_matched_user_on_delete": "NO ACTION",
+    "alumni_matched_user_on_update": "NO ACTION",
+    "alumni_matched_user_unique": false,
+    "community_legacy_obituary_unique": "community_events_legacy_obituary_id_unique",
+    "community_legacy_obituary_fk": false,
+    "pending_identity_unique_constraints": 0
+  }
+}

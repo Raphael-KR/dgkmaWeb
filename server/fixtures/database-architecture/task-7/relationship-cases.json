@@ -1,0 +1,38 @@
+{
+  "schema_version": "dgkma-relationship-fixture-v1",
+  "state": {
+    "users": [{ "id": 1 }, { "id": 2 }],
+    "alumni_database": [
+      { "id": 101, "matched_user_id": 1 },
+      { "id": 102, "matched_user_id": null }
+    ],
+    "obituaries": [{ "id": 201 }, { "id": 202 }],
+    "community_events": [
+      {
+        "id": 301,
+        "legacy_obituary_id": 201,
+        "event_type": "obituary",
+        "status": "published",
+        "title": "legacy event",
+        "details": { "deceasedName": "fixture" },
+        "source_urls": ["https://example.test/legacy"]
+      },
+      {
+        "id": 302,
+        "legacy_obituary_id": null,
+        "event_type": "wedding",
+        "status": "draft",
+        "title": "independent event",
+        "details": {},
+        "source_urls": []
+      }
+    ],
+    "pending_registrations": [
+      { "id": 401, "kakao_id": "pending-a", "email": "First@Example.test", "status": "pending" },
+      { "id": 402, "kakao_id": "reviewed-kakao", "email": "reviewed@example.test", "status": "approved" },
+      { "id": 403, "kakao_id": "pending-a", "email": " first@example.test ", "status": "rejected" }
+    ]
+  },
+  "delete_obituary_id": 201,
+  "expected_preserved_event_id": 301
+}

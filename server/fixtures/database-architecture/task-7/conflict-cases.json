@@ -1,0 +1,28 @@
+{
+  "schema_version": "dgkma-relationship-conflict-fixture-v1",
+  "state": {
+    "users": [{ "id": 7 }],
+    "alumni_database": [
+      { "id": 101, "matched_user_id": 7 },
+      { "id": 102, "matched_user_id": 7 }
+    ],
+    "obituaries": [{ "id": 201 }],
+    "community_events": [
+      { "id": 211, "legacy_obituary_id": 999, "event_type": "obituary", "status": "published", "title": "orphan", "details": {}, "source_urls": [] }
+    ],
+    "pending_registrations": [
+      { "id": 301, "kakao_id": "duplicate-kakao", "email": "one@example.test", "status": "pending" },
+      { "id": 302, "kakao_id": "duplicate-kakao", "email": "two@example.test", "status": "pending" },
+      { "id": 303, "kakao_id": "email-a", "email": " Duplicate@Example.test ", "status": "pending" },
+      { "id": 304, "kakao_id": "email-b", "email": "duplicate@example.test", "status": "pending" },
+      { "id": 305, "kakao_id": "blank-email", "email": "   ", "status": "pending" }
+    ]
+  },
+  "expected_blockers": [
+    { "blocker_code": "ALUMNI_MATCHED_USER_DUPLICATE", "row_ids": [101, 102] },
+    { "blocker_code": "COMMUNITY_EVENT_LEGACY_OBITUARY_ORPHAN", "row_ids": [211] },
+    { "blocker_code": "PENDING_EMAIL_BLANK", "row_ids": [305] },
+    { "blocker_code": "PENDING_EMAIL_CANONICAL_DUPLICATE", "row_ids": [303, 304] },
+    { "blocker_code": "PENDING_KAKAO_DUPLICATE", "row_ids": [301, 302] }
+  ]
+}

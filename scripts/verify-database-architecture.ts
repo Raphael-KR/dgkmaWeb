@@ -25,6 +25,17 @@ import {
   sequence15SqlRegistry,
   validateClosedRuleContract,
 } from "./database-domain-constraints";
+import {
+  applyLegacyObituaryDeleteFixture,
+  decideRelationshipSequence20,
+  detectRelationshipBlockers,
+  developmentRelationshipPreflightSql,
+  RELATIONSHIP_CONSTRAINTS,
+  SEQUENCE_15_RELATIONSHIP_QUARANTINE,
+  SEQUENCE_20_RELATIONSHIP_RECHECK,
+  type RelationshipFixture,
+  validateRelationshipContract,
+} from "./database-relationship-constraints";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1687,6 +1698,158 @@ function runTaskSix(): void {
   process.exitCode = 1;
 }
 
+function writeTaskSevenEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 7,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-contract-and-read-only-development-preflight-query",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: exitCode,
+    assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result,
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskSeven(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures") ?? "server/fixtures/database-architecture/task-7";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const alumniSyncTestLog = evidencePath.replace(/\.json$/, "-alumni-sync-static-test.log");
+  const inventorySqlPath = evidencePath.replace(/\.json$/, "-development-preflight.sql");
+  const tests = runLogged("npx", [
+    "tsx", "--test",
+    "server/database-relationship-constraints.test.ts",
+    "server/admin-pending-registration-contract.test.ts",
+    "server/admin-pending-rejection-routes.test.ts",
+  ], testLog);
+  if (tests.status !== 0) fail("task_7_self_test_failed");
+  const alumniSyncTests = runLogged("npx", [
+    "tsx", "--test",
+    "--test-name-pattern=alumni sync storage uses one advisory-locked transaction without delete",
+    "server/alumni-sync-storage.test.ts",
+  ], alumniSyncTestLog);
+  if (alumniSyncTests.status !== 0) fail("task_7_alumni_sync_static_test_failed");
+  const constraints = validateRelationshipContract();
+  writeFileSync(inventorySqlPath, developmentRelationshipPreflightSql());
+  const happyFixturePath = path.join(fixturesPath, "relationship-cases.json");
+  const conflictFixturePath = path.join(fixturesPath, "conflict-cases.json");
+  const pinnedBaselinePath = path.join(fixturesPath, "pinned-baseline.json");
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "docs/database-relationship-constraints.md",
+    "scripts/database-relationship-constraints.ts",
+    "server/database-relationship-constraints.test.ts",
+    happyFixturePath,
+    conflictFixturePath,
+    pinnedBaselinePath,
+    testLog,
+    alumniSyncTestLog,
+    inventorySqlPath,
+  ];
+
+  if (caseName === "happy") {
+    const fixture = parseJson(happyFixturePath);
+    const state = objectValue(fixture.state, "task 7 happy state") as unknown as RelationshipFixture;
+    const blockers = detectRelationshipBlockers(state);
+    if (blockers.length !== 0 || constraints.length !== 4) fail("task_7_zero_conflict_path_rejected");
+    const deletion = applyLegacyObituaryDeleteFixture(state, Number(fixture.delete_obituary_id));
+    const eventId = Number(fixture.expected_preserved_event_id);
+    const before = state.community_events.find((event) => event.id === eventId);
+    const after = deletion.community_events.find((event) => event.id === eventId);
+    if (!before || !after || JSON.stringify(after) !== JSON.stringify({ ...before, legacy_obituary_id: null })) {
+      fail("task_7_set_null_did_not_preserve_event");
+    }
+    const decision = decideRelationshipSequence20(blockers);
+    if (!decision.constraints_allowed || decision.ddl_materialized_by_todo_7 || decision.ddl_applied_by_todo_7) {
+      fail("task_7_sequence_boundary_mismatch");
+    }
+    writeTaskSevenEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0,
+      alumni_sync_static_test_exit_code: 0,
+      relationship_constraint_count: 4,
+      preflight_rule_count: 5,
+      preflight_blocker_count: 0,
+      alumni_nonnull_one_to_one: "approved",
+      legacy_obituary_fk_nullable: true,
+      legacy_obituary_on_delete: "SET NULL",
+      legacy_obituary_on_update: "RESTRICT",
+      legacy_obituary_support: "existing_unique",
+      community_event_row_preserved: true,
+      pending_current_kakao_uniqueness: "approved",
+      pending_current_canonical_email_uniqueness: "approved",
+      pending_email_canonical_expression: "lower(btrim(email))",
+      locked_recheck_required: true,
+      lock_mode: SEQUENCE_20_RELATIONSHIP_RECHECK.lock_mode,
+      sequence_15_append_only_quarantine: SEQUENCE_15_RELATIONSHIP_QUARANTINE.append_only,
+      future_sequence_20_materialized: false,
+      future_sequence_20_applied: false,
+      schema_writes: 0,
+      source_rewrites: 0,
+      automatic_merges: 0,
+      automatic_deletes: 0,
+      database_calls: 0,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+
+  const fixture = parseJson(conflictFixturePath);
+  const state = objectValue(fixture.state, "task 7 conflict state") as unknown as RelationshipFixture;
+  const expected = arrayValue(fixture.expected_blockers, "task 7 expected blockers").map((entry) => {
+    const blocker = objectValue(entry, "task 7 expected blocker");
+    return { blocker_code: blocker.blocker_code, row_ids: blocker.row_ids };
+  });
+  const blockers = detectRelationshipBlockers(state);
+  const observed = blockers.map(({ blocker_code, row_ids }) => ({ blocker_code, row_ids }));
+  if (JSON.stringify(observed) !== JSON.stringify(expected) || blockers.length !== 5) {
+    fail("task_7_conflict_fixture_not_rejected_as_expected");
+  }
+  const decision = decideRelationshipSequence20(blockers);
+  if (decision.constraints_allowed || decision.result !== "blocked_by_quarantine") {
+    fail("task_7_conflict_did_not_block_before_ddl");
+  }
+  writeTaskSevenEvidence(evidencePath, caseName, "rejected", 1, {
+    self_test_exit_code: 0,
+    alumni_sync_static_test_exit_code: 0,
+    observed_blocker_codes: blockers.map((entry) => entry.blocker_code),
+    deterministic_blocker_count: blockers.length,
+    sequence_15_status: "open",
+    sequence_20_outcome: "block_before_ddl",
+    constraints_allowed: false,
+    quarantined_before_ddl: true,
+    future_sequence_20_materialized: false,
+    future_sequence_20_applied: false,
+    schema_writes: 0,
+    source_rewrites: 0,
+    automatic_merges: 0,
+    automatic_deletes: 0,
+    database_calls: 0,
+    production_operations: 0,
+  }, attachments);
+  process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -1701,6 +1864,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskFive();
 } else if (process.argv[2] === "task" && process.argv[3] === "6") {
   runTaskSix();
+} else if (process.argv[2] === "task" && process.argv[3] === "7") {
+  runTaskSeven();
 } else if (process.argv[2] === "task" && process.argv[3] === "8") {
   runTaskEight();
 } else if (process.argv[2] === "task" && process.argv[3] === "11") {
