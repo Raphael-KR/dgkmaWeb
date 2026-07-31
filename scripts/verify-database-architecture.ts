@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   canonicalJson,
   materializeVerifierContracts,
@@ -672,10 +673,190 @@ function runTaskOne(): void {
   }
 }
 
+function taskThreeChildEnvironment(extra: Record<string, string>): NodeJS.ProcessEnv {
+  const childEnvironment: NodeJS.ProcessEnv = {};
+  const forbidden = new Set(["DATABASE_URL", "PROD_DATABASE_URL", "PROD_DATABASE_READONLY_URL"]);
+  for (const key of Object.keys(process.env)) {
+    if (!forbidden.has(key)) childEnvironment[key] = process.env[key];
+  }
+  return { ...childEnvironment, ...extra };
+}
+
+function writeTaskThreeEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 3,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: null,
+    db_target: caseName === "happy" ? "development+disposable-test" : "disposable-test",
+    db_mode: caseName === "happy" ? "rollback-probe+create-drop" : "refusal+cleanup",
+    command: process.argv.join(" "),
+    exit_code: result === "approved" ? 0 : 1,
+    assertions,
+    attachment_digests: attachments
+      .filter(existsSync)
+      .sort()
+      .map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })),
+    result,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskThree(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const ownerDecisionPath = ".omo/evidence/database-architecture-audit/task-3/owner-transport-decision.json";
+  const ownerDecision = parseJson(ownerDecisionPath);
+  exactKeys(
+    ownerDecision,
+    ["schema_version", "approved_at", "task", "decision", "result", "scope", "requirements"],
+    "owner transport decision",
+  );
+  if (
+    ownerDecision.schema_version !== "dgkma-owner-transport-decision-v1" ||
+    ownerDecision.task !== 3 ||
+    ownerDecision.decision !== "A" ||
+    ownerDecision.result !== "approved" ||
+    ownerDecision.scope !== "Replit internal Development and disposable-test targets only"
+  ) {
+    fail("owner transport decision mismatch");
+  }
+  const ownerRequirements = arrayValue(ownerDecision.requirements, "owner transport requirements");
+  for (const requirement of [
+    "REPL_ID must be present",
+    "PGHOST must equal helium",
+    "approved Development target identity and fingerprint must be verified before DDL or DML",
+    "no non-TLS fallback for any other host or target",
+    "Production remains verified TLS and read-only",
+    "credentials and secrets must not appear in logs or receipts",
+  ]) {
+    if (!ownerRequirements.includes(requirement)) fail("owner transport requirement missing");
+  }
+  const fixtureDirectory = value("--fixtures");
+  if (caseName === "failure" && !fixtureDirectory) fail("--fixtures is required for failure case");
+  const fixturePath = fixtureDirectory
+    ? path.join(fixtureDirectory, "db-target-cases.json")
+    : undefined;
+  if (fixturePath && !existsSync(fixturePath)) fail(`missing file: ${fixturePath}`);
+  const runtimePath = evidencePath.replace(/\.json$/, "-runtime.json");
+  const logPath = evidencePath.replace(/\.json$/, ".log");
+  const runUid = randomUUID();
+  const testArgs = [
+    "tsx",
+    "--test",
+    "--test-name-pattern=development|disposable|privilege|production-readonly",
+    "server/db-target.test.ts",
+  ];
+  const command = spawnSync("npx", testArgs, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: taskThreeChildEnvironment({
+      RUN_DB_TARGET_INTEGRATION: "1",
+      DB_TARGET_TEST_CASE: caseName,
+      REPL_ID: process.env.REPL_ID ?? "dgkma-task-3-replit-ssh",
+      DB_TARGET_RUN_UID: runUid,
+      DB_TARGET_TEST_RECEIPT_PATH: runtimePath,
+      ...(fixturePath ? { DB_TARGET_FIXTURE_PATH: fixturePath } : {}),
+    }),
+  });
+  mkdirSync(path.dirname(logPath), { recursive: true });
+  writeFileSync(
+    logPath,
+    [
+      `command=npx ${testArgs.join(" ")}`,
+      `status=${String(command.status)}`,
+      command.stdout,
+      command.stderr,
+    ].join("\n"),
+  );
+  const attachments = [
+    runtimePath,
+    logPath,
+    "server/db-target.ts",
+    "server/db-target.test.ts",
+    "server/db.ts",
+    "drizzle.config.ts",
+    ownerDecisionPath,
+    ...(fixturePath ? [fixturePath] : []),
+  ];
+  if (command.status !== 0 || !existsSync(runtimePath)) {
+    writeTaskThreeEvidence(
+      evidencePath,
+      caseName,
+      "rejected",
+      {
+        focused_test_exit_code: command.status,
+        runtime_receipt_present: existsSync(runtimePath),
+        error_class: "database_target_focused_test_failed",
+      },
+      attachments,
+    );
+    fail("database_target_focused_test_failed");
+  }
+  const runtime = parseJson(runtimePath);
+  if (
+    runtime.production_credentials_read !== false ||
+    runtime.disposable_absent !== true ||
+    (caseName === "happy" &&
+      (runtime.development_probe_absent !== true || runtime.disposable_probe_absent !== true)) ||
+    (caseName === "failure" &&
+      (runtime.collision_refused !== true ||
+        runtime.collision_not_dropped_by_resolver !== true ||
+        runtime.artifact_execution_refused !== true ||
+        runtime.leaked_session_refused_without_drop !== true ||
+        runtime.probe_objects_remaining !== 0))
+  ) {
+    writeTaskThreeEvidence(
+      evidencePath,
+      caseName,
+      "rejected",
+      { runtime_contract: "rejected" },
+      attachments,
+    );
+    fail("database_target_runtime_receipt_mismatch");
+  }
+  writeTaskThreeEvidence(
+    evidencePath,
+    caseName,
+    caseName === "happy" ? "approved" : "rejected",
+    caseName === "happy"
+      ? {
+          focused_test_exit_code: 0,
+          development_receipt_reproduced: "approved",
+          rollback_privilege_probes_absent: "approved",
+          disposable_created_and_absent_after_teardown: "approved",
+          production_owner_credentials_called: false,
+        }
+      : {
+          focused_test_exit_code: 0,
+          foreign_collision_refused_without_drop: "approved",
+          readonly_probe_refused_without_residue: "approved",
+          leaked_session_refused_without_drop: "approved",
+          artifact_execution_refused: "approved",
+          disposable_absent_after_cleanup: "approved",
+          production_owner_credentials_called: false,
+        },
+    attachments,
+  );
+  if (caseName === "failure") process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
   runTaskOne();
+} else if (process.argv[2] === "task" && process.argv[3] === "3") {
+  runTaskThree();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }

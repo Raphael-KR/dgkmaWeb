@@ -7,7 +7,7 @@
 | 구분 | Development Database | Production Database |
 |---|---|---|
 | 용도 | 구현, 테스트, 반복 초기화 | Republish된 서비스의 운영 데이터 |
-| 기본 접근 | Replit SSH의 `PG*` 환경변수와 `DATABASE_URL` | Replit Secret의 명시적 `PROD_DATABASE_URL` |
+| 기본 접근 | Replit SSH의 `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` | 별도 읽기 전용 역할의 `PROD_DATABASE_READONLY_URL` |
 | 확인된 DB | `heliumdb` | `neondb` |
 | 기본 선택 여부 | 기본값 | 명시적으로 선택할 때만 사용 |
 
@@ -22,20 +22,17 @@ ssh -i ~/.ssh/replit -p 22 <replit-user>@<replit-host>
 cd /home/runner/workspace
 ```
 
-이 SSH는 Replit 개발 워크스페이스에 연결된다. autoscale 프로덕션 인스턴스의 셸이 아니다. 다만 개발 워크스페이스에 `PROD_DATABASE_URL`이 설정되어 있으면 SSH 프로세스가 그 URL을 명시적으로 선택해 Production Database에 직접 연결할 수 있다.
+이 SSH는 Replit 개발 워크스페이스에 연결된다. autoscale 프로덕션 인스턴스의 셸이 아니다. 공용 resolver는 Development에서 URL credential을 선택하지 않고, Production owner credential을 읽지 않는다.
 
 ## DB 선택 원리
 
-[`server/db.ts`](../server/db.ts)는 다음 순서로 연결 대상을 선택한다.
+[`server/db-target.ts`](../server/db-target.ts)가 런타임, Drizzle과 migration의 연결 대상을 한 계약으로 해석한다.
 
-1. `PGHOST`, `PGUSER`, `PGDATABASE` 등 Replit `PG*` 환경변수
-2. `DATABASE_URL`
-
-따라서 SSH에서 앱 코드나 `server/db.ts`를 그대로 실행하면 Development Database가 기본이다. 단순히 `DATABASE_URL="$PROD_DATABASE_URL"`을 앞에 붙여도 `PG*`가 남아 있으면 여전히 Development Database를 사용한다.
-
-- 로그의 `Connecting to PostgreSQL database (local/replit)...`는 개발 DB 선택을 뜻한다.
-- 로그의 `Connecting to PostgreSQL database (remote)...`는 원격 URL 선택을 뜻한다.
-- 환경 이름이나 명령 모양만 믿지 말고 `current_database()`와 기준 테이블 건수를 확인한다.
+- Development는 다섯 `PG*` 필드를 모두 요구하고 `PGDATABASE=heliumdb`만 허용한다. URL fallback은 없다.
+- Drizzle과 migration에서 `DATABASE_URL`, `PROD_DATABASE_URL`, `PROD_DATABASE_READONLY_URL` 키가 존재하면 값이 비어 있어도 거부한다.
+- disposable-test는 Development tuple과 lowercase UUIDv4를 사용하며 Production 변수를 허용하지 않는다.
+- Production 조회는 `PROD_DATABASE_READONLY_URL`만 사용하고 `neondb`, `BEGIN READ ONLY`, CREATE 권한 부재를 모두 검증한다. owner credential은 공용 resolver에 전달하지 않는다.
+- TCP는 원칙적으로 인증서를 검증한다. owner transport decision `dgkma-owner-transport-decision-v1`에 따라 `REPL_ID`가 존재하고 `PGHOST`가 바이트 단위로 `helium`이며 target이 `development|disposable-test`일 때만 Replit 내부 non-TLS TCP를 선택할 수 있다. ordinary fingerprint의 address/port는 proxy의 live inet 값이 아니라 승인 connection endpoint인 lowercase `PGHOST`와 canonical `PGPORT`를 사용한다. PG tuple digest·`heliumdb`·user name/OID·server version도 독립적으로 일치해야 하며 DDL/DML 전에 이 identity를 검증하고 disposable control/target도 각각 다시 검증한다. 그 밖의 host/target은 verified TLS를 사용하며 TLS 실패 뒤 완화·fallback하지 않는다. Production read-only에는 예외가 없다.
 
 ## Development Database 사용
 
@@ -60,10 +57,9 @@ npm run build
 직접 연결을 확인할 때는 URL을 출력하지 않고 다음과 같이 DB 이름과 건수만 조회한다.
 
 ```bash
-node --input-type=module -e '
-import pg from "pg";
-const { Pool } = pg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+npx tsx -e '
+import { createTargetPool, resolveDevelopmentTarget, shutdownPool } from "./server/db-target";
+const pool = createTargetPool(resolveDevelopmentTarget(process.env, "runtime"));
 const result = await pool.query(`
   select current_database() as database,
          current_user as user_name,
@@ -71,7 +67,7 @@ const result = await pool.query(`
          (select count(*)::int from users) as user_rows
 `);
 console.log(result.rows[0]);
-await pool.end();
+await shutdownPool(pool);
 '
 ```
 
@@ -85,56 +81,46 @@ https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev
 
 ### Secret 준비
 
-정식 오픈 전 활발한 개발 기간에는 반복되는 운영 스키마·데이터 작업을 위해 Replit의 `Tools > Setup > Secrets`에 다음 Secret을 유지한다.
+반복되는 운영 metadata 조회에는 Replit의 `Tools > Setup > Secrets`에 별도 읽기 전용 역할의 다음 Secret을 둔다.
 
 ```text
-PROD_DATABASE_URL
+PROD_DATABASE_READONLY_URL
 ```
 
-실제 값은 Replit이 제공한 Production Database URL 전체다. Mac의 `.env`, 저장소, 문서, 셸 기록, 채팅에는 복제하지 않는다. 새 Secret은 새 SSH 세션에서 존재 여부만 확인하며 값을 출력하지 않는다. Secret이 상시 존재하더라도 일반 개발·앱 실행·테스트는 Development Database를 기본으로 하며, 운영 DB 접근은 항상 명시적인 운영 명령으로만 수행한다.
+실제 값은 읽기 전용 역할의 Production Database URL 전체다. Mac의 `.env`, 저장소, 문서, 셸 기록, 채팅에는 복제하지 않는다. Secret 존재 여부를 확인할 때도 값을 출력하지 않는다. 일반 개발·앱 실행·테스트는 Development Database만 사용한다.
 
 ```bash
-node -e 'console.log(process.env.PROD_DATABASE_URL ? "PROD_DATABASE_URL: PRESENT" : "PROD_DATABASE_URL: MISSING")'
+node -e 'console.log(Object.hasOwn(process.env,"PROD_DATABASE_READONLY_URL") ? "PROD_DATABASE_READONLY_URL: PRESENT" : "PROD_DATABASE_READONLY_URL: MISSING")'
 ```
 
 ### 읽기 전용 확인
 
-운영 DB는 `server/db.ts`를 거치지 않고 `PROD_DATABASE_URL`을 직접 지정하면 `PG*` 우선순위와 혼동하지 않는다.
+운영 조회는 공용 resolver가 전용 읽기 전용 URL, `neondb`, verified TLS, read-only transaction과 CREATE 권한 부재를 검증한 뒤에만 callback을 실행한다.
 
 ```bash
-node --input-type=module -e '
-import pg from "pg";
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.PROD_DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-const result = await pool.query(`
-  select current_database() as database,
-         current_user as user_name,
-         (select count(*)::int from alumni_database) as alumni_rows,
-         (select count(*)::int from users) as user_rows
-`);
-console.log(result.rows[0]);
-await pool.end();
+npx tsx -e '
+import { withProductionReadonly } from "./server/db-target";
+await withProductionReadonly(
+  { PROD_DATABASE_READONLY_URL: process.env.PROD_DATABASE_READONLY_URL },
+  async (client) => {
+    const result = await client.query("select current_database() as database, current_user as user_name");
+    console.log(result.rows[0]);
+  },
+);
 '
 ```
 
-일반 운영 점검은 조회 쿼리만 사용한다. 장기적으로 반복 조회가 필요하면 owner URL 대신 별도 읽기 전용 역할의 URL을 `PROD_DATABASE_READONLY_URL`로 두는 방식을 우선한다.
+Production read-only 경로는 catalog SELECT만 실행하며 privilege probe나 쓰기 receipt를 생성하지 않는다.
 
 ### 명시적인 운영 쓰기
 
 운영 쓰기는 사용자가 승인한 작업이나 정식 오픈 전 데이터 정책에 따른 명확한 작업에만 수행한다. 실행 전에 대상 DB와 변경 전 건수를 확인하고, 가능한 경우 트랜잭션으로 처리하며, 새 연결에서 변경 후 건수를 다시 확인한다.
 
-`server/db.ts`를 import하는 스크립트를 운영 DB에 실행해야 할 때만 다음과 같이 `PG*`를 해당 프로세스에서 제거한다.
+공용 resolver와 `server/db.ts`는 Production owner 연결을 제공하지 않는다. 운영 쓰기가 별도로 승인되더라도 이 경로를 URL 치환으로 우회하지 않고, 해당 작업의 전용 runbook·백업·대상 검증·트랜잭션·사후 새 연결 검증을 먼저 준비한다.
 
-```bash
-env -u PGHOST -u PGPORT -u PGUSER -u PGPASSWORD -u PGDATABASE \
-  DATABASE_URL="$PROD_DATABASE_URL" \
-  npx tsx path/to/explicit-production-script.ts
-```
+## 공용 pool 정책
 
-이 명령은 운영 쓰기를 가능하게 한다. 일반 개발 명령, 앱 실행, 테스트에는 사용하지 않는다. 셸 전체에 `export DATABASE_URL="$PROD_DATABASE_URL"`을 설정하지 않는다.
+모든 resolver pool은 `max=10`, `min=0`, 연결 대기 10초, idle 30초, `maxUses=10000`을 사용한다. 세션에는 statement 30초, lock 5초, idle transaction 30초 timeout을 설정한다. 종료는 신규 사용을 막고 최대 10초 동안 borrower 반환을 기다리며, 남은 borrower가 있으면 성공으로 처리하지 않는다.
 
 ## 변경 절차
 

@@ -1,0 +1,21 @@
+{
+  "schema_version": "dgkma-task-3-negative-fixtures-v1",
+  "cases": [
+    {
+      "name": "foreign_marker_collision",
+      "expected_error": "database_target_foreign_collision"
+    },
+    {
+      "name": "readonly_probe",
+      "expected_error": "read-only transaction"
+    },
+    {
+      "name": "leaked_session",
+      "expected_error": "database_target_leaked_session"
+    },
+    {
+      "name": "artifact_execution_refused",
+      "expected_error": "database_target_preflight_failed"
+    }
+  ]
+}
