@@ -10,7 +10,7 @@
 - 핵심 개발 범위가 끝나면 비로그인·일반회원·관리자 계정과 데스크톱·모바일 환경을 준비해 이 체크리스트를 통합 QA로 한 번에 실행한다.
 - 사용자 본인만 처리할 수 있는 외부 서비스 설정, 개발 차단 요소, 보안 노출·운영 데이터 손상 위험, 제품 방향 결정은 통합 QA 전에도 즉시 확인한다.
 - 체크되지 않은 항목은 실패를 뜻하지 않으며 통합 QA 대기 상태를 뜻한다. 실제 검증 전에는 완료로 기록하지 않는다.
-- 자동화 회귀와 synthetic/client-navigation QA의 `[x]`는 실제 계정·운영 통합 QA의 완료를 뜻하지 않는다. 2026-07-27 현재 병합 후보의 실제 계정 allowlist/login/recovery, Production smoke, 실제 Kakao 통합 QA, Sheets 적용, payment provider·실제 결제는 계속 `[ ]`로 관리한다.
+- 자동화 회귀와 synthetic/client-navigation QA의 `[x]`는 실제 계정·운영 통합 QA의 완료를 뜻하지 않는다. 2026-07-30 운영 실제 카카오 재로그인·관리자 복구·패널 진입·세션 지속과 비로그인 Production smoke는 완료했으며, Development 재로그인·DB 초기화 뒤 복구, 일반회원 역할, Sheets 적용, payment provider·실제 결제는 계속 `[ ]`로 관리한다.
 
 ## 검증 전 조건
 
@@ -269,6 +269,8 @@ Replit SSH 공개키 인증이 거부되어 편집기에서 개발 워크플로�
 
 브라우저 콘솔에는 debug/info만 있고 warning/error는 0건이었다. Replit 실행 로그는 요청 메서드·경로·상태·처리시간만 기록했으며 이름·전화번호·계좌·주소·입력 원문은 출력하지 않았다. 검증 후 Development Database에서 ID 321만 transaction으로 삭제하고 새 연결에서 0건을 확인했으며, `/events` 목록도 0건이다. Production·Production Database·Republish는 사용하지 않았다.
 
+2026-07-31 GitHub `main`에 병합된 PR #11을 Replit Development에서 재검증했다. 파서·대상자 정책·공개 페이지 수집 집중 회귀 50/50이 통과했다. 실제 관리자 세션의 `/events`에서 안전한 합성 부고 문자와 `https://example.com/`을 함께 분석해 `링크 내용을 불러왔습니다`, 관련 동문 `김동국`, 관계 `부친`, 제목과 날짜 병합, `임시저장됨`을 확인했다. 게시에 필요한 고인·나이·빈소가 없는 입력이므로 게시하지 않았고, 초안을 삭제한 뒤 원문과 확인 영역이 초기화됐으며 브라우저 오류는 0건이었다.
+
 2026-08-01 `bugo.gipoom.com` 실제 링크는 정적 서버 요청에서 앱 셸만 반환해 기존 파서가 공개 중인 링크를 `unavailable`로 오판했다. 허용된 출처만 실행하는 렌더러, 정확한 출처·데이터 호스트 요청 제한, DNS 전체 응답 검증과 Chromium 주소 고정 테스트를 먼저 추가했다. 렌더링 뒤 공개 본문의 가족 목록에서 관련 동문이 고인의 딸로 확인되고 고인 성별 근거도 함께 있을 때만 `부친`을 추론하며, 관련 동문 힌트 또는 성별이 없으면 관계를 만들지 않는 테스트도 추가했다.
 
 Replit 서버 코어에서 같은 링크와 `졸업21기 OOO` 힌트를 다시 분석한 결과 출처는 `fetched`, 고인·78세·발인·빈소·관계는 모두 추출되고 필수 누락은 0건이었다. 실페이지의 `(남/78세)` 표기를 처음 fixture가 반영하지 못해 나이·관계가 누락된 두 번째 RED를 확인했고, 해당 형식을 회귀 테스트로 고정한 뒤 실제 링크를 다시 통과시켰다. 최종 Replit 집중 테스트 32/32, 전체 365/365, `npm run check`, `npm run build`, `git diff --check`가 통과했다. 이 단계는 서버 수집·파싱 검증이며 로그인 회원 화면의 초안·미리보기·게시·목록·상세 검증이나 Production Republish 완료를 뜻하지 않는다.
@@ -306,7 +308,8 @@ Replit 서버 코어에서 같은 링크와 `졸업21기 OOO` 힌트를 다시 �
 
 - [ ] Development와 Production에서 각각 현재 환경 allowlist의 카카오 계정으로 로그인하면 `isAdmin=true`가 복구되고, DB 초기화·계정 재생성 뒤에도 같은 동작을 한다.
 - [ ] allowlist Secret이 없으면 자동 승격하지 않고, 다른 절차로 부여한 기존 관리자 권한은 allowlist에 없다는 이유로 자동 회수하지 않는다.
-- [ ] 관리자 계정의 커뮤니티 홈 상단 `관리자` 배지가 클릭 가능한 상태로 표시되고 `/admin` 관리자 패널로 이동한다. 일반회원에게는 이 링크가 표시되지 않는다.
+- [x] 관리자 계정의 커뮤니티 홈 상단 `관리자` 배지가 클릭 가능한 상태로 표시되고 `/admin` 관리자 패널로 이동한다.
+- [ ] 일반회원에게는 관리자 패널 링크가 표시되지 않는다.
 - [ ] 비로그인·일반회원의 모든 `/api/admin/*` 요청이 각각 `401`, `403`을 반환하며, 특히 `POST /api/admin/sync-alumni/preview`와 `POST /api/admin/sync-alumni`가 DB를 변경하지 않는다.
 - [ ] 관리자 화면에서 가입 승인과 Google Sheets 연결 확인이 정상 동작한다.
 - [ ] `변경 미리보기`는 원본·DB·추가·수정·동일·충돌·오류·원본만·DB만 건수와 fingerprint만 반환하고 이름·전화번호·주소·메모를 브라우저나 응답에 노출하지 않는다.
@@ -329,26 +332,30 @@ Replit 서버 코어에서 같은 링크와 `졸업21기 OOO` 힌트를 다시 �
 
 2026-07-27 운영 관리자 배지→`/admin` 스모크는 도구 privacy capability 미충족으로 기존 인증 페이지 attach 전 중단했다. 재로그인, 운영 mutation, Google Sheets 적용과 Production Database 변경은 실행하지 않았으므로 위 관리자 패널 진입 체크는 미완료로 유지하며, 실제 QA가 가능한 사용자가 추후 확인한다.
 
-## Development 통합 QA 상태 (2026-07-16)
+2026-07-30 인앱브라우저에서 위 중단 항목을 다시 수행했다. 운영 실제 카카오 재로그인 뒤 지정 계정의 관리자 복구와 새 인증 세션 동작을 확인했고, 커뮤니티 홈의 관리자 링크가 `/admin`으로 이동해 `관리자 패널`을 표시했다. 전체 페이지 재요청 뒤에도 관리자 세션이 유지됐고 접근 거부와 브라우저 오류는 없었다. 쿠키 값은 열람하지 않았으며, 세션 식별자 회전 자체는 이전 쿠키 `401`·새 쿠키 `200` 자동화 계약과 결합해 판정했다.
+
+## Development 통합 QA 상태 (2026-07-31)
 
 - [x] 실제 개발 카카오 회원 세션으로 로그인 후 회원 홈, 동문 주소록 범위·검색, `/events` 유형 전환·문자 분석·자동저장·새로고침 후 유형별 초안 복구·삭제를 확인했다. 이어 부고·결혼·개원·기타 네 유형을 실제 게시하고 목록과 `/events/:id` 상세를 확인했다. QA 게시물 ID 161~164와 후속 경고 검증 초안을 정리해 `community_events`는 0건으로 복구했다.
 - [x] `/o`, `/o/new`가 각각 `/events?type=obituary`, `/events?type=obituary&compose=1`으로 이동하는 것을 확인했다. 390px 개발 브라우저에서 공개 홈페이지와 `/events`의 가로 overflow가 없고 브라우저 오류가 없는 것을 확인했다.
 - [x] 부고 파서가 놓친 나이·관계를 직접 채웠을 때 상단 누락 경고가 즉시 사라지는지 실제 브라우저에서 확인했다. 회귀 테스트를 포함한 Replit 전체 311/311, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
 - [x] Development Database의 유일한 QA 회원을 트랜잭션으로 임시 관리자 승격한 뒤 관리자 패널·가입 승인 빈 상태·Google Sheets 연결·개인정보 없는 변경 미리보기를 확인했다. 원본·DB 3,458건, 차단 오류 3건에서 `변경 적용`이 비활성화됐고 실제 적용은 실행하지 않았다. 검증 뒤 회원 권한은 일반회원으로 복구했고 관리자 수는 0명이다.
 - [x] 2026-07-18 Development와 Production Database에서 이름·정규화 전화번호가 정확히 일치하는 실제 카카오 회원을 각각 1명으로 확인하고, 카카오 회원번호 원문을 출력·커밋하지 않은 채 환경별 Replit Secret에 등록했다. 자동 복구·환경 선택·미설정·잘못된 형식·기존 관리자 비강등을 포함한 Replit 전체 테스트 317건, `npm run check`, `npm run build`, `git diff --check`가 통과했다.
-- [x] 커뮤니티 홈의 관리자 배지를 `/admin` 링크로 바꾸고 관리자 조건·목적지·접근성 이름 계약을 추가했다. Replit 전체 테스트 318건, `npm run check`, `npm run build`, `git diff --check`가 통과했으며 실제 클릭은 다음 Republish 후 운영 관리자 세션에서 확인한다.
+- [x] 커뮤니티 홈의 관리자 배지를 `/admin` 링크로 바꾸고 관리자 조건·목적지·접근성 이름 계약을 추가했다. Replit 전체 테스트 318건, `npm run check`, `npm run build`, `git diff --check`가 통과했고 실제 클릭은 2026-07-30 운영 관리자 세션에서 확인했다.
 - [x] 프로필·활동지역·회원 상태의 세션 권한, 허용 필드, `ClientUser` 응답 축소, KST 당해연도 연회비 집계와 결제 요약 축소를 실제 Express/session route 계약 9개 시나리오와 KST 연도 경계·연회비 집계 테스트로 고정했다. Replit 집중 테스트 25/25, 전체 338/338, `npm run check`, `npm run build`, `git diff --check`가 모두 종료 코드 `0`으로 통과했다.
-- [ ] 새 코드가 적용된 Development에서 재로그인 후 관리자 권한 자동 복구와 관리자 화면 진입을 확인한다. 이번 후보에서는 Development·Production 재로그인 복구를 재검증하지 않았으며, 아래 과거 기록은 후보 완료 근거로 사용하지 않는다.
-- [ ] 이번 후보의 Development·Production allowlist 로그인, 관리자 권한 복구와 실제 Kakao 통합 QA를 확인한다. synthetic/client-navigation QA는 이 항목을 완료 처리하지 않는다.
+- [x] PR #11 병합본의 문자+공개 링크 입력에서 링크 수집, 관련 동문·관계·제목·날짜 병합, 초안 자동저장·삭제와 화면 초기화를 실제 Development 관리자 세션으로 확인했다. 브라우저 오류는 0건이었다.
+- [ ] Development allowlist 재로그인과 DB 초기화·계정 재생성 뒤 관리자 권한 복구를 확인한다. Production 실제 재로그인·관리자 복구·패널 진입·세션 지속은 2026-07-30 완료했다.
 - [ ] 실제 불일치 카카오 계정의 가입 대기·관리자 승인 또는 거절·카카오 연결 해제는 별도 불일치 테스트 계정이 필요하다.
 - [ ] 관리자 결제 기록 생성은 테스트 금액·정리 범위를 확정한 뒤 실행한다.
-- [ ] Production smoke, Google Sheets 적용, payment provider·실제 결제를 실제 계정과 운영 환경에서 확인한다.
+- [ ] Google Sheets 적용, payment provider·실제 결제를 실제 계정과 운영 환경에서 확인한다.
 - [ ] 운영 일반회원·관리자 역할, 모바일 네 유형 입력, 외부 링크 대표 사례를 묶어 최종 통합 QA한다.
 
-## Production 배포 smoke 상태 (2026-07-16)
+## Production 배포 smoke 상태 (2026-07-30)
 
 - [ ] 2026-07-27 Todo7 후보의 Production smoke는 실행하지 않았다. 아래의 이전 날짜 기록은 이번 후보의 운영·실계정 검증으로 재사용하지 않는다.
 
+- [x] 배포 커밋 `de0ed6e` Republish 후 운영 `/`와 정확한 JavaScript·CSS 자산, `/api/categories` `200`, 비로그인 `/api/auth/me`·`/api/events`·`/api/admin/pending-registrations`·`POST /api/payments` `401`, 제거된 `/api/debug/login` `404`를 확인했다.
+- [x] 같은 운영 배포에서 실제 카카오 재로그인으로 관리자 권한이 복구됐고, 홈 관리자 링크→`/admin` 패널 진입과 전체 페이지 재요청 뒤 세션 지속, 브라우저 오류 0건을 확인했다.
 - [x] 2026-07-18 관리자 자동 복구 커밋 `e021457` Republish 후 운영 `/`, `/api/categories`가 `200`, 제거된 `POST /api/debug/login`이 `404`, 비로그인 `/api/admin/sync-alumni/preview`와 `/api/events`가 `401`을 반환했다. 기존 실제 회원 세션의 홈도 정상 로드됐다.
 - [x] Republish 직후 `false`였던 지정 계정의 Production Database `isAdmin`이 운영 카카오 재로그인 뒤 `true`로 자동 복구됐고, 커뮤니티 홈의 `관리자` 표시를 실제 화면에서 확인했다. 관리자 패널 진입 링크는 다음 Republish 후 확인한다.
 - [x] Republish 후 운영 `/`와 `/api/categories`가 `200`, 비로그인 `/api/admin/sync-alumni/preview`, `/api/events`, `POST /api/payments`가 `401`을 반환했다. 제거된 `POST /api/debug/login`과 미등록 `/api/*`는 고정 한국어 JSON `404`를 반환했다.

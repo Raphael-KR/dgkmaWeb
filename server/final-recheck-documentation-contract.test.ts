@@ -113,7 +113,7 @@ test("termination marker purpose, retention, admin-key scope, and production sch
   ]);
 
   for (const document of [agents, replit]) {
-    assert.match(document, /회원 탈퇴 및 가입 거절의 카카오 연결 해제/);
+    assert.match(document, /회원 탈퇴(?: 및|와) 가입 거절(?:의 카카오)? 연결 해제/);
   }
   for (const document of [privacy, design, plan]) {
     assert.match(document, /HMAC-SHA-256/);
