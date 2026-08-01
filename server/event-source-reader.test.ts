@@ -28,6 +28,7 @@ test("reads a URL-only source and appends extracted public text", async () => {
   assert.deepEqual(result.sources, [{
     url: "https://example.com/notice",
     status: "fetched",
+    method: "static-html",
     message: "링크 내용을 불러왔습니다.",
   }]);
 });
@@ -36,6 +37,7 @@ test("renders a supported JavaScript obituary shell before parsing it", async ()
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   let rendered = false;
   const result = await readEventSources(`졸업21기 조은영 ${url}`, {
+    readProviderSource: async () => undefined,
     fetchPage: async () => htmlPage(url, "<main>기억을 품는 공간, 기품</main>"),
     renderPage: async () => {
       rendered = true;
@@ -52,6 +54,51 @@ test("renders a supported JavaScript obituary shell before parsing it", async ()
   assert.match(result.combinedText, /故 조성목/);
   assert.doesNotMatch(result.combinedText, /기억을 품는 공간/);
   assert.equal(result.sources[0]?.status, "fetched");
+});
+
+test("uses a supported provider adapter before static HTML and JavaScript rendering", async () => {
+  const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
+  let fetched = false;
+  let rendered = false;
+  const result = await readEventSources(url, {
+    readProviderSource: async () => "故 김한의\n남/78세\n딸\n김동국",
+    fetchPage: async () => {
+      fetched = true;
+      throw new Error("must not fetch the page");
+    },
+    renderPage: async () => {
+      rendered = true;
+      throw new Error("must not render the page");
+    },
+  });
+
+  assert.equal(fetched, false);
+  assert.equal(rendered, false);
+  assert.match(result.combinedText, /故 김한의/);
+  assert.equal(result.sources[0]?.status, "fetched");
+  assert.equal(result.sources[0]?.method, "provider-api");
+});
+
+test("falls back to the existing renderer when the provider adapter fails", async () => {
+  const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
+  let rendered = false;
+  const result = await readEventSources(url, {
+    readProviderSource: async () => { throw new Error("provider changed"); },
+    fetchPage: async () => htmlPage(url, "<main>기억을 품는 공간, 기품</main>"),
+    renderPage: async () => {
+      rendered = true;
+      return {
+        requestedUrl: url,
+        finalUrl: url,
+        contentType: "text/plain",
+        body: "故 김한의\n남/78세\n딸\n김동국",
+      };
+    },
+  });
+
+  assert.equal(rendered, true);
+  assert.equal(result.sources[0]?.status, "fetched");
+  assert.equal(result.sources[0]?.method, "javascript");
 });
 
 test("does not execute JavaScript for an unsupported source host", async () => {
@@ -72,6 +119,7 @@ test("does not execute JavaScript for an unsupported source host", async () => {
 test("keeps message fallback when a supported JavaScript source cannot render", async () => {
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   const result = await readEventSources(`졸업21기 조은영 ${url}`, {
+    readProviderSource: async () => undefined,
     fetchPage: async () => htmlPage(url, "<div id=\"root\"></div>"),
     renderPage: async () => { throw new Error("browser unavailable"); },
   });

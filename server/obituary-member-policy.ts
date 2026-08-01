@@ -122,6 +122,18 @@ export async function assembleTrustedObituary(
     return { kind: "invalid", missingFields: validatedDraft.missingFields };
   }
 
+  if (
+    validatedDraft.draft.details.relationship === "본인"
+    && normalizeMemberName(validatedDraft.draft.relatedMemberName)
+      !== normalizeMemberName(validatedDraft.draft.details.deceasedName)
+  ) {
+    return {
+      kind: "blocked",
+      message: "본인상은 동문 이름과 고인 이름이 같아야 합니다",
+      missingFields: ["details.deceasedName"],
+    };
+  }
+
   const sources = await resolvePreviewSources(
     validatedDraft.draft,
     requesterId,
