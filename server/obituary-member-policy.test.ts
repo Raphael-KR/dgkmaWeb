@@ -200,3 +200,26 @@ test("an admin must provide an admission year for another member", async () => {
     missingFields: ["admissionYear"],
   });
 });
+
+test("a self obituary is blocked when the member and deceased names differ", async () => {
+  const result = await assembleTrustedObituary(
+    obituaryDraft({
+      title: "김현수 동문 본인상",
+      details: {
+        deceasedName: "김다른",
+        deceasedAge: 80,
+        relationship: "본인",
+        funeralDate: "2026년 10월 30일",
+        funeralHome: "동국장례식장 1호",
+      },
+    }),
+    requesterId,
+    memberStorage(requester),
+  );
+
+  assert.deepEqual(result, {
+    kind: "blocked",
+    message: "본인상은 동문 이름과 고인 이름이 같아야 합니다",
+    missingFields: ["details.deceasedName"],
+  });
+});

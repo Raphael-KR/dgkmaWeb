@@ -5,6 +5,14 @@ import {
 } from "./event-source-policy";
 import { fetchPublicPage, type PublicPageResult } from "./public-page-fetcher";
 import { extractPublicPageText } from "./public-page-text";
+import {
+  isJavaScriptRenderingSupported,
+  renderPublicPage,
+} from "./public-page-renderer";
+import {
+  isGipoomPublicObituaryUrl,
+  readGipoomPublicObituary,
+} from "./gipoom-public-api";
 
 const SOURCE_MESSAGES = {
   fetched: "링크 내용을 불러왔습니다.",
@@ -15,6 +23,7 @@ const SOURCE_MESSAGES = {
 export type EventSourceStatus = {
   url: string;
   status: "fetched" | "unavailable" | "blocked";
+  method?: "provider-api" | "static-html" | "javascript";
   message?: string;
 };
 
@@ -26,6 +35,8 @@ export type EventSourceReadResult = {
 
 export type EventSourceReaderDependencies = {
   fetchPage?: (url: string, signal?: AbortSignal) => Promise<PublicPageResult>;
+  renderPage?: (url: string, signal?: AbortSignal) => Promise<PublicPageResult>;
+  readProviderSource?: (url: string, signal?: AbortSignal) => Promise<string | undefined>;
   extractText?: (page: PublicPageResult) => string;
 };
 
@@ -51,6 +62,10 @@ function withoutSourceUrls(input: string, urls: string[]): string {
   return normalizeSourceText(text);
 }
 
+function hasEventEvidence(text: string): boolean {
+  return /(?:故\s*[가-힣]{2,5}|부고|별세|소천|작고|발인|입관|빈소|장지|상주|고인과의\s*관계)/.test(text);
+}
+
 export async function readEventSources(
   input: string,
   dependencies: EventSourceReaderDependencies = {},
@@ -59,6 +74,11 @@ export async function readEventSources(
   throwIfAborted(signal);
   const urls = extractEventSourceUrls(input);
   const fetchPage = dependencies.fetchPage ?? fetchPublicPage;
+  const renderPage = dependencies.renderPage ?? renderPublicPage;
+  const readProviderSource = dependencies.readProviderSource ?? (async (url, requestSignal) =>
+    isGipoomPublicObituaryUrl(url)
+      ? readGipoomPublicObituary(url, undefined, requestSignal)
+      : undefined);
   const extractText = dependencies.extractText ?? extractPublicPageText;
   const textParts = [withoutSourceUrls(input, urls)].filter(Boolean);
   const sources: EventSourceStatus[] = [];
@@ -67,11 +87,33 @@ export async function readEventSources(
     throwIfAborted(signal);
     try {
       assertSafeSourceUrl(url);
-      const page = await fetchPage(url, signal);
-      const extracted = normalizeSourceText(extractText(page));
+      let extracted = "";
+      let method: EventSourceStatus["method"];
+      try {
+        extracted = normalizeSourceText(await readProviderSource(url, signal) ?? "");
+        if (extracted) method = "provider-api";
+      } catch {
+        throwIfAborted(signal);
+        // A provider adapter is an optimization; the existing page readers remain the fallback.
+      }
+      try {
+        if (!extracted) {
+          const page = await fetchPage(url, signal);
+          extracted = normalizeSourceText(extractText(page));
+          if (extracted) method = "static-html";
+        }
+      } catch (error) {
+        if (!isJavaScriptRenderingSupported(url)) throw error;
+      }
+
+      if (isJavaScriptRenderingSupported(url) && !hasEventEvidence(extracted)) {
+        const renderedPage = await renderPage(url, signal);
+        extracted = normalizeSourceText(extractText(renderedPage));
+        if (extracted) method = "javascript";
+      }
       if (!extracted) throw new Error("empty public page");
       textParts.push(extracted);
-      sources.push({ url, status: "fetched", message: SOURCE_MESSAGES.fetched });
+      sources.push({ url, status: "fetched", method, message: SOURCE_MESSAGES.fetched });
     } catch (error) {
       throwIfAborted(signal);
       const blocked = error instanceof EventSourcePolicyError;
