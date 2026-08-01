@@ -28,6 +28,12 @@
 
 Republish는 배포할 코드와 Production Database 준비가 끝난 뒤 수행합니다. Republish 후에만 운영 홈페이지에서 smoke check와 실제 운영 환경 검증을 진행합니다.
 
+### 공개 링크 JavaScript 렌더링
+
+초기 HTML에 경조사 본문이 없는 승인된 공개 부고 제공자는 서버에서 `puppeteer-core`와 Replit Nix의 `chromium`을 사용해 렌더링합니다. Chromium은 `replit.nix`의 런타임 의존성이며 브라우저 바이너리를 npm 패키지로 내려받지 않습니다. 실행 파일 자동 탐색이 불가능한 환경에서만 서버 전용 `CHROMIUM_PATH`를 선택적으로 설정합니다.
+
+렌더링은 일반 URL 수집 경로가 아닙니다. 코드에 등록된 정확한 출처와 데이터 호스트의 HTTPS 기본 포트만 허용하고, 모든 DNS 응답이 공개 주소인지 확인한 뒤 Chromium의 호스트 해석을 해당 주소로 고정합니다. 그 밖의 호스트는 DNS 단계에서 차단하고 이미지·미디어·폰트 요청도 읽지 않습니다. 새 제공자를 추가할 때는 출처·필요 데이터 호스트·실제 공개 페이지 구조를 각각 회귀 테스트와 Replit 개발 환경에서 검증해야 합니다.
+
 ## GitHub 동기화
 
 GitHub의 `main` 브랜치를 공유 소스 기준으로 사용합니다.

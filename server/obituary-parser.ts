@@ -89,6 +89,7 @@ function extractFuneralDate(text: string): string {
 
 function extractDeceasedAge(text: string): number | undefined {
   const match = text.match(/향년\s*(\d{1,3})\s*세/)
+    ?? text.match(/(?:^|\n)\s*\(?[남여]\s*\/\s*(\d{1,3})\s*세\s*\)?(?=\n|$)/)
     ?? text.match(/(?:^|\n)\s*(\d{1,3})\s*세(?:\s*\/[^\n]*)?(?=\n|$)/);
   if (!match) return undefined;
   const age = Number(match[1]);
@@ -96,10 +97,37 @@ function extractDeceasedAge(text: string): number | undefined {
 }
 
 function extractRelatedMemberName(text: string): string | undefined {
-  const match = text.match(
+  const explicitRelationship = text.match(
     /([가-힣]{2,5})\s*(?:동문|회원)(?:의)?\s*(?:본인|부친|모친|빙부|빙모|장인|장모|시부|시모|자녀|아들|딸)(?:상|께서)/,
   );
-  return match?.[1];
+  if (explicitRelationship) return explicitRelationship[1];
+
+  return text.match(/졸업\s*\d+\s*기\s*([가-힣]{2,5})/)?.[1]
+    ?? text.match(/\d{2,4}\s*학번\s*([가-힣]{2,5})/)?.[1];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function inferRelationshipFromFamilyList(
+  text: string,
+  relatedMemberName: string | undefined,
+): ObituaryDetails["relationship"] | undefined {
+  if (!relatedMemberName) return undefined;
+
+  const gender = text.match(/(?:^|\n)\s*\(?(남|여)\s*\/\s*\d{1,3}\s*세\s*\)?(?=\n|$)/)?.[1]
+    ?? text.match(/(?:^|\n)\s*\d{1,3}\s*세\s*\/\s*(남|여)(?=\s|\n|$)/)?.[1];
+  if (!gender) return undefined;
+
+  const roleMatch = text.match(new RegExp(
+    `(?:^|\\n)\\s*(아들|딸|사위|며느리)\\s*(?:\\n\\s*|\\s+)${escapeRegExp(relatedMemberName)}(?=\\s|\\n|$)`,
+  ));
+  const role = roleMatch?.[1];
+  if (role === "아들" || role === "딸") return gender === "남" ? "부친" : "모친";
+  if (role === "사위") return gender === "남" ? "빙부" : "빙모";
+  if (role === "며느리") return gender === "남" ? "시부" : "시모";
+  return undefined;
 }
 
 function extractDateOfDeath(text: string): string {
@@ -170,12 +198,13 @@ export function parseObituarySms(text: string): Partial<ParsedObituary> {
 
 export function parseObituaryEventSource(text: string): ParsedObituaryEventSource {
   const legacy = parseObituarySms(text);
-  const relationship = legacy.deceasedRelation as ObituaryDetails["relationship"];
   const deceasedAge = extractDeceasedAge(text);
   const funeralDate = extractFuneralDate(text);
   const sourceUrls = extractEventSourceUrls(text);
   const sourceUrl = sourceUrls[0];
   const relatedMemberName = extractRelatedMemberName(text);
+  const relationship = (legacy.deceasedRelation
+    ?? inferRelationshipFromFamilyList(text, relatedMemberName)) as ObituaryDetails["relationship"];
 
   const details: ObituaryDetails = {
     ...(legacy.deceasedName ? { deceasedName: legacy.deceasedName } : {}),

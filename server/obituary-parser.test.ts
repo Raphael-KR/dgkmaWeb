@@ -43,6 +43,38 @@ test("Given a possessive alumni obituary sentence, When parsing, Then it keeps t
   assert.equal(parsed.draft.relatedMemberName, "김동국");
 });
 
+test("infers a father obituary only when a named member is listed as the deceased man's daughter", () => {
+  const parsed = parseObituaryEventSource(`
+졸업21기 조은영
+故 조성목
+(남/78세)
+딸
+조은영
+발인
+2026년 8월 3일 10시 00분
+빈소
+기품장례식장 1호실
+  `.trim());
+
+  assert.equal(parsed.draft.relatedMemberName, "조은영");
+  assert.equal(parsed.draft.details.relationship, "부친");
+  assert.equal(parsed.draft.title, "조은영 동문 부친상");
+});
+
+test("does not infer a relationship from a family role without a matching member hint", () => {
+  const parsed = parseObituaryEventSource("故 조성목\n남/78세\n딸\n조은영");
+
+  assert.equal(parsed.draft.relatedMemberName, undefined);
+  assert.equal(parsed.draft.details.relationship, undefined);
+});
+
+test("does not infer a parent relationship when the deceased sex is absent", () => {
+  const parsed = parseObituaryEventSource("졸업21기 조은영\n故 조성목\n딸\n조은영");
+
+  assert.equal(parsed.draft.relatedMemberName, "조은영");
+  assert.equal(parsed.draft.details.relationship, undefined);
+});
+
 test("maps a standard obituary message into the community-event draft", () => {
   const parsed = parseObituaryEventSource(`
 김동국 동문 부친상
@@ -82,6 +114,12 @@ test("extracts a deceased age without an explicit lifespan label from public obi
   const parsed = parseObituaryEventSource("故김한의\n76세/ 남");
 
   assert.equal(parsed.draft.details.deceasedAge, 76);
+});
+
+test("extracts a deceased age from a parenthesized gender-first public profile", () => {
+  const parsed = parseObituaryEventSource("故김한의\n(남/78세)");
+
+  assert.equal(parsed.draft.details.deceasedAge, 78);
 });
 
 test("skips the obituary section heading when extracting chief mourners", () => {
