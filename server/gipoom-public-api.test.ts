@@ -91,9 +91,8 @@ test("labels a canonical provider relationship for the common obituary parser", 
     }),
   });
 
-  assert.match(text, /관계: 빙부/);
-  assert.equal(
-    parseObituaryEventSource(`졸업21기 김동문\n${text}`).draft.details.relationship,
-    "빙부",
-  );
+  assert.match(text, /김동문 동문 빙부상/);
+  const parsed = parseObituaryEventSource(text);
+  assert.equal(parsed.draft.details.relationship, "빙부");
+  assert.equal(parsed.draft.relatedMemberName, "김동문");
 });

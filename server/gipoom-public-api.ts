@@ -153,7 +153,11 @@ function relationLines(reverseType?: string | null, memberName?: string | null):
     ["자녀", "자녀"],
   ]);
   const relationship = canonical.get(reverseType);
-  if (relationship) return [`관계: ${relationship}`, ...(memberName ? [memberName] : [])];
+  if (relationship) {
+    return memberName
+      ? [`${memberName} 동문 ${relationship}상`]
+      : [`관계: ${relationship}`];
+  }
   return [reverseType, ...(memberName ? [memberName] : [])];
 }
 
