@@ -9,7 +9,7 @@
 - 현재 사용자의 명시적 결정이 최우선이다. 그다음에는 문서의 책임 범위에 따라 아래 canonical 문서를 따른다.
   - `planning_proposal.md`: 제품 비전, 확정 정책, 현재 상태, 우선순위와 완료 조건
   - `replit.md`: Replit 개발·배포·환경변수 운영
-  - `docs/database-schema.md`: 현재 DB 구조와 metadata-only catalog 기준
+  - `docs/database-schema.md`: 현재 DB 구조와 객체별 무결성 기준
   - `docs/database-operations.md`: 개발·운영 DB 선택, 변경, 백업·복구와 검증
   - `walkthrough.md`: 실제 계정과 프로덕션 회귀·smoke check
 - `README.md`는 문서 진입점이고 `CHANGELOG.md`와 `docs/superpowers/`의 설계·계획은 이력 자료다. 이력 자료를 현재 정책보다 우선하지 않는다.
@@ -33,6 +33,7 @@
 
 ## 데이터베이스와 명부
 
+- DB 관련 설계·구현·리뷰 전에는 `docs/database-schema.md`를 기준으로 삼는다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain 또는 runtime DDL/migration이 바뀌면 같은 변경에서 스키마 문서와 metadata-only catalog 재검증을 함께 갱신하며, 누락 시 작업은 미완료로 본다.
 - 모든 직접 DB 작업은 `docs/database-operations.md`를 따른다.
 - Development Database가 기본이다. `server/db.ts`에서는 Replit `PG*` 변수가 `DATABASE_URL`보다 우선하므로 일반 개발, 실행과 테스트에서 이를 해제하지 않는다.
 - Production Database는 명시적인 운영 명령으로만 선택한다. 먼저 `current_database()`와 변경 전 건수를 확인하고, 가능한 경우 트랜잭션을 사용한 뒤 새 연결에서 결과를 검증한다. 반복 조회에는 `PROD_DATABASE_READONLY_URL`을 우선한다.
@@ -53,7 +54,7 @@
 - 현재 인증의 단일 경로는 Kakao Login v5 REST OAuth다. 브라우저는 `/api/auth/kakao/start`로 시작하고 서버만 환경별 REST API key, client secret과 redirect URI를 선택한다. Kakao JavaScript SDK 로그인을 추가하지 않는다.
 - `REPLIT_DEPLOYMENT="1"`은 프로덕션 설정을, 그 외 값은 개발 설정을 선택한다. 개발 callback은 `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`, 프로덕션 callback은 `https://dgkma.org/kakao-callback`이며 Kakao 설정과 정확히 일치해야 한다.
 - 개발 앱 키를 프로덕션과 공유하지 않고 개발 authorization request에 프로덕션 전용 `plusfriends` scope를 추가하지 않는다.
-- Kakao admin key는 서버의 회원 탈퇴 및 가입 거절의 카카오 연결 해제에만 사용한다. 브라우저나 `VITE_` 환경변수에 노출하거나 로그인에 사용하지 않는다.
+- Kakao admin key는 서버의 회원 탈퇴와 가입 거절 연결 해제에만 사용한다. 브라우저나 `VITE_` 환경변수에 노출하거나 로그인에 사용하지 않는다.
 - 환경별 관리자 Kakao ID allowlist는 쉼표로 구분한 양의 숫자만 허용한다. 누락 시 자동 승격하지 않고, 잘못된 값은 원문을 기록하지 않은 채 실패하며, allowlist 밖이라는 이유로 기존 관리자 권한을 자동 회수하지 않는다.
 - 인증 라우트는 `req.session.userId`를 일관되게 사용하고 로그인 성공 후 응답 전에 세션을 저장한다. Replit 프록시를 위한 `app.set("trust proxy", 1)`을 유지한다.
 - 로그인 회원에게 `activityRegion`이 없으면 `/onboarding/region`으로 보낸다.

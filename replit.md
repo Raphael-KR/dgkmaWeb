@@ -78,7 +78,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-최종 원본 전환을 선언하기 전까지 Google Sheets를 동문 명부의 **관리 원본**으로 유지하고, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**으로 운용합니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다. 이 문서는 행 데이터·개인정보·운영 건수를 기록하지 않습니다.
+Google Sheets는 최종 원본 전환을 선언하기 전까지 동문 명부의 **관리 원본**이며, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**입니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다. 이 문서는 행 데이터·개인정보·운영 건수를 기록하지 않습니다.
 
 ### 선택 운영 설정
 
