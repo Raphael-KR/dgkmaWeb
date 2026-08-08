@@ -1,6 +1,6 @@
 # Existing relationship and identity preflight contract
 
-Todo 7 defines the preflight and locked-recheck contract for existing relationship and identity gaps. It does not materialize or apply sequence 20, alter Development or Production, or rewrite source rows. The canonical manifest remains `docs/database-manifest.yaml` at SHA-256 `ea8f0d484b99cf93ffb51f11681e5f62e4474f5bbac1735286f1173c0132e785`.
+Todo 7 defines the preflight and locked-recheck contract for existing relationship and identity gaps. It does not materialize or apply sequence 20, alter Development or Production, or rewrite source rows. The canonical manifest remains `docs/database-manifest.yaml`; its current digest is enforced by the repository validators and artifact descriptors.
 
 ## Exact constraints
 
@@ -10,7 +10,7 @@ Todo 7 defines the preflight and locked-recheck contract for existing relationsh
 
 All FK actions are explicit. No identity row is automatically selected as a winner, merged, deleted, or rewritten by this task.
 
-The canonical manifest currently has an internal representation discrepancy that Todo 7 does not rewrite: its top-level generated `foreign_keys` projection normalizes the existing alumni FK's update action to `RESTRICT`, while the authoritative existing-table alteration fragment and pinned physical baseline say `NO ACTION`. Todo 7 preserves the existing physical action and treats the alteration fragment as the exact brownfield contract. The new community-event FK is unaffected and remains explicitly `SET NULL/RESTRICT`.
+The post-main authority reconciliation removes the former internal representation discrepancy: the manifest's top-level `foreign_keys` projection and existing-table alteration fragment both preserve the physical alumni FK as `ON DELETE NO ACTION ON UPDATE NO ACTION`. The new community-event FK is unaffected and remains explicitly `SET NULL/RESTRICT`.
 
 The pinned baseline is commit `0e299abce9509456de0e8bfe224cb7ef392228d8`, path `docs/database-schema.md`, git blob `ff62cdec5c87794c8888d1d0c758cbdef7958d93`, SHA-256 `6d6fc85bc51ebf00213c76a29a299f28bc619074e1d95e1c621b50cb9dac9778`. Its exact relevant facts are frozen in `server/fixtures/database-architecture/task-7/pinned-baseline.json` so the test remains deterministic in Replit's shallow workspace without fetching or replacing Git history.
 

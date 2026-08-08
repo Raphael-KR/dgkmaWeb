@@ -1566,7 +1566,7 @@ function runTaskEleven(): void {
       fail("task_11_happy_plan_lint_failed");
     }
     if (
-      lintResult.manifest_sha256 !== "ea8f0d484b99cf93ffb51f11681e5f62e4474f5bbac1735286f1173c0132e785" ||
+      lintResult.manifest_sha256 !== "4691d969300653ae13d850c02a411181ed5ec19debece8a2e95bbe0a899db23a" ||
       lintResult.manifest_commit !== "47a9cf63545371ea258fc1c2264acf531fe5facf" ||
       lintResult.owner_decision_count !== 35 ||
       lintResult.accounting_gate_pairs !== 1 ||

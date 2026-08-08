@@ -12,7 +12,7 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "0456ffafd8d7388eafb12371dd851710304cff281f0c6c928da95e0b73afe9be";
+const EXPECTED_PLAN_SHA = "c35973735d8cc5632c2c2e67f154b1ad6c3ce521aa4a9de5350661821edd0252";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -224,10 +224,17 @@ function main(): void {
   const planBytes = readFileSync(PLAN_PATH);
   if (sha256(planBytes) !== EXPECTED_PLAN_SHA) throw new Error("manifest_plan_sha256_mismatch");
   const planLines = planBytes.toString("utf8").split("\n");
+  const additiveStart = planLines.indexOf("Additive alterations to existing tables:") + 1;
+  const additiveEnd = planLines.findIndex((line) => line.startsWith("Every alteration rule token above")) + 1;
+  const newTableStart = planLines.indexOf("New-table manifest:") + 1;
+  const newTableEnd = planLines.findIndex((line) => line.startsWith("UUID ownership is closed")) + 1;
+  if ([additiveStart, additiveEnd, newTableStart, newTableEnd].some((lineNo) => lineNo <= 0)) {
+    throw new Error("manifest_plan_section_boundary_missing");
+  }
   const tableRows = planLines
     .map((line, index) => ({ line, lineNo: index + 1 }))
     .map(({ line, lineNo }) => ({ match: line.match(/^\| `([^`]+)` \| (.*?) \| (.*) \|$/), line, lineNo }))
-    .filter((row) => row.match && row.lineNo >= 133 && row.lineNo <= 187)
+    .filter((row) => row.match && row.lineNo > newTableStart && row.lineNo < newTableEnd)
     .map((row) => {
       const match = row.match!;
       const expanded = expandColumns(match[1], match[2]);
@@ -248,7 +255,7 @@ function main(): void {
   const existingTableAlterations = planLines
     .map((line, index) => ({ line, lineNo: index + 1 }))
     .map(({ line, lineNo }) => ({ match: line.match(/^\| `([^`]+)` \| (.*) \|$/), line, lineNo }))
-    .filter((row) => row.match && row.lineNo >= 112 && row.lineNo <= 124)
+    .filter((row) => row.match && row.lineNo > additiveStart && row.lineNo < additiveEnd)
     .map((row) => ({
       table: row.match![1],
       source_line: row.lineNo,
@@ -308,16 +315,16 @@ function main(): void {
       }}),
   );
   const existingUserFks = [
-    ["posts","author_id","SET NULL","post",27,"explicit"],
-    ["comments","author_id","SET NULL","comment",28,"explicit"],
-    ["obituaries","author_id","SET NULL","obituary",29,"explicit"],
-    ["community_events","author_id","SET NULL","community_event",26,"explicit"],
-    ["payments","user_id","SET NULL","legacy_payment",60,"explicit"],
-    ["alumni_database","matched_user_id","NO ACTION","alumni_database",35,"explicit"],
-    ["event_parse_rate_limits","user_id","CASCADE","event_parse_rate_limit",23,"explicit"],
-    ["association_members","user_id","SET NULL","association_member",150,"explicit"],
-    ["business_operation_receipts","actor_target_user_id","SET NULL","business_operation",20,"mechanical"],
-  ].map(([table,column,on_delete,lockClass,rank,mode]) => ({ table, column, on_delete, on_update: "RESTRICT", class: lockClass, rank, key_projection: ["id"], mechanical_or_explicit: mode }));
+    ["posts","author_id","SET NULL","RESTRICT","post",27,"explicit"],
+    ["comments","author_id","SET NULL","RESTRICT","comment",28,"explicit"],
+    ["obituaries","author_id","SET NULL","RESTRICT","obituary",29,"explicit"],
+    ["community_events","author_id","SET NULL","RESTRICT","community_event",26,"explicit"],
+    ["payments","user_id","SET NULL","RESTRICT","legacy_payment",60,"explicit"],
+    ["alumni_database","matched_user_id","NO ACTION","NO ACTION","alumni_database",35,"explicit"],
+    ["event_parse_rate_limits","user_id","CASCADE","RESTRICT","event_parse_rate_limit",23,"explicit"],
+    ["association_members","user_id","SET NULL","RESTRICT","association_member",150,"explicit"],
+    ["business_operation_receipts","actor_target_user_id","SET NULL","RESTRICT","business_operation",20,"mechanical"],
+  ].map(([table,column,on_delete,on_update,lockClass,rank,mode]) => ({ table, column, on_delete, on_update, class: lockClass, rank, key_projection: ["id"], mechanical_or_explicit: mode }));
 
   const relationshipTargets: Record<string, string> = {
     release_run_id: "schema_release_runs",

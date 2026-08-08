@@ -191,7 +191,7 @@ export function validateRelationshipContract(
   const alumniRegistryFk = (manifest.foreign_keys as Array<Record<string, unknown>> | undefined)?.find((foreignKey) =>
     foreignKey.table === "alumni_database" && JSON.stringify(foreignKey.columns) === JSON.stringify(["matched_user_id"])
   );
-  if (!alumniRegistryFk || alumniRegistryFk.on_delete !== "NO ACTION" || alumniRegistryFk.on_update !== "RESTRICT") fail();
+  if (!alumniRegistryFk || alumniRegistryFk.on_delete !== "NO ACTION" || alumniRegistryFk.on_update !== "NO ACTION") fail();
 
   const schema = readFileSync(schemaPath, "utf8");
   if (!/matchedUserId:\s*integer\("matched_user_id"\)\.references\(\(\) => users\.id\)/.test(schema)) fail();

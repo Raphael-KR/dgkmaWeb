@@ -22,4 +22,4 @@ Any identity blocker empties the complete preview; partial backfill is forbidden
 
 The Development preflight begins `BEGIN TRANSACTION READ ONLY`, is rejected by a generated-query write-keyword guard if it contains DDL/DML, emits blocker codes/row IDs/counts plus exact numeric link IDs, and ends with `ROLLBACK`. Sequence 15/20 materialization remains Todo 16; application and the actor receipt remain Todo 17.
 
-The existing alumni FK physical/pinned contract remains `ON DELETE NO ACTION ON UPDATE NO ACTION`. Its known manifest registry projection drift (`ON UPDATE RESTRICT`) is unchanged here and must be resolved by Todo 16 before materialization.
+The existing alumni FK physical/pinned contract remains `ON DELETE NO ACTION ON UPDATE NO ACTION`. The post-main authority reconciliation makes the manifest registry projection identical, so Todo 16 must preserve those exact actions during materialization.

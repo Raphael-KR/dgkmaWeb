@@ -51,13 +51,13 @@ test("canonical manifest, current source, and pending lifecycle close the Todo 7
   assert.equal(RELATIONSHIP_CONSTRAINTS[3].canonical_expression_sql, "lower(btrim(email))");
 });
 
-test("existing alumni FK follows the pinned alteration while preserving the known manifest registry discrepancy", () => {
+test("existing alumni FK is identical in the pinned alteration and manifest registry", () => {
   const manifest = JSON.parse(readFileSync("docs/database-manifest.yaml", "utf8"));
   const registryFk = manifest.foreign_keys.find((foreignKey: { table: string; columns: string[] }) =>
     foreignKey.table === "alumni_database" && foreignKey.columns.join(",") === "matched_user_id"
   );
   assert.equal(RELATIONSHIP_CONSTRAINTS[0].existing_foreign_key.on_update, "NO ACTION");
-  assert.equal(registryFk.on_update, "RESTRICT");
+  assert.equal(registryFk.on_update, "NO ACTION");
   assert.ok(manifest.existing_table_alterations.find((entry: { table: string; literal_sql_fragments: string[] }) =>
     entry.table === "alumni_database" && entry.literal_sql_fragments.includes("ON DELETE NO ACTION ON UPDATE NO ACTION")
   ));
@@ -166,7 +166,7 @@ test("Development preflight is raw-value read-only and emits only blocker codes 
 test("canonical manifest bytes remain pinned", () => {
   const digest = execFileSync("shasum", ["-a", "256", "docs/database-manifest.yaml"], { encoding: "utf8" })
     .trim().split(/\s+/)[0];
-  assert.equal(digest, "ea8f0d484b99cf93ffb51f11681e5f62e4474f5bbac1735286f1173c0132e785");
+  assert.equal(digest, "4691d969300653ae13d850c02a411181ed5ec19debece8a2e95bbe0a899db23a");
 });
 
 test("Todo 7 harness can select only the no-write alumni sync source test", () => {

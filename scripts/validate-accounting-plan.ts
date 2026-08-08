@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-export const ACCOUNTING_MANIFEST_SHA256 = "ea8f0d484b99cf93ffb51f11681e5f62e4474f5bbac1735286f1173c0132e785";
+export const ACCOUNTING_MANIFEST_SHA256 = "4691d969300653ae13d850c02a411181ed5ec19debece8a2e95bbe0a899db23a";
 export const ACCOUNTING_MANIFEST_COMMIT = "47a9cf63545371ea258fc1c2264acf531fe5facf";
 export const ACCOUNTING_MANIFEST_PATH = "docs/database-manifest.yaml";
 export const GATE_BEGIN = "<!-- ARCHITECTURE_ATTESTATION_GATE_BEGIN v1 -->";
