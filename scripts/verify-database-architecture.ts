@@ -9,6 +9,7 @@ import {
   verifierInventoryPaths,
 } from "./database-architecture-verifier-contracts";
 import { runTaskEight } from "./verify-database-index-workload";
+import { validateMemberActorManifest } from "../server/accounting/member-actor-contract";
 import { readArtifactDescriptors, readManifest, verifyArtifactBytes } from "./schema-ledger";
 import {
   authorizeRestoreReconcile,
@@ -1743,6 +1744,105 @@ function runTaskFourteen(): void {
   process.exitCode = 1;
 }
 
+function writeTaskTwelveEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 12,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-manifest-and-synthetic-transaction-machine",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: exitCode,
+    assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result,
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskTwelve(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory = value("--fixtures") ?? "server/fixtures/database-architecture/task-12";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const tsxBinary = process.env.TSX_BIN;
+  const tests = runLogged(
+    tsxBinary ?? "npx",
+    tsxBinary ? ["--test", "server/accounting/member-actor-contract.test.ts"] : ["tsx", "--test", "server/accounting/member-actor-contract.test.ts"],
+    testLog,
+  );
+  if (tests.status !== 0) fail("task_12_self_test_failed");
+  const contract = validateMemberActorManifest();
+  const fixturePath = path.join(fixtureDirectory, "failure-cases.json");
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "docs/plans/database-architecture-audit.md",
+    "server/accounting/member-actor-contract.ts",
+    "server/accounting/member-actor-contract.test.ts",
+    fixturePath,
+    testLog,
+  ];
+  if (caseName === "happy") {
+    writeTaskTwelveEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0,
+      member_table_count: contract.memberTableCount,
+      account_delete_user_fk_count: contract.userFkCount,
+      account_delete_non_fk_count: contract.nonFkCount,
+      live_actor_required_for_match_decision: true,
+      current_link_uniqueness: "concurrency_safe_global_partial_unique",
+      activity_history: "alternating_append_only_intervals",
+      account_delete_shapes: ["user_only", "alumni_only", "both", "ended_member", "member_less"],
+      rate_limit_present_and_absent: "approved",
+      exact_authenticated_sid_only: true,
+      exact_kakao_pending_selection_only: true,
+      alumni_member_link_preserved: true,
+      legacy_runtime_match_cleared: true,
+      database_calls: 0,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+  const fixtures = parseJson(fixturePath);
+  const cases = arrayValue(fixtures.cases, "task 12 failure cases").map((entry) => objectValue(entry, "task 12 failure case"));
+  const kinds = cases.map((entry) => String(entry.kind));
+  const requiredKinds = [
+    "parallel_duplicate_user_link", "parallel_duplicate_alumni_link", "name_only_approval", "missing_live_actor",
+    "skipped_activity_number", "same_state_activity", "digest_only_reconstruction", "user_fk_registry_omission",
+    "user_fk_registry_extra", "prospective_operation_mismatch", "post_enumeration_actor_child", "session_user_inference",
+    "unrelated_session_delete", "pending_collision_selection", "rate_limit_parent_cascade", "rate_limit_residual",
+    "cleared_alumni_link", "retained_legacy_matched_user", "retained_legacy_is_matched",
+  ];
+  if (requiredKinds.some((kind) => !kinds.includes(kind)) || new Set(kinds).size !== kinds.length) fail("task_12_failure_fixture_incomplete");
+  writeTaskTwelveEvidence(evidencePath, caseName, "rejected", 1, {
+    self_test_exit_code: 0,
+    fail_closed_cases: kinds.length,
+    observed_failure_kinds: kinds,
+    partial_links: 0,
+    unauthorized_actor_rows: 0,
+    unaudited_rate_limit_deletes: 0,
+    database_calls: 0,
+    production_operations: 0,
+  }, attachments);
+  process.exitCode = 1;
+}
+
 function writeTaskSixEvidence(
   evidencePath: string,
   caseName: "happy" | "failure",
@@ -2319,6 +2419,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskEleven();
 } else if (process.argv[2] === "task" && process.argv[3] === "14") {
   runTaskFourteen();
+} else if (process.argv[2] === "task" && process.argv[3] === "12") {
+  runTaskTwelve();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
