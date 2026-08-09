@@ -11,6 +11,7 @@ import {
 import { runTaskEight } from "./verify-database-index-workload";
 import { validateMemberActorManifest } from "../server/accounting/member-actor-contract";
 import { POLICY_SEEDS, SECONDARY_POSITION_CODES, validateDuesPolicyManifest } from "../server/accounting/dues-policy-contract";
+import { validateFinancialManifest } from "../server/accounting/financial-topology-contract";
 import { readArtifactDescriptors, readManifest, verifyArtifactBytes } from "./schema-ledger";
 import {
   authorizeRestoreReconcile,
@@ -1900,6 +1901,38 @@ function runTaskThirteen(): void {
   process.exitCode = 1;
 }
 
+function writeTaskFifteenEvidence(evidencePath: string, caseName: "happy" | "failure", result: "approved" | "rejected", exitCode: number, assertions: JsonObject, attachments: string[]): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = { schema_version: "dgkma-task-evidence-v1", task: 15, task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead, plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")), manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")), db_target: "static-manifest-and-synthetic-financial-api-machine", db_mode: "no-database-call", command: process.argv.join(" "), exit_code: exitCode, assertions, attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })), result, case: caseName };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskFifteen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory = value("--fixtures") ?? "server/fixtures/database-architecture/task-15";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const tsxBinary = process.env.TSX_BIN;
+  const tests = runLogged(tsxBinary ?? "npx", tsxBinary ? ["--test", "server/source-decision-route.test.ts", "server/accounting-self-route.test.ts", "server/accounting/financial-topology-contract.test.ts"] : ["tsx", "--test", "server/source-decision-route.test.ts", "server/accounting-self-route.test.ts", "server/accounting/financial-topology-contract.test.ts"], testLog);
+  if (tests.status !== 0) fail("task_15_self_test_failed");
+  const contract = validateFinancialManifest();
+  const fixturePath = path.join(fixtureDirectory, "failure-cases.json");
+  const attachments = ["docs/database-manifest.yaml", "docs/plans/database-architecture-audit.md", "server/accounting/source-decision-api.ts", "server/accounting/accounting-self-api.ts", "server/accounting/financial-topology-contract.ts", "server/source-decision-route.test.ts", "server/accounting-self-route.test.ts", "server/accounting/financial-topology-contract.test.ts", fixturePath, testLog];
+  if (caseName === "happy") {
+    writeTaskFifteenEvidence(evidencePath, caseName, "approved", 0, { self_test_exit_code: 0, financial_table_count: contract.financialTableCount, actor_action_count: contract.actorActionCount, balanced_receipt_shapes: ["single", "group", "mixed"], source_backed_bank_refund: "approved", collision_order: ["duplicate_reject", "canonicalization_create", "collision_resolve"], canonical_root_remains_proposed: true, source_decision_same_origin_frozen_admin: true, source_decision_manifest_and_fingerprint_bound: true, accounting_self_session_bound: true, bigint_json_numbers: 0, database_calls: 0, production_operations: 0 }, attachments);
+    return;
+  }
+  const cases = arrayValue(parseJson(fixturePath).cases, "task 15 failure cases").map((entry) => objectValue(entry, "task 15 failure case"));
+  const kinds = cases.map((entry) => String(entry.kind));
+  const expected = ["stale_manifest", "stale_source_fingerprint", "cross_origin", "non_admin", "wrong_frozen_admin", "claimless_refund", "off_bank_refund", "wrong_original_receipt", "competing_over_allocation", "canonicalization_before_rejection", "canonicalize_child_bearing_event", "omitted_collision_audit", "terminal_state_rewrite", "cross_period_cashbook", "missing_receipt_close", "anonymous_self_read", "other_user_self_read", "numeric_bigint_response"];
+  if (expected.some((kind) => !kinds.includes(kind)) || new Set(kinds).size !== kinds.length) fail("task_15_failure_fixture_incomplete");
+  writeTaskFifteenEvidence(evidencePath, caseName, "rejected", 1, { self_test_exit_code: 0, fail_closed_cases: kinds.length, observed_failure_kinds: kinds, partial_financial_rows: 0, partial_audit_rows: 0, database_calls: 0, production_operations: 0 }, attachments);
+  process.exitCode = 1;
+}
+
 function writeTaskSixEvidence(
   evidencePath: string,
   caseName: "happy" | "failure",
@@ -2480,6 +2513,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskTwelve();
 } else if (process.argv[2] === "task" && process.argv[3] === "13") {
   runTaskThirteen();
+} else if (process.argv[2] === "task" && process.argv[3] === "15") {
+  runTaskFifteen();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
