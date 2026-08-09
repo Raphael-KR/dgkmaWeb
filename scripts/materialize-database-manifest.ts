@@ -12,7 +12,7 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "c35973735d8cc5632c2c2e67f154b1ad6c3ce521aa4a9de5350661821edd0252";
+const EXPECTED_PLAN_SHA = "a1c1281fb5e4386e1f27d050fd7260fa246229b6dff8d38166f38a08b1913867";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -203,12 +203,55 @@ const logicalSources = [
   ["BANK_TOSS_2026","fabdbcad-1fee-500a-80dd-68405befcaea"],
   ["BANK_IBK_2026","cdcfb582-f1e9-5bf3-91d4-eb1b8271e7c6"],
   ["GROUP_FOREIGN_FACULTY_2025","26a45b1a-fc67-5b1e-aca4-6391dc296bf1"],
-  ["MEMBERSHIP_OFFICER_WORKBOOK","2a03ff19-42e1-5ef3-b796-5e1d852cce5f"],
+  ["MEMBERSHIP_INTEGRATED_ADDRESS_BOOK","5a47bd83-4d99-59bf-8525-7d0f4667ec75"],
   ["AGM36_PERIOD_BOUNDARY","c620bd76-e7ee-5746-a523-5d1468039817"],
-  ["NOTION_22ND_OFFICERS","90cf17e3-15e7-5d84-b328-10cdb643e4df"],
+  ["NOTION_ORGANIZATION_ROLE_HISTORY","75dd7485-9c2b-51a9-845f-e7baa6ba8dc1"],
   ["NOTION_DUES_REGULATION_DRAFT","6dc3cdbe-11b4-538e-b703-ae48ddc6c7db"],
   ["LEGACY_PAYMENTS","6b3099c2-5015-5852-b5af-ab1787bda029"],
 ].map(([source_code, source_uid]) => ({ source_code, source_uid, default_sql: null, uniqueness: "global" }));
+
+const sourceReleaseContracts = [
+  {
+    source_code: "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",
+    source_uid: "5a47bd83-4d99-59bf-8525-7d0f4667ec75",
+    adapter_code: "membership-integrated-address-book-v1",
+    output_family: "member-identity-row-v1",
+    schema_path: "docs/source-contracts/schemas/membership-integrated-address-book-v1.schema.json",
+    module_path: "server/accounting/adapters/membership-integrated-address-book-v1.ts",
+    mapping_path: "docs/source-contracts/mappings/membership-integrated-address-book-v1.json",
+    approval_path: "docs/source-contracts/approvals/membership-integrated-address-book-v1.json",
+    profile_path: "docs/source-contracts/profiles/membership-integrated-address-book.json",
+  },
+  {
+    source_code: "NOTION_ORGANIZATION_ROLE_HISTORY",
+    source_uid: "75dd7485-9c2b-51a9-845f-e7baa6ba8dc1",
+    adapter_code: "notion-organization-role-history-v1",
+    output_family: "role-row-v2",
+    schema_path: "docs/source-contracts/schemas/notion-organization-role-history-v1.schema.json",
+    module_path: "server/accounting/adapters/notion-organization-role-history-v1.ts",
+    mapping_path: "docs/source-contracts/mappings/notion-organization-role-history-v1.json",
+    approval_path: "docs/source-contracts/approvals/notion-organization-role-history-v1.json",
+    profile_path: "docs/source-contracts/profiles/notion-organization-role-history.json",
+  },
+].map((contract) => {
+  const profile = JSON.parse(readFileSync(contract.profile_path, "utf8")) as Record<string, Json>;
+  const approval = JSON.parse(readFileSync(contract.approval_path, "utf8")) as Record<string, Json>;
+  return {
+    source_code: contract.source_code,
+    source_uid: contract.source_uid,
+    adapter_code: contract.adapter_code,
+    adapter_version: "1.0.0",
+    output_family: contract.output_family,
+    released_at: "2026-08-10T00:00:00Z",
+    normalized_schema_sha256: sha256(readFileSync(contract.schema_path)),
+    normalization_implementation_sha256: sha256(readFileSync(contract.module_path)),
+    mapping_table_sha256: sha256(readFileSync(contract.mapping_path)),
+    mapping_approval_receipt_sha256: sha256(readFileSync(contract.approval_path)),
+    source_profile_file_sha256: sha256(readFileSync(contract.profile_path)),
+    source_profile_sha256: profile.profile_sha256,
+    mapping_approval_self_sha256: approval.receipt_sha256,
+  };
+});
 
 function parseActionMap(planLines: string[]): Json[] {
   const line = planLines.find((value) => value.startsWith("- The literal map is exhaustive:"));
@@ -611,6 +654,7 @@ function main(): void {
     existing_table_alterations: existingTableAlterations,
     tables: tableRows,
     logical_source_uuid_registry: logicalSources,
+    source_release_contract_registry: sourceReleaseContracts,
     actor_action_registry: actionMap,
     lock_class_registry: lockClasses.map(([rank, lock_class]) => ({ rank, lock_class })),
     kakao_identity_lock: {

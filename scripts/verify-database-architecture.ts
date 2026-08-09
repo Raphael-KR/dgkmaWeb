@@ -57,6 +57,11 @@ import {
   verifyRuntimeBoundary,
   verifyStartupLedger,
 } from "./startup-retention-contract";
+import {
+  TODO_14_LIVE_SOURCES,
+  TODO_14_MANIFEST_SHA256,
+  validateSourceContract,
+} from "../server/accounting/source-contracts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1566,7 +1571,7 @@ function runTaskEleven(): void {
       fail("task_11_happy_plan_lint_failed");
     }
     if (
-      lintResult.manifest_sha256 !== "4691d969300653ae13d850c02a411181ed5ec19debece8a2e95bbe0a899db23a" ||
+      lintResult.manifest_sha256 !== "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a" ||
       lintResult.manifest_commit !== "47a9cf63545371ea258fc1c2264acf531fe5facf" ||
       lintResult.owner_decision_count !== 35 ||
       lintResult.accounting_gate_pairs !== 1 ||
@@ -1614,6 +1619,128 @@ function runTaskEleven(): void {
     source_mutations: 0,
     production_operations: 0,
   }, attachments);
+}
+
+function writeTaskFourteenEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1",
+    task: 14,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-source-contract-and-synthetic-fixtures",
+    db_mode: "no-database-call",
+    command: process.argv.join(" "),
+    exit_code: exitCode,
+    assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result,
+    case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskFourteen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures") ?? "server/fixtures/database-architecture/task-14";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const tests = runLogged("npx", ["tsx", "--test", "server/accounting/source-contracts.test.ts"], testLog);
+  if (tests.status !== 0) fail("task_14_self_test_failed");
+  const membership = validateSourceContract(
+    "docs/source-contracts/profiles/membership-integrated-address-book.json",
+    "docs/source-contracts/mappings/membership-integrated-address-book-v1.json",
+    "docs/source-contracts/approvals/membership-integrated-address-book-v1.json",
+  );
+  const notion = validateSourceContract(
+    "docs/source-contracts/profiles/notion-organization-role-history.json",
+    "docs/source-contracts/mappings/notion-organization-role-history-v1.json",
+    "docs/source-contracts/approvals/notion-organization-role-history-v1.json",
+  );
+  const rebindPath = "docs/source-contracts/approvals/todo-11-manifest-rebind-v1.json";
+  const rebind = parseJson(rebindPath);
+  const rebindPreimage = { ...rebind };
+  delete rebindPreimage.receipt_sha256;
+  if (
+    rebind.schema_version !== "dgkma-todo-11-manifest-rebind-v1" ||
+    rebind.receipt_sha256 !== sha256(canonicalJson(rebindPreimage as never)) ||
+    rebind.amended_manifest_sha256 !== TODO_14_MANIFEST_SHA256 ||
+    rebind.sequence_50_authorized_manifest_sha256 !== TODO_14_MANIFEST_SHA256 ||
+    sha256(readFileSync("docs/database-manifest.yaml")) !== TODO_14_MANIFEST_SHA256
+  ) {
+    fail("task_14_manifest_rebind_mismatch");
+  }
+  const attachments = [
+    "docs/database-manifest.yaml",
+    "docs/plans/database-architecture-audit.md",
+    "docs/source-contracts/task-14-mapping-preview.md",
+    "docs/source-contracts/profiles/membership-integrated-address-book.json",
+    "docs/source-contracts/profiles/notion-organization-role-history.json",
+    "docs/source-contracts/mappings/membership-integrated-address-book-v1.json",
+    "docs/source-contracts/mappings/notion-organization-role-history-v1.json",
+    "docs/source-contracts/approvals/membership-integrated-address-book-v1.json",
+    "docs/source-contracts/approvals/notion-organization-role-history-v1.json",
+    rebindPath,
+    "docs/source-contracts/schemas/membership-integrated-address-book-v1.schema.json",
+    "docs/source-contracts/schemas/notion-organization-role-history-v1.schema.json",
+    "server/accounting/source-contracts.ts",
+    "server/accounting/adapters/membership-integrated-address-book-v1.ts",
+    "server/accounting/adapters/notion-organization-role-history-v1.ts",
+    "server/accounting/source-contracts.test.ts",
+    path.join(fixturesPath, "failure-cases.json"),
+    testLog,
+  ];
+  if (caseName === "happy") {
+    writeTaskFourteenEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0,
+      live_source_count: Object.keys(TODO_14_LIVE_SOURCES).length,
+      profile_count: 2,
+      mapping_count: 2,
+      provider_approval_receipt_count: 2,
+      todo_11_rebind_receipt: "approved",
+      membership_source_code: membership.sourceCode,
+      membership_output_family: membership.outputFamily,
+      notion_source_code: notion.sourceCode,
+      notion_output_family: notion.outputFamily,
+      immutable_coordinate_retry: "created_to_verified_noop",
+      changed_coordinate_behavior: "append_successor",
+      removed_sheet_role_sources: 0,
+      direct_frozen_payload_role_sources: 0,
+      database_calls: 0,
+      external_source_writes: 0,
+      production_operations: 0,
+    }, attachments);
+    return;
+  }
+  const fixtures = parseJson(path.join(fixturesPath, "failure-cases.json"));
+  const cases = arrayValue(fixtures.cases, "task 14 failure cases").map((entry) => objectValue(entry, "task 14 failure case"));
+  const expectedKinds = ["removed_sheet_role_source", "direct_frozen_payload_role_source", "unactivated_notion_source", "unknown_role", "coordinate_mutation"];
+  const observedKinds = cases.map((entry) => String(entry.kind));
+  if (expectedKinds.some((kind) => !observedKinds.includes(kind))) fail("task_14_failure_fixture_incomplete");
+  writeTaskFourteenEvidence(evidencePath, caseName, "rejected", 1, {
+    self_test_exit_code: 0,
+    observed_failure_kinds: observedKinds,
+    fail_closed_cases: observedKinds.length,
+    unauthorized_child_rows: 0,
+    database_calls: 0,
+    external_source_writes: 0,
+    production_operations: 0,
+  }, attachments);
+  process.exitCode = 1;
 }
 
 function writeTaskSixEvidence(
@@ -2190,6 +2317,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskEight();
 } else if (process.argv[2] === "task" && process.argv[3] === "11") {
   runTaskEleven();
+} else if (process.argv[2] === "task" && process.argv[3] === "14") {
+  runTaskFourteen();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }

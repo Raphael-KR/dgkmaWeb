@@ -47,6 +47,18 @@ function main(): void {
     if (table.contract_sha256 !== sha256(source)) fail("manifest_table_contract_digest_mismatch");
   }
   if (!Array.isArray(value.logical_source_uuid_registry) || value.logical_source_uuid_registry.length !== 10 || new Set(value.logical_source_uuid_registry.map((entry: any) => entry.source_uid)).size !== 10 || value.logical_source_uuid_registry.some((entry: any) => entry.default_sql !== null || entry.uniqueness !== "global")) fail("manifest_logical_source_uuid_closure_mismatch");
+  const sourceReleases = value.source_release_contract_registry;
+  if (!Array.isArray(sourceReleases) || sourceReleases.length !== 2 || new Set(sourceReleases.map((entry: any) => entry.source_code)).size !== 2) fail("manifest_source_release_contract_closure_mismatch");
+  for (const release of sourceReleases) {
+    const base = release.adapter_code === "membership-integrated-address-book-v1"
+      ? { source: "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK", family: "member-identity-row-v1", schema: "docs/source-contracts/schemas/membership-integrated-address-book-v1.schema.json", module: "server/accounting/adapters/membership-integrated-address-book-v1.ts", mapping: "docs/source-contracts/mappings/membership-integrated-address-book-v1.json", approval: "docs/source-contracts/approvals/membership-integrated-address-book-v1.json", profile: "docs/source-contracts/profiles/membership-integrated-address-book.json" }
+      : release.adapter_code === "notion-organization-role-history-v1"
+        ? { source: "NOTION_ORGANIZATION_ROLE_HISTORY", family: "role-row-v2", schema: "docs/source-contracts/schemas/notion-organization-role-history-v1.schema.json", module: "server/accounting/adapters/notion-organization-role-history-v1.ts", mapping: "docs/source-contracts/mappings/notion-organization-role-history-v1.json", approval: "docs/source-contracts/approvals/notion-organization-role-history-v1.json", profile: "docs/source-contracts/profiles/notion-organization-role-history.json" }
+        : fail("manifest_source_release_adapter_unknown");
+    const profile = JSON.parse(readFileSync(base.profile, "utf8"));
+    const approval = JSON.parse(readFileSync(base.approval, "utf8"));
+    if (release.source_code !== base.source || release.output_family !== base.family || release.adapter_version !== "1.0.0" || release.released_at !== "2026-08-10T00:00:00Z" || release.normalized_schema_sha256 !== sha256(readFileSync(base.schema)) || release.normalization_implementation_sha256 !== sha256(readFileSync(base.module)) || release.mapping_table_sha256 !== sha256(readFileSync(base.mapping)) || release.mapping_approval_receipt_sha256 !== sha256(readFileSync(base.approval)) || release.source_profile_file_sha256 !== sha256(readFileSync(base.profile)) || release.source_profile_sha256 !== profile.profile_sha256 || release.mapping_approval_self_sha256 !== approval.receipt_sha256) fail("manifest_source_release_digest_mismatch");
+  }
   if (!Array.isArray(value.actor_action_registry) || value.actor_action_registry.length !== 59) fail("manifest_actor_action_closure_mismatch");
   if (!Array.isArray(value.lock_class_registry) || value.lock_class_registry.length !== 62 || value.lock_class_registry[0].rank !== 10 || value.lock_class_registry.at(-1).rank !== 490) fail("manifest_lock_class_closure_mismatch");
   if (!Array.isArray(value.primary_keys) || value.primary_keys.length !== 55) fail("manifest_primary_key_closure_mismatch");
