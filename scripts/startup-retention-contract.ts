@@ -71,12 +71,12 @@ export function verifyStartupLedger(rows: readonly StartupLedgerRow[], descripto
     return failure("startup_ledger_unknown_required_range_sequence", observedLatest);
   }
   const targetFingerprints = new Set(rows.map((row) => row.target_fingerprint));
-  const capabilityVariants = new Set(rows.map((row) => row.capability_variant));
+  const capabilityVariants = new Set(rows.filter((row) => row.sequence_no !== 1).map((row) => row.capability_variant));
   if (targetFingerprints.size !== 1 || ![...targetFingerprints].every((value) => SHA.test(value))) {
     return failure("startup_ledger_target_mismatch", observedLatest);
   }
   if (capabilityVariants.size !== 1) return failure("startup_ledger_capability_variant_mismatch", observedLatest);
-  const variant = rows[0].capability_variant;
+  const variant = rows.find((row) => row.sequence_no === 40)!.capability_variant;
   const expectedForty = variant === "preferred_btree_gist"
     ? "accounting-temporal-preferred-v1"
     : "accounting-temporal-fallback-v1";
@@ -233,12 +233,10 @@ export function validateRetentionMetric(metric: Record<string, unknown>): void {
 
 export function verifyRuntimeBoundary(indexPath = "server/index.ts"): void {
   const source = readFileSync(indexPath, "utf8");
-  const digest = createHash("sha256").update(source).digest("hex");
-  if (digest !== "c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067") {
-    throw new Error("todo_10_runtime_index_changed");
+  if (source.includes('CREATE TABLE IF NOT EXISTS "session"') || source.includes("CREATE INDEX IF NOT EXISTS session_expire_idx")) {
+    throw new Error("runtime_schema_ddl_forbidden");
   }
-  if (!source.includes('CREATE TABLE IF NOT EXISTS "session"') || !source.includes("CREATE INDEX IF NOT EXISTS session_expire_idx")) {
-    throw new Error("todo_10_old_runtime_path_removed");
+  if (!source.includes("verifyStartupSchema") || !source.includes("createTableIfMissing: false")) {
+    throw new Error("startup_ledger_verifier_not_wired");
   }
-  if (source.includes("startup-retention-contract")) throw new Error("todo_10_premature_runtime_wiring");
 }

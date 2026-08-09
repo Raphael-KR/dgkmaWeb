@@ -141,7 +141,7 @@ function main(): void {
   if (value.round_38_closure?.receipt_payload?.schema_version !== "business-operation-payload-v2" || value.round_38_closure?.nullable_correction_code_columns?.length !== 2 || value.round_38_closure?.receipt_refund_input_pair?.fields?.length !== 2) fail("manifest_round_38_closure_mismatch");
   if (value.kakao_identity_lock?.rank !== 15 || value.kakao_identity_lock?.routes?.length !== 8) fail("manifest_kakao_identity_lock_mismatch");
   const descriptors = readArtifactDescriptors();
-  if (descriptors.filter((entry) => entry.sequence_no !== 1 && entry.materialization_state !== "not_materialized").length !== 0) fail("manifest_future_artifact_materialized");
+  if (descriptors.some((entry) => entry.materialization_state !== "materialized" || entry.artifact_sha256 === null)) fail("manifest_artifact_not_materialized");
   if (descriptors.filter((entry) => entry.sequence_no === 65).some((entry) => entry.required_for_startup || !entry.required_for_production)) fail("manifest_sequence_65_route_mismatch");
   console.log(JSON.stringify({
     schema_version: "dgkma-database-manifest-validation-v1",
@@ -151,7 +151,7 @@ function main(): void {
     account_delete_user_fks: value.account_delete_user_fk_registry.length,
     account_delete_non_fks: value.account_delete_non_fk_registry.length,
     artifact_descriptors: descriptors.length,
-    future_sql_files: 0,
+    materialized_artifacts: descriptors.length,
     result: "approved",
   }));
 }

@@ -137,7 +137,7 @@ test("generated Development query is guarded read-only and produces no schema, b
     () => assertReadOnlyGeneratedSql("BEGIN TRANSACTION READ ONLY;\nUPDATE users SET name='x';\nROLLBACK;\n"),
     /identity_preflight_write_keyword_rejected/,
   );
-  assert.equal(existsSync("migrations/0020_existing_integrity.sql"), false);
+  assert.equal(existsSync("migrations/0020_existing_integrity.sql"), true);
   assert.equal(existsSync("development-admin-approved.json"), false);
 });
 

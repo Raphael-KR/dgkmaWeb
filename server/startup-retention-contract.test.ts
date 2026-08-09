@@ -70,7 +70,7 @@ test("missing, old, drifted, and currently unmaterialized ledgers fail closed", 
   const repositoryDescriptors = readArtifactDescriptors() as StartupDescriptor[];
   assert.equal(
     verifyStartupLedger(ready.ledger_rows, repositoryDescriptors).code,
-    "startup_artifacts_not_materialized",
+    "startup_ledger_exact_version_mismatch",
   );
 });
 
@@ -152,15 +152,13 @@ test("retention metric allowlist rejects identity or secret fields", () => {
   }), /retention_metric_field_not_allowed/);
 });
 
-test("Todo 10 leaves the old runtime schema path byte-identical and unwired", () => {
+test("Todo 16 removes runtime DDL and wires the fail-closed ledger verifier", () => {
   assert.doesNotThrow(() => verifyRuntimeBoundary());
-  const digest = execFileSync("shasum", ["-a", "256", "server/index.ts"], { encoding: "utf8" }).trim().split(/\s+/)[0];
-  assert.equal(digest, "c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067");
   const source = readFileSync("server/index.ts", "utf8");
-  assert.match(source, /CREATE TABLE IF NOT EXISTS "session"/);
-  assert.match(source, /CREATE INDEX IF NOT EXISTS session_expire_idx/);
-  assert.doesNotMatch(source, /startup-retention-contract/);
-  assert.equal(existsSync("migrations/0060_database_security.sql"), false);
+  assert.doesNotMatch(source, /CREATE TABLE IF NOT EXISTS "session"/);
+  assert.doesNotMatch(source, /CREATE INDEX IF NOT EXISTS session_expire_idx/);
+  assert.match(source, /verifyStartupSchema/);
+  assert.equal(existsSync("migrations/manual/0060_database_security.sql"), true);
   assert.equal(
     execFileSync("shasum", ["-a", "256", "docs/database-manifest.yaml"], { encoding: "utf8" }).trim().split(/\s+/)[0],
     STARTUP_MANIFEST_SHA256,

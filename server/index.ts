@@ -2,9 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
-import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { resolveSessionSecret } from "./session-secret";
+import { verifyStartupSchema } from "./startup-schema";
 
 const app = express();
 
@@ -32,7 +32,7 @@ app.use(
     store: new PgSession({
       pool,
       tableName: "session",
-      createTableIfMissing: true,
+      createTableIfMissing: false,
       pruneSessionInterval: 60,
     }),
     secret: sessionSecret,
@@ -70,31 +70,20 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Ensure the session table and expire index exist for efficient pruning queries.
-  // We create the table here so the index can be added immediately, rather than
-  // waiting for connect-pg-simple to create it lazily on first session write.
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS "session" (
-        "sid" varchar NOT NULL COLLATE "default",
-        "sess" json NOT NULL,
-        "expire" timestamp(6) NOT NULL,
-        CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
-      );
-    `);
-    await pool.query(
-      "CREATE INDEX IF NOT EXISTS session_expire_idx ON session (expire);"
-    );
-    log("session_expire_idx index ensured on session table");
-  } catch (err: any) {
-    const msg = `Could not ensure session_expire_idx on session table: ${err.message}`;
-    if (process.env.NODE_ENV === "production") {
-      console.error(`FATAL: ${msg}`);
-      process.exit(1);
+    await verifyStartupSchema(pool);
+    log("database schema ledger verified through sequence 60");
+    if (process.env.DGKMA_STARTUP_LEDGER_ONLY === "1") {
+      await pool.end();
+      log("ledger-only startup verification complete");
+      return;
     }
-    log(`Warning: ${msg}`);
+  } catch (err: any) {
+    console.error(`FATAL: database schema ledger verification failed: ${err.message}`);
+    process.exit(1);
   }
 
+  const { registerRoutes } = await import("./routes");
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

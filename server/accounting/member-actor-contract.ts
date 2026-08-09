@@ -18,7 +18,9 @@ export function validateMemberActorManifest(manifestPath = "docs/database-manife
   if (![tables, foreignKeys, userRegistry, nonFkRegistry].every(Array.isArray)) fail("todo_12_manifest_registry_missing");
   for (const tableName of MEMBER_TABLES) if (!tables.some((entry) => entry.table === tableName)) fail(`todo_12_table_missing:${tableName}`);
   const members = tables.find((entry) => entry.table === "association_members")!;
-  const memberColumns = new Map(members.columns.map((column: Record<string, any>) => [column.name, column]));
+  const memberColumns = new Map<string, Record<string, any>>(
+    members.columns.map((column: Record<string, any>) => [String(column.name), column]),
+  );
   for (const columnName of ["member_uid", "display_name", "generation", "member_kind", "status", "user_id", "alumni_record_id", "recorded_actor_user_id", "recorded_actor_uid_snapshot", "recorded_actor_name_snapshot"]) {
     if (!memberColumns.has(columnName)) fail(`todo_12_member_column_missing:${columnName}`);
   }

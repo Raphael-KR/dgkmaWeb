@@ -100,16 +100,16 @@ test("omitted, extra, duplicate, and unmapped predicates fail closed before DDL"
   assert.throws(() => validateClosedRuleContract("docs/database-manifest.yaml", altered), /unregistered_schema_exception_rule/);
 });
 
-test("Todo 6 defines sequence contracts without materializing future SQL", () => {
-  assert.equal(existsSync("migrations/0015_existing_data_exception_capture.sql"), false);
-  assert.equal(existsSync("migrations/0020_existing_integrity.sql"), false);
+test("Todo 6 definitions remain closed after Todo 16 materializes their SQL", () => {
+  assert.equal(existsSync("migrations/0015_existing_data_exception_capture.sql"), true);
+  assert.equal(existsSync("migrations/0020_existing_integrity.sql"), true);
   for (const descriptorPath of [
     "migrations/artifacts/0015_existing_data_exception_capture.json",
     "migrations/artifacts/0020_existing_integrity.json",
   ]) {
     const descriptor = JSON.parse(readFileSync(descriptorPath, "utf8"));
-    assert.equal(descriptor.materialization_state, "not_materialized");
-    assert.equal(descriptor.artifact_sha256, null);
+    assert.equal(descriptor.materialization_state, "materialized");
+    assert.match(descriptor.artifact_sha256, /^[0-9a-f]{64}$/);
   }
 });
 

@@ -126,15 +126,15 @@ Production read-only 경로는 catalog SELECT만 실행하며 privilege probe나
 
 확장된 스키마 계약은 [`database-manifest.yaml`](database-manifest.yaml)이 단일 기준이다. `scripts/validate-database-manifest.ts`는 canonical serialization, plan digest, 68개 테이블 계약, actor/action·lock·account-delete registry와 artifact descriptor 폐쇄성을 검사한다.
 
-현재 ledger scaffold에서 실제 materialize된 artifact는 sequence 1 `schema-ledger-bootstrap-v1`뿐이다. sequence 10·15·20·30·40·50·60과 선택 sequence 65는 `migrations/artifacts/`에 `not_materialized` descriptor로만 등록되어 있으며 SQL 파일은 없다. Todo 16 전에는 이 descriptor를 실행 가능 artifact로 간주하거나 누락된 SQL을 실행 시점에 생성하지 않는다.
+sequence 1·10·15·20·30·40·50·60과 선택 sequence 65는 모두 체크인된 SQL과 SHA-256 descriptor로 materialize되어 있다. sequence 40은 capability probe에 따라 `preferred_btree_gist` 또는 `deferred_trigger_fallback` 중 정확히 하나를 선택하고, `fallback-test` override는 UUID-bound disposable target에서만 허용한다. 실행기는 누락된 SQL을 실행 시점에 생성하지 않으며 artifact bytes, descriptor, manifest digest 중 하나라도 drift하면 SQL 전에 중단한다.
 
-Development의 Todo 2 확인은 쓰기 없는 다음 명령만 허용한다.
+Development에 대한 현재 안전 확인은 쓰기 없는 다음 명령이다.
 
 ```bash
 npx tsx scripts/apply-schema.ts --target development --dry-run
 ```
 
-이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. sequence 1 실제 적용은 UUID-bound disposable target에서만 수행하며, artifact와 ledger row가 같은 transaction에 commit되고 teardown 후 database 부재를 확인해야 한다. Production target, runtime 객체 변환, 전체 스키마 apply는 이 scaffold의 완료 주장에 포함하지 않는다.
+이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. Todo 16 검증에서는 두 UUID-bound disposable target에 1→10→15→20→30→40→50→60을 적용하고, artifact와 ledger row를 같은 transaction에 commit하며, 재실행이 `verified_noop`인지 확인한 뒤 database 부재를 증명한다. Development 실제 적용과 actor receipt 생성은 Todo 17의 별도 운영 승인 전까지 실행기가 계속 거부한다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
 
 ## 가역 rollout과 복원 검증 계약
 
@@ -194,9 +194,9 @@ PGDATABASE="$restore_database_name" \
   --dbname="$restore_database_name" "$dump_path"
 ```
 
-복원된 DB는 validation-only다. 앱을 시작하거나 일반 migration apply/reapply를 실행하지 않으며, schema ledger fingerprint 비교나 합성 관리자를 만들지 않는다. 정식 sequence 60이 Todo 16에서 materialize된 뒤에도 standalone reconcile은 오직 `migrations/manual/0060_restore_security_reconcile.sql` 전체 파일만 허용한다. migration runner 또는 `0060_database_security.sql`의 파싱된 일부를 재사용하지 않는다.
+복원된 DB는 validation-only다. 앱을 시작하거나 일반 migration apply/reapply를 실행하지 않으며, schema ledger fingerprint 비교나 합성 관리자를 만들지 않는다. Standalone reconcile은 오직 `migrations/manual/0060_restore_security_reconcile.sql` 전체 파일만 허용한다. migration runner 또는 `0060_database_security.sql`의 파싱된 일부를 재사용하지 않는다.
 
-reconcile 전에는 다음 순서를 모두 통과해야 한다: disposable target kind → materialized sequence 60 descriptor → sequence 60 artifact checksum → reconcile checksum → restore receipt binding → statement allowlist. 허용 범위는 owner, ACL, default privileges 복원뿐이다. extension·table·function·trigger·ledger·capability DDL/DML은 금지한다. 하나라도 누락·drift이면 SQL 실행 횟수 0으로 거부한다. 현재 정식 sequence 60과 reconcile SQL은 materialize되지 않았으므로 합성 fixture 외 실행은 항상 거부한다.
+reconcile 전에는 다음 순서를 모두 통과해야 한다: disposable target kind → materialized sequence 60 descriptor → sequence 60 artifact checksum → sequence 60 sidecar에 고정된 reconcile checksum → restore receipt binding → statement allowlist. 허용 범위는 owner, ACL, default privileges 복원뿐이다. extension·table·function·trigger·ledger·capability DDL/DML은 금지한다. 하나라도 누락·drift이면 SQL 실행 횟수 0으로 거부한다. Materialization은 실행 승인이 아니며, 실제 reconcile은 Todo 22의 측정 restore drill 안에서만 허용한다.
 
 statement allowlist는 `REVOKE`나 `ALTER DEFAULT PRIVILEGES` 접두어를 일반 허용하지 않는다. 다음 exact form만 허용한다.
 

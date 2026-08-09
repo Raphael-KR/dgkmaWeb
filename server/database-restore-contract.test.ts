@@ -32,12 +32,13 @@ test("restore receipt schema and descriptor are closed, bound, and explicitly pe
   assert.equal(descriptor.restore_reconcile_path, "migrations/manual/0060_restore_security_reconcile.sql");
   assert.equal(descriptor.readiness, RESTORE_READINESS);
   assert.equal(RESTORE_READINESS, "pending Todo 22 measured drill");
-  assert.equal(existsSync(path.join(root, String(descriptor.restore_reconcile_path))), false);
+  assert.equal(existsSync(path.join(root, String(descriptor.restore_reconcile_path))), true);
 
   const sequence60 = JSON.parse(
     readFileSync(path.join(root, "migrations/artifacts/0060_database_security.json"), "utf8"),
   ) as Record<string, unknown>;
-  assert.equal(sequence60.materialization_state, "not_materialized");
+  assert.equal(sequence60.materialization_state, "materialized");
+  assert.match(String(sequence60.artifact_sha256), /^[0-9a-f]{64}$/);
 });
 
 test("checksum-bound synthetic sequence 60 authorizes only a disposable dry authorization", () => {

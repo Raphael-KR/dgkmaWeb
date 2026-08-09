@@ -109,7 +109,7 @@ export function readManifest(filePath = "docs/database-manifest.yaml"): { bytes:
 export function readArtifactDescriptors(directory = "migrations/artifacts", manifestPath = "docs/database-manifest.yaml"): ArtifactDescriptor[] {
   const manifest = readManifest(manifestPath);
   const descriptors = readdirSync(directory)
-    .filter((name) => name.endsWith(".json"))
+    .filter((name) => /^\d{4}_.+\.json$/.test(name) && !name.endsWith(".restore.json"))
     .sort()
     .map((name) => {
       const filePath = path.join(directory, name);
@@ -128,7 +128,7 @@ export function readArtifactDescriptors(directory = "migrations/artifacts", mani
     if (descriptor.manifest_sha256 !== manifest.sha256) fail("artifact_manifest_checksum_mismatch");
     if (descriptor.kind !== EXPECTED_KINDS.get(descriptor.sequence_no)) fail("artifact_kind_mismatch");
     if (!Array.isArray(descriptor.depends_on) || !["all","exactly_one"].includes(descriptor.dependency_mode)) fail("artifact_dependency_contract_invalid");
-    const expectedState = descriptor.sequence_no === 1 ? "materialized" : "not_materialized";
+    const expectedState = "materialized";
     if (descriptor.materialization_state !== expectedState) fail("artifact_materialization_state_mismatch");
     if (descriptor.sequence_no === 65 && (descriptor.required_for_startup || !descriptor.required_for_production)) fail("artifact_sequence_65_route_mismatch");
     if (descriptor.sequence_no !== 65 && (!descriptor.required_for_startup || !descriptor.required_for_production)) fail("artifact_required_route_mismatch");
@@ -177,6 +177,25 @@ export function schemaLockKey(targetFingerprint: string): bigint {
 export function plannedArtifacts(throughSequence = 1): ArtifactDescriptor[] {
   if (!SEQUENCES.includes(throughSequence)) fail("artifact_requested_boundary_invalid");
   return readArtifactDescriptors().filter((descriptor) => descriptor.sequence_no <= throughSequence);
+}
+
+export type CapabilityVariant = "preferred_btree_gist" | "deferred_trigger_fallback";
+
+export function selectedArtifacts(
+  fromSequence: number,
+  throughSequence: number,
+  variant: CapabilityVariant,
+): ArtifactDescriptor[] {
+  if (!SEQUENCES.includes(throughSequence) || !SEQUENCES.includes(fromSequence) || fromSequence > throughSequence) {
+    fail("artifact_requested_boundary_invalid");
+  }
+  return readArtifactDescriptors().filter((descriptor) => {
+    if (descriptor.sequence_no < fromSequence || descriptor.sequence_no > throughSequence) return false;
+    if (descriptor.sequence_no !== 40) return true;
+    return descriptor.artifact_id === (variant === "preferred_btree_gist"
+      ? "accounting-temporal-preferred-v1"
+      : "accounting-temporal-fallback-v1");
+  });
 }
 
 async function tableExists(pool: Pool): Promise<boolean> {
@@ -267,6 +286,80 @@ export async function applySequenceOne(
     if (options.interruptBeforeCommit) fail("ledger_simulated_interrupt");
     await pool.query("COMMIT");
     return { outcome: "applied", releaseUid };
+  } catch (error) {
+    await pool.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
+}
+
+async function existingLedgerRow(pool: Pool, sequence: number) {
+  const result = await pool.query<{
+    artifact_id: string; artifact_sha256: string; manifest_sha256: string; target_fingerprint: string;
+    artifact_kind: string; capability_variant: string; executor_version: string; release_state: string;
+  }>(`
+    SELECT l.artifact_id, l.artifact_sha256, l.manifest_sha256, l.target_fingerprint,
+           l.artifact_kind, l.capability_variant, l.executor_version, r.state AS release_state
+    FROM public.schema_change_ledger l
+    JOIN public.schema_release_runs r ON r.id=l.release_run_id
+    WHERE l.sequence_no=$1
+  `, [sequence]);
+  if ((result.rowCount ?? 0) > 1) fail("ledger_sequence_duplicate");
+  return result.rows[0] ?? null;
+}
+
+export async function applyArtifact(
+  pool: Pool,
+  target: BootstrapTarget,
+  capability: CapabilityReceipt,
+  descriptor: ArtifactDescriptor,
+  variant: CapabilityVariant,
+): Promise<"applied" | "verified_noop"> {
+  if (descriptor.sequence_no === 1) fail("ledger_sequence_one_requires_bootstrap_path");
+  verifyArtifactBytes(descriptor);
+  const manifest = readManifest();
+  const existing = await existingLedgerRow(pool, descriptor.sequence_no);
+  if (existing) {
+    if (
+      existing.artifact_id !== descriptor.artifact_id || existing.artifact_sha256 !== descriptor.artifact_sha256 ||
+      existing.manifest_sha256 !== manifest.sha256 || existing.target_fingerprint !== target.targetFingerprint ||
+      existing.artifact_kind !== descriptor.kind || existing.capability_variant !== variant ||
+      existing.executor_version !== "schema-ledger-v1" || existing.release_state !== "verified"
+    ) fail("ledger_artifact_drift");
+    return "verified_noop";
+  }
+  const requiredPrevious = descriptor.sequence_no === 10 ? 1
+    : descriptor.sequence_no === 15 ? 10
+    : descriptor.sequence_no === 20 ? 15
+    : descriptor.sequence_no === 30 ? 20
+    : descriptor.sequence_no === 40 ? 30
+    : descriptor.sequence_no === 50 ? 40
+    : descriptor.sequence_no === 60 ? 50 : 60;
+  if (!(await existingLedgerRow(pool, requiredPrevious))) fail("ledger_dependency_missing");
+  const releaseUid = randomUUID();
+  await pool.query("BEGIN");
+  try {
+    await pool.query("SELECT pg_advisory_xact_lock($1::bigint)", [schemaLockKey(target.targetFingerprint).toString()]);
+    if (await existingLedgerRow(pool, descriptor.sequence_no)) fail("ledger_artifact_concurrent_change");
+    const release = await pool.query<{ id: string }>(`
+      INSERT INTO public.schema_release_runs
+        (release_uid,manifest_sha256,target_fingerprint,requested_through_sequence_no,state,started_at,legacy_feature_state,executor_identity,executor_version)
+      VALUES ($1,$2,$3,$4,'applying',clock_timestamp(),'legacy','dgkma-schema-ledger','schema-ledger-v1') RETURNING id::text
+    `, [releaseUid, manifest.sha256, target.targetFingerprint, descriptor.sequence_no]);
+    const receipt = await pool.query<{ id: string }>(`
+      SELECT id::text FROM public.schema_capability_receipts
+      WHERE target_fingerprint=$1 ORDER BY id DESC LIMIT 1
+    `, [target.targetFingerprint]);
+    if (!receipt.rows[0]) fail("ledger_capability_receipt_missing");
+    await pool.query(readFileSync(descriptor.path, "utf8"));
+    await pool.query(`
+      INSERT INTO public.schema_change_ledger
+        (artifact_id,artifact_sha256,artifact_kind,sequence_no,manifest_sha256,release_run_id,target_database,target_fingerprint,capability_receipt_id,capability_variant,executor_version)
+      VALUES ($1,$2,$3,$4,$5,$6,current_database(),$7,$8,$9,'schema-ledger-v1')
+    `, [descriptor.artifact_id, descriptor.artifact_sha256, descriptor.kind, descriptor.sequence_no, manifest.sha256,
+      release.rows[0].id, target.targetFingerprint, receipt.rows[0].id, variant]);
+    await pool.query("UPDATE public.schema_release_runs SET state='verified',finished_at=clock_timestamp() WHERE id=$1", [release.rows[0].id]);
+    await pool.query("COMMIT");
+    return "applied";
   } catch (error) {
     await pool.query("ROLLBACK").catch(() => undefined);
     throw error;

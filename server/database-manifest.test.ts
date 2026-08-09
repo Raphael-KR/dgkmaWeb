@@ -60,19 +60,14 @@ test("descriptor set rejects altered canonical manifest bytes with the same sche
   }
 });
 
-test("artifact descriptors close the sequence registry without future SQL", () => {
+test("artifact descriptors close the fully materialized sequence registry", () => {
   const descriptors = readArtifactDescriptors();
   assert.equal(descriptors.length, 10);
   assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65]);
   for (const descriptor of descriptors) {
-    if (descriptor.sequence_no === 1) {
-      assert.equal(descriptor.materialization_state, "materialized");
-      assert.equal(existsSync(descriptor.path), true);
-    } else {
-      assert.equal(descriptor.materialization_state, "not_materialized");
-      assert.equal(descriptor.artifact_sha256, null);
-      assert.equal(existsSync(descriptor.path), false);
-    }
+    assert.equal(descriptor.materialization_state, "materialized");
+    assert.match(descriptor.artifact_sha256!, /^[0-9a-f]{64}$/);
+    assert.equal(existsSync(descriptor.path), true);
   }
   const sequence65 = descriptors.find((entry) => entry.sequence_no === 65)!;
   assert.equal(sequence65.required_for_startup, false);
@@ -84,5 +79,5 @@ test("standalone manifest validator accepts the committed bytes", () => {
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout.trim());
   assert.equal(output.result, "approved");
-  assert.equal(output.future_sql_files, 0);
+  assert.equal(output.materialized_artifacts, 10);
 });

@@ -130,7 +130,7 @@ test("duplicate, orphan, and blank-email conflicts quarantine deterministically"
   });
 });
 
-test("sequence 15 and locked sequence 20 definitions never merge, delete, or emit DDL", () => {
+test("Todo 7 definitions remain read-only while Todo 16 owns sequence 20 DDL", () => {
   assert.equal(SEQUENCE_15_RELATIONSHIP_QUARANTINE.append_only, true);
   assert.equal(SEQUENCE_15_RELATIONSHIP_QUARANTINE.automatic_merge, false);
   assert.equal(SEQUENCE_15_RELATIONSHIP_QUARANTINE.automatic_delete, false);
@@ -148,7 +148,7 @@ test("sequence 15 and locked sequence 20 definitions never merge, delete, or emi
     assert.match(locked, new RegExp(rule.reason_code));
   }
   assert.doesNotMatch(locked, /^\s*(?:ALTER|CREATE|DROP|TRUNCATE|INSERT|UPDATE|DELETE)\b/im);
-  assert.equal(existsSync("migrations/0020_existing_integrity.sql"), false);
+  assert.equal(existsSync("migrations/0020_existing_integrity.sql"), true);
 });
 
 test("Development preflight is raw-value read-only and emits only blocker codes and row IDs", () => {

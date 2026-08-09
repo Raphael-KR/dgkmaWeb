@@ -1933,6 +1933,72 @@ function runTaskFifteen(): void {
   process.exitCode = 1;
 }
 
+function runTaskSixteen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const target = value("--target");
+  const runCount = Number(value("--runs") ?? "0");
+  const variants = (value("--variants") ?? "").split(",").filter(Boolean);
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const env = { ...process.env };
+  delete env.DATABASE_URL; delete env.PROD_DATABASE_URL; delete env.PROD_DATABASE_READONLY_URL;
+  const log: string[] = [];
+  const invoke = (command: string, args: string[], expected = 0, extraEnv: NodeJS.ProcessEnv = {}) => {
+    const result = spawnSync(command, args, { cwd: process.cwd(), env: { ...env, ...extraEnv }, encoding: "utf8" });
+    log.push(`$ ${command} ${args.join(" ")}`, result.stdout ?? "", result.stderr ?? "");
+    if ((result.status ?? 1) !== expected) fail(`task_16_command_status:${command}:${result.status}`);
+    return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  };
+  const descriptors = readArtifactDescriptors();
+  if (descriptors.some((descriptor) => descriptor.materialization_state !== "materialized")) fail("task_16_artifact_not_materialized");
+  descriptors.forEach((descriptor) => verifyArtifactBytes(descriptor));
+  const sequenceOne = readFileSync("migrations/manual/0001_schema_ledger_bootstrap.sql");
+  if (sha256(sequenceOne) !== descriptors.find((descriptor) => descriptor.sequence_no === 1)!.artifact_sha256) fail("task_16_sequence_one_changed");
+
+  if (caseName === "failure") {
+    const output = invoke("npx", ["tsx","scripts/apply-schema.ts","--target","development","--dry-run","--capability-variant","fallback-test"], 1);
+    if (!output.includes("fallback_test_development_forbidden")) fail("task_16_development_fallback_not_rejected");
+    const source = readFileSync("scripts/apply-schema.ts", "utf8");
+    for (const token of ["actor_receipt_target_mismatch","preferred_btree_gist_unavailable","fallback_test_development_forbidden"]) {
+      if (!source.includes(token)) fail(`task_16_failure_guard_missing:${token}`);
+    }
+    writeFileSync(evidencePath, `${canonicalJson({ schema_version:"dgkma-task-evidence-v1",task:16,case:caseName,
+      task_commit_sha:process.env.TASK_COMMIT_SHA ?? execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),
+      manifest_sha256:readManifest().sha256,db_target:"development-preflight-and-static-guards",db_mode:"zero-schema-write",
+      assertions:{development_fallback_rejected:true,cross_target_receipt_guard:true,forced_preferred_guard:true},result:"rejected" } as never)}\n`);
+    writeFileSync(evidencePath.replace(/\.json$/, "-commands.log"), log.join("\n"));
+    process.exitCode = 1;
+    return;
+  }
+
+  if (target !== "disposable-test" || runCount !== 2 || canonicalJson(variants as never) !== canonicalJson(["auto","fallback-test"] as never)) {
+    fail("task_16_happy_arguments_mismatch");
+  }
+  invoke("npm", ["run","check"]);
+  invoke("npm", ["run","build"]);
+  const summaries: JsonObject[] = [];
+  for (const variant of variants) {
+    const runUid = randomUUID();
+    const receiptPath = path.join(path.dirname(evidencePath), `${runUid}-admin.json`);
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--through-sequence","40","--capability-variant",variant]);
+    invoke("npx", ["tsx","scripts/create-disposable-admin.ts","--target","disposable-test","--run-uid",runUid,"--receipt",receiptPath]);
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","50","--through-sequence","60","--actor-receipt",receiptPath]);
+    invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml"]);
+    invoke("node", ["dist/index.js"], 0, { NODE_ENV:"production", SESSION_SECRET:"disposable-ledger-only-not-a-real-secret", DGKMA_STARTUP_LEDGER_ONLY:"1", DGKMA_DISPOSABLE_RUN_UID:runUid });
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","50","--through-sequence","60","--actor-receipt",receiptPath]);
+    invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml","--teardown"]);
+    summaries.push({ run_uid:runUid, requested_variant:variant, ledger_sequences:[1,10,15,20,30,40,50,60], reapply:"verified_noop", teardown_absent:true });
+  }
+  const logPath = evidencePath.replace(/\.json$/, "-commands.log");
+  writeFileSync(logPath, log.join("\n"));
+  writeFileSync(evidencePath, `${canonicalJson({ schema_version:"dgkma-task-evidence-v1",task:16,case:caseName,
+    task_commit_sha:process.env.TASK_COMMIT_SHA ?? execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),
+    manifest_sha256:readManifest().sha256,db_target:"disposable-test",db_mode:"two-uuid-bound-disposable-runs",
+    assertions:{runs:summaries,artifact_descriptors:descriptors.length,startup_required_through:60,production_operations:0,development_schema_writes:0},
+    attachment_digests:[{path:logPath,sha256:sha256(readFileSync(logPath))}],result:"approved" } as never)}\n`);
+}
+
 function writeTaskSixEvidence(
   evidencePath: string,
   caseName: "happy" | "failure",
@@ -2515,6 +2581,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskThirteen();
 } else if (process.argv[2] === "task" && process.argv[3] === "15") {
   runTaskFifteen();
+} else if (process.argv[2] === "task" && process.argv[3] === "16") {
+  runTaskSixteen();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }

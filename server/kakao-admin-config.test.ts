@@ -74,9 +74,9 @@ test("deployment docs and environment example match the transitional alumni sour
   assert.doesNotMatch(envExample, /^KAKAO_ADMIN_KEY=/m);
   assert.match(envExample, /^KAKAO_DEV_ADMIN_KEY=""$/m);
   assert.match(envExample, /^KAKAO_PROD_ADMIN_KEY=""$/m);
-  assert.match(replitGuide, /Google Sheets를 동문 명부의 \*\*관리 원본\*\*/);
+  assert.match(replitGuide, /Google Sheets[^\n]*동문 명부의 \*\*관리 원본\*\*/);
   assert.match(replitGuide, /PostgreSQL `alumni_database`[^\n]*\*\*런타임 복제본\*\*/);
   assert.doesNotMatch(replitGuide, /아직 Google Sheets 런타임 조회를 사용/);
-  assert.match(proposal, /Google Sheets를 동문 명부의 \*\*관리 원본\*\*/);
+  assert.match(proposal, /Google Sheets[^\n]*동문 명부의 \*\*관리 원본\*\*/);
   assert.match(proposal, /PostgreSQL `alumni_database`[^\n]*\*\*런타임 복제본\*\*/);
 });
