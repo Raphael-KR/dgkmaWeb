@@ -10,6 +10,7 @@ import {
 } from "./database-architecture-verifier-contracts";
 import { runTaskEight } from "./verify-database-index-workload";
 import { validateMemberActorManifest } from "../server/accounting/member-actor-contract";
+import { POLICY_SEEDS, SECONDARY_POSITION_CODES, validateDuesPolicyManifest } from "../server/accounting/dues-policy-contract";
 import { readArtifactDescriptors, readManifest, verifyArtifactBytes } from "./schema-ledger";
 import {
   authorizeRestoreReconcile,
@@ -1843,6 +1844,62 @@ function runTaskTwelve(): void {
   process.exitCode = 1;
 }
 
+function writeTaskThirteenEvidence(
+  evidencePath: string,
+  caseName: "happy" | "failure",
+  result: "approved" | "rejected",
+  exitCode: number,
+  assertions: JsonObject,
+  attachments: string[],
+): void {
+  const currentHead = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const evidence = {
+    schema_version: "dgkma-task-evidence-v1", task: 13,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? currentHead,
+    plan_sha256: sha256(readFileSync("docs/plans/database-architecture-audit.md")),
+    manifest_sha256: sha256(readFileSync("docs/database-manifest.yaml")),
+    db_target: "static-manifest-and-synthetic-policy-machine", db_mode: "no-database-call",
+    command: process.argv.join(" "), exit_code: exitCode, assertions,
+    attachment_digests: attachments.filter(existsSync).sort().map((attachmentPath) => ({ path: attachmentPath, sha256: sha256(readFileSync(attachmentPath)) })),
+    result, case: caseName,
+  };
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  writeFileSync(evidencePath, `${canonicalJson(evidence as never)}\n`);
+}
+
+function runTaskThirteen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixtureDirectory = value("--fixtures") ?? "server/fixtures/database-architecture/task-13";
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const testLog = evidencePath.replace(/\.json$/, "-self-test.log");
+  const tsxBinary = process.env.TSX_BIN;
+  const tests = runLogged(tsxBinary ?? "npx", tsxBinary ? ["--test", "server/accounting/dues-policy-contract.test.ts"] : ["tsx", "--test", "server/accounting/dues-policy-contract.test.ts"], testLog);
+  if (tests.status !== 0) fail("task_13_self_test_failed");
+  const contract = validateDuesPolicyManifest();
+  const fixturePath = path.join(fixtureDirectory, "failure-cases.json");
+  const attachments = ["docs/database-manifest.yaml", "docs/plans/database-architecture-audit.md", "server/accounting/dues-policy-contract.ts", "server/accounting/dues-policy-contract.test.ts", fixturePath, testLog];
+  if (caseName === "happy") {
+    writeTaskThirteenEvidence(evidencePath, caseName, "approved", 0, {
+      self_test_exit_code: 0, policy_table_count: contract.tableCount, draft_policy_seed_count: POLICY_SEEDS.length,
+      secondary_position_code_count: SECONDARY_POSITION_CODES.length, organizational_overlaps_preserved: true,
+      highest_tier_single_tip: true, promotion_appends_successor: true, lower_role_does_not_lower_year: true,
+      general_assembly_chair_2026_tier: "vice_president_auditor_chair", director_display_mapping_count: 6,
+      draft_policy_persisted_tier_rows: 0, draft_policy_persisted_rights_rows: 0,
+      synthetic_resolution_only: true, live_board_activation: 0, database_calls: 0, production_operations: 0,
+    }, attachments);
+    return;
+  }
+  const fixtures = parseJson(fixturePath);
+  const cases = arrayValue(fixtures.cases, "task 13 failure cases").map((entry) => objectValue(entry, "task 13 failure case"));
+  const kinds = cases.map((entry) => String(entry.kind));
+  const expected = ["overlapping_derived_tiers", "unknown_position_mapping", "unapproved_policy_activation", "draft_rights_persistence", "general_assembly_chair_before_2026", "secondary_role_obligation", "unauthorized_21st_override"];
+  if (expected.some((kind) => !kinds.includes(kind)) || new Set(kinds).size !== kinds.length) fail("task_13_failure_fixture_incomplete");
+  writeTaskThirteenEvidence(evidencePath, caseName, "rejected", 1, { self_test_exit_code: 0, fail_closed_cases: kinds.length, observed_failure_kinds: kinds, partial_policy_rows: 0, partial_tier_rows: 0, partial_rights_rows: 0, database_calls: 0, production_operations: 0 }, attachments);
+  process.exitCode = 1;
+}
+
 function writeTaskSixEvidence(
   evidencePath: string,
   caseName: "happy" | "failure",
@@ -2421,6 +2478,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskFourteen();
 } else if (process.argv[2] === "task" && process.argv[3] === "12") {
   runTaskTwelve();
+} else if (process.argv[2] === "task" && process.argv[3] === "13") {
+  runTaskThirteen();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
