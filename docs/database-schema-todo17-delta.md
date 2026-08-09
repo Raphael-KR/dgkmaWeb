@@ -2,6 +2,8 @@
 
 이 문서는 아직 Development Database에 적용되지 않은 Todo 16 생성 산출물의 결정적 변경 목록이다. 현재 검증 상태를 기술하는 `docs/database-schema.md`를 선반영하거나 적용 완료로 간주하지 않는다.
 
+> 운영 적용 차단: sequence 50의 source-release, bank-account/source-map, draft policy/mapping seed 폐쇄성이 Todo 17 계약과 일치하고 전체 catalog 검증이 이를 재현하기 전에는 이 산출물을 Development에 적용하지 않는다.
+
 - sequence 10: 현재 13개 애플리케이션 테이블의 빈 disposable baseline을 재현한다.
 - sequence 15: 기존 데이터의 `pre_anchor_blocking` 및 `legacy_not_valid` 예외를 append-only로 캡처한다.
 - sequence 20: pre-anchor 차단을 재확인하고 기존 테이블 무결성 및 네 개의 legacy payment `NOT VALID` CHECK를 적용한다.
