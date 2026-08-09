@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-export const STARTUP_MANIFEST_SHA256 = "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a";
+export const STARTUP_MANIFEST_SHA256 = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
 export const STARTUP_EXECUTOR_VERSION = "schema-ledger-v1";
 export const STARTUP_REQUIRED_SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60] as const;
 export const STARTUP_LATEST_REQUIRED = { sequence_no: 60, artifact_id: "database-security-v1" } as const;

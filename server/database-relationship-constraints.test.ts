@@ -166,7 +166,7 @@ test("Development preflight is raw-value read-only and emits only blocker codes 
 test("canonical manifest bytes remain pinned", () => {
   const digest = execFileSync("shasum", ["-a", "256", "docs/database-manifest.yaml"], { encoding: "utf8" })
     .trim().split(/\s+/)[0];
-  assert.equal(digest, "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a");
+  assert.equal(digest, "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8");
 });
 
 test("Todo 7 harness can select only the no-write alumni sync source test", () => {

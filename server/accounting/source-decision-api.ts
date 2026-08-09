@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 export const SOURCE_DECISION_SCHEMA_VERSION = "source-decision-command-v1";
-const MANIFEST_SHA = "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a";
+const MANIFEST_SHA = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
 const COMMAND_KEYS = ["decision", "manifestSha256", "operationUid", "replacementDecisionSetUid", "replacementItems", "replacementManifest", "replacementManifestSha256", "schemaVersion", "sourceFingerprint"].sort();
 
 function fail(code: string): never { throw new Error(code); }

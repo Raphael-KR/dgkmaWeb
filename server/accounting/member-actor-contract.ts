@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-export const TODO_12_MANIFEST_SHA256 = "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a";
+export const TODO_12_MANIFEST_SHA256 = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
 const MEMBER_TABLES = ["association_members", "member_match_cases", "member_match_candidates", "member_identity_link_history"] as const;
 
 function fail(code: string): never { throw new Error(code); }

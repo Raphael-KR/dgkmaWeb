@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 function fail(code: string): never { throw new Error(code); }
-const MANIFEST_SHA = "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a";
+const MANIFEST_SHA = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
 const FINANCIAL_TABLES = [
   "economic_event_parties", "economic_event_party_aliases", "economic_event_claims", "economic_event_provenance",
   "economic_event_authority_decisions", "economic_event_canonicalizations", "economic_event_collisions", "economic_events",

@@ -134,7 +134,7 @@ Development에 대한 현재 안전 확인은 쓰기 없는 다음 명령이다.
 npx tsx scripts/apply-schema.ts --target development --dry-run
 ```
 
-이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. Todo 16 검증에서는 두 UUID-bound disposable target에 1→10→15→20→30→40→50→60을 적용하고, artifact와 ledger row를 같은 transaction에 commit하며, 재실행이 `verified_noop`인지 확인한 뒤 database 부재를 증명한다. Development 실제 적용과 actor receipt 생성은 Todo 17의 별도 운영 승인 전까지 실행기가 계속 거부한다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
+이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. Todo 16 검증에서는 두 UUID-bound disposable target에 1→10→15→20→30→40→50→60을 적용하고, artifact와 ledger row를 같은 transaction에 commit한다. Catalog는 sequence 50의 exact count `logical sources=10, releases=2, deferred historical releases=0, bank accounts/maps=2/2, draft policies/mappings/categories=16/46/6`와 승인된 두 adapter code만 허용하며, 재실행 `verified_noop`과 최종 database 부재를 증명한다. Development 실제 적용과 actor receipt 생성은 Todo 17의 별도 운영 승인 전까지 실행기가 계속 거부한다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
 
 ## 가역 rollout과 복원 검증 계약
 

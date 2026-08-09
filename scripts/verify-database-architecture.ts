@@ -1574,7 +1574,7 @@ function runTaskEleven(): void {
       fail("task_11_happy_plan_lint_failed");
     }
     if (
-      lintResult.manifest_sha256 !== "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a" ||
+      lintResult.manifest_sha256 !== "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8" ||
       lintResult.manifest_commit !== "47a9cf63545371ea258fc1c2264acf531fe5facf" ||
       lintResult.owner_decision_count !== 35 ||
       lintResult.accounting_gate_pairs !== 1 ||
@@ -1678,11 +1678,20 @@ function runTaskFourteen(): void {
   const rebind = parseJson(rebindPath);
   const rebindPreimage = { ...rebind };
   delete rebindPreimage.receipt_sha256;
+  const amendmentPath = "docs/source-contracts/approvals/sequence-50-release-scope-amendment-v1.json";
+  const amendment = parseJson(amendmentPath);
+  const amendmentPreimage = { ...amendment };
+  delete amendmentPreimage.receipt_sha256;
   if (
     rebind.schema_version !== "dgkma-todo-11-manifest-rebind-v1" ||
     rebind.receipt_sha256 !== sha256(canonicalJson(rebindPreimage as never)) ||
-    rebind.amended_manifest_sha256 !== TODO_14_MANIFEST_SHA256 ||
-    rebind.sequence_50_authorized_manifest_sha256 !== TODO_14_MANIFEST_SHA256 ||
+    amendment.schema_version !== "dgkma-sequence-50-release-scope-amendment-v1" ||
+    amendment.receipt_sha256 !== sha256(canonicalJson(amendmentPreimage as never)) ||
+    amendment.prior_manifest_sha256 !== rebind.amended_manifest_sha256 ||
+    amendment.amended_manifest_sha256 !== TODO_14_MANIFEST_SHA256 ||
+    amendment.source_mapping_receipts_unchanged !== true ||
+    amendment.logical_source_identity_count !== 10 || amendment.source_release_count !== 2 ||
+    amendment.deferred_historical_release_count !== 8 ||
     sha256(readFileSync("docs/database-manifest.yaml")) !== TODO_14_MANIFEST_SHA256
   ) {
     fail("task_14_manifest_rebind_mismatch");
@@ -1698,6 +1707,7 @@ function runTaskFourteen(): void {
     "docs/source-contracts/approvals/membership-integrated-address-book-v1.json",
     "docs/source-contracts/approvals/notion-organization-role-history-v1.json",
     rebindPath,
+    amendmentPath,
     "docs/source-contracts/schemas/membership-integrated-address-book-v1.schema.json",
     "docs/source-contracts/schemas/notion-organization-role-history-v1.schema.json",
     "server/accounting/source-contracts.ts",
@@ -1944,10 +1954,14 @@ function runTaskSixteen(): void {
   const env = { ...process.env };
   delete env.DATABASE_URL; delete env.PROD_DATABASE_URL; delete env.PROD_DATABASE_READONLY_URL;
   const log: string[] = [];
+  const commandLogPath = evidencePath.replace(/\.json$/, "-commands.log");
   const invoke = (command: string, args: string[], expected = 0, extraEnv: NodeJS.ProcessEnv = {}) => {
     const result = spawnSync(command, args, { cwd: process.cwd(), env: { ...env, ...extraEnv }, encoding: "utf8" });
     log.push(`$ ${command} ${args.join(" ")}`, result.stdout ?? "", result.stderr ?? "");
-    if ((result.status ?? 1) !== expected) fail(`task_16_command_status:${command}:${result.status}`);
+    if ((result.status ?? 1) !== expected) {
+      writeFileSync(commandLogPath, log.join("\n"));
+      fail(`task_16_command_status:${command}:${result.status}`);
+    }
     return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
   };
   const descriptors = readArtifactDescriptors();
@@ -1967,7 +1981,7 @@ function runTaskSixteen(): void {
       task_commit_sha:process.env.TASK_COMMIT_SHA ?? execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),
       manifest_sha256:readManifest().sha256,db_target:"development-preflight-and-static-guards",db_mode:"zero-schema-write",
       assertions:{development_fallback_rejected:true,cross_target_receipt_guard:true,forced_preferred_guard:true},result:"rejected" } as never)}\n`);
-    writeFileSync(evidencePath.replace(/\.json$/, "-commands.log"), log.join("\n"));
+    writeFileSync(commandLogPath, log.join("\n"));
     process.exitCode = 1;
     return;
   }
@@ -1990,7 +2004,7 @@ function runTaskSixteen(): void {
     invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml","--teardown"]);
     summaries.push({ run_uid:runUid, requested_variant:variant, ledger_sequences:[1,10,15,20,30,40,50,60], reapply:"verified_noop", teardown_absent:true });
   }
-  const logPath = evidencePath.replace(/\.json$/, "-commands.log");
+  const logPath = commandLogPath;
   writeFileSync(logPath, log.join("\n"));
   writeFileSync(evidencePath, `${canonicalJson({ schema_version:"dgkma-task-evidence-v1",task:16,case:caseName,
     task_commit_sha:process.env.TASK_COMMIT_SHA ?? execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),

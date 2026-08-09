@@ -136,21 +136,129 @@ function temporalVariant(preferred: boolean): string {
   return `${(value.ranges as any[]).map((range) => `ALTER TABLE public.${q(range.table)} ADD CONSTRAINT ${q(`${range.table}__range_valid__check`)} CHECK (${range.check_sql});`).join("\n")}\n`;
 }
 
-const sourceSeeds = (value.logical_source_uuid_registry as any[]).map((source) => {
-  const sourceKind = source.source_code.startsWith("NOTION_") ? "notion"
-    : source.source_code.startsWith("BANK_") ? "bank_export"
-    : source.source_code === "LEGACY_PAYMENTS" ? "legacy_database"
-    : "managed_document";
-  const authorityRole = source.source_code === "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK" ? "member_identity"
-    : source.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" ? "organization_role" : "supporting_evidence";
+type LogicalSourceSeed = {
+  source_code: string; source_uid: string; source_kind: string; source_locator: string; display_name: string;
+  authority_role: string; event_authority_rank: number; source_timezone: string; valid_from: string | null; valid_to: string | null;
+};
+const logicalSourceDetails: LogicalSourceSeed[] = [
+  { source_code:"LEDGER_FINAL_2022_2025", source_uid:"73f14b07-62dc-5643-b56e-533d4415f5aa", source_kind:"google_sheet", source_locator:"spreadsheet:1aStEZeCSHIUqS4W81umlW8B3pMCJpx-u5Oe_IHcD49k", display_name:"2022–2025 결산장부", authority_role:"economic_event", event_authority_rank:400, source_timezone:"Asia/Seoul", valid_from:"2022-01-01", valid_to:"2026-01-01" },
+  { source_code:"LEDGER_DUES_POLICY_2024_2025", source_uid:"256fcd87-840f-537d-8204-6a5f7ee3947e", source_kind:"google_sheet", source_locator:"spreadsheet:1aStEZeCSHIUqS4W81umlW8B3pMCJpx-u5Oe_IHcD49k;ranges:회비수입!O2:O7,회비수입!O9:O14", display_name:"2024–2025 회비규정", authority_role:"policy", event_authority_rank:0, source_timezone:"Asia/Seoul", valid_from:"2024-01-01", valid_to:"2026-01-01" },
+  { source_code:"BANK_TOSS_2026", source_uid:"fabdbcad-1fee-500a-80dd-68405befcaea", source_kind:"bank_sheet", source_locator:"spreadsheet:1d9C3cMd_0MomQtF5cfAk-9doVKRxsy8OKiO1MqvYqA0;sheet:토스뱅크(1/1~3/16)", display_name:"2026 토스 거래", authority_role:"bank", event_authority_rank:300, source_timezone:"Asia/Seoul", valid_from:"2026-01-01", valid_to:"2026-03-17" },
+  { source_code:"BANK_IBK_2026", source_uid:"cdcfb582-f1e9-5bf3-91d4-eb1b8271e7c6", source_kind:"bank_sheet", source_locator:"spreadsheet:1d9C3cMd_0MomQtF5cfAk-9doVKRxsy8OKiO1MqvYqA0;sheet:기업은행(3/16~)", display_name:"2026 기업 거래", authority_role:"bank", event_authority_rank:300, source_timezone:"Asia/Seoul", valid_from:"2026-03-16", valid_to:null },
+  { source_code:"GROUP_FOREIGN_FACULTY_2025", source_uid:"26a45b1a-fc67-5b1e-aca4-6391dc296bf1", source_kind:"google_sheet", source_locator:"spreadsheet:1s8x9Oli94iD0Dwx1OYedmKbwSBRPkvcg3tjCML6iHPY", display_name:"외래교수회 단체배분", authority_role:"allocation_evidence", event_authority_rank:0, source_timezone:"Asia/Seoul", valid_from:"2025-01-01", valid_to:"2026-03-01" },
+  { source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK", source_uid:"5a47bd83-4d99-59bf-8525-7d0f4667ec75", source_kind:"google_sheet", source_locator:"spreadsheet:1YBu0MtJ3lt2AB1-DB3-u7NP-TSgehKmGK3Ox4PJCzLw;sheet:876761083", display_name:"통합주소록 회원 편집 원본", authority_role:"member_identity", event_authority_rank:0, source_timezone:"Asia/Seoul", valid_from:null, valid_to:null },
+  { source_code:"AGM36_PERIOD_BOUNDARY", source_uid:"c620bd76-e7ee-5746-a523-5d1468039817", source_kind:"notion", source_locator:"payload:docs/source-authority/22nd-officers.json#AGM36_CLOSE", display_name:"제36차 총회 폐회 경계", authority_role:"period_boundary", event_authority_rank:0, source_timezone:"Asia/Seoul", valid_from:"2026-01-01", valid_to:null },
+  { source_code:"NOTION_ORGANIZATION_ROLE_HISTORY", source_uid:"75dd7485-9c2b-51a9-845f-e7baa6ba8dc1", source_kind:"notion", source_locator:"data-source:dae9352c-122b-4902-bdb8-31328c35940f", display_name:"조직·직책 이력 편집 원본", authority_role:"role_history", event_authority_rank:0, source_timezone:"Asia/Seoul", valid_from:null, valid_to:null },
+  { source_code:"NOTION_DUES_REGULATION_DRAFT", source_uid:"6dc3cdbe-11b4-538e-b703-ae48ddc6c7db", source_kind:"notion", source_locator:"page:3aa2225d9c4d8188b661ce08b2cfed2f", display_name:"회비규정 미의결안", authority_role:"policy", event_authority_rank:0, source_timezone:"Asia/Seoul", valid_from:null, valid_to:null },
+  { source_code:"LEGACY_PAYMENTS", source_uid:"6b3099c2-5015-5852-b5af-ab1787bda029", source_kind:"legacy_table", source_locator:"public.payments", display_name:"기존 결제 호환 증거", authority_role:"compatibility", event_authority_rank:200, source_timezone:"batch-captured", valid_from:"2024-01-01", valid_to:null },
+];
+const uuidRegistry = new Map((value.logical_source_uuid_registry as any[]).map((source) => [source.source_code, source.source_uid]));
+if (logicalSourceDetails.length !== 10 || logicalSourceDetails.some((source) => uuidRegistry.get(source.source_code) !== source.source_uid)) {
+  throw new Error("logical_source_seed_registry_mismatch");
+}
+const sourceSeeds = logicalSourceDetails.map((source) => {
+  const contractFingerprint = hash(canonicalJson({ digest_version:"logical-source-v1", source_uid:source.source_uid,
+    source_code:source.source_code, source_kind:source.source_kind, source_locator:source.source_locator,
+    display_name:source.display_name, authority_role:source.authority_role, event_authority_rank:source.event_authority_rank,
+    source_timezone:source.source_timezone, valid_from:source.valid_from, valid_to:source.valid_to, status:"active" }));
   return `INSERT INTO public.accounting_logical_sources
     (source_uid,source_code,display_name,source_kind,source_locator,source_timezone,authority_role,event_authority_rank,
      contract_fingerprint,status,valid_from,valid_to,recorded_actor_user_id,recorded_actor_uid_snapshot,
      recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,recorded_actor_correlation_uid,recorded_actor_authorization_version)
-  SELECT ${literal(source.source_uid)}::uuid,${literal(source.source_code)},${literal(source.source_code)},${literal(sourceKind)},
-         ${literal(`registry:${source.source_code}`)},'Asia/Seoul',${literal(authorityRole)},10,${literal(manifest.sha256)},'active',NULL,NULL,
+  SELECT ${literal(source.source_uid)}::uuid,${literal(source.source_code)},${literal(source.display_name)},${literal(source.source_kind)},
+         ${literal(source.source_locator)},${literal(source.source_timezone)},${literal(source.authority_role)},${source.event_authority_rank},${literal(contractFingerprint)},'active',${source.valid_from ? `DATE ${literal(source.valid_from)}` : "NULL"},${source.valid_to ? `DATE ${literal(source.valid_to)}` : "NULL"},
          id,user_uid,name,'migration_admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
   FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1 ON CONFLICT DO NOTHING;`;
+}).join("\n");
+
+const releaseSeeds = (value.source_release_contract_registry as any[]).map((release) => `INSERT INTO public.accounting_source_releases
+  (release_uid,logical_source_id,adapter_code,adapter_version,normalized_schema_sha256,normalization_implementation_sha256,
+   mapping_table_sha256,mapping_approval_receipt_sha256,released_at,status,recorded_actor_user_id,
+   recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,
+   recorded_actor_correlation_uid,recorded_actor_authorization_version)
+ SELECT gen_random_uuid(),source.id,${literal(release.adapter_code)},${literal(release.adapter_version)},${literal(release.normalized_schema_sha256)},
+        ${literal(release.normalization_implementation_sha256)},${literal(release.mapping_table_sha256)},
+        ${literal(release.mapping_approval_receipt_sha256)},TIMESTAMPTZ ${literal(release.released_at)},'active',actor.id,
+        actor.user_uid,actor.name,'migration_admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+ FROM public.accounting_logical_sources source CROSS JOIN LATERAL
+      (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+ WHERE source.source_code=${literal(release.source_code)} ON CONFLICT DO NOTHING;`).join("\n");
+
+const bankAccounts = [
+  ["TOSS_OFFICER_2026","TOSS","reported_officer","2026-01-01","2026-03-17"],
+  ["IBK_ASSOCIATION_2026","IBK","association","2026-03-16",null],
+].map(([code,institution,owner,from,to]) => `INSERT INTO public.bank_accounts
+  (account_code,institution_code,masked_identifier,owner_kind,active_from,active_to,recorded_actor_user_id,
+   recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,
+   recorded_actor_correlation_uid,recorded_actor_authorization_version)
+ SELECT ${literal(code!)},${literal(institution!)},'미수집',${literal(owner!)},DATE ${literal(from!)},${to ? `DATE ${literal(to)}` : "NULL"},
+        id,user_uid,name,'migration_admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+ FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1 ON CONFLICT DO NOTHING;`).join("\n");
+
+const bankMappings = [
+  ["BANK_TOSS_2026","TOSS_OFFICER_2026"], ["BANK_IBK_2026","IBK_ASSOCIATION_2026"],
+].map(([sourceCode,accountCode]) => `INSERT INTO public.bank_source_account_mappings
+  (logical_source_id,account_id,source_code_snapshot,account_code_snapshot,recorded_actor_user_id,
+   recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,
+   recorded_actor_correlation_uid,recorded_actor_authorization_version)
+ SELECT source.id,account.id,source.source_code,account.account_code,actor.id,actor.user_uid,actor.name,'migration_admin',
+        clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+ FROM public.accounting_logical_sources source JOIN public.bank_accounts account ON account.account_code=${literal(accountCode)}
+ CROSS JOIN LATERAL (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+ WHERE source.source_code=${literal(sourceCode)} ON CONFLICT DO NOTHING;`).join("\n");
+
+const basePolicies = [
+  ["president",500,100000,1200000], ["senior_vice_president",400,50000,600000],
+  ["vice_president_auditor_chair",300,30000,400000], ["director",200,10000,200000],
+] as const;
+const policyRows = [2024,2025,2026].flatMap((year) => [
+  ...basePolicies.map(([tier,priority,monthly,annual]) => ({year,tier,priority,monthly,annual})),
+  {year,tier:"member",priority:100,monthly:year === 2024 ? 1000 : 2000,annual:year === 2024 ? 20000 : 50000},
+  ...(year === 2026 ? [{year,tier:"honorary",priority:0,monthly:0,annual:0}] : []),
+]);
+const policySeeds = policyRows.map((policy) => {
+  const sourceCode = policy.year < 2026 ? "LEDGER_DUES_POLICY_2024_2025" : "NOTION_DUES_REGULATION_DRAFT";
+  return `INSERT INTO public.dues_policies
+  (dues_year,tier_code,priority,monthly_minimum,annual_minimum,due_day,reminder_day,status,source_logical_id,
+   source_row_version_id,resolution_ref,effective_at,version,supersedes_id,recorded_actor_user_id,
+   recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,
+   recorded_actor_correlation_uid,recorded_actor_authorization_version)
+ SELECT ${policy.year},${literal(policy.tier)},${policy.priority},${policy.monthly},${policy.annual},10,11,'draft',source.id,
+        NULL,NULL,TIMESTAMPTZ ${literal(`${policy.year}-01-01T00:00:00+09:00`)},1,NULL,actor.id,actor.user_uid,actor.name,'admin',
+        clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+ FROM public.accounting_logical_sources source CROSS JOIN LATERAL
+      (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+ WHERE source.source_code=${literal(sourceCode)} ON CONFLICT DO NOTHING;`;
+}).join("\n");
+
+const obligationMappings = [
+  ["president","president",500], ["senior_vice_president","senior_vice_president",400],
+  ["vice_president","vice_president_auditor_chair",300], ["auditor","vice_president_auditor_chair",300],
+  ["general_affairs_director","director",200], ["planning_director","director",200], ["legal_director","director",200],
+  ["external_cooperation_director","director",200], ["public_relations_director","director",200], ["director","director",200],
+  ["member","member",100],
+] as const;
+const secondaryMappings = ["busan_branch_president","busan_branch_vice_president","busan_branch_general_affairs","busan_branch_finance",
+  "class_1_captain","class_3_captain","class_7_captain","class_41_captain","class_41_vice_captain","class_42_captain","class_42_vice_captain"];
+const mappingRows = [2024,2025,2026].flatMap((year) => [
+  ...obligationMappings.map(([position,tier,priority]) => ({year,position,tier,priority,adds:true})),
+  ...(year === 2026 ? [{year,position:"general_assembly_chair",tier:"vice_president_auditor_chair",priority:300,adds:true},
+    {year,position:"member_kind:honorary",tier:"honorary",priority:0,adds:true},
+    ...secondaryMappings.map((position) => ({year,position,tier:null,priority:0,adds:false}))] : []),
+]);
+const mappingSeeds = mappingRows.map((mapping) => {
+  const sourceCode = mapping.year < 2026 ? "LEDGER_DUES_POLICY_2024_2025" : "NOTION_DUES_REGULATION_DRAFT";
+  return `INSERT INTO public.dues_position_tier_mappings
+  (dues_year,position_code,tier_code,policy_id,priority,adds_obligation,status,source_logical_id,source_row_version_id,
+   effective_at,version,supersedes_id,recorded_actor_user_id,recorded_actor_uid_snapshot,recorded_actor_name_snapshot,
+   recorded_actor_scope,recorded_actor_at,recorded_actor_correlation_uid,recorded_actor_authorization_version)
+ SELECT ${mapping.year},${literal(mapping.position)},${mapping.tier ? literal(mapping.tier) : "NULL"},policy.id,${mapping.priority},${mapping.adds},'draft',source.id,NULL,
+        TIMESTAMPTZ ${literal(`${mapping.year}-01-01T00:00:00+09:00`)},1,NULL,actor.id,actor.user_uid,actor.name,'admin',
+        clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+ FROM public.accounting_logical_sources source CROSS JOIN LATERAL
+      (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+ LEFT JOIN public.dues_policies policy ON ${mapping.tier ? `policy.dues_year=${mapping.year} AND policy.tier_code=${literal(mapping.tier)} AND policy.version=1` : "false"}
+ WHERE source.source_code=${literal(sourceCode)} ON CONFLICT DO NOTHING;`;
 }).join("\n");
 const categorySeeds = [
   ["DUES_INCOME","회비수입","income","dues_credit"], ["OTHER_INCOME","기타수입","income","none"],
@@ -163,7 +271,10 @@ const categorySeeds = [
  SELECT ${literal(code)},1,${literal(name)},${literal(section)},${literal(effect)},DATE '2022-01-01',NULL,'draft',
         TIMESTAMPTZ '2022-01-01 00:00:00+09',id,user_uid,name,'admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
  FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1 ON CONFLICT DO NOTHING;`).join("\n");
-const sequence50 = `${sourceSeeds}\n${categorySeeds}\n`;
+if ((value.source_release_contract_registry as any[]).length !== 2 || policyRows.length !== 16 || mappingRows.length !== 46) {
+  throw new Error("sequence_50_seed_count_mismatch");
+}
+const sequence50 = `${sourceSeeds}\n${releaseSeeds}\n${bankAccounts}\n${bankMappings}\n${policySeeds}\n${mappingSeeds}\n${categorySeeds}\n`;
 
 const sequence60 = `REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;

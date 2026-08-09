@@ -5,7 +5,7 @@
 This tracked plan is the product-facing handoff for the approved database architecture. Its former physical-schema proposal and implementation todo list are superseded. Product behavior remains in scope, but every physical object, dependency, action, lock, source binding, migration sequence and catalog expectation is owned by the canonical database architecture plan and its sole expanded manifest.
 
 - Canonical manifest: `docs/database-manifest.yaml`
-- Manifest SHA-256: `24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a` (Todo 14 N1 source-contract amendment; prior digest `4691d969300653ae13d850c02a411181ed5ec19debece8a2e95bbe0a899db23a` is historical only)
+- Manifest SHA-256: `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8` (Todo 14 N1 source-contract amendment; prior digest `4691d969300653ae13d850c02a411181ed5ec19debece8a2e95bbe0a899db23a` is historical only)
 - Manifest lineage origin: Todo 2 commit `47a9cf63545371ea258fc1c2264acf531fe5facf`; the current digest includes the approved post-main authority reconciliation recorded later in Git history.
 - Architecture authority: [database-architecture-audit.md](database-architecture-audit.md)
 

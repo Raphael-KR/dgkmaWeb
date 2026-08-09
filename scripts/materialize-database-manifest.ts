@@ -12,7 +12,7 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "a1c1281fb5e4386e1f27d050fd7260fa246229b6dff8d38166f38a08b1913867";
+const EXPECTED_PLAN_SHA = "f5a3703f92fbc3521662fa5e2a96798b00419a69a733fae2c8b6af228f265d17";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {

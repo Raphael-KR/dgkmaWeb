@@ -4,7 +4,7 @@ import test from "node:test";
 import { sourceDecisionReceipt, validateSourceDecisionCommand } from "./accounting/source-decision-api";
 
 const context = { sessionUserId: 7, liveUserId: 7, liveUserUid: "77777777-7777-4777-8777-777777777777", liveIsAdmin: true, frozenAdminId: 7, frozenAdminUid: "77777777-7777-4777-8777-777777777777", origin: "https://dev.example", hostOrigin: "https://dev.example", fetchSite: "same-origin", expectedSourceFingerprint: "a".repeat(64) };
-const command = { schemaVersion: "source-decision-command-v1", operationUid: "12345678-1234-4234-8234-123456789abc", manifestSha256: "24f92edb2297487903310ee4acbec72a63401037eb5ff5f7b4de8e6a9539000a", sourceFingerprint: "a".repeat(64), decision: "approve", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
+const command = { schemaVersion: "source-decision-command-v1", operationUid: "12345678-1234-4234-8234-123456789abc", manifestSha256: "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8", sourceFingerprint: "a".repeat(64), decision: "approve", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
 
 test("source decision requires the frozen same-origin live admin and exact manifest/fingerprint", () => {
   assert.equal(validateSourceDecisionCommand(command, context).decision, "approve");
