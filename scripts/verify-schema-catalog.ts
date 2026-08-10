@@ -72,14 +72,22 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       throw new Error("catalog_ledger_sequence_mismatch");
     }
     const seeds = referenceSeeds.rows[0];
-    const expectedSeedCounts = [10, 2, 2, 16, 0, 46, 0, 6];
-    const observedSeedCounts = [
-      seeds.logical_sources, seeds.seed_source_releases, seeds.bank_accounts,
-      seeds.bank_source_mappings, seeds.draft_policies, seeds.approved_policies,
-      seeds.draft_position_mappings, seeds.approved_position_mappings, seeds.draft_category_roots,
-    ];
-    if (observedSeedCounts.some((count, index) => count !== expectedSeedCounts[index])) {
-      throw new Error("catalog_reference_seed_count_mismatch");
+    const expectedSeedCounts = {
+      logical_sources: 10,
+      seed_source_releases: 2,
+      bank_accounts: 2,
+      bank_source_mappings: 2,
+      draft_policies: 16,
+      approved_policies: 0,
+      draft_position_mappings: 46,
+      approved_position_mappings: 0,
+      draft_category_roots: 6,
+    } as const;
+    for (const [key, expected] of Object.entries(expectedSeedCounts)) {
+      const observed = seeds[key as keyof typeof expectedSeedCounts];
+      if (observed !== expected) {
+        throw new Error(`catalog_reference_seed_count_mismatch:${key}:${observed}:${expected}`);
+      }
     }
     if (target === "disposable-test" && (seeds.source_releases !== 2 || seeds.historical_source_releases !== 0)) {
       throw new Error("catalog_disposable_release_scope_mismatch");
