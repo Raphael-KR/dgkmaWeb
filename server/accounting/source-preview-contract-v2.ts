@@ -156,6 +156,19 @@ function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject):
     for (const key of ["due_day", "reminder_day"]) if (!Number.isInteger(payload[key]) || Number(payload[key]) < 1 || Number(payload[key]) > 31) fail("source_preview_policy_day_invalid");
     if (!Number.isInteger(payload.dues_year) || Number(payload.dues_year) < 2024 || Number(payload.dues_year) > 2100) fail("source_preview_policy_year_invalid");
     if (!new Set(["president", "senior_vice_president", "vice_president_auditor_chair", "director", "member", "honorary"]).has(String(payload.tier_code))) fail("source_preview_policy_tier_invalid");
+  } else if (sourceCode === "NOTION_ORGANIZATION_ROLE_HISTORY") {
+    for (const key of ["display_position", "effective_from", "name_snapshot", "name_key_digest", "position_code", "source_timezone"]) nonempty(payload[key], `source_preview_role_${key}_invalid`);
+    if (payload.source_timezone !== "Asia/Seoul") fail("source_preview_role_timezone_invalid");
+    for (const key of ["effective_to", "note_snapshot", "source_appointment_date", "source_date_text", "source_locator_snapshot", "verification_evidence_snapshot"]) if (payload[key] !== null) nonempty(payload[key], `source_preview_role_${key}_invalid`);
+    for (const key of ["name_key_digest", "note_digest", "source_locator_digest", "verification_evidence_digest"]) if (payload[key] !== null && (typeof payload[key] !== "string" || !SHA256.test(payload[key]))) fail(`source_preview_role_${key}_invalid`);
+    if (!new Set(["alumni_association", "regional_chapter", "graduation_class", "alumni_faculty"]).has(String(payload.organization_code))) fail("source_preview_role_organization_invalid");
+    if (!new Set(["election", "appointment", "concurrent", "historical", "faculty"]).has(String(payload.appointment_basis))) fail("source_preview_role_appointment_basis_invalid");
+    if (!new Set(["day", "instant"]).has(String(payload.date_precision))) fail("source_preview_role_date_precision_invalid");
+    if (!new Set(["초안", "검토필요", "승인", "종료"]).has(String(payload.editorial_status))) fail("source_preview_role_editorial_status_invalid");
+    if (!new Set(["미매칭", "매칭", "중복후보"]).has(String(payload.member_match_status))) fail("source_preview_role_member_match_status_invalid");
+    if (typeof payload.publication_allowed !== "boolean") fail("source_preview_role_publication_invalid");
+    if (payload.matched_member_uid !== null && (typeof payload.matched_member_uid !== "string" || !UUID.test(payload.matched_member_uid))) fail("source_preview_role_matched_member_uid_invalid");
+    for (const key of ["administration_no", "admission_year", "generation"]) if (payload[key] !== null && !Number.isInteger(payload[key])) fail(`source_preview_role_${key}_invalid`);
   }
 }
 
