@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { canonicalJson, readManifest } from "./schema-ledger";
+import { canonicalPhoneSql } from "./database-domain-constraints";
 
 type Column = { name: string; type: string; nullable: boolean; default_sql: string | null; generated_sql: string | null };
 type Table = { table: string; columns: Column[] };
@@ -130,7 +131,36 @@ const sequence15 = `${canonicalPrelude}\n${exceptionDefinition}\n${exceptionCons
 const existingAlterations = (value.existing_table_alterations as any[]).flatMap((entry) => entry.literal_sql_fragments as string[]);
 const paymentChecks = (value.checks as any[]).filter((item) => item.table === "payments" && ["amount_positive","year_domain","type_domain","status_domain"].includes(item.rule));
 const preAnchorCount = `(SELECT count(*) FROM public.schema_data_exceptions WHERE version=1 AND status='open' AND exception_class='pre_anchor_blocking')`;
+function lockedPreAnchorPredicate(rule: any): string {
+  if (rule.rule_code === "users.phone_canonical_source_valid") {
+    return `phone_number IS NOT NULL AND btrim(phone_number) <> '' AND (${canonicalPhoneSql("phone_number")}) IS NULL`;
+  }
+  if (rule.rule_code === "users.phone_canonical_unique") {
+    const outer = canonicalPhoneSql("users.phone_number");
+    const duplicate = canonicalPhoneSql("duplicate.phone_number");
+    return `(${outer}) IS NOT NULL AND EXISTS (SELECT 1 FROM users duplicate WHERE (${duplicate}) = (${outer}) AND duplicate.id <> users.id)`;
+  }
+  if (rule.rule_code === "alumni_database.mobile_canonical_source_valid") {
+    return `mobile IS NOT NULL AND btrim(mobile) <> '' AND (${canonicalPhoneSql("mobile")}) IS NULL`;
+  }
+  if (rule.rule_code === "alumni_database.mobile_canonical_unique") {
+    const outer = canonicalPhoneSql("alumni_database.mobile");
+    const duplicate = canonicalPhoneSql("duplicate.mobile");
+    return `(${outer}) IS NOT NULL AND EXISTS (SELECT 1 FROM alumni_database duplicate WHERE (${duplicate}) = (${outer}) AND duplicate.id <> alumni_database.id)`;
+  }
+  return rule.predicate_sql;
+}
+const preAnchorGuards = (value.sequence_15_rule_registry.rules as any[])
+  .filter((rule) => rule.exception_class === "pre_anchor_blocking")
+  .map((rule) => `DO $$ BEGIN IF EXISTS (SELECT 1 FROM public.${q(rule.table)} AS ${q(rule.table)} WHERE ${lockedPreAnchorPredicate(rule)}) THEN RAISE EXCEPTION ${literal(`pre_anchor_blocking:${rule.rule_code}`)}; END IF; END $$;`)
+  .join("\n");
+const canonicalRepair = `ALTER TABLE public.users DROP COLUMN phone_canonical;
+ALTER TABLE public.users ADD COLUMN phone_canonical text GENERATED ALWAYS AS (${canonicalPhoneSql("phone_number")}) STORED;
+ALTER TABLE public.alumni_database DROP COLUMN mobile_canonical;
+ALTER TABLE public.alumni_database ADD COLUMN mobile_canonical text GENERATED ALWAYS AS (${canonicalPhoneSql("mobile")}) STORED;`;
 const sequence20 = `DO $$ BEGIN IF ${preAnchorCount} > 0 THEN RAISE EXCEPTION 'pre_anchor_blocking'; END IF; END $$;
+${preAnchorGuards}
+${canonicalRepair}
 ${(value.existing_table_alterations as any[]).flatMap((entry) => {
   const table = entry.table;
   return (value.checks as any[]).filter((item) => item.table === table && isBooleanCheck(item.expression_sql) && !paymentChecks.some((check: any) => check.name === item.name)).map((item) =>
