@@ -18,15 +18,16 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | 완료 범위 | Todo 1–17, Todo 23 방향 전환, N1 |
 | manifest | grandchild SHA-256 `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b` |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80]`; sequence 80 `applied → verified_noop`; startup/catalog 승인 |
-| Todo 18 group apply | synthetic primary+companion 원자 apply, replay no-op, KRW 50,000 합계, operation receipt/entity/audit `1/28/28`, teardown 부재 증명 완료 |
-| 실제 source data | 기존 preview만 유지; member match·position assignment·financial apply는 승인 전 0건 |
+| Todo 18 apply 구현 | synthetic group `1/28/28`, role `1/7/7`, individual dues `1/20/20` operation receipt/entity/audit; replay identity sequence 불변 및 exact KRW 50,000 합계 증명 |
+| Todo 18 통합 검증 | exact commit `c3678d8`; happy 6개와 failure 2개를 독립 disposable DB에서 통과, 모든 DB·actor receipt·임시 worktree/evidence 부재 확인 |
+| 실제 source data | active release 27, batch/set/item `9/9/6994`; 9개 set 전부 `previewed`; 회원·match·직책·분류·event·receipt·allocation downstream 전부 0 |
 | Production/deploy | 작업 0건; 미승인·미검증 |
 
 ## 남은 실행 순서
 
 | 순서 | Todo/Phase | 다음 완료 조건 |
 |---:|---|---|
-| 1 | 18 | 승인된 source별 complete decision set, reject→repreview→approve, single/multi-batch atomic apply, reverse/cross-batch rollback과 rerun 중복 0 |
+| 1 | 18 | 실제 9개 preview의 administrator-readable source decision을 확정하고, 승인 범위만 동일 service 경로로 Development에 원자 apply한 뒤 source별 합계·중복 0 검증 |
 | 2 | 19 | legacy `payments` cross-link/backfill, double-count 0, DB-resident cutover proof |
 | 3 | 20 ∥ 21 | 시간·금액·마감·동시성 불변식과 security/retention/workload 검증 |
 | 4 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
@@ -37,6 +38,7 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 ## 현재 운영 승인 경계
 
 - 외래교수회 26개 행의 각 50,000원은 후보일 뿐 자동 배분 근거가 아니다. 실제 `include|reject|quarantine`, 총액 KRW 1,300,000 일치, primary bank receipt와 companion roster 결합은 별도 source-decision 승인을 요구한다.
+- 현재 실제 preview의 제안값은 `AGM36_PERIOD_BOUNDARY` approve 2, `LEDGER_FINAL_2022_2025` approve 4/quarantine 3,014, 나머지 decision item 6,988개 quarantine이다. 이는 deterministic preview이지 운영 승인이나 apply가 아니다.
 - 그 전까지 Codex는 synthetic/disposable 검증, Development additive schema, read-only preflight, deterministic preview, 테스트·문서·Git/GitHub 작업을 계속한다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
 
