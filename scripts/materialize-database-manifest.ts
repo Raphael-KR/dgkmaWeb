@@ -12,7 +12,7 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "99ba18156c32171f67f51cf2a17e1cdda960ef269f98018ddd6ee8475b0a8622";
+const EXPECTED_PLAN_SHA = "d29f62339b9e26cbf91d88ca29c6976d828d54f6e9bae3af3f6372110e805991";
 const PARENT_MANIFEST_SHA = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
 const SHA = /^[0-9a-f]{64}$/;
 

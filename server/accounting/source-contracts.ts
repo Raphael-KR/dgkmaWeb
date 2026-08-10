@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 export type CanonicalValue = null | boolean | number | string | CanonicalValue[] | { [key: string]: CanonicalValue };
 
-export const TODO_14_MANIFEST_SHA256 = "5c02b1f62fdd172ed24ef20d046631793b85dcfcd06e13d6d22ac2d8d85bc88c";
+export const TODO_14_MANIFEST_SHA256 = "31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6";
 
 export const TODO_14_LIVE_SOURCES = Object.freeze({
   MEMBERSHIP_INTEGRATED_ADDRESS_BOOK: Object.freeze({

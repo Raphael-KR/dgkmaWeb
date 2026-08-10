@@ -26,7 +26,7 @@
 | Production catalog | unverified |
 | Production drift | unknown |
 | 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence) | `68/1403/68/257/80/287/432/63` |
-| manifest SHA-256 | `5c02b1f62fdd172ed24ef20d046631793b85dcfcd06e13d6d22ac2d8d85bc88c` (parent `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
+| manifest SHA-256 | `31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6` (parent `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
 | catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
 | Development evidence | verified current state; ledger `[1,10,15,20,30,40,50,60]`, parent manifest `986e515b…`, sequence 70 미적용, catalog SHA `7115c2ceed89f693405303eae6ad826fc0aa98c764774e3f1832b333d385bd37`, transaction terminal `ROLLBACK` |
 | Development source/import state | verified: logical source 10, active release 24 (`v1=10`, admin-readable `v2=10`, source amendments `v3=3`, Notion generation-evidence `v4=1`); import batch/decision set/item `6/6/6568`; all previews coordinate/version/link `6584/6584/6584`; preview operation receipt/entity/audit `6/26332/26332`; downstream/source-linked policy/period row `0/0/0`; all reruns `verified_noop`, verifier terminal `ROLLBACK` |

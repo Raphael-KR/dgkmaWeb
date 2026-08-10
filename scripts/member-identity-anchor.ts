@@ -6,7 +6,7 @@ import {
   DOMAIN_EXCEPTION_RULES,
 } from "./database-domain-constraints";
 
-export const CANONICAL_MANIFEST_SHA256 = "5c02b1f62fdd172ed24ef20d046631793b85dcfcd06e13d6d22ac2d8d85bc88c";
+export const CANONICAL_MANIFEST_SHA256 = "31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6";
 
 export const IDENTITY_ANCHOR_DEFINITIONS = [
   {
