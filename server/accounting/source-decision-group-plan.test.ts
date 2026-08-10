@@ -31,15 +31,18 @@ test("rejects duplicate or unreferenced companion batches", () => {
 test("loads and locks the exact live companion graph before planning", async () => {
   const sql: string[] = [];
   const sourceFingerprint = "f".repeat(64); const contentDigest = "c".repeat(64);
+  const batchRows = companion.items.map((item, index) => ({ ordinal: index + 1, coordinate_key: item.coordinateKey, content_digest: contentDigest, issue_status: "accepted" }));
+  const batchManifest = batchRows.map(({ coordinate_key, content_digest, issue_status }) => ({ coordinate_key, content_digest, issue_status }));
   const storedItems = companion.items.flatMap((item) => [{ coordinate_key: item.coordinateKey, content_digest: contentDigest, decision_kind: item.decisionKind, decision_payload: item.decisionPayload }, { coordinate_key: item.coordinateKey, content_digest: contentDigest, decision_kind: "member_match", decision_payload: { outcome: "quarantine" } }]).map((item, index) => ({ ...item, ordinal: index + 1, decision_payload_sha256: sha256(canonicalJson(item.decision_payload as CanonicalValue)) }));
   const manifest = { schema_version: "source-decision-preview-v1", batch_uid: rosterBatch, source_fingerprint: sourceFingerprint, items: storedItems.map((item) => ({ ordinal: item.ordinal, coordinate_key: item.coordinate_key, source_content_digest: item.content_digest, decision_kind: item.decision_kind, decision_payload_sha256: item.decision_payload_sha256 })) };
   const client = { query: async (text: string) => {
     sql.push(text);
-    if (text.includes("FROM public.accounting_import_batches b")) return { rowCount: 1, rows: [{ batch_uid: rosterBatch, batch_status: "previewed", source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest, manifest_sha256: sha256(canonicalJson(manifest as CanonicalValue)), source_code: "GROUP_FOREIGN_FACULTY_2025" }] };
+    if (text.includes("FROM public.accounting_import_batches b")) return { rowCount: 1, rows: [{ batch_id: "16", batch_uid: rosterBatch, batch_status: "previewed", preview_manifest: batchManifest, preview_manifest_sha256: sha256(canonicalJson(batchManifest as CanonicalValue)), row_count: batchRows.length, source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest, manifest_sha256: sha256(canonicalJson(manifest as CanonicalValue)), source_code: "GROUP_FOREIGN_FACULTY_2025" }] };
+    if (text.includes("FROM public.accounting_import_batch_rows br")) return { rowCount: batchRows.length, rows: batchRows };
     return { rowCount: storedItems.length, rows: storedItems };
   } };
   const result = await loadGroupMultiBatchApplyPlan(client as never, primary);
-  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(sql.length, 2); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
+  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(sql.length, 3); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
 });
 
 test("fails closed when the referenced companion has no unique live preview set", async () => {
@@ -49,6 +52,13 @@ test("fails closed when the referenced companion has no unique live preview set"
 
 test("fails closed on companion manifest or coverage drift", async () => {
   const sourceFingerprint = "f".repeat(64); const item = { ordinal: 1, coordinate_key: "roster:a", content_digest: "c".repeat(64), decision_kind: "group_allocation", decision_payload: companion.items[0].decisionPayload, decision_payload_sha256: sha256(canonicalJson(companion.items[0].decisionPayload as CanonicalValue)) };
-  const client = { query: async (text: string) => text.includes("FROM public.accounting_import_batches b") ? { rowCount: 1, rows: [{ batch_uid: rosterBatch, batch_status: "previewed", source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest: {}, manifest_sha256: "0".repeat(64), source_code: "GROUP_FOREIGN_FACULTY_2025" }] } : { rowCount: 1, rows: [item] } };
+  const batchRows = [{ ordinal: 1, coordinate_key: "roster:a", content_digest: item.content_digest, issue_status: "accepted" }]; const batchManifest = batchRows.map(({ coordinate_key, content_digest, issue_status }) => ({ coordinate_key, content_digest, issue_status }));
+  const client = { query: async (text: string) => text.includes("FROM public.accounting_import_batches b") ? { rowCount: 1, rows: [{ batch_id: "16", batch_uid: rosterBatch, batch_status: "previewed", preview_manifest: batchManifest, preview_manifest_sha256: sha256(canonicalJson(batchManifest as CanonicalValue)), row_count: 1, source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest: {}, manifest_sha256: "0".repeat(64), source_code: "GROUP_FOREIGN_FACULTY_2025" }] } : text.includes("FROM public.accounting_import_batch_rows br") ? { rowCount: 1, rows: batchRows } : { rowCount: 1, rows: [item] } };
   await assert.rejects(() => loadGroupMultiBatchApplyPlan(client as never, primary), /companion_manifest_drift/);
+});
+
+test("fails closed on companion batch manifest drift", async () => {
+  const batchRows = [{ ordinal: 1, coordinate_key: "roster:a", content_digest: "c".repeat(64), issue_status: "accepted" }];
+  const client = { query: async (text: string) => text.includes("FROM public.accounting_import_batches b") ? { rowCount: 1, rows: [{ batch_id: "16", batch_uid: rosterBatch, batch_status: "previewed", preview_manifest: [], preview_manifest_sha256: sha256(canonicalJson([])), row_count: 1, source_fingerprint: "f".repeat(64), decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest: {}, manifest_sha256: "0".repeat(64), source_code: "GROUP_FOREIGN_FACULTY_2025" }] } : { rowCount: 1, rows: batchRows } };
+  await assert.rejects(() => loadGroupMultiBatchApplyPlan(client as never, primary), /companion_batch_manifest_drift/);
 });
