@@ -74,7 +74,8 @@ function booleanValue(value: unknown): boolean {
   return value === true || value === "__YES__" || value === "예" || value === "true";
 }
 
-export function normalizeNotionRoleFields(row: Record<string, unknown>) {
+export function normalizeNotionRoleRow(row: Record<string, unknown>, hmacKey: string) {
+  if (!hmacKey) throw new Error("source_row_hmac_key_missing");
   const organizationText = text(row["조직구분"]);
   const organizationCode = organizationText ? ORGANIZATIONS[organizationText] : undefined;
   if (!organizationCode) throw new Error("mapping_review_required:organization");
@@ -87,6 +88,7 @@ export function normalizeNotionRoleFields(row: Record<string, unknown>) {
   const matchedMemberUid = text(row["matched_member_uid"]);
   if (matchedMemberUid && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(matchedMemberUid)) throw new Error("mapping_review_required:matched_member_uid");
   return Object.freeze({
+    name_digest: hmac(row["표기명"], "role-name", hmacKey, true),
     generation: integer(row["졸업기수"], 1, 999),
     admission_year: integer(row["입학년도"], 1900, 2100),
     administration_no: integer(row["대수"], 1, 999),
@@ -103,17 +105,9 @@ export function normalizeNotionRoleFields(row: Record<string, unknown>) {
     publication_allowed: booleanValue(row["공개여부"]),
     member_match_status: memberMatchStatus,
     matched_member_uid: matchedMemberUid,
-    source_timezone: "Asia/Seoul",
-  });
-}
-
-export function normalizeNotionRoleRow(row: Record<string, unknown>, hmacKey: string) {
-  if (!hmacKey) throw new Error("source_row_hmac_key_missing");
-  return Object.freeze({
-    ...normalizeNotionRoleFields(row),
-    name_digest: hmac(row["표기명"], "role-name", hmacKey, true),
     note_digest: hmac(row["비고"], "role-note", hmacKey),
     source_locator_digest: plainDigest(row["출처"]),
     verification_evidence_digest: plainDigest(row["검증근거"]),
+    source_timezone: "Asia/Seoul",
   });
 }

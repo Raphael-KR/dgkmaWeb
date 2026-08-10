@@ -1,10 +1,19 @@
 import { canonicalJson, sha256, type CanonicalValue } from "../source-contracts";
 import { sourceKeyDigest, sourceText } from "./admin-readable-source-v2";
-import {
-  DEFERRED_SOURCE_CODES,
-  type DeferredMapping,
-  type RawSourceRow,
-} from "./deferred-source-normalization-v1";
+
+export const DEFERRED_SOURCE_CODES_V2 = [
+  "AGM36_PERIOD_BOUNDARY", "BANK_IBK_2026", "BANK_TOSS_2026", "GROUP_FOREIGN_FACULTY_2025",
+  "LEDGER_DUES_POLICY_2024_2025", "LEDGER_FINAL_2022_2025", "LEGACY_PAYMENTS", "NOTION_DUES_REGULATION_DRAFT",
+] as const;
+type DeferredSourceCodeV2 = typeof DEFERRED_SOURCE_CODES_V2[number];
+export type DeferredMappingV2 = Record<string, CanonicalValue> & {
+  adapter_code: string;
+  columns: Array<Record<string, CanonicalValue>>;
+  output_family: string;
+  parsers: Record<string, CanonicalValue>;
+  source_code: DeferredSourceCodeV2;
+};
+export type RawSourceRowV2 = { coordinateKey: string; recordKind: string; values: Record<string, CanonicalValue> };
 
 function fail(code: string): never { throw new Error(code); }
 function text(value: CanonicalValue): string { return sourceText(value) ?? ""; }
@@ -20,7 +29,7 @@ function money(value: CanonicalValue): string {
   if (!/^-?\d+$/.test(normalized)) fail("deferred_source_money_invalid");
   return String(Math.abs(Number(normalized)));
 }
-function sourceValue(selector: Record<string, CanonicalValue>, row: RawSourceRow): CanonicalValue {
+function sourceValue(selector: Record<string, CanonicalValue>, row: RawSourceRowV2): CanonicalValue {
   const kind = String(selector.kind);
   if (kind === "constant") return selector.value ?? null;
   if (kind === "section_or_constant") return row.values[String(selector.value)] ?? selector.value ?? null;
@@ -33,7 +42,7 @@ function sourceValue(selector: Record<string, CanonicalValue>, row: RawSourceRow
   if (kind === "headers" || kind === "headers_joined") return (selector.values as CanonicalValue[]).map((key) => row.values[String(key)] ?? null);
   return fail("deferred_source_selector_unknown");
 }
-function parse(parserCode: string, selector: Record<string, CanonicalValue>, row: RawSourceRow, required: boolean): CanonicalValue {
+function parse(parserCode: string, selector: Record<string, CanonicalValue>, row: RawSourceRowV2, required: boolean): CanonicalValue {
   const value = sourceValue(selector, row);
   if (["constant_v1", "period_boundary_reference_v1", "payload_digest_reference_v1"].includes(parserCode)) return value ?? null;
   if (parserCode === "source_display_v2") return display(value, required);
@@ -66,8 +75,8 @@ function parse(parserCode: string, selector: Record<string, CanonicalValue>, row
   return fail("deferred_source_parser_unknown");
 }
 
-export function normalizeDeferredSourceRowV2(mapping: DeferredMapping, row: RawSourceRow) {
-  if (!DEFERRED_SOURCE_CODES.includes(mapping.source_code)) fail("deferred_source_code_unknown");
+export function normalizeDeferredSourceRowV2(mapping: DeferredMappingV2, row: RawSourceRowV2) {
+  if (!DEFERRED_SOURCE_CODES_V2.includes(mapping.source_code)) fail("deferred_source_code_unknown");
   if (!row.coordinateKey.normalize("NFC").trim()) fail("deferred_source_coordinate_missing");
   const columns = mapping.columns.filter((column) => column.record_kind === row.recordKind);
   if (columns.length === 0) fail("deferred_source_record_kind_unknown");

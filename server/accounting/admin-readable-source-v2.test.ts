@@ -3,13 +3,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { adminReviewProjection } from "./adapters/admin-readable-source-v2";
-import { normalizeDeferredSourceRowV2 } from "./adapters/deferred-source-normalization-v2";
-import type { DeferredMapping } from "./adapters/deferred-source-normalization-v1";
+import { normalizeDeferredSourceRowV2, type DeferredMappingV2 } from "./adapters/deferred-source-normalization-v2";
 import { normalizeMembershipIdentityRowV2 } from "./adapters/membership-integrated-address-book-v2";
 import { normalizeNotionRoleRowV2 } from "./adapters/notion-organization-role-history-v2";
 import { canonicalJson } from "./source-contracts";
 
-const mapping = (name: string) => JSON.parse(readFileSync(`docs/source-contracts/mappings/${name}-v2.json`, "utf8")) as DeferredMapping;
+const mapping = (name: string) => JSON.parse(readFileSync(`docs/source-contracts/mappings/${name}-v2.json`, "utf8")) as DeferredMappingV2;
 const roleFixture = (name: string, memberUid: string) => ({
   "표기명": name, "졸업기수": "22", "입학년도": "2001", "대수": "22", "조직구분": "동문회",
   "직위": "총무이사", "date:임명일:start": "2026-03-06", "date:임기:is_datetime": false,
