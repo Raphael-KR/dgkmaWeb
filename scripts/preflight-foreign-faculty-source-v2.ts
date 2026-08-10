@@ -1,0 +1,28 @@
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { google } from "googleapis";
+import { sourceKeyDigest, sourceText } from "../server/accounting/adapters/admin-readable-source-v2";
+import { canonicalJson, sha256, type CanonicalValue } from "../server/accounting/source-contracts";
+
+const SPREADSHEET_ID = "1s8x9Oli94iD0Dwx1OYedmKbwSBRPkvcg3tjCML6iHPY";
+const PROFILE_PATH = "docs/source-contracts/profiles/group-foreign-faculty-2025.json";
+type Profile = { source_revision: string; tabs: Array<{ header_candidates: Array<{ row: number; values_sha256: string }>; max_column: number; max_row: number; tab_id: string; title: string }> };
+function fail(code: string): never { throw new Error(code); }
+function text(value: unknown): string { return sourceText(value as CanonicalValue) ?? ""; }
+function sha(value: unknown): string { return createHash("sha256").update(JSON.stringify(value)).digest("hex"); }
+function columnName(column: number): string { let value = column; let result = ""; while (value > 0) { value -= 1; result = String.fromCharCode(65 + (value % 26)) + result; value = Math.floor(value / 26); } return result; }
+function tabRange(title: string, range: string): string { return `'${title.replaceAll("'", "''")}'!${range}`; }
+
+async function main() {
+  const profile = JSON.parse(readFileSync(PROFILE_PATH, "utf8")) as Profile; const tab = profile.tabs[0];
+  const credentials = { type: "service_account", project_id: "dynamic-waters-446615-e5", private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"), client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL, token_uri: "https://oauth2.googleapis.com/token" }; if (!credentials.private_key || !credentials.client_email) fail("google_service_account_unavailable");
+  const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly", "https://www.googleapis.com/auth/drive.metadata.readonly"] }); const sheets = google.sheets({ version: "v4", auth });
+  const [drive, metadata, headerResult] = await Promise.all([google.drive({ version: "v3", auth }).files.get({ fileId: SPREADSHEET_ID, fields: "version,modifiedTime" }), sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID, fields: "sheets(properties(sheetId,title,gridProperties(rowCount,columnCount)))" }), sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: tabRange(tab.title, `A2:${columnName(tab.max_column)}2`), valueRenderOption: "FORMATTED_VALUE" })]);
+  const revision = `drive-version:${drive.data.version};modified:${drive.data.modifiedTime}`; if (revision !== profile.source_revision) fail("foreign_faculty_profile_revision_stale"); const provider = (metadata.data.sheets ?? []).filter((sheet) => String(sheet.properties?.sheetId) === tab.tab_id); if (provider.length !== 1 || provider[0].properties?.title !== tab.title || provider[0].properties?.gridProperties?.rowCount !== tab.max_row || provider[0].properties?.gridProperties?.columnCount !== tab.max_column) fail("foreign_faculty_tab_profile_drift");
+  const header = headerResult.data.values?.[0] ?? []; if (sha(header) !== tab.header_candidates[0].values_sha256) fail("foreign_faculty_header_profile_drift"); const required = ["졸업기수", "성  명"] as const; const positions = Object.fromEntries(required.map((name) => [name, header.flatMap((value, index) => text(value) === name ? [index + 1] : [])])); if (required.some((name) => positions[name].length !== 1)) fail("foreign_faculty_header_contract_mismatch");
+  const ranges = required.map((name) => tabRange(tab.title, `${columnName(positions[name][0])}3:${columnName(positions[name][0])}28`)); const columns = (await sheets.spreadsheets.values.batchGet({ spreadsheetId: SPREADSHEET_ID, ranges, valueRenderOption: "UNFORMATTED_VALUE", dateTimeRenderOption: "SERIAL_NUMBER" })).data.valueRanges ?? [];
+  const generations = (columns[0].values ?? []).map((row) => row[0] ?? null); const names = (columns[1].values ?? []).map((row) => row[0] ?? null); const rows = [];
+  for (let index = 0; index < 26; index += 1) { const generationText = text(generations[index]); const name = text(names[index]); const generationMatch = generationText.match(/\d+/); if (!generationMatch || !name) fail("foreign_faculty_required_value_missing"); rows.push({ coordinate_key: `sheet:${SPREADSHEET_ID}:${tab.tab_id}:row:${index + 3}`, generation: Number(generationMatch[0]), member_name_key_digest: sourceKeyDigest("allocation-member-name-key", name, true), proposed_amount: "50000" }); }
+  const candidateFingerprint = sha256(canonicalJson(rows as CanonicalValue)); console.log(JSON.stringify({ schema_version: "foreign-faculty-source-preflight-v2", source_code: "GROUP_FOREIGN_FACULTY_2025", source_revision: revision, candidate_fingerprint: candidateFingerprint, candidate_row_count: rows.length, candidate_amount_each: "50000", candidate_amount_total: "1300000", pending_member_match_decisions: rows.length, pending_group_allocation_decisions: rows.length, primary_receipt_binding_present: false, allowed_columns_read: 2, excluded_columns_read: 0, original_write_count: 0, database_write_count: 0, result: "verified_pending_source_decision" }));
+}
+main().catch((error) => { console.error(JSON.stringify({ schema_version: "foreign-faculty-source-preflight-error-v2", error_code: error instanceof Error ? error.message : "unknown", original_write_count: 0, database_write_count: 0, result: "rejected" })); process.exitCode = 1; });
