@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupReservationBlueprint, reserveGroupExecutionReservation, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupOperationProjection, buildGroupReservationBlueprint, reserveGroupExecutionReservation, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -71,8 +71,15 @@ test("rejects missing, duplicate, and malformed reservations before DML", () => 
 });
 
 test("reserves the exact closed sequence-table order once", async () => {
-  const blueprint=buildGroupReservationBlueprint(plan);const observed:string[]=[];const bound=await reserveGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",async(table)=>{observed.push(table);return String(observed.length);});
+  const blueprint=buildGroupReservationBlueprint(plan);const observed:string[]=[];const bound=await reserveGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",async(table)=>{observed.push(table);return {id:String(observed.length),sequenceName:`public.${table}_id_seq`};});
   assert.deepEqual(observed,blueprint.sequenceTables);assert.equal(bound.operationReceiptId,"1");assert.equal(new Set([...bound.transitionAudits,...bound.steps].map((action)=>action.auditId)).size,bound.transitionAudits.length+bound.steps.length);
+  const projection=buildGroupOperationProjection(bound);assert.deepEqual(projection.expectedResults.map((result)=>result.ordinal),Array.from({length:projection.expectedResults.length},(_,index)=>index+1));assert.deepEqual(projection.reservationSlots.map((slot)=>slot.slotOrdinal),Array.from({length:projection.reservationSlots.length},(_,index)=>index+1));assert.equal(projection.reservationSlots[0].resultOrdinal,0);assert.ok(projection.reservationSlots.slice(1).every((slot)=>slot.resultOrdinal>0));assert.ok(projection.reservationSlots.every((slot)=>slot.reservedId===String(slot.slotOrdinal)));
+});
+
+test("refuses to project missing or malformed catalog-bound reservation slots", async () => {
+  const blueprint=buildGroupReservationBlueprint(plan);const ids=blueprint.sequenceTables.map((_,index)=>String(index+1));const bound=bindGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",ids);
+  assert.throws(()=>buildGroupOperationProjection(bound),/reservation_slots_missing/);
+  let ordinal=0;await assert.rejects(()=>reserveGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",async()=>({id:String(++ordinal),sequenceName:"not-qualified"})),/reservation_catalog_invalid/);
 });
 
 test("rejects stable identity reuse before reservations", () => {

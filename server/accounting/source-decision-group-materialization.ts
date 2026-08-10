@@ -19,8 +19,13 @@ export type GroupExecutionReservation = {
   operationReceiptId: string;
   transitionAudits: GroupBoundAction[];
   steps: Array<GroupMaterializationStep & GroupBoundAction & { rowId: string; targetRowId: string | null }>;
+  reservationSlots?: Array<GroupReservationSlot & { reservedId: string; sequenceName: string }>;
 };
 export type GroupBoundAction = { key: string; entityType: string; entityKey: string; action: string; auditId: string; correlationUid: string; executionOrdinal: number; resultOrdinal: number };
+export type GroupOperationProjection = {
+  expectedResults: Array<{ ordinal: number; entityType: string; entityKey: string; entityAction: string; actionCorrelationUid: string }>;
+  reservationSlots: Array<{ slotOrdinal: number; phase: 0 | 10 | 30; resultOrdinal: number; slotKind: "receipt" | "business" | "audit"; slotKindOrder: 0 | 10 | 30; qualifiedTableName: string; localOrdinal: 1; sequenceName: string; reservedId: string }>;
+};
 
 function fail(code: string): never { throw new Error(code); }
 function compare(left: string, right: string): number { return Buffer.compare(Buffer.from(left), Buffer.from(right)); }
@@ -158,8 +163,19 @@ export function bindGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, op
   return {operationReceiptId,transitionAudits,steps};
 }
 
-export async function reserveGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, operationUid: string, reserveId: (table: string) => Promise<string>): Promise<GroupExecutionReservation> {
-  const blueprint=buildGroupReservationBlueprint(plan);const ids:string[]=[];
-  for(const table of blueprint.sequenceTables)ids.push(await reserveId(table));
-  return bindGroupExecutionReservation(plan,operationUid,ids);
+export async function reserveGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, operationUid: string, reserveId: (table: string) => Promise<{ id: string; sequenceName: string }>): Promise<GroupExecutionReservation> {
+  const blueprint=buildGroupReservationBlueprint(plan);const reserved:Array<{id:string;sequenceName:string}>=[];
+  for(const table of blueprint.sequenceTables)reserved.push(await reserveId(table));
+  if(reserved.some((item)=>!/^[1-9][0-9]*$/.test(item.id)||!/^public\.[a-z0-9_]+$/.test(item.sequenceName)))fail("source_decision_group_reservation_catalog_invalid");
+  const bound=bindGroupExecutionReservation(plan,operationUid,reserved.map((item)=>item.id));
+  return {...bound,reservationSlots:blueprint.sequenceSlots.map((slot,index)=>({...slot,reservedId:reserved[index].id,sequenceName:reserved[index].sequenceName}))};
+}
+
+export function buildGroupOperationProjection(reservation: GroupExecutionReservation): GroupOperationProjection {
+  if(!reservation.reservationSlots)fail("source_decision_group_reservation_slots_missing");
+  const actions=[...reservation.transitionAudits,...reservation.steps];const byKey=new Map(actions.map((action)=>[action.key,action]));
+  const expectedResults=[...actions].sort((left,right)=>left.resultOrdinal-right.resultOrdinal).map((action,index)=>{if(action.resultOrdinal!==index+1)fail("source_decision_group_result_bijection_invalid");return {ordinal:action.resultOrdinal,entityType:action.entityType,entityKey:action.entityKey,entityAction:action.action,actionCorrelationUid:action.correlationUid};});
+  const reservationSlots=reservation.reservationSlots.map((slot,index)=>{const action=slot.actionKey===null?null:byKey.get(slot.actionKey);if(slot.resultOrdinal!==0&&!action||action&&action.resultOrdinal!==slot.resultOrdinal)fail("source_decision_group_reservation_slot_result_mismatch");const slotKindOrder=slot.slotKind==="receipt"?0:slot.slotKind==="business"?10:30;return {slotOrdinal:index+1,phase:slot.phase,resultOrdinal:slot.resultOrdinal,slotKind:slot.slotKind,slotKindOrder:slotKindOrder as 0|10|30,qualifiedTableName:`public.${slot.table}`,localOrdinal:1 as const,sequenceName:slot.sequenceName,reservedId:slot.reservedId};});
+  if(reservationSlots[0]?.slotKind!=="receipt"||reservationSlots.some((slot,index)=>index>0&&(slot.phase<reservationSlots[index-1].phase||slot.phase===reservationSlots[index-1].phase&&slot.resultOrdinal<reservationSlots[index-1].resultOrdinal)))fail("source_decision_group_reservation_slot_order_invalid");
+  return {expectedResults,reservationSlots};
 }
