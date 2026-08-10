@@ -67,7 +67,7 @@ test("binds every insert, update target, audit, and correlation without ambiguit
 
 test("rejects missing, duplicate, and malformed reservations before DML", () => {
   const blueprint=buildGroupReservationBlueprint(plan);const ids=blueprint.sequenceTables.map((_,index)=>String(index+1));const operationUid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-  assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,ids.slice(1)),/reservation_count_mismatch/);const duplicate=[...ids];duplicate[1]=duplicate[0];assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,duplicate),/reservation_count_mismatch/);const malformed=[...ids];malformed[1]="0";assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,malformed),/reservation_count_mismatch/);
+  assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,ids.slice(1)),/reservation_count_mismatch/);const duplicate=[...ids];duplicate[duplicate.length-1]=duplicate[duplicate.length-2];assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,duplicate),/reservation_count_mismatch/);const crossTableDuplicate=[...ids];crossTableDuplicate[1]=crossTableDuplicate[0];assert.doesNotThrow(()=>bindGroupExecutionReservation(plan,operationUid,crossTableDuplicate));const malformed=[...ids];malformed[1]="0";assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,malformed),/reservation_count_mismatch/);
 });
 
 test("reserves the exact closed sequence-table order once", async () => {
