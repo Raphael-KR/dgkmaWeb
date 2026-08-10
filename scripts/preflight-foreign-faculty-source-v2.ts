@@ -5,7 +5,7 @@ import { sourceKeyDigest, sourceText } from "../server/accounting/adapters/admin
 import { canonicalJson, sha256, type CanonicalValue } from "../server/accounting/source-contracts";
 
 const SPREADSHEET_ID = "1s8x9Oli94iD0Dwx1OYedmKbwSBRPkvcg3tjCML6iHPY";
-const PROFILE_PATH = "docs/source-contracts/profiles/group-foreign-faculty-2025.json";
+const PROFILE_PATH = "docs/source-contracts/profiles/group-foreign-faculty-2025-v3.json";
 type Profile = { source_revision: string; tabs: Array<{ header_candidates: Array<{ row: number; values_sha256: string }>; max_column: number; max_row: number; tab_id: string; title: string }> };
 function fail(code: string): never { throw new Error(code); }
 function text(value: unknown): string { return sourceText(value as CanonicalValue) ?? ""; }
