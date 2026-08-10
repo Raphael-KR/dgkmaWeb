@@ -64,12 +64,13 @@ function strictStoredReceipt(value: unknown): SourceDecisionApprovalReceipt {
   return receipt;
 }
 
-async function existingReceipt(client: PoolClient, operationUid: string, operationPayloadSha256: string): Promise<SourceDecisionApprovalReceipt | undefined> {
+async function existingReceipt(client: PoolClient, operationUid: string, operationPayloadSha256: string, actor: SourceDecisionActor): Promise<SourceDecisionApprovalReceipt | undefined> {
   const existing = await client.query<{ canonical_payload: { inputs?: { approval_receipt?: unknown; operation_payload_sha256?: string } }; target_fingerprint: string }>("SELECT canonical_payload,target_fingerprint FROM public.business_operation_receipts WHERE operation_uid=$1::uuid FOR UPDATE", [operationUid]);
   if (existing.rowCount === 0) return undefined;
   if (existing.rowCount !== 1 || existing.rows[0].canonical_payload?.inputs?.operation_payload_sha256 !== operationPayloadSha256) fail("source_decision_operation_uid_reuse");
   const receipt = strictStoredReceipt(existing.rows[0].canonical_payload?.inputs?.approval_receipt);
   if (receipt.target_fingerprint !== existing.rows[0].target_fingerprint) fail("source_decision_stored_receipt_target_mismatch");
+  if (receipt.target_fingerprint !== actor.targetFingerprint || receipt.actor_user_id !== actor.userId || receipt.actor_user_uid !== actor.userUid || receipt.authorization_version !== actor.authorizationVersion) fail("source_decision_stored_receipt_actor_mismatch");
   return receipt;
 }
 
@@ -100,10 +101,10 @@ export async function decideSourcePreview(
   const client = await pool.connect();
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
-    const replay = await existingReceipt(client, String(command.operationUid), operationPayloadSha256);
-    if (replay) { await client.query("COMMIT"); return replay; }
     const liveActor = await client.query<{ id: number; user_uid: string; is_admin: boolean; name: string }>("SELECT id,user_uid::text,is_admin,name FROM public.users WHERE id=$1 FOR UPDATE", [actor.userId]);
     if (liveActor.rowCount !== 1 || !liveActor.rows[0].is_admin || liveActor.rows[0].user_uid !== actor.userUid) fail("source_decision_admin_required");
+    const replay = await existingReceipt(client, String(command.operationUid), operationPayloadSha256, actor);
+    if (replay) { await client.query("COMMIT"); return replay; }
     const primary = await client.query<{ id: string; decision_set_uid: string; batch_id: string; batch_uid: string; manifest_sha256: string; source_fingerprint: string; status: string }>(`SELECT ds.id::text,ds.decision_set_uid::text,ds.batch_id::text,b.batch_uid::text,ds.manifest_sha256,b.source_fingerprint,ds.status FROM public.source_decision_sets ds JOIN public.accounting_import_batches b ON b.id=ds.batch_id WHERE ds.decision_set_uid=$1::uuid FOR UPDATE OF ds,b`, [decisionSetUid]);
     if (primary.rowCount !== 1) fail("source_decision_primary_set_missing");
     const row = primary.rows[0];

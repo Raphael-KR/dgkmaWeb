@@ -49,6 +49,7 @@ test("approve applies only a quarantine-only preview and records the ordered set
   const approved = await decideSourcePreview(fake.pool as never, primaryUid, command, actor);
   assert.equal(approved.decision, "approve"); assert.deepEqual(approved.approved_decision_set_uids, [primaryUid]); assert.deepEqual(approved.applied_batch_uids, [batchUid]); assert.equal(fake.status(), "approved");
   assert.ok(fake.sql.some((statement) => statement.includes("UPDATE public.accounting_import_batches SET status='applied'")));
+  assert.ok(fake.sql.findIndex((statement) => statement.includes("FROM public.users WHERE id")) < fake.sql.findIndex((statement) => statement.includes("FROM public.business_operation_receipts WHERE operation_uid")));
 });
 
 test("approve refuses non-quarantine items before reservations or state changes", async () => {
