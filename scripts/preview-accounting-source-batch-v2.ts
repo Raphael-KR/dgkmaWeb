@@ -64,7 +64,8 @@ function descriptorFor(input: SourcePreviewInput): JsonObject {
   const roleVersion = input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && input.rows.every((row) => row.normalization_version === "notion-organization-role-history-v4@4.0.0+generation-evidence-v1") ? "v4" : input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && input.rows.every((row) => row.normalization_version === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1") ? "v3" : null;
   const membershipVersion = input.source_code === "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK" && input.rows.every((row) => row.normalization_version === "membership-integrated-address-book-v3@3.0.0+numeric-source-cells-v1") ? "v3" : null;
   const ledgerVersion = input.source_code === "LEDGER_FINAL_2022_2025" && input.rows.every((row) => row.normalization_version === "final-ledger-v3@3.0.0+reproducible-profile-v1") ? "v3" : null;
-  const version = roleVersion ?? membershipVersion ?? ledgerVersion ?? "v2";
+  const bankVersion = input.source_code === "BANK_TOSS_2026" && input.rows.every((row) => row.normalization_version === "toss-bank-sheet-v3@3.0.0+reproducible-profile-v1") ? "v3" : input.source_code === "BANK_IBK_2026" && input.rows.every((row) => row.normalization_version === "ibk-bank-sheet-v3@3.0.0+reproducible-profile-v1") ? "v3" : null;
+  const version = roleVersion ?? membershipVersion ?? ledgerVersion ?? bankVersion ?? "v2";
   const path = `docs/source-contracts/releases/${slug}-${version}.json`; const descriptor = readJson(path) as JsonObject;
   const expectedAdapterVersion = version === "v4" ? "4.0.0" : version === "v3" ? "3.0.0" : "2.0.0";
   if (descriptor.source_code !== input.source_code || descriptor.adapter_version !== expectedAdapterVersion || typeof descriptor.mapping_table_sha256 !== "string") fail("source_preview_descriptor_invalid");
