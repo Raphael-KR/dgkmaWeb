@@ -204,6 +204,29 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 등록기는 기존 v1 active release가 source별 정확히 하나이고 import batch가 아직 없는 baseline에서만 10개 v2 release·operation receipt·result entity·audit event를 한 serializable transaction에 append한다. 부분 v2 상태는 fail closed한다. 실행 결과는 `created → verified_noop`이어야 한다. 읽기 전용 verifier는 total release 20, v1/v2 active `10/10`, v2 receipt/entity/audit `10/10/10`, import batch/decision set `0/0`을 확인하고 `ROLLBACK`으로 끝난다. 기존 v1은 immutable 이력이며, 이후 batch preview는 승인된 v2 descriptor를 명시적으로 선택해야 한다.
 
+### v2 source batch preview
+
+`scripts/preview-accounting-source-batch-v2.ts`는 Development 전용 `import_batch:preview` 실행기다. 입력은 저장소 밖 `/tmp` 또는 `/private/tmp`의 mode `0600` JSON만 허용하며, 정확한 v2 release descriptor와 frozen admin receipt를 다시 검증한다. 한 serializable transaction에서 batch, 새 coordinate, 새 또는 재사용 row version, batch-row link, decision set/item, operation receipt/result/audit만 만든다. match·party·classification·period·event·receipt·allocation은 만들지 않으며, 같은 release/fingerprint/UUID 입력의 재실행은 `created → verified_noop`이어야 한다.
+
+현재 첫 실제 preview 후보인 2024–2025 회비 기준은 Replit service account의 Sheets read-only와 Drive metadata-read-only scope만 사용한다. 현재 Drive revision이 승인 profile과 다르면 입력 파일 생성 전에 중단한다. policy source는 draft evidence이므로 decision item과 신규 정책·tier·rights row를 모두 0개로 유지한다.
+
+```bash
+preview_input="$(mktemp /tmp/dgkma-dues-policy-preview.XXXXXXXX.json)"
+chmod 0600 "$preview_input"
+
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/fetch-ledger-dues-policy-preview-input-v2.ts \
+  --output "$preview_input"
+
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/preview-accounting-source-batch-v2.ts \
+  --target development \
+  --actor-receipt docs/database-targets/development-admin-approved.json \
+  --input "$preview_input"
+```
+
+입력 파일에는 source row가 있으므로 실행과 검증이 끝나면 정확히 확인한 해당 임시 파일만 삭제한다. stdout/evidence에는 source code, UUID, fingerprint, manifest digest와 count만 남기고 source snapshot은 남기지 않는다. Production, Google Sheets/Notion 쓰기, decision approve/reject/repreview, downstream business apply는 이 명령 범위 밖이다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
