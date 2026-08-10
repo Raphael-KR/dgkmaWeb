@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import { buildGroupMultiBatchApplyPlan, loadGroupMultiBatchApplyPlan, type GroupApplySet } from "./source-decision-group-plan";
 
 const primaryBatch = "11111111-1111-4111-8111-111111111111"; const primarySet = "22222222-2222-4222-8222-222222222222"; const rosterBatch = "33333333-3333-4333-8333-333333333333"; const rosterSet = "44444444-4444-4444-8444-444444444444"; const receipt = "55555555-5555-4555-8555-555555555555";
@@ -29,10 +30,13 @@ test("rejects duplicate or unreferenced companion batches", () => {
 
 test("loads and locks the exact live companion graph before planning", async () => {
   const sql: string[] = [];
+  const sourceFingerprint = "f".repeat(64); const contentDigest = "c".repeat(64);
+  const storedItems = companion.items.flatMap((item) => [{ coordinate_key: item.coordinateKey, content_digest: contentDigest, decision_kind: item.decisionKind, decision_payload: item.decisionPayload }, { coordinate_key: item.coordinateKey, content_digest: contentDigest, decision_kind: "member_match", decision_payload: { outcome: "quarantine" } }]).map((item, index) => ({ ...item, ordinal: index + 1, decision_payload_sha256: sha256(canonicalJson(item.decision_payload as CanonicalValue)) }));
+  const manifest = { schema_version: "source-decision-preview-v1", batch_uid: rosterBatch, source_fingerprint: sourceFingerprint, items: storedItems.map((item) => ({ ordinal: item.ordinal, coordinate_key: item.coordinate_key, source_content_digest: item.content_digest, decision_kind: item.decision_kind, decision_payload_sha256: item.decision_payload_sha256 })) };
   const client = { query: async (text: string) => {
     sql.push(text);
-    if (text.includes("FROM public.accounting_import_batches b")) return { rowCount: 1, rows: [{ batch_uid: rosterBatch, batch_status: "previewed", decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", source_code: "GROUP_FOREIGN_FACULTY_2025" }] };
-    return { rowCount: companion.items.length, rows: companion.items.map((item) => ({ coordinate_key: item.coordinateKey, decision_kind: item.decisionKind, decision_payload: item.decisionPayload })) };
+    if (text.includes("FROM public.accounting_import_batches b")) return { rowCount: 1, rows: [{ batch_uid: rosterBatch, batch_status: "previewed", source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest, manifest_sha256: sha256(canonicalJson(manifest as CanonicalValue)), source_code: "GROUP_FOREIGN_FACULTY_2025" }] };
+    return { rowCount: storedItems.length, rows: storedItems };
   } };
   const result = await loadGroupMultiBatchApplyPlan(client as never, primary);
   assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(sql.length, 2); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
@@ -41,4 +45,10 @@ test("loads and locks the exact live companion graph before planning", async () 
 test("fails closed when the referenced companion has no unique live preview set", async () => {
   const client = { query: async () => ({ rowCount: 0, rows: [] }) };
   await assert.rejects(() => loadGroupMultiBatchApplyPlan(client as never, primary), /companion_graph_mismatch/);
+});
+
+test("fails closed on companion manifest or coverage drift", async () => {
+  const sourceFingerprint = "f".repeat(64); const item = { ordinal: 1, coordinate_key: "roster:a", content_digest: "c".repeat(64), decision_kind: "group_allocation", decision_payload: companion.items[0].decisionPayload, decision_payload_sha256: sha256(canonicalJson(companion.items[0].decisionPayload as CanonicalValue)) };
+  const client = { query: async (text: string) => text.includes("FROM public.accounting_import_batches b") ? { rowCount: 1, rows: [{ batch_uid: rosterBatch, batch_status: "previewed", source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest: {}, manifest_sha256: "0".repeat(64), source_code: "GROUP_FOREIGN_FACULTY_2025" }] } : { rowCount: 1, rows: [item] } };
+  await assert.rejects(() => loadGroupMultiBatchApplyPlan(client as never, primary), /companion_manifest_drift/);
 });

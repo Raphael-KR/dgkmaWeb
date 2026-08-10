@@ -1,4 +1,4 @@
-import type { CanonicalValue } from "./source-contracts";
+import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import type { PoolClient } from "pg";
 
 type JsonObject = Record<string, CanonicalValue>;
@@ -9,7 +9,7 @@ export type GroupMultiBatchApplyPlan = {
   orderedDecisionSetUids: string[];
   groups: Array<{ primaryCoordinateKey: string; receiptUid: string; rosterBatchUid: string; duesAmount: string; approvedAllocationAmount: string }>;
 };
-type StoredCompanion = { batch_uid: string; batch_status: string; decision_set_id: string; decision_set_uid: string; decision_set_status: string; source_code: string };
+type StoredCompanion = { batch_uid: string; batch_status: string; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
 const BANK_SOURCES = new Set(["BANK_TOSS_2026", "BANK_IBK_2026"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -73,7 +73,7 @@ export async function loadGroupMultiBatchApplyPlan(
   if (rosterBatchUids.length === 0) return undefined;
   const orderedRosterBatchUids = [...new Set(rosterBatchUids)].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
   if (orderedRosterBatchUids.length !== rosterBatchUids.length) fail("source_decision_group_companion_reused");
-  const stored = await client.query<StoredCompanion>(`SELECT b.batch_uid::text,b.status batch_status,ds.id::text decision_set_id,ds.decision_set_uid::text,ds.status decision_set_status,ls.source_code
+  const stored = await client.query<StoredCompanion>(`SELECT b.batch_uid::text,b.status batch_status,b.source_fingerprint,ds.id::text decision_set_id,ds.decision_set_uid::text,ds.status decision_set_status,ds.manifest,ds.manifest_sha256,ls.source_code
     FROM public.accounting_import_batches b
     JOIN public.accounting_source_releases r ON r.id=b.source_release_id
     JOIN public.accounting_logical_sources ls ON ls.id=r.logical_source_id
@@ -84,13 +84,22 @@ export async function loadGroupMultiBatchApplyPlan(
   if (stored.rowCount !== orderedRosterBatchUids.length || stored.rows.some((row, index) => row.batch_uid !== orderedRosterBatchUids[index] || row.batch_status !== "previewed" || row.decision_set_status !== "previewed" || row.source_code !== "GROUP_FOREIGN_FACULTY_2025")) fail("source_decision_group_companion_graph_mismatch");
   const companions: GroupApplySet[] = [];
   for (const row of stored.rows) {
-    const items = await client.query<{ coordinate_key: string; decision_kind: string; decision_payload: JsonObject }>(`SELECT c.coordinate_key,i.decision_kind,i.decision_payload
+    const items = await client.query<{ ordinal: number; coordinate_key: string; content_digest: string; decision_kind: string; decision_payload: JsonObject; decision_payload_sha256: string }>(`SELECT i.ordinal,c.coordinate_key,rv.content_digest,i.decision_kind,i.decision_payload,i.decision_payload_sha256
       FROM public.source_decision_items i
       JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id
       JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id
       WHERE i.decision_set_id=$1
       ORDER BY i.ordinal
       FOR UPDATE OF i,c,rv`, [row.decision_set_id]);
+    const manifestItems = items.rows.map((item, index) => {
+      if (item.ordinal !== index + 1 || item.decision_payload_sha256 !== sha256(canonicalJson(item.decision_payload))) fail("source_decision_group_companion_item_drift");
+      if (index > 0 && Buffer.compare(Buffer.from(`${items.rows[index - 1].coordinate_key}\u0000${items.rows[index - 1].decision_kind}`), Buffer.from(`${item.coordinate_key}\u0000${item.decision_kind}`)) >= 0) fail("source_decision_group_companion_item_order_mismatch");
+      return { ordinal: item.ordinal, coordinate_key: item.coordinate_key, source_content_digest: item.content_digest, decision_kind: item.decision_kind, decision_payload_sha256: item.decision_payload_sha256 };
+    });
+    const expectedManifest = { schema_version: "source-decision-preview-v1", batch_uid: row.batch_uid, source_fingerprint: row.source_fingerprint, items: manifestItems };
+    if (row.manifest_sha256 !== sha256(canonicalJson(expectedManifest)) || canonicalJson(row.manifest) !== canonicalJson(expectedManifest)) fail("source_decision_group_companion_manifest_drift");
+    const coverage = new Map<string, string[]>(); for (const item of items.rows) coverage.set(item.coordinate_key, [...(coverage.get(item.coordinate_key) ?? []), item.decision_kind]);
+    if ([...coverage.values()].some((kinds) => canonicalJson([...kinds].sort()) !== canonicalJson(["group_allocation", "member_match"]))) fail("source_decision_group_companion_coverage_mismatch");
     companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload })) });
   }
   return buildGroupMultiBatchApplyPlan(primary, companions);
