@@ -260,6 +260,12 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 최종 v4 전수 materialization과 Development preview는 90행/90개 name-only `quarantine` decision item을 생성하고 동일 입력에서 `created → verified_noop`을 재현했다. Exact graph는 coordinate/version/link `90/90/90`, operation receipt `1`, result entity/audit `362/362`, downstream business row 0을 확인했다. 관리자 review reader도 같은 decision set을 `previewed`, item 90, exact manifest/source fingerprint, terminal `ROLLBACK`으로 검증했다. 누락 날짜·임명근거는 계속 null이고, 어떤 회원 match·직책 assignment·source apply도 실행하지 않았다. Notion write는 0건이며 로컬/Replit 임시 관측·입력과 exact-commit worktree는 삭제 후 부재를 확인했다.
 
+### 통합주소록 v3 profile refresh·preview
+
+2026-08-10 read-only Drive·Sheets API preflight에서 surviving `통합주소록` sheetId `876761083`, grid `3459×12`, header hash는 유지되었지만 workbook Drive version이 사용자의 3개 role 탭 삭제로 `2128→2130`이 된 것을 확인했다. 기존 v2 profile/release를 수정하지 않고 `membership-integrated-address-book-v3` profile·mapping·release를 append했다. 원문을 출력하지 않는 shape preflight에서 3,458행 전체의 기수가 integer cell, 입학/졸업일자가 dotted date cell임을 확인했고, v3는 이 두 형태만 추가로 받는 fail-closed parser다. 연락처·주소·메모·직책 필드는 읽기 allowlist와 normalized payload에서 계속 제외된다.
+
+Exact commit `6f25d98c1cad365fe4957132fdcfb66d571ebbd5`의 Replit 격리 worktree에서 집중 테스트 `16/16`, `tsc --noEmit`, release `created → verified_noop`을 통과했다. Read-only API materialization의 source fingerprint는 `b55c210d1eae3c540ecfd3877e81095a0a167d960387cfd99e619decbe4ef855`이고, Development preview는 batch `46e096da-c150-41e7-b4b7-b51f70ab229f`, decision set `0038772a-a505-4e29-9402-1344380cb23b`로 3,458행과 3,458개 name-only `quarantine` item을 `created → verified_noop`으로 재현했다. Verifier는 coordinate/version/link `3458/3458/3458`, operation receipt `1`, result entity/audit `13834/13834`, downstream business row 0, exact batch/decision manifest, terminal `ROLLBACK`을 확인했다. 관리자 reader도 `previewed`, item 3458, 동일 manifest/source fingerprint를 검증했다. Sheet write, 회원 match approve, decision apply, Production 작업은 모두 0건이며 Replit 임시 입력과 격리 worktree는 삭제 후 부재를 확인했다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
