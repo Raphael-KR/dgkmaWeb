@@ -7,7 +7,16 @@ export type GroupApplySet = { sourceCode: string; batchUid: string; decisionSetU
 export type GroupMultiBatchApplyPlan = {
   orderedBatchUids: string[];
   orderedDecisionSetUids: string[];
-  groups: Array<{ primaryCoordinateKey: string; eventPartyUid: string; receiptUid: string; rosterBatchUid: string; duesAmount: string; approvedAllocationAmount: string }>;
+  groups: Array<{
+    primaryCoordinateKey: string;
+    eventPartyUid: string;
+    receiptUid: string;
+    rosterBatchUid: string;
+    duesAmount: string;
+    approvedAllocationAmount: string;
+    allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string }>;
+  }>;
+  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string> };
 };
 type StoredCompanion = { batch_id: string; batch_uid: string; batch_status: string; preview_manifest: CanonicalValue; preview_manifest_sha256: string; row_count: number; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
@@ -44,7 +53,7 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       const row = split as JsonObject; return row.category_code === "DUES_INCOME" ? sum + money(row.amount, "source_decision_group_category_amount_invalid") : sum;
     }, 0n);
     if (duesAmount <= 0n) fail("source_decision_group_dues_amount_missing");
-    let approvedAllocationAmount = 0n; let approvedCount = 0;
+    let approvedAllocationAmount = 0n; let approvedCount = 0; const allocations: GroupMultiBatchApplyPlan["groups"][number]["allocations"] = [];
     for (const allocation of companion.items.filter((candidate) => candidate.decisionKind === "group_allocation")) {
       const decision = allocation.decisionPayload;
       if (decision.outcome !== "approve") {
@@ -55,10 +64,13 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       for (const key of ["allocation_request_uid_or_null", "group_member_uid_or_null", "member_uid_or_null"]) if (typeof decision[key] !== "string" || !UUID.test(String(decision[key]))) fail("source_decision_group_allocation_identity_invalid");
       const match = companion.items.find((candidate) => candidate.coordinateKey === allocation.coordinateKey && candidate.decisionKind === "member_match");
       if (!match || match.decisionPayload.outcome !== "approve" || match.decisionPayload.candidate_member_uid_or_null !== decision.member_uid_or_null || typeof match.decisionPayload.case_uid !== "string" || !UUID.test(match.decisionPayload.case_uid) || match.decisionPayload.evidence_kind === "name_only") fail("source_decision_group_member_match_binding_mismatch");
-      approvedAllocationAmount += money(decision.amount_or_null, "source_decision_group_allocation_amount_invalid"); approvedCount += 1;
+      const amount = money(decision.amount_or_null, "source_decision_group_allocation_amount_invalid");
+      if (!Number.isInteger(decision.dues_year_or_null) || typeof decision.allocation_kind_or_null !== "string" || !decision.allocation_kind_or_null) fail("source_decision_group_allocation_shape_invalid");
+      allocations.push({ coordinateKey: allocation.coordinateKey, allocationRequestUid: String(decision.allocation_request_uid_or_null), groupMemberUid: String(decision.group_member_uid_or_null), memberUid: String(decision.member_uid_or_null), caseUid: String(match.decisionPayload.case_uid), amount: amount.toString(), duesYear: Number(decision.dues_year_or_null), allocationKind: decision.allocation_kind_or_null });
+      approvedAllocationAmount += amount; approvedCount += 1;
     }
     if (approvedCount === 0 || approvedAllocationAmount !== duesAmount) fail("source_decision_group_allocation_total_mismatch");
-    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString() };
+    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString(), allocations };
   });
   if (seenCompanions.size !== companionByBatch.size) fail("source_decision_group_unreferenced_companion");
   const orderedCompanions = [...companions].sort((left, right) => Buffer.compare(Buffer.from(left.batchUid), Buffer.from(right.batchUid)));
@@ -111,5 +123,15 @@ export async function loadGroupMultiBatchApplyPlan(
     if ([...coverage.values()].some((kinds) => canonicalJson([...kinds].sort()) !== canonicalJson(["group_allocation", "member_match"]))) fail("source_decision_group_companion_coverage_mismatch");
     companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload })) });
   }
-  return buildGroupMultiBatchApplyPlan(primary, companions);
+  const plan = buildGroupMultiBatchApplyPlan(primary, companions);
+  const memberUids = [...new Set(plan.groups.flatMap((group) => group.allocations.map((allocation) => allocation.memberUid)))].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  const members = await client.query<{ id: string; member_uid: string; status: string }>("SELECT id::text,member_uid::text,status FROM public.association_members WHERE member_uid=ANY($1::uuid[]) ORDER BY member_uid FOR UPDATE", [memberUids]);
+  if (members.rowCount !== memberUids.length || members.rows.some((member, index) => member.member_uid !== memberUids[index] || member.status !== "active")) fail("source_decision_group_member_binding_missing");
+  const eventPartyUids = [...new Set(plan.groups.map((group) => group.eventPartyUid))].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  const parties = await client.query<{ id: string; party_uid: string; party_kind: string; status: string }>("SELECT id::text,party_uid::text,party_kind,status FROM public.economic_event_parties WHERE party_uid=ANY($1::uuid[]) ORDER BY party_uid FOR UPDATE", [eventPartyUids]);
+  if (parties.rows.some((party) => party.party_kind !== "group" || party.status !== "active")) fail("source_decision_group_event_party_binding_mismatch");
+  const mapping = await client.query<{ account_id: string; account_code: string; source_code_snapshot: string; account_code_snapshot: string }>(`SELECT a.id::text account_id,a.account_code,m.source_code_snapshot,m.account_code_snapshot FROM public.accounting_logical_sources s JOIN public.bank_source_account_mappings m ON m.logical_source_id=s.id JOIN public.bank_accounts a ON a.id=m.account_id WHERE s.source_code=$1 FOR UPDATE OF s,m,a`, [primary.sourceCode]);
+  if (mapping.rowCount !== 1 || mapping.rows[0].source_code_snapshot !== primary.sourceCode || mapping.rows[0].account_code_snapshot !== mapping.rows[0].account_code) fail("source_decision_group_bank_account_binding_mismatch");
+  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])) };
+  return plan;
 }

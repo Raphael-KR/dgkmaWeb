@@ -44,10 +44,13 @@ test("loads and locks the exact live companion graph before planning", async () 
     sql.push(text);
     if (text.includes("FROM public.accounting_import_batches b")) return { rowCount: 1, rows: [{ batch_id: "16", batch_uid: rosterBatch, batch_status: "previewed", preview_manifest: batchManifest, preview_manifest_sha256: sha256(canonicalJson(batchManifest as CanonicalValue)), row_count: batchRows.length, source_fingerprint: sourceFingerprint, decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", manifest, manifest_sha256: sha256(canonicalJson(manifest as CanonicalValue)), source_code: "GROUP_FOREIGN_FACULTY_2025" }] };
     if (text.includes("FROM public.accounting_import_batch_rows br")) return { rowCount: batchRows.length, rows: batchRows };
+    if (text.includes("FROM public.association_members")) return { rowCount: 2, rows: [{ id: "81", member_uid: "a0000000-0000-4000-8000-000000000003", status: "active" }, { id: "82", member_uid: "b0000000-0000-4000-8000-000000000003", status: "active" }] };
+    if (text.includes("FROM public.economic_event_parties")) return { rowCount: 0, rows: [] };
+    if (text.includes("FROM public.accounting_logical_sources s JOIN public.bank_source_account_mappings")) return { rowCount: 1, rows: [{ account_id: "91", account_code: "TOSS_OFFICER_2026", source_code_snapshot: "BANK_TOSS_2026", account_code_snapshot: "TOSS_OFFICER_2026" }] };
     return { rowCount: storedItems.length, rows: storedItems };
   } };
   const result = await loadGroupMultiBatchApplyPlan(client as never, primary);
-  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(sql.length, 3); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
+  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.equal(sql.length, 6); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
 });
 
 test("fails closed when the referenced companion has no unique live preview set", async () => {
