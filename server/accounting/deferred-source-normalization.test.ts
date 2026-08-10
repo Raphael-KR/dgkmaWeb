@@ -40,3 +40,15 @@ test("all release descriptors bind the current mapping approval, schema, and imp
     assert.equal(descriptor.normalization_implementation_sha256, implementationSha);
   }
 });
+
+test("Development release plan is self-bound and preallocates unique UUIDv4 identities", () => {
+  const plan = JSON.parse(readFileSync("docs/source-contracts/releases/development-source-release-plan-v1.json", "utf8")) as Record<string, CanonicalValue>;
+  const preimage = { ...plan }; delete preimage.plan_sha256;
+  assert.equal(plan.plan_sha256, sha256(canonicalJson(preimage)));
+  const operations = plan.operations as Array<Record<string, CanonicalValue>>;
+  assert.equal(operations.length, 8);
+  assert.equal(new Set(operations.map((entry) => entry.source_code)).size, 8);
+  const uuids = operations.flatMap((entry) => [entry.action_correlation_uid, entry.event_uid, entry.operation_uid, entry.release_uid, entry.root_correlation_uid].map(String));
+  assert.equal(new Set(uuids).size, 40);
+  for (const uid of uuids) assert.match(uid, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+});
