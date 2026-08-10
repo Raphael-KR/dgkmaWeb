@@ -223,9 +223,16 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
   --target development \
   --actor-receipt docs/database-targets/development-admin-approved.json \
   --input "$preview_input"
+
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/verify-ledger-dues-policy-preview-v2.ts \
+  --target development \
+  --input "$preview_input"
 ```
 
 입력 파일에는 source row가 있으므로 실행과 검증이 끝나면 정확히 확인한 해당 임시 파일만 삭제한다. stdout/evidence에는 source code, UUID, fingerprint, manifest digest와 count만 남기고 source snapshot은 남기지 않는다. Production, Google Sheets/Notion 쓰기, decision approve/reject/repreview, downstream business apply는 이 명령 범위 밖이다.
+
+2026-08-10 Development 첫 실행은 source fingerprint `8d8ab2ca528c4af0eafd20f919f4cc04aad7fe05bcce7c2946d7cf5b9e94a472`로 `created → verified_noop`을 재현했다. read-only verifier는 batch/decision set `1/1`, source coordinate/version/link `10/10/10`, decision item `0`, operation receipt/result entity/audit `1/32/32`, downstream business/source-linked policy row `0/0`을 확인하고 `ROLLBACK`으로 끝났다. 임시 입력과 두 exact-commit Replit worktree의 삭제·부재도 확인했다.
 
 ## 가역 rollout과 복원 검증 계약
 
