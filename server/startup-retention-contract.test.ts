@@ -35,14 +35,14 @@ const retention = JSON.parse(readFileSync(`${root}/retention-cases.json`, "utf8"
   cases: Array<{ job_id: Parameters<typeof planRetentionRun>[0]; rows: Parameters<typeof planRetentionRun>[1]; expected_selected_keys: string[] }>;
 };
 
-test("exact materialized ledger through sequence 60 is ready with zero emitted DDL", () => {
-  assert.deepEqual(STARTUP_REQUIRED_SEQUENCES, [1, 10, 15, 20, 30, 40, 50, 60]);
-  assert.deepEqual(STARTUP_LATEST_REQUIRED, { sequence_no: 60, artifact_id: "database-security-v1" });
-  assert.equal(STARTUP_ARTIFACTS.length, 9);
+test("exact materialized ledger through sequence 70 is ready with zero emitted DDL", () => {
+  assert.deepEqual(STARTUP_REQUIRED_SEQUENCES, [1, 10, 15, 20, 30, 40, 50, 60, 70]);
+  assert.deepEqual(STARTUP_LATEST_REQUIRED, { sequence_no: 70, artifact_id: "event-claim-coordinate-root-v1" });
+  assert.equal(STARTUP_ARTIFACTS.length, 10);
   const result = verifyStartupLedger(ready.ledger_rows, ready.descriptors);
   assert.equal(result.ready, true);
   assert.equal(result.code, "startup_ledger_ready");
-  assert.equal(result.observed_latest_sequence, 60);
+  assert.equal(result.observed_latest_sequence, 70);
   assert.equal(result.capability_variant, "preferred_btree_gist");
   assert.deepEqual(result.emitted_ddl, []);
   assert.equal(result.schema_writes, 0);
@@ -65,7 +65,7 @@ test("missing, old, drifted, and currently unmaterialized ledgers fail closed", 
     assert.deepEqual(result.emitted_ddl, []);
     assert.equal(result.schema_writes, 0);
   }
-  const drifted = ready.ledger_rows.map((row) => row.sequence_no === 60 ? { ...row, executor_version: "schema-ledger-v0" } : row);
+  const drifted = ready.ledger_rows.map((row) => row.sequence_no === 70 ? { ...row, executor_version: "schema-ledger-v0" } : row);
   assert.equal(verifyStartupLedger(drifted, ready.descriptors).code, "startup_ledger_exact_version_mismatch");
   const repositoryDescriptors = readArtifactDescriptors() as StartupDescriptor[];
   assert.equal(

@@ -12,7 +12,8 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "f5a3703f92fbc3521662fa5e2a96798b00419a69a733fae2c8b6af228f265d17";
+const EXPECTED_PLAN_SHA = "99ba18156c32171f67f51cf2a17e1cdda960ef269f98018ddd6ee8475b0a8622";
+const PARENT_MANIFEST_SHA = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -563,6 +564,8 @@ function main(): void {
       addUnique(table.table, ["supersedes_id"], "supersedes_id IS NOT NULL", "vchain_expansion");
     }
   }
+  uniqueConstraints.delete("economic_event_claims:coordinate_id:");
+  addUnique("economic_event_claims", ["coordinate_id"], "version=1", "sequence_70_materialization_correction");
   for (const [table, columns] of Object.entries({
     schema_release_runs: [["release_uid"]],
     business_operation_receipts: [["operation_uid"],["root_correlation_uid"]],
@@ -600,6 +603,11 @@ function main(): void {
   const manifest: Json = {
     schema_version: "dgkma-database-manifest-v1",
     architecture_plan_sha256: EXPECTED_PLAN_SHA,
+    manifest_lineage: {
+      parent_manifest_sha256: PARENT_MANIFEST_SHA,
+      parent_manifest_path: `docs/database-manifests/${PARENT_MANIFEST_SHA}.yaml`,
+      amendment_code: "event_claim_coordinate_root_v1",
+    },
     manifest_contract: {
       deterministic_serialization: "RFC8785_JSON_AS_YAML_1_2_PLUS_LF",
       source_contract_line_digests: contractLines,
@@ -722,7 +730,7 @@ function main(): void {
       classification_statuses: ["approved","quarantined"],
       collision_open_successor: { parent_status: "open", new_status: "open", action: "supersede", reason_code: "COLLISION_REVIEW_REQUIRED" },
     },
-    artifact_sequences: [1,10,15,20,30,40,50,60,65],
+    artifact_sequences: [1,10,15,20,30,40,50,60,65,70],
   };
   const bytes = `${canonicalJson(manifest)}\n`;
   const unresolved = bytes.match(/\b(?:ACTOR|AUDIT_ACTOR|OPTIONAL_ACTOR|VCHAIN|CANONICAL_PHONE|DEFAULT_ACTOR)\b|<[a-z][a-z0-9_-]*>/);

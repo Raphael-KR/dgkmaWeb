@@ -108,6 +108,9 @@ export async function observeLedgerThrough40(
   targetFingerprint: string,
 ): Promise<{ coveringReleaseUid: string; rows: LedgerProjectionRow[]; digest: string }> {
   const manifest = readManifest();
+  const lineage = manifest.value.manifest_lineage as { parent_manifest_sha256?: unknown } | undefined;
+  if (typeof lineage?.parent_manifest_sha256 !== "string" || !SHA256.test(lineage.parent_manifest_sha256)) fail("actor_receipt_manifest_lineage_mismatch");
+  const through40ManifestSha = lineage.parent_manifest_sha256;
   const covering = await pool.query<{ release_uid: string }>(`
     SELECT release_uid::text
     FROM public.schema_release_runs
@@ -115,7 +118,7 @@ export async function observeLedgerThrough40(
       AND requested_through_sequence_no=40 AND state='verified'
     ORDER BY started_at DESC, id DESC
     LIMIT 1
-  `, [targetFingerprint, manifest.sha256]);
+  `, [targetFingerprint, through40ManifestSha]);
   if (covering.rowCount !== 1) fail("actor_receipt_verified_through_40_required");
   const coveringReleaseUid = covering.rows[0].release_uid;
   const ledger = await pool.query<LedgerProjectionRow>(`
@@ -145,7 +148,7 @@ export async function observeLedgerThrough40(
       "artifact_release_uid", "artifact_release_state", "capability_receipt_sha256", "target_fingerprint",
     ]);
     if (
-      row.manifest_sha256 !== manifest.sha256 || row.target_fingerprint !== targetFingerprint ||
+      row.manifest_sha256 !== through40ManifestSha || row.target_fingerprint !== targetFingerprint ||
       !SHA256.test(row.artifact_sha256) || !SHA256.test(row.capability_receipt_sha256) ||
       !UUID.test(row.artifact_release_uid) || !["verified", "failed"].includes(row.artifact_release_state)
     ) {

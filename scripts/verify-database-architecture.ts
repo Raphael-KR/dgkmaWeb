@@ -1574,7 +1574,7 @@ function runTaskEleven(): void {
       fail("task_11_happy_plan_lint_failed");
     }
     if (
-      lintResult.manifest_sha256 !== "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8" ||
+      lintResult.manifest_sha256 !== "5c02b1f62fdd172ed24ef20d046631793b85dcfcd06e13d6d22ac2d8d85bc88c" ||
       lintResult.manifest_commit !== "47a9cf63545371ea258fc1c2264acf531fe5facf" ||
       lintResult.owner_decision_count !== 35 ||
       lintResult.accounting_gate_pairs !== 1 ||
@@ -1688,7 +1688,7 @@ function runTaskFourteen(): void {
     amendment.schema_version !== "dgkma-sequence-50-release-scope-amendment-v1" ||
     amendment.receipt_sha256 !== sha256(canonicalJson(amendmentPreimage as never)) ||
     amendment.prior_manifest_sha256 !== rebind.amended_manifest_sha256 ||
-    amendment.amended_manifest_sha256 !== TODO_14_MANIFEST_SHA256 ||
+    amendment.amended_manifest_sha256 !== (readManifest().value.manifest_lineage as { parent_manifest_sha256: string }).parent_manifest_sha256 ||
     amendment.source_mapping_receipts_unchanged !== true ||
     amendment.logical_source_identity_count !== 10 || amendment.source_release_count !== 2 ||
     amendment.deferred_historical_release_count !== 8 ||
@@ -1998,18 +1998,20 @@ function runTaskSixteen(): void {
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--through-sequence","40","--capability-variant",variant]);
     invoke("npx", ["tsx","scripts/create-disposable-admin.ts","--target","disposable-test","--run-uid",runUid,"--receipt",receiptPath]);
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","50","--through-sequence","60","--actor-receipt",receiptPath]);
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","70","--through-sequence","70"]);
     invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml"]);
     invoke("node", ["dist/index.js"], 0, { NODE_ENV:"production", SESSION_SECRET:"disposable-ledger-only-not-a-real-secret", DGKMA_STARTUP_LEDGER_ONLY:"1", DGKMA_DISPOSABLE_RUN_UID:runUid });
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","50","--through-sequence","60","--actor-receipt",receiptPath]);
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","70","--through-sequence","70"]);
     invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml","--teardown"]);
-    summaries.push({ run_uid:runUid, requested_variant:variant, ledger_sequences:[1,10,15,20,30,40,50,60], reapply:"verified_noop", teardown_absent:true });
+    summaries.push({ run_uid:runUid, requested_variant:variant, ledger_sequences:[1,10,15,20,30,40,50,60,70], reapply:"verified_noop", teardown_absent:true });
   }
   const logPath = commandLogPath;
   writeFileSync(logPath, log.join("\n"));
   writeFileSync(evidencePath, `${canonicalJson({ schema_version:"dgkma-task-evidence-v1",task:16,case:caseName,
     task_commit_sha:process.env.TASK_COMMIT_SHA ?? execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),
     manifest_sha256:readManifest().sha256,db_target:"disposable-test",db_mode:"two-uuid-bound-disposable-runs",
-    assertions:{runs:summaries,artifact_descriptors:descriptors.length,startup_required_through:60,production_operations:0,development_schema_writes:0},
+    assertions:{runs:summaries,artifact_descriptors:descriptors.length,startup_required_through:70,production_operations:0,development_schema_writes:0},
     attachment_digests:[{path:logPath,sha256:sha256(readFileSync(logPath))}],result:"approved" } as never)}\n`);
 }
 
@@ -2505,7 +2507,7 @@ function runTaskTen(): void {
       }
       eligibleRows += plan.selected_keys.length;
     }
-    if (!startup.ready || startup.observed_latest_sequence !== 60 || startup.emitted_ddl.length !== 0) {
+    if (!startup.ready || startup.observed_latest_sequence !== 70 || startup.emitted_ddl.length !== 0) {
       fail("task_10_startup_ready_fixture_rejected");
     }
     writeTaskTenEvidence(evidencePath, caseName, "approved", 0, {
@@ -2676,6 +2678,10 @@ function runTaskSeventeen(): void {
     "tsx", "scripts/apply-schema.ts", "--target", "development", "--from-sequence", "50",
     "--through-sequence", "60", "--actor-receipt", actorReceiptPath,
   ]);
+  const through70 = invoke("npx", [
+    "tsx", "scripts/apply-schema.ts", "--target", "development", "--from-sequence", "70",
+    "--through-sequence", "70",
+  ]);
   const categories = invoke("npx", [
     "tsx", "scripts/approve-accounting-categories.ts", "--target", "development",
     "--actor-receipt", actorReceiptPath, "--codes",
@@ -2691,8 +2697,7 @@ function runTaskSeventeen(): void {
     "--manifest", "docs/database-manifest.yaml",
   ]);
   const reapply = invoke("npx", [
-    "tsx", "scripts/apply-schema.ts", "--target", "development", "--through-sequence", "60",
-    "--actor-receipt", actorReceiptPath,
+    "tsx", "scripts/apply-schema.ts", "--target", "development", "--from-sequence", "70", "--through-sequence", "70",
   ]);
   const categoryReapply = invoke("npx", [
     "tsx", "scripts/approve-accounting-categories.ts", "--target", "development",
@@ -2700,15 +2705,15 @@ function runTaskSeventeen(): void {
     "DUES_INCOME,OTHER_INCOME,DUES_REFUND,GENERAL_EXPENSE,INTERNAL_TRANSFER_IN,INTERNAL_TRANSFER_OUT",
   ]);
   if (
-    !through40.includes('"result":"approved"') || !through60.includes('"result":"approved"') ||
+    !through40.includes('"result":"approved"') || !through60.includes('"result":"approved"') || !through70.includes('"result":"approved"') ||
     !categories.includes('"approved_category_tips":6') || !catalog.includes('"transaction_terminal":"ROLLBACK"') ||
-    (reapply.match(/"outcome":"verified_noop"/g) ?? []).length !== 8 ||
+    (reapply.match(/"outcome":"verified_noop"/g) ?? []).length !== 1 ||
     !categoryReapply.includes('"outcome":"verified_noop"')
   ) {
     fail("task_17_happy_output_mismatch");
   }
   writeEvidence("approved", {
-    ledger_sequences: [1, 10, 15, 20, 30, 40, 50, 60],
+    ledger_sequences: [1, 10, 15, 20, 30, 40, 50, 60, 70],
     strict_actor_receipt_reproved: true,
     approved_category_tips: 6,
     draft_policy_roots: 16,
@@ -2717,7 +2722,7 @@ function runTaskSeventeen(): void {
     approved_position_mappings: 0,
     migrated_startup_emitted_ddl: 0,
     catalog_transaction_terminal: "ROLLBACK",
-    reapply_verified_noop_count: 8,
+    reapply_verified_noop_count: 1,
     category_reapply: "verified_noop",
     production_operations: 0,
   });

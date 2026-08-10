@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { canonicalJson, readArtifactDescriptors, readManifest, schemaLockKey, sha256 } from "../scripts/schema-ledger";
+import { canonicalJson, readArtifactDescriptors, readManifest, schemaLockKey, selectedArtifacts, sha256 } from "../scripts/schema-ledger";
 
 test("expanded manifest is canonical, closed, and bound to the approved plan", () => {
   const manifest = readManifest();
@@ -62,8 +62,8 @@ test("descriptor set rejects altered canonical manifest bytes with the same sche
 
 test("artifact descriptors close the fully materialized sequence registry", () => {
   const descriptors = readArtifactDescriptors();
-  assert.equal(descriptors.length, 10);
-  assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65]);
+  assert.equal(descriptors.length, 11);
+  assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65,70]);
   for (const descriptor of descriptors) {
     assert.equal(descriptor.materialization_state, "materialized");
     assert.match(descriptor.artifact_sha256!, /^[0-9a-f]{64}$/);
@@ -72,12 +72,20 @@ test("artifact descriptors close the fully materialized sequence registry", () =
   const sequence65 = descriptors.find((entry) => entry.sequence_no === 65)!;
   assert.equal(sequence65.required_for_startup, false);
   assert.equal(sequence65.required_for_production, true);
+  const sequence70 = descriptors.find((entry) => entry.sequence_no === 70)!;
+  assert.equal(sequence70.manifest_sha256, readManifest().sha256);
+  assert.equal(sequence70.required_for_startup, true);
+  assert.deepEqual(selectedArtifacts(70, 70, "preferred_btree_gist").map((entry) => entry.sequence_no), [70]);
+  const sequence70Sql = readFileSync(sequence70.path, "utf8");
+  assert.match(sequence70Sql, /DROP CONSTRAINT economic_event_claims__coordinate_id__key/);
+  assert.match(sequence70Sql, /WHERE version=1/);
+  assert.match(sequence70Sql, /requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70\)/);
 });
 
 test("standalone manifest validator accepts the committed bytes", () => {
-  const result = spawnSync("npx", ["tsx", "scripts/validate-database-manifest.ts"], { encoding: "utf8" });
+  const result = spawnSync(process.execPath, ["--import", "tsx", "scripts/validate-database-manifest.ts"], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout.trim());
   assert.equal(output.result, "approved");
-  assert.equal(output.materialized_artifacts, 10);
+  assert.equal(output.materialized_artifacts, 11);
 });

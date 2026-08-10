@@ -143,6 +143,10 @@ function main(): void {
   const descriptors = readArtifactDescriptors();
   if (descriptors.some((entry) => entry.materialization_state !== "materialized" || entry.artifact_sha256 === null)) fail("manifest_artifact_not_materialized");
   if (descriptors.filter((entry) => entry.sequence_no === 65).some((entry) => entry.required_for_startup || !entry.required_for_production)) fail("manifest_sequence_65_route_mismatch");
+  const sequence70 = descriptors.filter((entry) => entry.sequence_no === 70);
+  if (sequence70.length !== 1 || !sequence70[0].required_for_startup || !sequence70[0].required_for_production || sequence70[0].manifest_sha256 !== manifest.sha256) fail("manifest_sequence_70_route_mismatch");
+  const claimCoordinate = value.unique_constraints.find((entry: any) => entry.table === "economic_event_claims" && JSON.stringify(entry.columns) === '["coordinate_id"]');
+  if (claimCoordinate?.predicate_sql !== "version=1" || claimCoordinate?.source !== "sequence_70_materialization_correction") fail("manifest_claim_coordinate_root_mismatch");
   console.log(JSON.stringify({
     schema_version: "dgkma-database-manifest-validation-v1",
     manifest_sha256: manifest.sha256,

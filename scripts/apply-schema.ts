@@ -107,7 +107,7 @@ async function main(): Promise<void> {
         applicationName: resolved.applicationName,
       };
       let actor: MigrationActor | undefined;
-      if (throughSequence >= 50) {
+      if (fromSequence <= 50 && throughSequence >= 50) {
         const receiptPath = value("--actor-receipt") ?? fail("actor_receipt_required");
         requireCommittedReceipt(receiptPath);
         actor = await verifyActorReceipt(pool, receiptPath, {
@@ -194,7 +194,7 @@ async function main(): Promise<void> {
       applicationName: disposable.applicationName,
     };
     let actor: MigrationActor | undefined;
-    if (throughSequence >= 50) {
+    if (fromSequence <= 50 && throughSequence >= 50) {
       const receiptPath = value("--actor-receipt") ?? fail("actor_receipt_required");
       actor = await verifyActorReceipt(disposable.pool, receiptPath, {
         kind: "disposable-test",

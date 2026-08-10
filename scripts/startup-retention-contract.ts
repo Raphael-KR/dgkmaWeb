@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-export const STARTUP_MANIFEST_SHA256 = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
+export const STARTUP_MANIFEST_SHA256 = "5c02b1f62fdd172ed24ef20d046631793b85dcfcd06e13d6d22ac2d8d85bc88c";
 export const STARTUP_EXECUTOR_VERSION = "schema-ledger-v1";
-export const STARTUP_REQUIRED_SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60] as const;
-export const STARTUP_LATEST_REQUIRED = { sequence_no: 60, artifact_id: "database-security-v1" } as const;
+export const STARTUP_REQUIRED_SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60, 70] as const;
+export const STARTUP_LATEST_REQUIRED = { sequence_no: 70, artifact_id: "event-claim-coordinate-root-v1" } as const;
 
 export const STARTUP_ARTIFACTS = [
   { sequence_no: 1, artifact_id: "schema-ledger-bootstrap-v1", kind: "manual" },
@@ -16,6 +16,7 @@ export const STARTUP_ARTIFACTS = [
   { sequence_no: 40, artifact_id: "accounting-temporal-fallback-v1", kind: "manual", capability_variant: "deferred_trigger_fallback" },
   { sequence_no: 50, artifact_id: "accounting-reference-seed-v1", kind: "ordinary" },
   { sequence_no: 60, artifact_id: "database-security-v1", kind: "manual" },
+  { sequence_no: 70, artifact_id: "event-claim-coordinate-root-v1", kind: "manual" },
 ] as const;
 
 export type StartupDescriptor = {
@@ -65,9 +66,11 @@ export function verifyStartupLedger(rows: readonly StartupLedgerRow[], descripto
   const expected = materialized.filter((descriptor) =>
     descriptor.sequence_no !== 40 || descriptor.artifact_id === selectedForty.artifact_id
   );
+  const latestDescriptor = expected.find((descriptor) => descriptor.sequence_no === STARTUP_LATEST_REQUIRED.sequence_no);
+  if (latestDescriptor?.manifest_sha256 !== STARTUP_MANIFEST_SHA256) return failure("startup_manifest_lineage_mismatch", observedLatest);
   if (expected.length !== STARTUP_REQUIRED_SEQUENCES.length) return failure("startup_descriptor_contract_mismatch", observedLatest);
   if (new Set(rows.map((row) => row.sequence_no)).size !== rows.length) return failure("startup_ledger_sequence_duplicate", observedLatest);
-  if (rows.some((row) => row.sequence_no <= 60 && !STARTUP_REQUIRED_SEQUENCES.includes(row.sequence_no as never))) {
+  if (rows.some((row) => row.sequence_no <= 70 && !STARTUP_REQUIRED_SEQUENCES.includes(row.sequence_no as never))) {
     return failure("startup_ledger_unknown_required_range_sequence", observedLatest);
   }
   const targetFingerprints = new Set(rows.map((row) => row.target_fingerprint));
@@ -86,8 +89,8 @@ export function verifyStartupLedger(rows: readonly StartupLedgerRow[], descripto
     if (!row) return failure("startup_ledger_missing_required_sequence", observedLatest);
     if (
       row.artifact_id !== descriptor.artifact_id || row.artifact_sha256 !== descriptor.artifact_sha256 ||
-      row.artifact_kind !== descriptor.kind || row.manifest_sha256 !== STARTUP_MANIFEST_SHA256 ||
-      descriptor.manifest_sha256 !== STARTUP_MANIFEST_SHA256 || row.release_state !== "verified" ||
+      row.artifact_kind !== descriptor.kind || row.manifest_sha256 !== descriptor.manifest_sha256 ||
+      row.release_state !== "verified" ||
       row.executor_version !== STARTUP_EXECUTOR_VERSION || !SHA.test(row.artifact_sha256)
     ) return failure("startup_ledger_exact_version_mismatch", observedLatest);
   }
@@ -114,7 +117,7 @@ export function startupLedgerInventorySql(): string {
     "       l.target_fingerprint, l.capability_variant, l.executor_version, r.state AS release_state",
     "FROM public.schema_change_ledger AS l",
     "JOIN public.schema_release_runs AS r ON r.id = l.release_run_id",
-    "WHERE l.sequence_no <= 65 ORDER BY l.sequence_no, l.artifact_id;",
+    "WHERE l.sequence_no <= 70 ORDER BY l.sequence_no, l.artifact_id;",
     "ROLLBACK;",
     "",
   ].join("\n");

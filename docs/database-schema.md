@@ -6,7 +6,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| code intent | `docs/database-manifest.yaml` + checksum-bound sequence `1,10,15,20,30,40,50,60` |
+| code intent | `docs/database-manifest.yaml` + parent-bound sequence `1,10,15,20,30,40,50,60` + child-bound sequence `70` (Development 적용 전) |
 | source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
 | source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
 | Development migrated verification KST | `2026-08-10 13:25 KST +0900` |
@@ -26,9 +26,9 @@
 | Production catalog | unverified |
 | Production drift | unknown |
 | 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence) | `68/1403/68/257/80/287/432/63` |
-| manifest SHA-256 | `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8` |
+| manifest SHA-256 | `5c02b1f62fdd172ed24ef20d046631793b85dcfcd06e13d6d22ac2d8d85bc88c` (parent `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
 | catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
-| Development evidence | uncommitted Todo 17 evidence; ledger `[1,10,15,20,30,40,50,60]`, catalog SHA `7115c2ceed89f693405303eae6ad826fc0aa98c764774e3f1832b333d385bd37`, transaction terminal `ROLLBACK` |
+| Development evidence | verified current state; ledger `[1,10,15,20,30,40,50,60]`, parent manifest `986e515b…`, sequence 70 미적용, catalog SHA `7115c2ceed89f693405303eae6ad826fc0aa98c764774e3f1832b333d385bd37`, transaction terminal `ROLLBACK` |
 | Development source/import state | verified: logical source 10, active release 24 (`v1=10`, admin-readable `v2=10`, source amendments `v3=3`, Notion generation-evidence `v4=1`); import batch/decision set/item `6/6/6568`; all previews coordinate/version/link `6584/6584/6584`; preview operation receipt/entity/audit `6/26332/26332`; downstream/source-linked policy/period row `0/0/0`; all reruns `verified_noop`, verifier terminal `ROLLBACK` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
@@ -45,7 +45,7 @@ Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable r
 
 시스템은 Express/Drizzle 애플리케이션과 하나의 PostgreSQL `public` 스키마로 구성된 modular monolith이다. Google Sheets는 동문 명부 원본이고 `alumni_database`는 로그인·가입 심사용 runtime copy이며, Kakao는 OAuth/연결 해제 경계, Object Storage는 게시글·행사 첨부 경계다. 이 외부 시스템들은 물리 테이블을 소유하지 않는다.
 
-`session`을 포함한 required schema는 migration ledger가 소유한다. 시작 경로는 sequence 60까지의 exact ledger를 검증할 뿐 DDL을 방출하지 않는다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
+`session`을 포함한 required schema는 migration ledger가 소유한다. 현재 Development ledger는 sequence 60까지이며, 이 변경의 시작 경로는 parent-bound 1→60과 child-bound 70의 exact lineage를 검증할 뿐 DDL을 방출하지 않는다. 따라서 sequence 70 적용 및 런타임 활성화 전에는 기존 Development runtime 상태를 그대로 유지한다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
 
 ## 3. environment drift matrix
 
