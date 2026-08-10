@@ -29,7 +29,7 @@ test("requires each approved allocation to bind the same approved member match",
 });
 test("requires paired companion items to share exact stored evidence", () => {
   const bound = structuredClone(companion); const normalizedPayload = { group_name_snapshot: "synthetic group" };
-  bound.items.forEach((item, index) => { item.evidence = { decisionItemId: String(index + 1), coordinateId: item.coordinateKey === "roster:a" ? "11" : "12", sourceRowVersionId: item.coordinateKey === "roster:a" ? "21" : "22", normalizedPayload }; });
+  bound.items.forEach((item, index) => { item.evidence = { decisionItemId: String(index + 1), coordinateId: item.coordinateKey === "roster:a" ? "11" : "12", sourceRowVersionId: item.coordinateKey === "roster:a" ? "21" : "22", contentDigest: "c".repeat(64), normalizedPayload }; });
   bound.items[1].evidence = { ...bound.items[1].evidence!, sourceRowVersionId: "99" };
   assert.throws(() => buildGroupMultiBatchApplyPlan(primary, [bound]), /companion_evidence_mismatch/);
 });
@@ -58,9 +58,9 @@ test("loads and locks the exact live companion graph before planning", async () 
     if (text.includes("FROM public.accounting_periods")) return { rowCount: 1, rows: [{ id: "102", starts_at: "2025-01-01T00:00:00+09:00", ends_at: "2027-01-01T00:00:00+09:00" }] };
     return { rowCount: storedItems.length, rows: storedItems };
   } };
-  const primaryWithEvidence = structuredClone(primary); primaryWithEvidence.items[0].evidence = { decisionItemId: "19", coordinateId: "29", sourceRowVersionId: "39", normalizedPayload: { amount: "100000", direction: "credit", occurred_at: "2026-01-01T00:00:00+09:00", posted_date: "2026-01-01" } };
+  const primaryWithEvidence = structuredClone(primary); primaryWithEvidence.items[0].evidence = { decisionItemId: "19", coordinateId: "29", sourceRowVersionId: "39", contentDigest, normalizedPayload: { amount: "100000", balance_after: "100000", direction: "credit", occurred_at: "2026-01-01T00:00:00+09:00", payer_name_key_digest: "a".repeat(64), posted_date: "2026-01-01", provider_row_id: "row-1", transaction_description_digest: "b".repeat(64) } };
   const result = await loadGroupMultiBatchApplyPlan(client as never, primaryWithEvidence);
-  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.groups[0].primaryEvidence?.decisionItemId, "19"); assert.equal(result?.groups[0].allocations[0].evidence?.allocationDecisionItemId, "30"); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.deepEqual(result?.resolvedBindings?.categoryIdsByCoordinate, { "bank:toss:1": { DUES_INCOME: "101" } }); assert.deepEqual(result?.resolvedBindings?.periodIdsByCoordinate, { "bank:toss:1": "102" }); assert.equal(sql.length, 12); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
+  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.groups[0].primaryEvidence?.decisionItemId, "19"); assert.equal(result?.groups[0].allocations[0].evidence?.allocationDecisionItemId, "30"); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.deepEqual(result?.resolvedBindings?.categoryIdsByCoordinate, { "bank:toss:1": { DUES_INCOME: "101" } }); assert.deepEqual(result?.resolvedBindings?.periodIdsByCoordinate, { "bank:toss:1": "102" }); assert.match(result?.resolvedBindings?.financialDigestsByCoordinate["bank:toss:1"].rowFingerprint ?? "", /^[0-9a-f]{64}$/); assert.equal(sql.length, 12); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
 });
 
 test("fails closed when the referenced companion has no unique live preview set", async () => {

@@ -153,7 +153,7 @@ export async function decideSourcePreview(
       if (descendants.rowCount !== 1 || descendants.rows[0].descendant_count !== 0) fail("source_decision_supersede_descendants_exist");
     }
     if (command.decision === "approve") {
-      const groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, normalizedPayload: item.normalized_payload } })) });
+      const groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizedPayload: item.normalized_payload } })) });
       if (groupPlan) { buildGroupMaterializationTopology(groupPlan); fail("source_decision_group_materialization_not_implemented"); }
     }
     const periodPlans: PeriodPlan[] = [];

@@ -2,7 +2,7 @@ import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import type { PoolClient } from "pg";
 
 type JsonObject = Record<string, CanonicalValue>;
-export type GroupApplyEvidence = { decisionItemId: string; coordinateId: string; sourceRowVersionId: string; normalizedPayload: JsonObject };
+export type GroupApplyEvidence = { decisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizedPayload: JsonObject };
 export type GroupApplyItem = { coordinateKey: string; decisionKind: string; decisionPayload: JsonObject; evidence?: GroupApplyEvidence };
 export type GroupApplySet = { sourceCode: string; batchUid: string; decisionSetUid: string; items: GroupApplyItem[] };
 export type GroupMultiBatchApplyPlan = {
@@ -20,9 +20,9 @@ export type GroupMultiBatchApplyPlan = {
     occurredAt?: string;
     postedDate?: string;
     primaryEvidence?: GroupApplyEvidence;
-    allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; normalizedPayload: JsonObject } }>;
+    allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizedPayload: JsonObject } }>;
   }>;
-  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoryIdsByCoordinate: Record<string, Record<string, string>>; periodIdsByCoordinate: Record<string, string> };
+  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoryIdsByCoordinate: Record<string, Record<string, string>>; periodIdsByCoordinate: Record<string, string>; financialDigestsByCoordinate: Record<string, { rowFingerprint: string; snapshotDigest: string; payerDigest: string; descriptionDigest: string }> };
 };
 type StoredCompanion = { batch_id: string; batch_uid: string; batch_status: string; preview_manifest: CanonicalValue; preview_manifest_sha256: string; row_count: number; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
@@ -81,8 +81,8 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       if (!match || match.decisionPayload.outcome !== "approve" || match.decisionPayload.candidate_member_uid_or_null !== decision.member_uid_or_null || typeof match.decisionPayload.case_uid !== "string" || !UUID.test(match.decisionPayload.case_uid) || match.decisionPayload.evidence_kind === "name_only") fail("source_decision_group_member_match_binding_mismatch");
       let evidence: GroupMultiBatchApplyPlan["groups"][number]["allocations"][number]["evidence"];
       if (allocation.evidence || match.evidence) {
-        if (!allocation.evidence || !match.evidence || allocation.evidence.coordinateId !== match.evidence.coordinateId || allocation.evidence.sourceRowVersionId !== match.evidence.sourceRowVersionId || canonicalJson(allocation.evidence.normalizedPayload) !== canonicalJson(match.evidence.normalizedPayload)) fail("source_decision_group_companion_evidence_mismatch");
-        evidence = { allocationDecisionItemId: allocation.evidence.decisionItemId, memberMatchDecisionItemId: match.evidence.decisionItemId, coordinateId: allocation.evidence.coordinateId, sourceRowVersionId: allocation.evidence.sourceRowVersionId, normalizedPayload: allocation.evidence.normalizedPayload };
+        if (!allocation.evidence || !match.evidence || allocation.evidence.coordinateId !== match.evidence.coordinateId || allocation.evidence.sourceRowVersionId !== match.evidence.sourceRowVersionId || allocation.evidence.contentDigest !== match.evidence.contentDigest || canonicalJson(allocation.evidence.normalizedPayload) !== canonicalJson(match.evidence.normalizedPayload)) fail("source_decision_group_companion_evidence_mismatch");
+        evidence = { allocationDecisionItemId: allocation.evidence.decisionItemId, memberMatchDecisionItemId: match.evidence.decisionItemId, coordinateId: allocation.evidence.coordinateId, sourceRowVersionId: allocation.evidence.sourceRowVersionId, contentDigest: allocation.evidence.contentDigest, normalizedPayload: allocation.evidence.normalizedPayload };
       }
       const amount = money(decision.amount_or_null, "source_decision_group_allocation_amount_invalid");
       if (!Number.isInteger(decision.dues_year_or_null) || typeof decision.allocation_kind_or_null !== "string" || !decision.allocation_kind_or_null) fail("source_decision_group_allocation_shape_invalid");
@@ -141,7 +141,7 @@ export async function loadGroupMultiBatchApplyPlan(
     if (row.manifest_sha256 !== sha256(canonicalJson(expectedManifest)) || canonicalJson(row.manifest) !== canonicalJson(expectedManifest)) fail("source_decision_group_companion_manifest_drift");
     const coverage = new Map<string, string[]>(); for (const item of items.rows) coverage.set(item.coordinate_key, [...(coverage.get(item.coordinate_key) ?? []), item.decision_kind]);
     if ([...coverage.values()].some((kinds) => canonicalJson([...kinds].sort()) !== canonicalJson(["group_allocation", "member_match"]))) fail("source_decision_group_companion_coverage_mismatch");
-    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, normalizedPayload: item.normalized_payload } })) });
+    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizedPayload: item.normalized_payload } })) });
   }
   const plan = buildGroupMultiBatchApplyPlan(primary, companions);
   if (plan.groups.some((group) => !group.primaryEvidence || !group.occurredAt || !group.postedDate || group.allocations.some((allocation) => !allocation.evidence))) fail("source_decision_group_materialization_evidence_missing");
@@ -174,7 +174,16 @@ export async function loadGroupMultiBatchApplyPlan(
   const periods = await client.query<{ id: string; starts_at: string; ends_at: string | null }>("SELECT id::text,starts_at::text,ends_at::text FROM public.accounting_periods WHERE status='open' ORDER BY starts_at FOR UPDATE");
   const periodIdsByCoordinate: Record<string, string> = {};
   for (const group of plan.groups) { const occurredAt = Date.parse(group.occurredAt!); const matches = periods.rows.filter((period) => Date.parse(period.starts_at) <= occurredAt && (period.ends_at === null || occurredAt < Date.parse(period.ends_at))); if (matches.length !== 1) fail("source_decision_group_period_binding_mismatch"); periodIdsByCoordinate[group.primaryCoordinateKey] = matches[0].id; }
-  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoryIdsByCoordinate, periodIdsByCoordinate };
+  const financialDigestsByCoordinate: Record<string, { rowFingerprint: string; snapshotDigest: string; payerDigest: string; descriptionDigest: string }> = {};
+  for (const group of plan.groups) {
+    const normalized = group.primaryEvidence!.normalizedPayload; const payerDigest = normalized.payer_name_key_digest; const descriptionDigest = normalized.transaction_description_digest; const providerRowId = normalized.provider_row_id; const balanceAfter = normalized.balance_after;
+    if (typeof payerDigest !== "string" || !/^[0-9a-f]{64}$/.test(payerDigest) || typeof descriptionDigest !== "string" || !/^[0-9a-f]{64}$/.test(descriptionDigest) || typeof providerRowId !== "string" || !providerRowId || balanceAfter !== null && (typeof balanceAfter !== "string" || !/^-?[0-9]+$/.test(balanceAfter))) fail("source_decision_group_financial_evidence_invalid");
+    const rowFingerprint = sha256(canonicalJson({ digest_version: "bank-row-v1", account_code: mapping.rows[0].account_code, provider_row_id: providerRowId, source_content_digest: group.primaryEvidence!.contentDigest, posted_date: group.postedDate!, occurred_at: group.occurredAt!, direction: "credit", amount: group.eventAmount, balance_after: balanceAfter }));
+    const children = [...group.allocations].sort((left, right) => compareUtf8(`${left.evidence!.contentDigest}\u0000${left.memberUid}\u0000${left.amount}`, `${right.evidence!.contentDigest}\u0000${right.memberUid}\u0000${right.amount}`)).map((allocation, index) => ({ ordinal: index + 1, source_content_digest: allocation.evidence!.contentDigest, member_uid_or_null: allocation.memberUid, match_case_uid_or_null: allocation.caseUid, proposed_amount: allocation.amount }));
+    const snapshotDigest = sha256(canonicalJson({ digest_version: "group-snapshot-v1", receipt_uid: group.receiptUid, roster_batch_uid: group.rosterBatchUid, children }));
+    financialDigestsByCoordinate[group.primaryCoordinateKey] = { rowFingerprint, snapshotDigest, payerDigest, descriptionDigest };
+  }
+  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoryIdsByCoordinate, periodIdsByCoordinate, financialDigestsByCoordinate };
   return plan;
 }
 
