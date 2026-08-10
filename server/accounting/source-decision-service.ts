@@ -20,7 +20,7 @@ export type SourceDecisionApprovalReceipt = {
   approved_decision_set_uids: string[];
   manifest_sha256: string;
   source_fingerprint: string;
-  decision: "reject" | "repreview";
+  decision: "approve" | "reject" | "repreview";
   replacement_decision_set_uid: string | null;
   replacement_manifest_sha256: string | null;
   actor_user_id: number;
@@ -40,6 +40,7 @@ type LockedItem = {
   source_row_version_id: string;
   content_digest: string;
   decision_kind: string;
+  decision_payload: JsonObject;
 };
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -93,7 +94,7 @@ export async function decideSourcePreview(
   command: Record<string, unknown>,
   actor: SourceDecisionActor,
 ): Promise<SourceDecisionApprovalReceipt> {
-  if (!UUID_V4.test(decisionSetUid) || command.decision !== "reject" && command.decision !== "repreview") fail("source_decision_service_operation_unsupported");
+  if (!UUID_V4.test(decisionSetUid) || !["approve", "reject", "repreview"].includes(String(command.decision))) fail("source_decision_service_operation_unsupported");
   if (typeof command.operationUid !== "string" || !UUID_V4.test(command.operationUid)) fail("source_decision_operation_uid_invalid");
   const operationPayloadSha256 = sha256(canonicalJson(command as unknown as CanonicalValue));
   const client = await pool.connect();
@@ -106,16 +107,21 @@ export async function decideSourcePreview(
     const primary = await client.query<{ id: string; decision_set_uid: string; batch_id: string; batch_uid: string; manifest_sha256: string; source_fingerprint: string; status: string }>(`SELECT ds.id::text,ds.decision_set_uid::text,ds.batch_id::text,b.batch_uid::text,ds.manifest_sha256,b.source_fingerprint,ds.status FROM public.source_decision_sets ds JOIN public.accounting_import_batches b ON b.id=ds.batch_id WHERE ds.decision_set_uid=$1::uuid FOR UPDATE OF ds,b`, [decisionSetUid]);
     if (primary.rowCount !== 1) fail("source_decision_primary_set_missing");
     const row = primary.rows[0];
-    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,i.decision_kind FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
+    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,i.decision_kind,i.decision_payload FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
     const expectedItems = itemResult.rows.map((item, index) => { if (item.ordinal !== index + 1) fail("source_decision_primary_item_coverage_mismatch"); return { ordinal: item.ordinal, coordinateKey: item.coordinate_key, sourceContentDigest: item.content_digest, decisionKind: item.decision_kind }; });
     const context: ApprovalContext = { sessionUserId: actor.userId, liveUserId: actor.userId, liveUserUid: actor.userUid, liveIsAdmin: true, frozenAdminId: actor.userId, frozenAdminUid: actor.userUid, origin: "service://same-origin", hostOrigin: "service://same-origin", fetchSite: "same-origin", expectedDecisionSetUid: decisionSetUid, expectedBatchUid: row.batch_uid, expectedManifestSha256: row.manifest_sha256, expectedSourceFingerprint: row.source_fingerprint, expectedItems };
     validateSourceDecisionCommand(command, context);
+    if (command.decision === "approve" && row.status !== "previewed") fail("source_decision_approve_state_invalid");
     if (command.decision === "reject" && row.status !== "previewed") fail("source_decision_reject_state_invalid");
     if (command.decision === "repreview" && row.status !== "rejected") fail("source_decision_repreview_state_invalid");
+    if (command.decision === "approve" && itemResult.rows.some((item) => item.decision_payload.outcome !== "quarantine")) fail("source_decision_nonquarantine_apply_not_implemented");
     const decidedAt = new Date().toISOString();
-    const approvalReceipt = receiptWithoutHash({ schema_version: "dgkma-source-decision-approval-v2", operation_uid: String(command.operationUid), primary_decision_set_uid: decisionSetUid, primary_batch_uid: row.batch_uid, applied_batch_uids: [], approved_decision_set_uids: [], manifest_sha256: row.manifest_sha256, source_fingerprint: row.source_fingerprint, decision: command.decision as "reject" | "repreview", replacement_decision_set_uid: command.decision === "repreview" ? String(command.replacementDecisionSetUid) : null, replacement_manifest_sha256: command.decision === "repreview" ? String(command.replacementManifestSha256) : null, actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, decided_at: decidedAt, operation_payload_sha256: operationPayloadSha256 });
+    const approvalReceipt = receiptWithoutHash({ schema_version: "dgkma-source-decision-approval-v2", operation_uid: String(command.operationUid), primary_decision_set_uid: decisionSetUid, primary_batch_uid: row.batch_uid, applied_batch_uids: command.decision === "approve" ? [row.batch_uid] : [], approved_decision_set_uids: command.decision === "approve" ? [decisionSetUid] : [], manifest_sha256: row.manifest_sha256, source_fingerprint: row.source_fingerprint, decision: command.decision as "approve" | "reject" | "repreview", replacement_decision_set_uid: command.decision === "repreview" ? String(command.replacementDecisionSetUid) : null, replacement_manifest_sha256: command.decision === "repreview" ? String(command.replacementManifestSha256) : null, actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, decided_at: decidedAt, operation_payload_sha256: operationPayloadSha256 });
     const receiptId = await reserve(client, "business_operation_receipts"); const plans: Array<{ id: string; table: string; entityType: string; entityKey: string; action: string; correlationUid: string; auditId: string; auditEventUid: string; after: JsonObject }> = [];
-    if (command.decision === "reject") {
+    if (command.decision === "approve") {
+      plans.push({ id: row.id, table: "source_decision_sets", entityType: "source_decision_set", entityKey: `decision-set:${decisionSetUid}`, action: "approve", correlationUid: deterministicUuidV4(`${command.operationUid}\napprove\n${decisionSetUid}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { decision_set_uid: decisionSetUid, status: "approved" } });
+      plans.push({ id: row.batch_id, table: "accounting_import_batches", entityType: "import_batch", entityKey: `batch:${row.batch_uid}`, action: "apply", correlationUid: deterministicUuidV4(`${command.operationUid}\napply\n${row.batch_uid}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { batch_uid: row.batch_uid, status: "applied" } });
+    } else if (command.decision === "reject") {
       plans.push({ id: row.id, table: "source_decision_sets", entityType: "source_decision_set", entityKey: `decision-set:${decisionSetUid}`, action: "reject", correlationUid: deterministicUuidV4(`${command.operationUid}\nreject\n${decisionSetUid}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { decision_set_uid: decisionSetUid, status: "rejected" } });
     } else {
       const replacementUid = String(command.replacementDecisionSetUid); const collision = await client.query("SELECT 1 FROM public.source_decision_sets WHERE decision_set_uid=$1::uuid", [replacementUid]); if (collision.rowCount !== 0) fail("source_decision_replacement_uid_collision");
@@ -126,7 +132,11 @@ export async function decideSourcePreview(
     const slots: JsonObject[] = [{ local_ordinal: 1, phase: 0, qualified_table_name: "public.business_operation_receipts", reserved_id: receiptId, result_ordinal: 0, slot_kind: "operation_receipt", slot_kind_order: 0 }];
     plans.forEach((plan, index) => { slots.push({ local_ordinal: 1, phase: 1, qualified_table_name: `public.${plan.table}`, reserved_id: plan.id, result_ordinal: index + 1, slot_kind: "business_row", slot_kind_order: 1 }); slots.push({ local_ordinal: 1, phase: 2, qualified_table_name: "public.accounting_audit_events", reserved_id: plan.auditId, result_ordinal: index + 1, slot_kind: "audit_row", slot_kind_order: 2 }); });
     await insertOperation(client, command, actor, approvalReceipt, results, slots, receiptId);
-    if (command.decision === "reject") {
+    if (command.decision === "approve") {
+      const setPlan = plans[0]; const batchPlan = plans[1];
+      await client.query(`UPDATE public.source_decision_sets SET status='approved',approval_actor_at=$1::timestamptz,approval_actor_authorization_version=$2,approval_actor_correlation_uid=$3::uuid,approval_actor_name_snapshot=$4,approval_actor_scope='admin',approval_actor_uid_snapshot=$5::uuid,approval_actor_user_id=$6 WHERE id=$7`, [decidedAt, actor.authorizationVersion, setPlan.correlationUid, liveActor.rows[0].name, actor.userUid, actor.userId, row.id]);
+      await client.query(`UPDATE public.accounting_import_batches SET status='applied',applied_at=$1::timestamptz,apply_actor_at=$1::timestamptz,apply_actor_authorization_version=$2,apply_actor_correlation_uid=$3::uuid,apply_actor_name_snapshot=$4,apply_actor_scope='admin',apply_actor_uid_snapshot=$5::uuid,apply_actor_user_id=$6 WHERE id=$7`, [decidedAt, actor.authorizationVersion, batchPlan.correlationUid, liveActor.rows[0].name, actor.userUid, actor.userId, row.batch_id]);
+    } else if (command.decision === "reject") {
       const plan = plans[0]; await client.query(`UPDATE public.source_decision_sets SET status='rejected',rejection_actor_at=$1::timestamptz,rejection_actor_authorization_version=$2,rejection_actor_correlation_uid=$3::uuid,rejection_actor_name_snapshot=$4,rejection_actor_scope='admin',rejection_actor_uid_snapshot=$5::uuid,rejection_actor_user_id=$6 WHERE id=$7`, [decidedAt, actor.authorizationVersion, plan.correlationUid, liveActor.rows[0].name, actor.userUid, actor.userId, row.id]);
     } else {
       const setPlan = plans[0]; const replacementUid = String(command.replacementDecisionSetUid);

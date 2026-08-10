@@ -10,7 +10,7 @@ const manifestSha = "9".repeat(64); const fingerprint = "a".repeat(64);
 const actor: SourceDecisionActor = { userId: 7, userUid: "77777777-7777-4777-8777-777777777777", name: "관리자", authorizationVersion: "8".repeat(64), targetFingerprint: "7".repeat(64) };
 const baseCommand = { schemaVersion: "source-decision-command-v1", operationUid: randomUUID(), manifestSha256: manifestSha, sourceFingerprint: fingerprint, decision: "reject", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
 
-function fakePool() {
+function fakePool(outcome = "quarantine") {
   let status = "previewed"; let nextId = 100; const sql: string[] = [];
   const client = {
     async query(text: string) {
@@ -18,10 +18,11 @@ function fakePool() {
       if (text.includes("FROM public.business_operation_receipts WHERE operation_uid")) return { rowCount: 0, rows: [] };
       if (text.includes("FROM public.users WHERE id")) return { rowCount: 1, rows: [{ id: 7, user_uid: actor.userUid, is_admin: true, name: actor.name }] };
       if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest_sha256: manifestSha, source_fingerprint: fingerprint, status }] };
-      if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), decision_kind: "classification" }] };
+      if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), decision_kind: "classification", decision_payload: { outcome } }] };
       if (text.includes("nextval(pg_get_serial_sequence")) return { rowCount: 1, rows: [{ id: String(nextId++) }] };
       if (text.includes("SELECT 1 FROM public.source_decision_sets WHERE decision_set_uid")) return { rowCount: 0, rows: [] };
       if (text.includes("UPDATE public.source_decision_sets SET status='rejected'")) status = "rejected";
+      if (text.includes("UPDATE public.source_decision_sets SET status='approved'")) status = "approved";
       return { rowCount: 1, rows: [] };
     },
     release() {},
@@ -41,6 +42,19 @@ test("reject then full-byte repreview keeps applied arrays empty and uses one tr
   assert.ok(fake.sql.some((statement) => statement.includes("INSERT INTO public.source_decision_sets")));
   assert.ok(fake.sql.some((statement) => statement.includes("INSERT INTO public.source_decision_items")));
   assert.equal(fake.sql.filter((statement) => statement === "COMMIT").length, 2);
+});
+
+test("approve applies only a quarantine-only preview and records the ordered set and batch", async () => {
+  const fake = fakePool(); const command = { ...baseCommand, operationUid: randomUUID(), decision: "approve" };
+  const approved = await decideSourcePreview(fake.pool as never, primaryUid, command, actor);
+  assert.equal(approved.decision, "approve"); assert.deepEqual(approved.approved_decision_set_uids, [primaryUid]); assert.deepEqual(approved.applied_batch_uids, [batchUid]); assert.equal(fake.status(), "approved");
+  assert.ok(fake.sql.some((statement) => statement.includes("UPDATE public.accounting_import_batches SET status='applied'")));
+});
+
+test("approve refuses non-quarantine items before reservations or state changes", async () => {
+  const fake = fakePool("approve"); const command = { ...baseCommand, operationUid: randomUUID(), decision: "approve" }; const before = fake.sql.length;
+  await assert.rejects(() => decideSourcePreview(fake.pool as never, primaryUid, command, actor), /nonquarantine_apply_not_implemented/);
+  const failureSql = fake.sql.slice(before); assert.ok(failureSql.includes("ROLLBACK")); assert.equal(failureSql.some((statement) => statement.includes("nextval")), false); assert.equal(fake.status(), "previewed");
 });
 
 test("repreview rejects incomplete replacement before reserving or inserting rows", async () => {
