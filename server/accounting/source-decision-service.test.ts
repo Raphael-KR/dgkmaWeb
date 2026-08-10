@@ -74,6 +74,12 @@ test("period materialization refuses an unregistered source family", async () =>
   await assert.rejects(()=>decideSourcePreview(fake.pool as never,primaryUid,command,actor),/period_source_family_mismatch/);assert.equal(fake.sql.some((statement)=>statement.includes("nextval")),false);
 });
 
+test("approve forbids applying a roster companion directly", async () => {
+  const payload = { outcome: "approve" }; const fake = fakePool("approve", "group_allocation", payload, "GROUP_FOREIGN_FACULTY_2025"); const command = { ...baseCommand, operationUid: randomUUID(), decision: "approve" };
+  await assert.rejects(() => decideSourcePreview(fake.pool as never, primaryUid, command, actor), /direct_companion_apply_forbidden/);
+  assert.equal(fake.sql.some((statement) => statement.includes("nextval")), false);
+});
+
 test("supersede atomically replaces an approved zero-child quarantine set", async () => {
   const fake = fakePool();
   await decideSourcePreview(fake.pool as never, primaryUid, { ...baseCommand, operationUid: randomUUID(), decision: "approve" }, actor);

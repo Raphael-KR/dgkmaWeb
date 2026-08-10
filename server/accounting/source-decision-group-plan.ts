@@ -1,4 +1,5 @@
 import type { CanonicalValue } from "./source-contracts";
+import type { PoolClient } from "pg";
 
 type JsonObject = Record<string, CanonicalValue>;
 export type GroupApplyItem = { coordinateKey: string; decisionKind: string; decisionPayload: JsonObject };
@@ -8,6 +9,7 @@ export type GroupMultiBatchApplyPlan = {
   orderedDecisionSetUids: string[];
   groups: Array<{ primaryCoordinateKey: string; receiptUid: string; rosterBatchUid: string; duesAmount: string; approvedAllocationAmount: string }>;
 };
+type StoredCompanion = { batch_uid: string; batch_status: string; decision_set_id: string; decision_set_uid: string; decision_set_status: string; source_code: string };
 
 const BANK_SOURCES = new Set(["BANK_TOSS_2026", "BANK_IBK_2026"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -59,4 +61,37 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
   if (seenCompanions.size !== companionByBatch.size) fail("source_decision_group_unreferenced_companion");
   const orderedCompanions = [...companions].sort((left, right) => Buffer.compare(Buffer.from(left.batchUid), Buffer.from(right.batchUid)));
   return { orderedBatchUids: [primary.batchUid, ...orderedCompanions.map((value) => value.batchUid)], orderedDecisionSetUids: [primary.decisionSetUid, ...orderedCompanions.map((value) => value.decisionSetUid)], groups };
+}
+
+export async function loadGroupMultiBatchApplyPlan(
+  client: Pick<PoolClient, "query">,
+  primary: GroupApplySet,
+): Promise<GroupMultiBatchApplyPlan | undefined> {
+  const approvedRosterAllocations = primary.items.filter((item) => item.decisionKind === "group_allocation" && item.decisionPayload.outcome === "approve");
+  if (primary.sourceCode === "GROUP_FOREIGN_FACULTY_2025" && approvedRosterAllocations.length > 0) fail("source_decision_direct_companion_apply_forbidden");
+  const rosterBatchUids = primary.items.flatMap((item) => item.decisionKind === "classification" && item.decisionPayload.outcome === "approve" && typeof item.decisionPayload.group_roster_batch_uid_or_null === "string" ? [item.decisionPayload.group_roster_batch_uid_or_null] : []);
+  if (rosterBatchUids.length === 0) return undefined;
+  const orderedRosterBatchUids = [...new Set(rosterBatchUids)].sort((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  if (orderedRosterBatchUids.length !== rosterBatchUids.length) fail("source_decision_group_companion_reused");
+  const stored = await client.query<StoredCompanion>(`SELECT b.batch_uid::text,b.status batch_status,ds.id::text decision_set_id,ds.decision_set_uid::text,ds.status decision_set_status,ls.source_code
+    FROM public.accounting_import_batches b
+    JOIN public.accounting_source_releases r ON r.id=b.source_release_id
+    JOIN public.accounting_logical_sources ls ON ls.id=r.logical_source_id
+    JOIN public.source_decision_sets ds ON ds.batch_id=b.id AND ds.status='previewed'
+    WHERE b.batch_uid=ANY($1::uuid[])
+    ORDER BY b.batch_uid
+    FOR UPDATE OF b,r,ls,ds`, [orderedRosterBatchUids]);
+  if (stored.rowCount !== orderedRosterBatchUids.length || stored.rows.some((row, index) => row.batch_uid !== orderedRosterBatchUids[index] || row.batch_status !== "previewed" || row.decision_set_status !== "previewed" || row.source_code !== "GROUP_FOREIGN_FACULTY_2025")) fail("source_decision_group_companion_graph_mismatch");
+  const companions: GroupApplySet[] = [];
+  for (const row of stored.rows) {
+    const items = await client.query<{ coordinate_key: string; decision_kind: string; decision_payload: JsonObject }>(`SELECT c.coordinate_key,i.decision_kind,i.decision_payload
+      FROM public.source_decision_items i
+      JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id
+      JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id
+      WHERE i.decision_set_id=$1
+      ORDER BY i.ordinal
+      FOR UPDATE OF i,c,rv`, [row.decision_set_id]);
+    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload })) });
+  }
+  return buildGroupMultiBatchApplyPlan(primary, companions);
 }

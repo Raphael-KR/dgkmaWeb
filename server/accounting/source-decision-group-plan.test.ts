@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildGroupMultiBatchApplyPlan, type GroupApplySet } from "./source-decision-group-plan";
+import { buildGroupMultiBatchApplyPlan, loadGroupMultiBatchApplyPlan, type GroupApplySet } from "./source-decision-group-plan";
 
 const primaryBatch = "11111111-1111-4111-8111-111111111111"; const primarySet = "22222222-2222-4222-8222-222222222222"; const rosterBatch = "33333333-3333-4333-8333-333333333333"; const rosterSet = "44444444-4444-4444-8444-444444444444"; const receipt = "55555555-5555-4555-8555-555555555555";
 const primary: GroupApplySet = { sourceCode: "BANK_TOSS_2026", batchUid: primaryBatch, decisionSetUid: primarySet, items: [{ coordinateKey: "bank:toss:1", decisionKind: "classification", decisionPayload: { allocation_request_uid_or_null: null, category_splits: [{ category_code: "DUES_INCOME", amount: "100000" }], classification_kind: "dues", direction: "credit", dues_year_or_null: 2025, event_kind: "bank", event_party_uid_or_null: "66666666-6666-4666-8666-666666666666", group_roster_batch_uid_or_null: rosterBatch, member_uid_or_null: null, outcome: "approve", party_kind: "group", receipt_uid_or_null: receipt, refund_receipt_uid_or_null: null, reverses_event_uid_or_null: null } }] };
@@ -25,4 +25,20 @@ test("rejects duplicate or unreferenced companion batches", () => {
   assert.throws(() => buildGroupMultiBatchApplyPlan(primary, [companion, companion]), /companion_duplicate/);
   const extra = { ...companion, batchUid: "77777777-7777-4777-8777-777777777777", decisionSetUid: "88888888-8888-4888-8888-888888888888" };
   assert.throws(() => buildGroupMultiBatchApplyPlan(primary, [companion, extra]), /unreferenced_companion/);
+});
+
+test("loads and locks the exact live companion graph before planning", async () => {
+  const sql: string[] = [];
+  const client = { query: async (text: string) => {
+    sql.push(text);
+    if (text.includes("FROM public.accounting_import_batches b")) return { rowCount: 1, rows: [{ batch_uid: rosterBatch, batch_status: "previewed", decision_set_id: "17", decision_set_uid: rosterSet, decision_set_status: "previewed", source_code: "GROUP_FOREIGN_FACULTY_2025" }] };
+    return { rowCount: companion.items.length, rows: companion.items.map((item) => ({ coordinate_key: item.coordinateKey, decision_kind: item.decisionKind, decision_payload: item.decisionPayload })) };
+  } };
+  const result = await loadGroupMultiBatchApplyPlan(client as never, primary);
+  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(sql.length, 2); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
+});
+
+test("fails closed when the referenced companion has no unique live preview set", async () => {
+  const client = { query: async () => ({ rowCount: 0, rows: [] }) };
+  await assert.rejects(() => loadGroupMultiBatchApplyPlan(client as never, primary), /companion_graph_mismatch/);
 });

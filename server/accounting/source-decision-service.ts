@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import { validateSourceDecisionCommand, type ApprovalContext } from "./source-decision-api";
+import { loadGroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 type JsonObject = Record<string, CanonicalValue>;
 export type SourceDecisionActor = {
@@ -134,6 +135,10 @@ export async function decideSourcePreview(
         (SELECT count(*) FROM public.dues_allocations WHERE decision_item_id=ANY($1::bigint[]))
       )::int AS descendant_count`, [itemIds]);
       if (descendants.rowCount !== 1 || descendants.rows[0].descendant_count !== 0) fail("source_decision_supersede_descendants_exist");
+    }
+    if (command.decision === "approve") {
+      const groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload })) });
+      if (groupPlan) fail("source_decision_group_materialization_not_implemented");
     }
     const periodPlans: PeriodPlan[] = [];
     if (command.decision === "approve") for (const item of itemResult.rows) {
