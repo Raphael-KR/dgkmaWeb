@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupOperationProjection, buildGroupReservationBlueprint, reserveGroupExecutionReservation, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupOperationProjection, buildGroupReservationBlueprint, reserveGroupExecutionReservation, reserveGroupExecutionReservationFromDatabase, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -80,6 +80,12 @@ test("refuses to project missing or malformed catalog-bound reservation slots", 
   const blueprint=buildGroupReservationBlueprint(plan);const ids=blueprint.sequenceTables.map((_,index)=>String(index+1));const bound=bindGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",ids);
   assert.throws(()=>buildGroupOperationProjection(bound),/reservation_slots_missing/);
   let ordinal=0;await assert.rejects(()=>reserveGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",async()=>({id:String(++ordinal),sequenceName:"not-qualified"})),/reservation_catalog_invalid/);
+});
+
+test("resolves every identity sequence through the database catalog before nextval", async () => {
+  const blueprint=buildGroupReservationBlueprint(plan);const observed:string[]=[];let ordinal=0;const client={query:async(text:string,values:unknown[])=>{assert.match(text,/pg_get_serial_sequence/);assert.match(text,/nextval/);const table=String(values[0]);observed.push(table);return {rowCount:1,rows:[{id:String(++ordinal),sequence_name:`${table}_id_seq`} ]};}};
+  const bound=await reserveGroupExecutionReservationFromDatabase(client as never,plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");assert.deepEqual(observed,blueprint.sequenceTables.map((table)=>`public.${table}`));assert.equal(buildGroupOperationProjection(bound).reservationSlots.length,blueprint.sequenceSlots.length);
+  const missing={query:async()=>({rowCount:0,rows:[]})};await assert.rejects(()=>reserveGroupExecutionReservationFromDatabase(missing as never,plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),/reservation_catalog_invalid/);
 });
 
 test("rejects stable identity reuse before reservations", () => {

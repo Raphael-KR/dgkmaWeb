@@ -171,6 +171,15 @@ export async function reserveGroupExecutionReservation(plan: GroupMultiBatchAppl
   return {...bound,reservationSlots:blueprint.sequenceSlots.map((slot,index)=>({...slot,reservedId:reserved[index].id,sequenceName:reserved[index].sequenceName}))};
 }
 
+export async function reserveGroupExecutionReservationFromDatabase(client: Pick<PoolClient,"query">, plan: GroupMultiBatchApplyPlan, operationUid: string): Promise<GroupExecutionReservation> {
+  return reserveGroupExecutionReservation(plan,operationUid,async(table)=>{
+    if(!/^[a-z0-9_]+$/.test(table))fail("source_decision_group_reservation_table_invalid");
+    const result=await client.query<{id:string;sequence_name:string}>(`SELECT nextval(sequence_name::regclass)::text AS id,sequence_name FROM (SELECT pg_get_serial_sequence($1,'id') AS sequence_name) catalog WHERE sequence_name IS NOT NULL`,[`public.${table}`]);
+    if(result.rowCount!==1)fail("source_decision_group_reservation_catalog_invalid");
+    return {id:result.rows[0].id,sequenceName:result.rows[0].sequence_name};
+  });
+}
+
 export function buildGroupOperationProjection(reservation: GroupExecutionReservation): GroupOperationProjection {
   if(!reservation.reservationSlots)fail("source_decision_group_reservation_slots_missing");
   const actions=[...reservation.transitionAudits,...reservation.steps];const byKey=new Map(actions.map((action)=>[action.key,action]));
