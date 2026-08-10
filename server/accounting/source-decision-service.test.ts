@@ -10,14 +10,14 @@ const manifestSha = "9".repeat(64); const fingerprint = "a".repeat(64);
 const actor: SourceDecisionActor = { userId: 7, userUid: "77777777-7777-4777-8777-777777777777", name: "관리자", authorizationVersion: "8".repeat(64), targetFingerprint: "7".repeat(64) };
 const baseCommand = { schemaVersion: "source-decision-command-v1", operationUid: randomUUID(), manifestSha256: manifestSha, sourceFingerprint: fingerprint, decision: "reject", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
 
-function fakePool(outcome = "quarantine", decisionKind = "classification", decisionPayload: Record<string, unknown> = { outcome }) {
+function fakePool(outcome = "quarantine", decisionKind = "classification", decisionPayload: Record<string, unknown> = { outcome }, sourceCode = "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK") {
   let status = "previewed"; let nextId = 100; const sql: string[] = [];
   const client = {
     async query(text: string) {
       sql.push(text);
       if (text.includes("FROM public.business_operation_receipts WHERE operation_uid")) return { rowCount: 0, rows: [] };
       if (text.includes("FROM public.users WHERE id")) return { rowCount: 1, rows: [{ id: 7, user_uid: actor.userUid, is_admin: true, name: actor.name }] };
-      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest_sha256: manifestSha, source_fingerprint: fingerprint, status }] };
+      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest_sha256: manifestSha, source_fingerprint: fingerprint, status, source_code: sourceCode }] };
       if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), normalized_payload: { boundary_content_digest: decisionPayload.boundary_content_digest }, decision_kind: decisionKind, decision_payload: decisionPayload }] };
       if (text.includes("FROM public.accounting_import_row_versions rv JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "51" }] };
       if (text.includes("SELECT 1 FROM public.accounting_periods WHERE period_code")) return { rowCount: 0, rows: [] };
@@ -62,8 +62,13 @@ test("approve refuses non-quarantine items before reservations or state changes"
 
 test("approve materializes an exact source-bound period before applying its batch", async () => {
   const payload = { outcome:"approve",period_code:"TEST_2026",starts_at:"2026-01-01T00:00:00+09:00",ends_at:"2027-01-01T00:00:00+09:00",boundary_source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",boundary_coordinate_key:"row:1",boundary_content_digest:"b".repeat(64) };
-  const fake=fakePool("approve","period_materialization",payload);const command={...baseCommand,operationUid:randomUUID(),decision:"approve"};const approved=await decideSourcePreview(fake.pool as never,primaryUid,command,actor);
+  const fake=fakePool("approve","period_materialization",payload,"LEDGER_FINAL_2022_2025");const command={...baseCommand,operationUid:randomUUID(),decision:"approve"};const approved=await decideSourcePreview(fake.pool as never,primaryUid,command,actor);
   assert.equal(approved.decision,"approve");assert.ok(fake.sql.some((statement)=>statement.includes("INSERT INTO public.accounting_periods")));assert.ok(fake.sql.findIndex((statement)=>statement.includes("INSERT INTO public.accounting_periods"))<fake.sql.findIndex((statement)=>statement==="COMMIT"));
+});
+
+test("period materialization refuses an unregistered source family", async () => {
+  const payload={outcome:"approve",period_code:"TEST_2026",starts_at:"2026-01-01T00:00:00+09:00",ends_at:null,boundary_source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",boundary_coordinate_key:"row:1",boundary_content_digest:"b".repeat(64)};const fake=fakePool("approve","period_materialization",payload);const command={...baseCommand,operationUid:randomUUID(),decision:"approve"};
+  await assert.rejects(()=>decideSourcePreview(fake.pool as never,primaryUid,command,actor),/period_source_family_mismatch/);assert.equal(fake.sql.some((statement)=>statement.includes("nextval")),false);
 });
 
 test("repreview rejects incomplete replacement before reserving or inserting rows", async () => {
