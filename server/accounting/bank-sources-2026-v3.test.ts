@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeBankRowV3 } from "./adapters/bank-sources-2026-v3";
-
-function sha256(bytes: Buffer): string { return createHash("sha256").update(bytes).digest("hex"); }
+import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 
 test("Toss and IBK v3 retain readable work snapshots without account fields", () => {
   const toss = normalizeBankRowV3("BANK_TOSS_2026", { coordinateKey: "toss:10", values: { "거래 일시": "2026. 1. 2. 03:04", "거래 금액": "50,000", "거래 후 잔액": "100,000", 적요: "입금자", "거래 유형": "입금", "거래 기관": "은행", 메모: null } });
@@ -20,11 +18,15 @@ test("IBK opening-balance shape cannot become an economic row", () => {
 test("bank v3 mappings bind reproducible profiles and explicit normalization versions", () => {
   for (const slug of ["bank-toss-2026", "bank-ibk-2026"]) {
     const profilePath = `docs/source-contracts/profiles/${slug}-v3.json`;
+    const profile = JSON.parse(readFileSync(profilePath, "utf8")) as Record<string, CanonicalValue>;
+    const profilePreimage = { ...profile };
+    delete profilePreimage.profile_sha256;
+    assert.equal(profile.profile_sha256, sha256(canonicalJson(profilePreimage)));
     const mapping = JSON.parse(readFileSync(`docs/source-contracts/mappings/${slug}-v3.json`, "utf8")) as {
       constants: { excluded_anchor_evidence?: { row: number }; normalization_version: string };
       source_profile_sha256: string;
     };
-    assert.equal(mapping.source_profile_sha256, sha256(readFileSync(profilePath)));
+    assert.equal(mapping.source_profile_sha256, profile.profile_sha256);
     assert.match(mapping.constants.normalization_version, /^.+-v3@3\.0\.0\+reproducible-profile-v1$/);
     if (slug === "bank-ibk-2026") assert.equal(mapping.constants.excluded_anchor_evidence?.row, 2);
   }
