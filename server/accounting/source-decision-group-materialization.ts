@@ -6,6 +6,7 @@ export type GroupMaterializationStep = {
   table: string;
   action: "create" | "approve" | "bind" | "select";
   rowMode: "insert" | "update";
+  targetStepKey: string | null;
   dependsOn: string[];
 };
 export type GroupReservationBlueprint = { businessRows: Array<{ stepKey: string; table: string }>; transitionAuditKeys: string[]; sequenceTables: string[] };
@@ -52,7 +53,7 @@ export async function assertGroupClaimVersionContract(client: Pick<PoolClient, "
 export function validateGroupMaterializationTopology(steps: GroupMaterializationStep[]): void {
   const seen = new Set<string>();
   for (const step of steps) {
-    if (!step.key || seen.has(step.key) || !["create","approve","bind","select"].includes(step.action) || !["insert","update"].includes(step.rowMode) || step.dependsOn.some((dependency) => !seen.has(dependency)) || step.rowMode === "update" && step.action === "create") fail("source_decision_group_materialization_topology_invalid");
+    if (!step.key || seen.has(step.key) || !["create","approve","bind","select"].includes(step.action) || !["insert","update"].includes(step.rowMode) || step.dependsOn.some((dependency) => !seen.has(dependency)) || step.rowMode === "update" && step.action === "create" || step.rowMode === "update" && (!step.targetStepKey || !step.dependsOn.includes(step.targetStepKey)) || step.targetStepKey !== null && !seen.has(step.targetStepKey)) fail("source_decision_group_materialization_topology_invalid");
     seen.add(step.key);
   }
 }
@@ -62,7 +63,7 @@ export function buildGroupMaterializationTopology(plan: GroupMultiBatchApplyPlan
   const identities = new Set<string>();
   const claim = (kind: string, value: string) => { const key = `${kind}:${value}`; if (identities.has(key)) fail("source_decision_group_materialization_identity_collision"); identities.add(key); };
   const steps: GroupMaterializationStep[] = [];
-  const add = (key: string, table: string, action: GroupMaterializationStep["action"], rowMode: GroupMaterializationStep["rowMode"], dependsOn: string[]) => steps.push({ key, table, action, rowMode, dependsOn });
+  const add = (key: string, table: string, action: GroupMaterializationStep["action"], rowMode: GroupMaterializationStep["rowMode"], dependsOn: string[], targetStepKey: string | null = null) => steps.push({ key, table, action, rowMode, targetStepKey, dependsOn });
   const groups = [...plan.groups].sort((left, right) => compare(left.primaryCoordinateKey, right.primaryCoordinateKey));
   for (const group of groups) {
     claim("party", group.eventPartyUid); claim("receipt", group.receiptUid);
@@ -76,7 +77,7 @@ export function buildGroupMaterializationTopology(plan: GroupMultiBatchApplyPlan
     add(classification, "source_row_classification_decisions", "approve", "insert", [alias]);
     add(openClaim, "economic_event_claims", "create", "insert", [classification]);
     add(event, "economic_events", "create", "insert", [openClaim]);
-    add(boundClaim, "economic_event_claims", "bind", "insert", [event]);
+    add(boundClaim, "economic_event_claims", "bind", "insert", [event, openClaim], openClaim);
     add(provenance, "economic_event_provenance", "create", "insert", [boundClaim]);
     add(authority, "economic_event_authority_decisions", "select", "insert", [provenance]);
     add(transaction, "bank_transactions", "create", "insert", [authority]);
@@ -90,17 +91,17 @@ export function buildGroupMaterializationTopology(plan: GroupMultiBatchApplyPlan
       add(matchCase, "member_match_cases", "create", "insert", []);
       add(matchCandidate, "member_match_candidates", "create", "insert", [matchCase]);
       add(groupMember, "dues_group_members", "create", "insert", [paymentGroup, matchCandidate]);
-      add(candidateApproval, "member_match_candidates", "approve", "update", [groupMember]);
-      add(caseApproval, "member_match_cases", "approve", "insert", [candidateApproval]);
-      add(memberApproval, "dues_group_members", "approve", "insert", [caseApproval]);
+      add(candidateApproval, "member_match_candidates", "approve", "update", [groupMember, matchCandidate], matchCandidate);
+      add(caseApproval, "member_match_cases", "approve", "insert", [candidateApproval, matchCase], matchCase);
+      add(memberApproval, "dues_group_members", "approve", "insert", [caseApproval, groupMember], groupMember);
       add(allocationStep, "dues_allocations", "create", "insert", [memberApproval, receipt, event]);
-      add(allocationApproval, "dues_allocations", "approve", "update", [allocationStep]);
+      add(allocationApproval, "dues_allocations", "approve", "update", [allocationStep], allocationStep);
       allocationApprovals.push(allocationApproval);
     }
-    const cashbookApprovals = cashbooks.map((cashbook) => { const key = cashbook.replace(/:create$/, ":approve"); add(key, "cashbook_entries", "approve", "update", [cashbook]); return key; });
-    const receiptApproval = `${prefix}:receipt-approve`; add(receiptApproval, "dues_receipts", "approve", "update", [...cashbookApprovals, ...allocationApprovals]);
-    const groupApproval = `${prefix}:payment-group-approve`; add(groupApproval, "dues_payment_groups", "approve", "update", [receiptApproval, ...allocationApprovals]);
-    add(`${prefix}:event-approve`, "economic_events", "approve", "update", [groupApproval]);
+    const cashbookApprovals = cashbooks.map((cashbook) => { const key = cashbook.replace(/:create$/, ":approve"); add(key, "cashbook_entries", "approve", "update", [cashbook], cashbook); return key; });
+    const receiptApproval = `${prefix}:receipt-approve`; add(receiptApproval, "dues_receipts", "approve", "update", [...cashbookApprovals, ...allocationApprovals, receipt], receipt);
+    const groupApproval = `${prefix}:payment-group-approve`; add(groupApproval, "dues_payment_groups", "approve", "update", [receiptApproval, ...allocationApprovals, paymentGroup], paymentGroup);
+    add(`${prefix}:event-approve`, "economic_events", "approve", "update", [groupApproval, event], event);
   }
   validateGroupMaterializationTopology(steps);
   return steps;

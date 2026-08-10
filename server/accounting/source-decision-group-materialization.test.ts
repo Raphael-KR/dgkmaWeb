@@ -19,11 +19,18 @@ test("builds the exact dependency-ordered group materialization topology", () =>
   assert.deepEqual(repeated, steps);
   assert.ok(index(":party") < index(":alias")); assert.ok(index(":alias") < index(":classification")); assert.ok(index(":claim-open") < index(":event-create")); assert.ok(index(":event-create") < index(":claim-bound")); assert.ok(index(":claim-bound") < index(":provenance")); assert.ok(index(":provenance") < index(":authority")); assert.ok(index(":authority") < index(":bank-transaction")); assert.ok(index(":receipt-create") < index(":payment-group-create"));
   assert.ok(index(":match-case-create") < index(":match-candidate-create")); assert.ok(index(":match-candidate-create") < index(":group-member-create")); assert.ok(index(":group-member-create") < index(":match-candidate-approve")); assert.ok(index(":match-candidate-approve") < index(":match-case-approve")); assert.ok(index(":match-case-approve") < index(":group-member-approve")); assert.ok(index(":group-member-approve") < index(":allocation-create")); assert.ok(index(":allocation-create") < index(":allocation-approve")); assert.ok(index(":allocation-approve") < index(":receipt-approve")); assert.ok(index(":receipt-approve") < index(":payment-group-approve")); assert.ok(index(":payment-group-approve") < index(":event-approve"));
+  for (const step of steps.filter((candidate) => candidate.rowMode === "update")) { assert.ok(step.targetStepKey); assert.ok(step.dependsOn.includes(step.targetStepKey!)); assert.ok(steps.findIndex((candidate) => candidate.key === step.targetStepKey) < steps.indexOf(step)); }
+  assert.equal(steps.find((step) => step.key.endsWith(":claim-bound"))?.targetStepKey, steps.find((step) => step.key.endsWith(":claim-open"))?.key);
 });
 
 test("fails closed when a dependency is moved after its consumer", () => {
   const steps = buildGroupMaterializationTopology(plan); const reversed = [...steps]; const eventIndex = reversed.findIndex((step) => step.key.endsWith(":event-create")); const [event] = reversed.splice(eventIndex, 1); reversed.push(event);
   assert.throws(() => validateGroupMaterializationTopology(reversed), /materialization_topology_invalid/);
+});
+
+test("fails closed when an update loses its reserved target", () => {
+  const steps = buildGroupMaterializationTopology(plan); const broken = structuredClone(steps); const update = broken.find((step) => step.rowMode === "update")!; update.targetStepKey = null;
+  assert.throws(() => validateGroupMaterializationTopology(broken), /materialization_topology_invalid/);
 });
 
 test("builds one deterministic reservation for every new row and audit", () => {
