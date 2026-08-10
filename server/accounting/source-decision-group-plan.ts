@@ -146,6 +146,15 @@ export async function loadGroupMultiBatchApplyPlan(
   if (parties.rows.some((party) => party.party_kind !== "group" || party.status !== "active")) fail("source_decision_group_event_party_binding_mismatch");
   const mapping = await client.query<{ account_id: string; account_code: string; source_code_snapshot: string; account_code_snapshot: string }>(`SELECT a.id::text account_id,a.account_code,m.source_code_snapshot,m.account_code_snapshot FROM public.accounting_logical_sources s JOIN public.bank_source_account_mappings m ON m.logical_source_id=s.id JOIN public.bank_accounts a ON a.id=m.account_id WHERE s.source_code=$1 FOR UPDATE OF s,m,a`, [primary.sourceCode]);
   if (mapping.rowCount !== 1 || mapping.rows[0].source_code_snapshot !== primary.sourceCode || mapping.rows[0].account_code_snapshot !== mapping.rows[0].account_code) fail("source_decision_group_bank_account_binding_mismatch");
+  const receiptUids = plan.groups.map((group) => group.receiptUid); const caseUids = plan.groups.flatMap((group) => group.allocations.map((allocation) => allocation.caseUid)); const groupMemberUids = plan.groups.flatMap((group) => group.allocations.map((allocation) => allocation.groupMemberUid)); const allocationRequestUids = plan.groups.flatMap((group) => group.allocations.map((allocation) => allocation.allocationRequestUid));
+  for (const values of [receiptUids, caseUids, groupMemberUids, allocationRequestUids]) if (new Set(values).size !== values.length) fail("source_decision_group_materialization_identity_collision");
+  const collisions = [
+    await client.query("SELECT receipt_uid FROM public.dues_receipts WHERE receipt_uid=ANY($1::uuid[]) FOR UPDATE", [receiptUids]),
+    await client.query("SELECT case_uid FROM public.member_match_cases WHERE case_uid=ANY($1::uuid[]) FOR UPDATE", [caseUids]),
+    await client.query("SELECT group_member_uid FROM public.dues_group_members WHERE group_member_uid=ANY($1::uuid[]) FOR UPDATE", [groupMemberUids]),
+    await client.query("SELECT request_uid FROM public.dues_allocations WHERE request_uid=ANY($1::uuid[]) FOR UPDATE", [allocationRequestUids]),
+  ];
+  if (collisions.some((collision) => collision.rowCount !== 0)) fail("source_decision_group_materialization_identity_collision");
   plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])) };
   return plan;
 }

@@ -53,11 +53,12 @@ test("loads and locks the exact live companion graph before planning", async () 
     if (text.includes("FROM public.association_members")) return { rowCount: 2, rows: [{ id: "81", member_uid: "a0000000-0000-4000-8000-000000000003", status: "active" }, { id: "82", member_uid: "b0000000-0000-4000-8000-000000000003", status: "active" }] };
     if (text.includes("FROM public.economic_event_parties")) return { rowCount: 0, rows: [] };
     if (text.includes("FROM public.accounting_logical_sources s JOIN public.bank_source_account_mappings")) return { rowCount: 1, rows: [{ account_id: "91", account_code: "TOSS_OFFICER_2026", source_code_snapshot: "BANK_TOSS_2026", account_code_snapshot: "TOSS_OFFICER_2026" }] };
+    if (text.includes("FROM public.dues_receipts") || text.includes("FROM public.member_match_cases") || text.includes("FROM public.dues_group_members") || text.includes("FROM public.dues_allocations")) return { rowCount: 0, rows: [] };
     return { rowCount: storedItems.length, rows: storedItems };
   } };
   const primaryWithEvidence = structuredClone(primary); primaryWithEvidence.items[0].evidence = { decisionItemId: "19", coordinateId: "29", sourceRowVersionId: "39", normalizedPayload: { amount: "100000" } };
   const result = await loadGroupMultiBatchApplyPlan(client as never, primaryWithEvidence);
-  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.groups[0].primaryEvidence?.decisionItemId, "19"); assert.equal(result?.groups[0].allocations[0].evidence?.allocationDecisionItemId, "30"); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.equal(sql.length, 6); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
+  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.groups[0].primaryEvidence?.decisionItemId, "19"); assert.equal(result?.groups[0].allocations[0].evidence?.allocationDecisionItemId, "30"); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.equal(sql.length, 10); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
 });
 
 test("fails closed when the referenced companion has no unique live preview set", async () => {
