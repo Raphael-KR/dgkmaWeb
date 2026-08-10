@@ -44,6 +44,20 @@ function numberValue(value: unknown): number | null {
   const normalized = text(value).replaceAll(",", "").replaceAll("원", "").replace(/[^0-9.-]/g, "");
   return /^-?\d+(?:\.\d+)?$/.test(normalized) ? Number(normalized) : null;
 }
+function headerHashVariant(row: unknown[], width: number, expected: string): string | null {
+  const normalized = row.map(text);
+  const variants: Array<[string, unknown]> = [
+    ["json_raw", row],
+    ["json_text", normalized],
+    ["json_padded_empty", [...normalized, ...Array(Math.max(0, width - normalized.length)).fill("")]],
+    ["json_padded_null", [...row, ...Array(Math.max(0, width - row.length)).fill(null)]],
+    ["object_values", { values: row }],
+    ["unit_separator", normalized.join("\u001f")],
+    ["tab_separator", normalized.join("\t")],
+  ];
+  for (let prefix = 1; prefix <= width; prefix += 1) variants.push([`json_prefix_${prefix}`, normalized.slice(0, prefix)]);
+  return variants.find(([, value]) => sha(value) === expected)?.[0] ?? null;
+}
 
 async function main() {
   const profile = JSON.parse(readFileSync(PROFILE_PATH, "utf8")) as Profile;
@@ -68,14 +82,14 @@ async function main() {
     sheets.spreadsheets.values.batchGet({ spreadsheetId: SPREADSHEET_ID, ranges: selectorRanges, valueRenderOption: "UNFORMATTED_VALUE", dateTimeRenderOption: "SERIAL_NUMBER" }),
   ]);
   let headerOffset = 0;
-  const headerChecks: Array<{ tab_id: string; row: number; expected_sha256: string; observed_sha256: string; matches: boolean }> = [];
+  const headerChecks: Array<{ tab_id: string; row: number; expected_sha256: string; observed_sha256: string; matches: boolean; matching_variant_or_null: string | null }> = [];
   for (const tab of profile.tabs) {
     const matches = providerTabs.filter((sheet) => String(sheet.properties?.sheetId) === tab.tab_id);
     if (matches.length !== 1 || matches[0].properties?.title !== tab.title || matches[0].properties?.gridProperties?.rowCount !== tab.max_row || matches[0].properties?.gridProperties?.columnCount !== tab.max_column) fail("ledger_preflight_tab_profile_drift");
     for (const candidate of tab.header_candidates) {
       const row = headerResult.data.valueRanges?.[headerOffset]?.values?.[0] ?? [];
       const observed = sha(row);
-      headerChecks.push({ tab_id: tab.tab_id, row: candidate.row, expected_sha256: candidate.values_sha256, observed_sha256: observed, matches: observed === candidate.values_sha256 });
+      headerChecks.push({ tab_id: tab.tab_id, row: candidate.row, expected_sha256: candidate.values_sha256, observed_sha256: observed, matches: observed === candidate.values_sha256, matching_variant_or_null: headerHashVariant(row, tab.max_column, candidate.values_sha256) });
       headerOffset += 1;
     }
   }
