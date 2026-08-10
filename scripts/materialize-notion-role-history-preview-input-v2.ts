@@ -1,14 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { normalizeNotionRoleRowV3 } from "../server/accounting/adapters/notion-organization-role-history-v3";
+import { normalizeNotionRoleRowV4 } from "../server/accounting/adapters/notion-organization-role-history-v4";
 import { sourceFingerprint, validateSourcePreviewInput, type SourcePreviewInput } from "../server/accounting/source-preview-contract-v2";
 
 const DATA_SOURCE_ID = "dae9352c-122b-4902-bdb8-31328c35940f";
 const DATA_SOURCE_TITLE = "조직·직책 이력 — 개발 중 편집 권위";
 const SOURCE_UID = "75dd7485-9c2b-51a9-845f-e7baa6ba8dc1";
 const PROFILE_PATH = "docs/source-contracts/profiles/notion-organization-role-history.json";
-const PLAN_PATH = "docs/source-contracts/releases/notion-role-history-development-release-plan-v3.json";
+const PLAN_PATH = "docs/source-contracts/releases/notion-role-history-development-release-plan-v4.json";
 type JsonObject = Record<string, unknown>;
 type Profile = { database_columns: string[]; observed_at: string; source_revision: string };
 type Observation = { data_source_id: string; rows: JsonObject[]; source_revision: string };
@@ -33,14 +33,14 @@ export function materializeNotionRoleHistory(value: unknown, profile: Profile): 
     let id: string;
     try { id = pageId(row.url); } catch (error) { const code = reasonCode(error); blockers[code] = (blockers[code] ?? 0) + 1; continue; }
     if (seen.has(id)) fail("notion_role_page_duplicate"); seen.add(id);
-    try { normalizedRows.push({ id, payload: normalizeNotionRoleRowV3(row) }); }
+    try { normalizedRows.push({ id, payload: normalizeNotionRoleRowV4(row) }); }
     catch (error) { const code = reasonCode(error); blockers[code] = (blockers[code] ?? 0) + 1; }
   }
   if (Object.keys(blockers).length > 0) return { blockers: Object.fromEntries(Object.entries(blockers).sort()), input: null, rowCount: observation.rows.length };
   normalizedRows.sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
   const rows: SourcePreviewInput["rows"] = normalizedRows.map(({ id, payload }) => ({
     coordinate_key: `notion:page:${id}`, coordinate_normalization_version: "coordinate-v1", issue_status: "warning",
-    normalization_version: "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1", normalized_payload: payload as SourcePreviewInput["rows"][number]["normalized_payload"], raw_payload: payload as SourcePreviewInput["rows"][number]["raw_payload"],
+    normalization_version: "notion-organization-role-history-v4@4.0.0+generation-evidence-v1", normalized_payload: payload as SourcePreviewInput["rows"][number]["normalized_payload"], raw_payload: payload as SourcePreviewInput["rows"][number]["raw_payload"],
     source_display_snapshot: DATA_SOURCE_TITLE,
     decisions: [{ decision_kind: "member_match", decision_payload: { candidate_member_uid_or_null: null, case_uid: deterministicUuidV4(`notion-role-member-match\n${id}`), evidence_digest: String(payload.name_key_digest), evidence_kind: "name_only", outcome: "quarantine", score_basis: "name_only_unapprovable" } }],
   }));

@@ -141,13 +141,16 @@ export function reviewDisplay(sourceCode: ActiveV2Source, payload: JsonObject): 
     LEDGER_FINAL_2022_2025: ["payer_name_snapshot", "description_snapshot"],
     MEMBERSHIP_INTEGRATED_ADDRESS_BOOK: ["name_snapshot", "member_kind_evidence_snapshot", "source_status_snapshot"],
     NOTION_DUES_REGULATION_DRAFT: [],
-    NOTION_ORGANIZATION_ROLE_HISTORY: ["name_snapshot", "display_position", "note_snapshot", "source_locator_snapshot", "verification_evidence_snapshot"],
+    NOTION_ORGANIZATION_ROLE_HISTORY: ["name_snapshot", "display_position", "generation_source_snapshot", "note_snapshot", "source_locator_snapshot", "verification_evidence_snapshot"],
   };
-  return Object.fromEntries(keysBySource[sourceCode].map((key) => [key, payload[key] ?? null])) as JsonObject;
+  const keys = keysBySource[sourceCode].filter((key) => key !== "generation_source_snapshot" || Object.hasOwn(payload, key));
+  return Object.fromEntries(keys.map((key) => [key, payload[key] ?? null])) as JsonObject;
 }
 
 function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject, normalizationVersion: string): void {
-  const expected = sourceCode === "LEDGER_FINAL_2022_2025"
+  const expected = sourceCode === "NOTION_ORGANIZATION_ROLE_HISTORY" && normalizationVersion === "notion-organization-role-history-v4@4.0.0+generation-evidence-v1"
+    ? [...SOURCE_PAYLOAD_KEYS.NOTION_ORGANIZATION_ROLE_HISTORY, "generation_source_digest", "generation_source_snapshot"]
+    : sourceCode === "LEDGER_FINAL_2022_2025"
     ? payload.coordinate_kind === "economic" ? LEDGER_ECONOMIC_KEYS : payload.coordinate_kind === "period_metadata" ? LEDGER_PERIOD_KEYS : fail("source_preview_ledger_coordinate_kind_invalid")
     : SOURCE_PAYLOAD_KEYS[sourceCode];
   exactKeys(payload, expected, "source_preview_source_payload_keys_mismatch");
@@ -157,7 +160,7 @@ function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject, 
     if (!Number.isInteger(payload.dues_year) || Number(payload.dues_year) < 2024 || Number(payload.dues_year) > 2100) fail("source_preview_policy_year_invalid");
     if (!new Set(["president", "senior_vice_president", "vice_president_auditor_chair", "director", "member", "honorary"]).has(String(payload.tier_code))) fail("source_preview_policy_tier_invalid");
   } else if (sourceCode === "NOTION_ORGANIZATION_ROLE_HISTORY") {
-    const nullableQuarantineV3 = normalizationVersion === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1";
+    const nullableQuarantineV3 = new Set(["notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1", "notion-organization-role-history-v4@4.0.0+generation-evidence-v1"]).has(normalizationVersion);
     for (const key of ["display_position", "name_snapshot", "name_key_digest", "position_code", "source_timezone"]) nonempty(payload[key], `source_preview_role_${key}_invalid`);
     if (payload.effective_from === null) { if (!nullableQuarantineV3) fail("source_preview_role_effective_from_invalid"); } else nonempty(payload.effective_from, "source_preview_role_effective_from_invalid");
     if (payload.source_timezone !== "Asia/Seoul") fail("source_preview_role_timezone_invalid");
@@ -172,6 +175,10 @@ function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject, 
     if (typeof payload.publication_allowed !== "boolean") fail("source_preview_role_publication_invalid");
     if (payload.matched_member_uid !== null && (typeof payload.matched_member_uid !== "string" || !UUID.test(payload.matched_member_uid))) fail("source_preview_role_matched_member_uid_invalid");
     for (const key of ["administration_no", "admission_year", "generation"]) if (payload[key] !== null && !Number.isInteger(payload[key])) fail(`source_preview_role_${key}_invalid`);
+    if (normalizationVersion === "notion-organization-role-history-v4@4.0.0+generation-evidence-v1") {
+      if (payload.generation_source_snapshot !== null) nonempty(payload.generation_source_snapshot, "source_preview_role_generation_source_snapshot_invalid");
+      if (payload.generation_source_digest !== null && (typeof payload.generation_source_digest !== "string" || !SHA256.test(payload.generation_source_digest))) fail("source_preview_role_generation_source_digest_invalid");
+    }
   }
 }
 
@@ -250,7 +257,7 @@ export function validateSourcePreviewInput(value: unknown): SourcePreviewInput {
       kinds.add(decision.decision_kind); validateDecisionPayload(decision.decision_kind, decision.decision_payload);
     }
     validateDecisionCoverage(input.source_code, row);
-    if (input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && row.normalization_version === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1") {
+    if (input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && new Set(["notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1", "notion-organization-role-history-v4@4.0.0+generation-evidence-v1"]).has(row.normalization_version)) {
       const memberMatch = row.decisions.find((decision) => decision.decision_kind === "member_match");
       if (!memberMatch || memberMatch.decision_payload.outcome !== "quarantine" || memberMatch.decision_payload.evidence_kind !== "name_only") fail("source_preview_role_v3_quarantine_required");
     }
