@@ -6,7 +6,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| code intent | `docs/database-manifest.yaml` + parent-bound sequence `1,10,15,20,30,40,50,60` + child-bound sequence `70` |
+| code intent | `docs/database-manifest.yaml` + root-bound sequence `1,10,15,20,30,40,50,60` + child-bound sequence `70` + grandchild-bound sequence `80` |
 | source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
 | source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
 | Development migrated verification KST | `2026-08-10 13:25 KST +0900` |
@@ -21,6 +21,7 @@
 | Todo 18 finalized-ledger v3 preview verification KST | `2026-08-10 19:26 KST +0900` |
 | Todo 18 2026 bank-source preflight KST | `2026-08-10 19:35 KST +0900` |
 | Development sequence-70 verification KST | `2026-08-11 06:11 KST +0900` |
+| Development sequence-80 verification KST | `2026-08-11 07:38 KST +0900` |
 | verified receipt commit | `4711badbb13e236df8a1f00f4f87156d31960d98` |
 | code status | verified |
 | Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
@@ -29,7 +30,7 @@
 | 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence) | `68/1403/68/257/80/287/432/63` |
 | manifest SHA-256 | `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b` (sequence-70 parent `31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6`; root `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
 | catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
-| Development evidence | last verified state remains ledger `[1,10,15,20,30,40,50,60,70]`, with sequences 1–60 on root manifest `986e515b…` and sequence 70 on child `31671836…`; sequence 80 grandchild `bf7216af…` is repository-defined but not yet applied to Development, so the new startup contract is intentionally pending until disposable validation and the ledgered Development apply complete |
+| Development evidence | verified ledger `[1,10,15,20,30,40,50,60,70,80]`, with sequences 1–60 on root manifest `986e515b…`, sequence 70 on child `31671836…`, and sequence 80 on grandchild `bf7216af…`; first sequence-80 apply was `applied`, identical reapply was `verified_noop`, startup verification approved, and the metadata-only catalog ended in `ROLLBACK` |
 | Development source/import state | verified: logical source 10, active release 24 (`v1=10`, admin-readable `v2=10`, source amendments `v3=3`, Notion generation-evidence `v4=1`); import batch/decision set/item `6/6/6568`; all previews coordinate/version/link `6584/6584/6584`; preview operation receipt/entity/audit `6/26332/26332`; downstream/source-linked policy/period row `0/0/0`; all reruns `verified_noop`, verifier terminal `ROLLBACK` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
@@ -42,13 +43,15 @@ Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable r
 
 2026-08-11 Todo 18 group-apply 구현 checkpoint에서는 primary/companion의 잠긴 row normalization version, match evidence, roster batch ID와 category label을 materialization plan에 명시적으로 결합했다. 신규 identity row와 audit row 예약은 canonical result ordinal에 맞춘 phase `0→10→30` 순서이며, 실제 `pg_get_serial_sequence` 결과를 hashed receipt projection에 보존한다. 신규/기존 group party부터 bank transaction까지의 즉시-FK source spine 실행기는 구현되어 Replit 24개 집중 테스트와 `npx tsc --noEmit`을 통과했다. 이 코드는 아직 source-decision service에 연결되지 않았고 financial/member graph, audit/receipt atomic wiring과 disposable commit probe가 남아 있으므로 Development business row와 기존 preview 상태는 변경되지 않았다.
 
+후속 exact commit `774428f`에서는 primary+companion multi-batch group apply를 source-decision service에 연결하고 전체 financial/member graph와 audit receipt를 원자적으로 materialize했다. Fresh disposable run `3f9e8c71-7d4a-4d25-9f2c-0b1a8e6d7c43`은 승인 set/batch `2/2`, party부터 allocation까지 계약된 downstream 수량, operation receipt/entity/audit `1/28/28`, KRW 50,000 합계, 동일 apply의 `verified_noop`과 identity-sequence 불변을 증명한 뒤 DB·actor receipt·임시 worktree 부재를 확인했다. 이어 Development에는 business/source-decision row를 만들지 않고 sequence 80만 `applied → verified_noop`으로 반영했다. 기존 all-version group-member source UNIQUE constraint는 0개이고 동일 이름의 `WHERE (version = 1)` partial unique index는 정확히 1개이며, startup과 read-only catalog `ROLLBACK`이 승인됐다.
+
 2026 은행 source의 후속 read-only preflight는 승인 workbook revision을 재확인하고 계좌번호·CMS 열을 읽지 않은 채 Toss 200개 거래행과 IBK 174개 거래행을 구조 검증했다. IBK 2행은 날짜·출금·입금·잔액만 있고 비영 단일방향 금액과 표시 설명이 없는 opening-balance/anchor evidence이므로 경제 이벤트로 추정하지 않는다. 두 v2 header hash는 재현되지 않아 immutable v3 profile/map이 필요하며, 아직 bank release 추가·batch preview·classification apply는 0건이다.
 
 ## 2. system and external boundaries
 
 시스템은 Express/Drizzle 애플리케이션과 하나의 PostgreSQL `public` 스키마로 구성된 modular monolith이다. Google Sheets는 동문 명부 원본이고 `alumni_database`는 로그인·가입 심사용 runtime copy이며, Kakao는 OAuth/연결 해제 경계, Object Storage는 게시글·행사 첨부 경계다. 이 외부 시스템들은 물리 테이블을 소유하지 않는다.
 
-`session`을 포함한 required schema는 migration ledger가 소유한다. 현재 Development ledger는 parent-bound 1→60과 child-bound 70의 exact lineage를 보유하며, 시작 경로는 이를 검증할 뿐 DDL을 방출하지 않는다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
+`session`을 포함한 required schema는 migration ledger가 소유한다. 현재 Development ledger는 root-bound 1→60, child-bound 70, grandchild-bound 80의 exact lineage를 보유하며, 시작 경로는 이를 검증할 뿐 DDL을 방출하지 않는다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
 
 ## 3. environment drift matrix
 
