@@ -170,6 +170,23 @@ Category 명령은 정확히 여섯 version-1 draft root에 version-2 approved s
 
 실제 완료 상태는 ledger `1,10,15,20,30,40,50,60`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Brownfield sequence 10은 baseline 객체 catalog digest가 일치해야 하며, sequence 20은 저장된 exception 상태와 별개로 raw pre-anchor predicate를 다시 검사하고 exact canonical phone/mobile generated column을 보장한다. 전체 schema와 category 재실행은 `verified_noop`, catalog terminal은 `ROLLBACK`, migrated startup DDL은 0이었다.
 
+## Todo 18 deferred source release
+
+승인된 8개 historical source profile·mapping은 checked-in descriptor와 사전 고정 Development plan을 거쳐서만 release로 등록한다. Replit에서는 URL credential 변수를 명령 범위에서 제거하고 `PG*` Development route를 유지한다.
+
+```bash
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/register-todo18-source-releases.ts \
+  --target development \
+  --plan docs/source-contracts/releases/development-source-release-plan-v1.json \
+  --actor-receipt docs/database-targets/development-admin-approved.json
+
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/verify-todo18-source-releases.ts
+```
+
+등록기는 live frozen admin과 target fingerprint를 다시 검증하고 8개 release·operation receipt·result entity·audit event를 한 serializable transaction에 생성한다. 정확한 재실행은 `verified_noop`이어야 한다. Verifier는 `READ ONLY` transaction에서 total release 10, historical active 8, Todo 18 receipt/entity/audit `8/8/8`, import batch/decision set `0/0`을 요구하고 `ROLLBACK`으로 끝난다. 이 명령은 source batch preview나 business data apply를 승인하지 않는다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
