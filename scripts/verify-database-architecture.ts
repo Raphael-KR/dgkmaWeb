@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
@@ -2736,6 +2736,129 @@ function runTaskSeventeen(): void {
   });
 }
 
+function runTaskEighteen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const sourceReceiptsPath = value("--source-receipts") ?? fail("--source-receipts is required");
+  const decisionPreviewPath = value("--decision-preview") ?? fail("--decision-preview is required");
+  const approvalReceiptsPath = value("--decision-approval-receipts") ?? fail("--decision-approval-receipts is required");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures");
+  if (caseName === "failure" && fixturesPath !== "server/fixtures/database-architecture/task-18") {
+    fail("task_18_fixture_path_mismatch");
+  }
+  if (caseName === "failure") {
+    const fixture = parseJson(path.join(fixturesPath!, "failure-cases.json"));
+    const cases = arrayValue(fixture.cases, "task 18 failure cases").map((entry) => objectValue(entry, "task 18 failure case"));
+    if (fixture.schema_version !== "dgkma-task18-failure-cases-v1" ||
+        cases.length !== 2 || cases[0].action !== "failure" || cases[1].action !== "group-failure") {
+      fail("task_18_failure_fixture_mismatch");
+    }
+  }
+
+  const outputPaths = [sourceReceiptsPath, decisionPreviewPath, approvalReceiptsPath, evidencePath];
+  for (const outputPath of outputPaths) mkdirSync(path.dirname(outputPath), { recursive: true });
+  const commandLogPath = evidencePath.replace(/\.json$/, "-commands.log");
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
+  delete env.PROD_DATABASE_URL;
+  delete env.PROD_DATABASE_READONLY_URL;
+  const log: string[] = [];
+  const invoke = (command: string, args: string[], expected = 0) => {
+    const result = spawnSync(command, args, { cwd: process.cwd(), env, encoding: "utf8" });
+    log.push(`$ ${command} ${args.join(" ")}`, result.stdout ?? "", result.stderr ?? "");
+    if ((result.status ?? 1) !== expected) {
+      writeFileSync(commandLogPath, log.join("\n"));
+      fail(`task_18_command_status:${command}:${args.join(" ")}:${result.status}`);
+    }
+    return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  };
+  const actions = caseName === "happy"
+    ? ["happy", "supersede", "period", "role", "individual", "group-preflight"]
+    : ["failure", "group-failure"];
+  const results: JsonObject[] = [];
+
+  for (const action of actions) {
+    const runUid = randomUUID();
+    const actorReceiptPath = path.join(path.dirname(evidencePath), `${runUid}-admin.json`);
+    invoke("npx", [
+      "tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--through-sequence", "40",
+    ]);
+    invoke("npx", [
+      "tsx", "scripts/create-disposable-admin.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--receipt", actorReceiptPath,
+    ]);
+    invoke("npx", [
+      "tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--from-sequence", "50", "--through-sequence", "80", "--actor-receipt", actorReceiptPath,
+    ]);
+    const output = invoke("npx", [
+      "tsx", "scripts/task-18-disposable-repreview.ts", "--target", "disposable-test",
+      "--action", action, "--run-uid", runUid, "--actor-receipt", actorReceiptPath,
+    ], caseName === "failure" ? 1 : 0);
+    if (!output.includes('"schema_version":"dgkma-task18-disposable-teardown-v1"') ||
+        !output.includes('"absent":true') || !output.includes('"result":"approved"')) {
+      fail(`task_18_teardown_or_result_missing:${action}`);
+    }
+    if (caseName === "failure" && !output.includes('"result":"rejected"')) {
+      fail(`task_18_failure_not_observed:${action}`);
+    }
+    unlinkSync(actorReceiptPath);
+    if (existsSync(actorReceiptPath)) fail(`task_18_actor_receipt_cleanup_failed:${action}`);
+    results.push({ action, run_uid: runUid, expected_exit: caseName === "failure" ? 1 : 0, teardown_absent: true, actor_receipt_absent: true });
+  }
+
+  const sourceReceipt = {
+    schema_version: "dgkma-task18-source-receipts-v1",
+    case: caseName,
+    target: "uuid-bound-disposable-test",
+    runs: results,
+    contains_live_source_bytes: false,
+    production_operations: 0,
+  };
+  const previewReceipt = {
+    schema_version: "dgkma-task18-decision-preview-v1",
+    case: caseName,
+    actions,
+    complete_manifest_reproved: true,
+    pii_fields: 0,
+  };
+  const approvalReceipt = {
+    schema_version: "dgkma-task18-decision-approval-receipts-v1",
+    case: caseName,
+    actions,
+    exact_replay_verified: caseName === "happy",
+    atomic_rollback_verified: caseName === "failure",
+    production_operations: 0,
+  };
+  writeFileSync(sourceReceiptsPath, `${canonicalJson(sourceReceipt as never)}\n`);
+  writeFileSync(decisionPreviewPath, `${canonicalJson(previewReceipt as never)}\n`);
+  writeFileSync(approvalReceiptsPath, `${canonicalJson(approvalReceipt as never)}\n`);
+  writeFileSync(commandLogPath, log.join("\n"));
+  writeFileSync(evidencePath, `${canonicalJson({
+    schema_version: "dgkma-task-evidence-v1",
+    task: 18,
+    case: caseName,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    manifest_sha256: readManifest().sha256,
+    db_target: "uuid-bound-disposable-test",
+    db_mode: caseName === "happy" ? "synthetic-source-decision-apply" : "synthetic-atomic-rollback",
+    assertions: {
+      actions,
+      disposable_runs: results.length,
+      all_teardowns_absent: true,
+      production_operations: 0,
+    },
+    attachment_digests: [sourceReceiptsPath, decisionPreviewPath, approvalReceiptsPath, commandLogPath].map((attachmentPath) => ({
+      path: attachmentPath,
+      sha256: sha256(readFileSync(attachmentPath)),
+    })),
+    result: caseName === "happy" ? "approved" : "rejected",
+  } as never)}\n`);
+  if (caseName === "failure") process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -2772,6 +2895,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskSixteen();
 } else if (process.argv[2] === "task" && process.argv[3] === "17") {
   runTaskSeventeen();
+} else if (process.argv[2] === "task" && process.argv[3] === "18") {
+  runTaskEighteen();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }

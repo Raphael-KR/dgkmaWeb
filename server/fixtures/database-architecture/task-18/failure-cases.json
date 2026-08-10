@@ -1,0 +1,17 @@
+{
+  "schema_version": "dgkma-task18-failure-cases-v1",
+  "cases": [
+    {
+      "case": "incomplete_repreview_item_coverage",
+      "action": "failure",
+      "expected_error_code": "source_decision_item_coverage_mismatch",
+      "expected_state": "identical"
+    },
+    {
+      "case": "late_cross_batch_allocation_failure",
+      "action": "group-failure",
+      "expected_error_code": "task_18_forced_allocation_failure",
+      "expected_state": "primary_and_companion_previewed_with_zero_downstream"
+    }
+  ]
+}
