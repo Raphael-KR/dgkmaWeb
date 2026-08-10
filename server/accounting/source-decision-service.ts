@@ -163,7 +163,7 @@ export async function decideSourcePreview(
       if (groupPlan) await assertGroupClaimVersionContract(client);
     }
     const periodPlans: PeriodPlan[] = [];
-    if (command.decision === "approve") for (const item of itemResult.rows) {
+    if (command.decision === "approve" && !groupPlan) for (const item of itemResult.rows) {
       if (item.decision_payload.outcome === "quarantine") continue;
       if (item.decision_kind !== "period_materialization" || item.decision_payload.outcome !== "approve") fail("source_decision_nonquarantine_apply_not_implemented");
       if (!['AGM36_PERIOD_BOUNDARY','LEDGER_FINAL_2022_2025'].includes(row.source_code)) fail("source_decision_period_source_family_mismatch");
