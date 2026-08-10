@@ -62,7 +62,8 @@ function canonicalResult(plan: ResultPlan, ordinal: number) {
 function descriptorFor(input: SourcePreviewInput): JsonObject {
   const slug = SOURCE_SLUG[input.source_code]; if (!slug) fail("source_preview_descriptor_source_unknown");
   const roleVersion = input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && input.rows.every((row) => row.normalization_version === "notion-organization-role-history-v4@4.0.0+generation-evidence-v1") ? "v4" : input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && input.rows.every((row) => row.normalization_version === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1") ? "v3" : null;
-  const version = roleVersion ?? "v2";
+  const membershipVersion = input.source_code === "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK" && input.rows.every((row) => row.normalization_version === "membership-integrated-address-book-v3@3.0.0+numeric-source-cells-v1") ? "v3" : null;
+  const version = roleVersion ?? membershipVersion ?? "v2";
   const path = `docs/source-contracts/releases/${slug}-${version}.json`; const descriptor = readJson(path) as JsonObject;
   const expectedAdapterVersion = version === "v4" ? "4.0.0" : version === "v3" ? "3.0.0" : "2.0.0";
   if (descriptor.source_code !== input.source_code || descriptor.adapter_version !== expectedAdapterVersion || typeof descriptor.mapping_table_sha256 !== "string") fail("source_preview_descriptor_invalid");
