@@ -7,7 +7,7 @@ export type GroupApplySet = { sourceCode: string; batchUid: string; decisionSetU
 export type GroupMultiBatchApplyPlan = {
   orderedBatchUids: string[];
   orderedDecisionSetUids: string[];
-  groups: Array<{ primaryCoordinateKey: string; receiptUid: string; rosterBatchUid: string; duesAmount: string; approvedAllocationAmount: string }>;
+  groups: Array<{ primaryCoordinateKey: string; eventPartyUid: string; receiptUid: string; rosterBatchUid: string; duesAmount: string; approvedAllocationAmount: string }>;
 };
 type StoredCompanion = { batch_id: string; batch_uid: string; batch_status: string; preview_manifest: CanonicalValue; preview_manifest_sha256: string; row_count: number; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
@@ -34,8 +34,8 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
   if (groupItems.length === 0) fail("source_decision_group_primary_item_missing");
   const seenCompanions = new Set<string>();
   const groups = groupItems.map((item) => {
-    const payload = item.decisionPayload; const rosterBatchUid = payload.group_roster_batch_uid_or_null; const receiptUid = payload.receipt_uid_or_null;
-    if (payload.event_kind !== "bank" || payload.direction !== "credit" || payload.party_kind !== "group" || !["dues", "mixed"].includes(String(payload.classification_kind)) || typeof rosterBatchUid !== "string" || !UUID.test(rosterBatchUid) || typeof receiptUid !== "string" || !UUID.test(receiptUid)) fail("source_decision_group_primary_shape_invalid");
+    const payload = item.decisionPayload; const rosterBatchUid = payload.group_roster_batch_uid_or_null; const receiptUid = payload.receipt_uid_or_null; const eventPartyUid = payload.event_party_uid_or_null;
+    if (payload.event_kind !== "bank" || payload.direction !== "credit" || payload.party_kind !== "group" || !["dues", "mixed"].includes(String(payload.classification_kind)) || typeof rosterBatchUid !== "string" || !UUID.test(rosterBatchUid) || typeof receiptUid !== "string" || !UUID.test(receiptUid) || typeof eventPartyUid !== "string" || !UUID.test(eventPartyUid)) fail("source_decision_group_primary_shape_invalid");
     if (seenCompanions.has(rosterBatchUid)) fail("source_decision_group_companion_reused"); seenCompanions.add(rosterBatchUid);
     const companion = companionByBatch.get(rosterBatchUid); if (!companion) fail("source_decision_group_companion_missing");
     const categorySplits = payload.category_splits; if (!Array.isArray(categorySplits)) fail("source_decision_group_category_splits_invalid");
@@ -53,10 +53,12 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       }
       if (decision.primary_bank_batch_uid_or_null !== primary.batchUid || decision.primary_bank_coordinate_key_or_null !== item.coordinateKey || decision.receipt_uid_or_null !== receiptUid) fail("source_decision_group_primary_binding_mismatch");
       for (const key of ["allocation_request_uid_or_null", "group_member_uid_or_null", "member_uid_or_null"]) if (typeof decision[key] !== "string" || !UUID.test(String(decision[key]))) fail("source_decision_group_allocation_identity_invalid");
+      const match = companion.items.find((candidate) => candidate.coordinateKey === allocation.coordinateKey && candidate.decisionKind === "member_match");
+      if (!match || match.decisionPayload.outcome !== "approve" || match.decisionPayload.candidate_member_uid_or_null !== decision.member_uid_or_null || typeof match.decisionPayload.case_uid !== "string" || !UUID.test(match.decisionPayload.case_uid) || match.decisionPayload.evidence_kind === "name_only") fail("source_decision_group_member_match_binding_mismatch");
       approvedAllocationAmount += money(decision.amount_or_null, "source_decision_group_allocation_amount_invalid"); approvedCount += 1;
     }
     if (approvedCount === 0 || approvedAllocationAmount !== duesAmount) fail("source_decision_group_allocation_total_mismatch");
-    return { primaryCoordinateKey: item.coordinateKey, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString() };
+    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString() };
   });
   if (seenCompanions.size !== companionByBatch.size) fail("source_decision_group_unreferenced_companion");
   const orderedCompanions = [...companions].sort((left, right) => Buffer.compare(Buffer.from(left.batchUid), Buffer.from(right.batchUid)));
