@@ -85,7 +85,7 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       let evidence: GroupMultiBatchApplyPlan["groups"][number]["allocations"][number]["evidence"];
       if (allocation.evidence || match.evidence) {
         if (!allocation.evidence || !match.evidence || allocation.evidence.coordinateId !== match.evidence.coordinateId || allocation.evidence.sourceRowVersionId !== match.evidence.sourceRowVersionId || allocation.evidence.contentDigest !== match.evidence.contentDigest || canonicalJson(allocation.evidence.normalizedPayload) !== canonicalJson(match.evidence.normalizedPayload)) fail("source_decision_group_companion_evidence_mismatch");
-        evidence = { allocationDecisionItemId: allocation.evidence.decisionItemId, memberMatchDecisionItemId: match.evidence.decisionItemId, coordinateId: allocation.evidence.coordinateId, sourceRowVersionId: allocation.evidence.sourceRowVersionId, contentDigest: allocation.evidence.contentDigest, normalizedPayload: allocation.evidence.normalizedPayload };
+        evidence = { allocationDecisionItemId: allocation.evidence.decisionItemId, memberMatchDecisionItemId: match.evidence.decisionItemId, coordinateId: allocation.evidence.coordinateId, sourceRowVersionId: allocation.evidence.sourceRowVersionId, contentDigest: allocation.evidence.contentDigest, normalizationVersion:allocation.evidence.normalizationVersion, normalizedPayload: allocation.evidence.normalizedPayload };
       }
       const amount = money(decision.amount_or_null, "source_decision_group_allocation_amount_invalid");
       if (!Number.isInteger(decision.dues_year_or_null) || typeof decision.allocation_kind_or_null !== "string" || !decision.allocation_kind_or_null) fail("source_decision_group_allocation_shape_invalid");
