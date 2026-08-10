@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildGroupMaterializationTopology, buildGroupReservationBlueprint, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, buildGroupMaterializationTopology, buildGroupReservationBlueprint, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -33,4 +33,11 @@ test("builds one deterministic reservation for every new row and audit", () => {
 test("rejects stable identity reuse before reservations", () => {
   const duplicate = structuredClone(plan); duplicate.groups.push(structuredClone(duplicate.groups[0])); duplicate.groups[1].primaryCoordinateKey = "bank:toss:2"; duplicate.resolvedBindings!.categoryIdsByCoordinate["bank:toss:2"] = { DUES_INCOME: "7" }; duplicate.resolvedBindings!.periodIdsByCoordinate["bank:toss:2"] = "8";
   assert.throws(() => buildGroupMaterializationTopology(duplicate), /materialization_identity_collision/);
+});
+
+test("requires root-only coordinate uniqueness for append-only claim successors", async () => {
+  const accepted = { query: async () => ({ rowCount: 1, rows: [{ constraint_names: [], unique_indexes: [{ name: "claims_coordinate_root", predicate: "(version = 1)", columns: ["coordinate_id"] }] }] }) };
+  await assert.doesNotReject(() => assertGroupClaimVersionContract(accepted as never));
+  const allVersionsUnique = { query: async () => ({ rowCount: 1, rows: [{ constraint_names: ["economic_event_claims__coordinate_id__key"], unique_indexes: [{ name: "economic_event_claims__coordinate_id__key", predicate: null, columns: ["coordinate_id"] }] }] }) };
+  await assert.rejects(() => assertGroupClaimVersionContract(allVersionsUnique as never), /claim_version_contract_mismatch/);
 });
