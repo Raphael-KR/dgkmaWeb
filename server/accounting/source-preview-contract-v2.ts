@@ -151,6 +151,12 @@ function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject):
     ? payload.coordinate_kind === "economic" ? LEDGER_ECONOMIC_KEYS : payload.coordinate_kind === "period_metadata" ? LEDGER_PERIOD_KEYS : fail("source_preview_ledger_coordinate_kind_invalid")
     : SOURCE_PAYLOAD_KEYS[sourceCode];
   exactKeys(payload, expected, "source_preview_source_payload_keys_mismatch");
+  if (sourceCode === "LEDGER_DUES_POLICY_2024_2025" || sourceCode === "NOTION_DUES_REGULATION_DRAFT") {
+    for (const key of ["annual_minimum", "monthly_minimum"]) if (typeof payload[key] !== "string" || !/^(0|[1-9][0-9]*)$/.test(payload[key])) fail("source_preview_policy_money_invalid");
+    for (const key of ["due_day", "reminder_day"]) if (!Number.isInteger(payload[key]) || Number(payload[key]) < 1 || Number(payload[key]) > 31) fail("source_preview_policy_day_invalid");
+    if (!Number.isInteger(payload.dues_year) || Number(payload.dues_year) < 2024 || Number(payload.dues_year) > 2100) fail("source_preview_policy_year_invalid");
+    if (!new Set(["president", "senior_vice_president", "vice_president_auditor_chair", "director", "member", "honorary"]).has(String(payload.tier_code))) fail("source_preview_policy_tier_invalid");
+  }
 }
 
 function validateDecisionCoverage(sourceCode: ActiveV2Source, row: SourcePreviewRow): void {

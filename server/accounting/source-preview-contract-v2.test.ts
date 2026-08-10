@@ -76,3 +76,12 @@ test("decision coverage rejects an extra kind before manifest creation", () => {
   input.source_fingerprint = sourceFingerprint(input);
   assert.throws(() => validateSourcePreviewInput(input), /decision_coverage_mismatch/);
 });
+
+test("policy source payloads reject noncanonical money and unknown tiers", () => {
+  const base = fixture();
+  const policy: SourcePreviewInput = { ...base, source_code: "NOTION_DUES_REGULATION_DRAFT", source_uid: "6dc3cdbe-11b4-538e-b703-ae48ddc6c7db", release_uid: "4604c702-3633-4a34-b389-9bc0d36aebec", rows: [{ coordinate_key: "notion:policy:test", coordinate_normalization_version: "coordinate-v1", issue_status: "accepted", normalization_version: "notion-dues-draft-v2@2.0.0+admin-readable-v1", normalized_payload: { annual_minimum: "050000", due_day: 10, dues_year: 2026, monthly_minimum: "2000", reminder_day: 11, tier_code: "member" }, raw_payload: { annual_minimum: "050000", due_day: 10, dues_year: 2026, monthly_minimum: "2000", reminder_day: 11, tier_code: "member" }, source_display_snapshot: "별표 1", decisions: [] }] };
+  policy.source_fingerprint = sourceFingerprint(policy);
+  assert.throws(() => validateSourcePreviewInput(policy), /policy_money_invalid/);
+  policy.rows[0].normalized_payload.annual_minimum = "50000"; policy.rows[0].raw_payload.annual_minimum = "50000"; policy.rows[0].normalized_payload.tier_code = "unknown"; policy.rows[0].raw_payload.tier_code = "unknown"; policy.source_fingerprint = sourceFingerprint(policy);
+  assert.throws(() => validateSourcePreviewInput(policy), /policy_tier_invalid/);
+});

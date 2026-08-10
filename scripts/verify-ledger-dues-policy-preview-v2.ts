@@ -29,7 +29,8 @@ async function verify(client: PoolClient, inputPath: string) {
   `, [release.rows[0].release_id, input.source_fingerprint]);
   if (batch.rowCount !== 1) fail("policy_preview_batch_missing");
   const batchRow = batch.rows[0];
-  if (batchRow.batch_uid !== input.batch_uid || batchRow.preview_manifest_sha256 !== expectedBatchManifestSha || !same(batchRow.preview_manifest, expectedBatchManifest) || batchRow.row_count !== 10 || batchRow.warning_count !== 0 || batchRow.error_count !== 0 || batchRow.status !== "previewed") fail("policy_preview_batch_mismatch");
+  const expectedWarningCount = input.rows.filter((row) => row.issue_status === "warning").length;
+  if (batchRow.batch_uid !== input.batch_uid || batchRow.preview_manifest_sha256 !== expectedBatchManifestSha || !same(batchRow.preview_manifest, expectedBatchManifest) || batchRow.row_count !== input.rows.length || batchRow.warning_count !== expectedWarningCount || batchRow.error_count !== 0 || batchRow.status !== "previewed") fail("policy_preview_batch_mismatch");
 
   const graph = await client.query<{ ordinal: number; coordinate_key: string; coordinate_normalization_version: string; content_digest: string; issue_status: string; normalization_version: string; normalized_payload: CanonicalValue; raw_payload: CanonicalValue; source_display_snapshot: string }>(`
     SELECT br.ordinal,c.coordinate_key,c.coordinate_normalization_version,rv.content_digest,rv.issue_status,
@@ -61,7 +62,8 @@ async function verify(client: PoolClient, inputPath: string) {
       ((SELECT count(*) FROM public.dues_policies WHERE source_row_version_id IS NOT NULL)+(SELECT count(*) FROM public.dues_position_tier_mappings WHERE source_row_version_id IS NOT NULL)+(SELECT count(*) FROM public.member_dues_tier_history))::int linked_policy_rows
   `, [batchRow.id, input.operation_uid, release.rows[0].source_id]);
   const c = counts.rows[0];
-  if (c.decision_items !== 0 || c.operation_receipts !== 1 || c.result_entities !== 32 || c.audits !== 32 || c.source_coordinates !== 10 || c.source_versions !== 10 || c.downstream_rows !== 0 || c.linked_policy_rows !== 0) fail("policy_preview_persistence_count_mismatch");
+  const expectedResultCount = 2 + input.rows.length * 3;
+  if (c.decision_items !== 0 || c.operation_receipts !== 1 || c.result_entities !== expectedResultCount || c.audits !== expectedResultCount || c.source_coordinates !== input.rows.length || c.source_versions !== input.rows.length || c.downstream_rows !== 0 || c.linked_policy_rows !== 0) fail("policy_preview_persistence_count_mismatch");
 
   const receipt = await client.query<{ canonical_payload: CanonicalValue; payload_sha256: string }>("SELECT canonical_payload,payload_sha256 FROM public.business_operation_receipts WHERE operation_uid=$1::uuid", [input.operation_uid]);
   if (receipt.rowCount !== 1 || receipt.rows[0].payload_sha256 !== sha256(canonicalJson(receipt.rows[0].canonical_payload)) || canonicalJson(receipt.rows[0].canonical_payload).includes("회비수입")) fail("policy_preview_receipt_mismatch");
@@ -76,7 +78,7 @@ async function main() {
     const target = await verifyDevelopmentTarget(pool, resolved); const client = await pool.connect();
     try {
       await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"); const result = await verify(client, inputPath); await client.query("ROLLBACK");
-      console.log(JSON.stringify({ schema_version: "ledger-dues-policy-preview-verification-v2", target: "development", target_fingerprint: target.targetFingerprint, source_fingerprint: result.sourceFingerprint, batch_manifest_sha256: result.batchManifestSha256, decision_manifest_sha256: result.decisionManifestSha256, row_count: result.counts.source_versions, decision_item_count: result.counts.decision_items, operation_receipt_count: result.counts.operation_receipts, result_entity_count: result.counts.result_entities, audit_count: result.counts.audits, downstream_business_row_count: result.counts.downstream_rows, linked_policy_row_count: result.counts.linked_policy_rows, terminal_transaction: "ROLLBACK", result: "verified" }));
+      console.log(JSON.stringify({ schema_version: "policy-source-preview-verification-v2", target: "development", target_fingerprint: target.targetFingerprint, source_fingerprint: result.sourceFingerprint, batch_manifest_sha256: result.batchManifestSha256, decision_manifest_sha256: result.decisionManifestSha256, row_count: result.counts.source_versions, decision_item_count: result.counts.decision_items, operation_receipt_count: result.counts.operation_receipts, result_entity_count: result.counts.result_entities, audit_count: result.counts.audits, downstream_business_row_count: result.counts.downstream_rows, linked_policy_row_count: result.counts.linked_policy_rows, terminal_transaction: "ROLLBACK", result: "verified" }));
     } catch (error) { await client.query("ROLLBACK").catch(() => undefined); throw error; } finally { client.release(); }
   } finally { await shutdownPool(pool); }
 }
