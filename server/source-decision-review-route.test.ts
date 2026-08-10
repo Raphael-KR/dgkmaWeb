@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
 import { registerRoutes } from "./routes";
+import { shutdownDatabasePool } from "./db";
 
 test("source decision review route requires same-origin frozen admin and returns exact DTO", async () => {
   const frozen = { userId: 7, userUid: "77777777-7777-4777-8777-777777777777" }; let reads = 0;
@@ -13,5 +14,5 @@ test("source decision review route requires same-origin frozen admin and returns
   try {
     const crossOrigin = await fetch(`${base}${path}`, { headers: { "x-test-user-id": "7", origin: "https://evil.example", "sec-fetch-site": "same-origin" } }); assert.equal(crossOrigin.status, 403); assert.equal(reads, 0);
     const response = await fetch(`${base}${path}`, { headers: { "x-test-user-id": "7", origin: base, "sec-fetch-site": "same-origin" } }); assert.equal(response.status, 200); assert.deepEqual(await response.json(), review); assert.equal(reads, 1);
-  } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); }
+  } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())); await shutdownDatabasePool(); }
 });
