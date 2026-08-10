@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { sourceDecisionReceipt, validateSourceDecisionCommand } from "./accounting/source-decision-api";
+import { canonicalJson } from "./accounting/source-contracts";
 
-const context = { sessionUserId: 7, liveUserId: 7, liveUserUid: "77777777-7777-4777-8777-777777777777", liveIsAdmin: true, frozenAdminId: 7, frozenAdminUid: "77777777-7777-4777-8777-777777777777", origin: "https://dev.example", hostOrigin: "https://dev.example", fetchSite: "same-origin", expectedSourceFingerprint: "a".repeat(64) };
-const command = { schemaVersion: "source-decision-command-v1", operationUid: "12345678-1234-4234-8234-123456789abc", manifestSha256: "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8", sourceFingerprint: "a".repeat(64), decision: "approve", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
+const primaryDecisionSetUid = "55555555-5555-4555-8555-555555555555";
+const batchUid = "44444444-4444-4444-8444-444444444444";
+const context = { sessionUserId: 7, liveUserId: 7, liveUserUid: "77777777-7777-4777-8777-777777777777", liveIsAdmin: true, frozenAdminId: 7, frozenAdminUid: "77777777-7777-4777-8777-777777777777", origin: "https://dev.example", hostOrigin: "https://dev.example", fetchSite: "same-origin", expectedDecisionSetUid: primaryDecisionSetUid, expectedBatchUid: batchUid, expectedManifestSha256: "9".repeat(64), expectedSourceFingerprint: "a".repeat(64), expectedItems: [{ ordinal: 1, coordinateKey: "row:1", sourceContentDigest: "b".repeat(64), decisionKind: "classification" }] };
+const command = { schemaVersion: "source-decision-command-v1", operationUid: "12345678-1234-4234-8234-123456789abc", manifestSha256: context.expectedManifestSha256, sourceFingerprint: "a".repeat(64), decision: "approve", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
 
 test("source decision requires the frozen same-origin live admin and exact manifest/fingerprint", () => {
   assert.equal(validateSourceDecisionCommand(command, context).decision, "approve");
@@ -25,8 +28,12 @@ test("approval receipt binds canonical command and actor without source PII", ()
 test("replacement paths require complete ordinal/digest-bound items", () => {
   const payload = { classification: "DUES_INCOME" };
   const payloadDigest = createHash("sha256").update('{"classification":"DUES_INCOME"}').digest("hex");
-  const repreview = { ...command, decision: "repreview", replacementDecisionSetUid: "87654321-4321-4321-8321-cba987654321", replacementManifest: { count: 1 }, replacementItems: [{ ordinal: 1, decisionPayload: payload, decisionPayloadSha256: payloadDigest }], replacementManifestSha256: "c".repeat(64) };
+  const replacementManifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: context.expectedSourceFingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: payloadDigest }] };
+  const replacementManifestSha256 = createHash("sha256").update(canonicalJson(replacementManifest)).digest("hex");
+  const repreview = { ...command, decision: "repreview", replacementDecisionSetUid: "87654321-4321-4321-8321-cba987654321", replacementManifest, replacementItems: [{ ordinal: 1, decisionPayload: payload, decisionPayloadSha256: payloadDigest }], replacementManifestSha256 };
   assert.equal(validateSourceDecisionCommand(repreview, context).decision, "repreview");
   assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementItems: [{ ...repreview.replacementItems[0], ordinal: 2 }] }, context), /coverage_mismatch/);
   assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementItems: [{ ...repreview.replacementItems[0], decisionPayloadSha256: "0".repeat(64) }] }, context), /digest_mismatch/);
+  assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementItems: [...repreview.replacementItems, repreview.replacementItems[0]] }, context), /coverage_mismatch/);
+  assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementManifest: { ...replacementManifest, extra: true } }, context), /manifest_mismatch/);
 });
