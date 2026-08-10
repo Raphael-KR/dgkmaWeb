@@ -38,7 +38,7 @@ test("all admin routes are registered after the shared administrator guard", asy
   ).map((match) => match.index ?? -1);
 
   assert.ok(guardIndex >= 0);
-  assert.equal(adminRouteIndexes.length, 7);
+  assert.equal(adminRouteIndexes.length, 8);
   assert.ok(adminRouteIndexes.every((index) => index > guardIndex));
 });
 
