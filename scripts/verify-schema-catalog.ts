@@ -29,7 +29,7 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       SELECT sequence_no,artifact_id,artifact_sha256 FROM public.schema_change_ledger ORDER BY sequence_no
     `);
     const referenceSeeds = await pool.query<{
-      logical_sources: number; source_releases: number; historical_source_releases: number; bank_accounts: number;
+      logical_sources: number; source_releases: number; seed_source_releases: number; historical_source_releases: number; bank_accounts: number;
       bank_source_mappings: number; draft_policies: number; approved_policies: number;
       draft_position_mappings: number; approved_position_mappings: number;
       draft_category_roots: number; approved_category_tips: number; release_codes: string[];
@@ -37,6 +37,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       SELECT
         (SELECT count(*)::int FROM public.accounting_logical_sources) AS logical_sources,
         (SELECT count(*)::int FROM public.accounting_source_releases) AS source_releases,
+        (SELECT count(*)::int FROM public.accounting_source_releases
+          WHERE adapter_code IN ('membership-integrated-address-book-v1','notion-organization-role-history-v1')) AS seed_source_releases,
         (SELECT count(*)::int FROM public.accounting_source_releases release
           JOIN public.accounting_logical_sources source ON source.id=release.logical_source_id
           WHERE source.source_code NOT IN ('MEMBERSHIP_INTEGRATED_ADDRESS_BOOK','NOTION_ORGANIZATION_ROLE_HISTORY')) AS historical_source_releases,
@@ -49,7 +51,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
         (SELECT count(*)::int FROM public.accounting_categories WHERE status='draft' AND version=1) AS draft_category_roots,
         (SELECT count(*)::int FROM public.accounting_categories c WHERE c.status='approved'
           AND NOT EXISTS (SELECT 1 FROM public.accounting_categories child WHERE child.supersedes_id=c.id)) AS approved_category_tips,
-        (SELECT array_agg(adapter_code ORDER BY adapter_code) FROM public.accounting_source_releases) AS release_codes
+        (SELECT array_agg(adapter_code ORDER BY adapter_code) FROM public.accounting_source_releases
+          WHERE adapter_code IN ('membership-integrated-address-book-v1','notion-organization-role-history-v1')) AS release_codes
     `);
     const transaction = await pool.query<{ read_only: string; isolation: string }>(`
       SELECT current_setting('transaction_read_only') AS read_only,
@@ -67,14 +70,20 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       throw new Error("catalog_ledger_sequence_mismatch");
     }
     const seeds = referenceSeeds.rows[0];
-    const expectedSeedCounts = [10, 2, 0, 2, 2, 16, 0, 46, 0, 6];
+    const expectedSeedCounts = [10, 2, 2, 16, 0, 46, 0, 6];
     const observedSeedCounts = [
-      seeds.logical_sources, seeds.source_releases, seeds.historical_source_releases, seeds.bank_accounts,
+      seeds.logical_sources, seeds.seed_source_releases, seeds.bank_accounts,
       seeds.bank_source_mappings, seeds.draft_policies, seeds.approved_policies,
       seeds.draft_position_mappings, seeds.approved_position_mappings, seeds.draft_category_roots,
     ];
     if (observedSeedCounts.some((count, index) => count !== expectedSeedCounts[index])) {
       throw new Error("catalog_reference_seed_count_mismatch");
+    }
+    if (target === "disposable-test" && (seeds.source_releases !== 2 || seeds.historical_source_releases !== 0)) {
+      throw new Error("catalog_disposable_release_scope_mismatch");
+    }
+    if (target === "development" && seeds.source_releases < 2) {
+      throw new Error("catalog_development_release_scope_mismatch");
     }
     const expectedApprovedCategoryTips = target === "development" ? 6 : process.argv.includes("--categories-approved") ? 6 : 0;
     if (seeds.approved_category_tips !== expectedApprovedCategoryTips) throw new Error("catalog_category_tip_mismatch");
