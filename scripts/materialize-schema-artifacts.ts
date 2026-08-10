@@ -18,6 +18,10 @@ const tableNames = new Set(tables.map((table) => table.table));
 const exceptionTable = "schema_data_exceptions";
 const ledgerTables = new Set(["schema_change_ledger", "schema_release_runs", "schema_capability_receipts"]);
 const ordinaryTables = tables.filter((table) => !ledgerTables.has(table.table) && table.table !== exceptionTable);
+const seedActorWhere = `id=current_setting('dgkma.actor_user_id')::integer
+    AND user_uid=current_setting('dgkma.actor_user_uid')::uuid AND is_admin=true`;
+const seedActorSubquery = `(SELECT id,user_uid,name FROM public.users WHERE ${seedActorWhere}) actor`;
+const seedAuthorization = `current_setting('dgkma.actor_authorization_version')`;
 
 function columnSql(column: Column): string {
   let sql = `${q(column.name)} ${column.type}`;
@@ -167,8 +171,8 @@ const sourceSeeds = logicalSourceDetails.map((source) => {
      recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,recorded_actor_correlation_uid,recorded_actor_authorization_version)
   SELECT ${literal(source.source_uid)}::uuid,${literal(source.source_code)},${literal(source.display_name)},${literal(source.source_kind)},
          ${literal(source.source_locator)},${literal(source.source_timezone)},${literal(source.authority_role)},${source.event_authority_rank},${literal(contractFingerprint)},'active',${source.valid_from ? `DATE ${literal(source.valid_from)}` : "NULL"},${source.valid_to ? `DATE ${literal(source.valid_to)}` : "NULL"},
-         id,user_uid,name,'migration_admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
-  FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1 ON CONFLICT DO NOTHING;`;
+         id,user_uid,name,'migration_admin',clock_timestamp(),gen_random_uuid(),${seedAuthorization}
+  FROM public.users WHERE ${seedActorWhere} ON CONFLICT DO NOTHING;`;
 }).join("\n");
 
 const releaseSeeds = (value.source_release_contract_registry as any[]).map((release) => `INSERT INTO public.accounting_source_releases
@@ -179,9 +183,9 @@ const releaseSeeds = (value.source_release_contract_registry as any[]).map((rele
  SELECT gen_random_uuid(),source.id,${literal(release.adapter_code)},${literal(release.adapter_version)},${literal(release.normalized_schema_sha256)},
         ${literal(release.normalization_implementation_sha256)},${literal(release.mapping_table_sha256)},
         ${literal(release.mapping_approval_receipt_sha256)},TIMESTAMPTZ ${literal(release.released_at)},'active',actor.id,
-        actor.user_uid,actor.name,'migration_admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+        actor.user_uid,actor.name,'migration_admin',clock_timestamp(),gen_random_uuid(),${seedAuthorization}
  FROM public.accounting_logical_sources source CROSS JOIN LATERAL
-      (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+      ${seedActorSubquery}
  WHERE source.source_code=${literal(release.source_code)} ON CONFLICT DO NOTHING;`).join("\n");
 
 const bankAccounts = [
@@ -192,8 +196,8 @@ const bankAccounts = [
    recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,
    recorded_actor_correlation_uid,recorded_actor_authorization_version)
  SELECT ${literal(code!)},${literal(institution!)},'미수집',${literal(owner!)},DATE ${literal(from!)},${to ? `DATE ${literal(to)}` : "NULL"},
-        id,user_uid,name,'migration_admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
- FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1 ON CONFLICT DO NOTHING;`).join("\n");
+        id,user_uid,name,'migration_admin',clock_timestamp(),gen_random_uuid(),${seedAuthorization}
+ FROM public.users WHERE ${seedActorWhere} ON CONFLICT DO NOTHING;`).join("\n");
 
 const bankMappings = [
   ["BANK_TOSS_2026","TOSS_OFFICER_2026"], ["BANK_IBK_2026","IBK_ASSOCIATION_2026"],
@@ -202,9 +206,9 @@ const bankMappings = [
    recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_at,
    recorded_actor_correlation_uid,recorded_actor_authorization_version)
  SELECT source.id,account.id,source.source_code,account.account_code,actor.id,actor.user_uid,actor.name,'migration_admin',
-        clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+        clock_timestamp(),gen_random_uuid(),${seedAuthorization}
  FROM public.accounting_logical_sources source JOIN public.bank_accounts account ON account.account_code=${literal(accountCode)}
- CROSS JOIN LATERAL (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+ CROSS JOIN LATERAL ${seedActorSubquery}
  WHERE source.source_code=${literal(sourceCode)} ON CONFLICT DO NOTHING;`).join("\n");
 
 const basePolicies = [
@@ -225,9 +229,9 @@ const policySeeds = policyRows.map((policy) => {
    recorded_actor_correlation_uid,recorded_actor_authorization_version)
  SELECT ${policy.year},${literal(policy.tier)},${policy.priority},${policy.monthly},${policy.annual},10,11,'draft',source.id,
         NULL,NULL,TIMESTAMPTZ ${literal(`${policy.year}-01-01T00:00:00+09:00`)},1,NULL,actor.id,actor.user_uid,actor.name,'admin',
-        clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+        clock_timestamp(),gen_random_uuid(),${seedAuthorization}
  FROM public.accounting_logical_sources source CROSS JOIN LATERAL
-      (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+      ${seedActorSubquery}
  WHERE source.source_code=${literal(sourceCode)} ON CONFLICT DO NOTHING;`;
 }).join("\n");
 
@@ -254,9 +258,9 @@ const mappingSeeds = mappingRows.map((mapping) => {
    recorded_actor_scope,recorded_actor_at,recorded_actor_correlation_uid,recorded_actor_authorization_version)
  SELECT ${mapping.year},${literal(mapping.position)},${mapping.tier ? literal(mapping.tier) : "NULL"},policy.id,${mapping.priority},${mapping.adds},'draft',source.id,NULL,
         TIMESTAMPTZ ${literal(`${mapping.year}-01-01T00:00:00+09:00`)},1,NULL,actor.id,actor.user_uid,actor.name,'admin',
-        clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
+        clock_timestamp(),gen_random_uuid(),${seedAuthorization}
  FROM public.accounting_logical_sources source CROSS JOIN LATERAL
-      (SELECT id,user_uid,name FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1) actor
+      ${seedActorSubquery}
  LEFT JOIN public.dues_policies policy ON ${mapping.tier ? `policy.dues_year=${mapping.year} AND policy.tier_code=${literal(mapping.tier)} AND policy.version=1` : "false"}
  WHERE source.source_code=${literal(sourceCode)} ON CONFLICT DO NOTHING;`;
 }).join("\n");
@@ -269,8 +273,8 @@ const categorySeeds = [
    recorded_actor_user_id,recorded_actor_uid_snapshot,recorded_actor_name_snapshot,recorded_actor_scope,
    recorded_actor_at,recorded_actor_correlation_uid,recorded_actor_authorization_version)
  SELECT ${literal(code)},1,${literal(name)},${literal(section)},${literal(effect)},DATE '2022-01-01',NULL,'draft',
-        TIMESTAMPTZ '2022-01-01 00:00:00+09',id,user_uid,name,'admin',clock_timestamp(),gen_random_uuid(),${literal(manifest.sha256)}
- FROM public.users WHERE is_admin=true ORDER BY id LIMIT 1 ON CONFLICT DO NOTHING;`).join("\n");
+        TIMESTAMPTZ '2022-01-01 00:00:00+09',id,user_uid,name,'admin',clock_timestamp(),gen_random_uuid(),${seedAuthorization}
+ FROM public.users WHERE ${seedActorWhere} ON CONFLICT DO NOTHING;`).join("\n");
 if ((value.source_release_contract_registry as any[]).length !== 2 || policyRows.length !== 16 || mappingRows.length !== 46) {
   throw new Error("sequence_50_seed_count_mismatch");
 }

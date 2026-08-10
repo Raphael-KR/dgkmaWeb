@@ -34,6 +34,12 @@ export interface BootstrapTarget {
   applicationName: string;
 }
 
+export interface MigrationActor {
+  userId: number;
+  userUid: string;
+  authorizationVersion: string;
+}
+
 export interface CapabilityReceipt {
   target_kind: "development" | "disposable-test";
   parent_target_fingerprint: string | null;
@@ -313,6 +319,8 @@ export async function applyArtifact(
   capability: CapabilityReceipt,
   descriptor: ArtifactDescriptor,
   variant: CapabilityVariant,
+  actor?: MigrationActor,
+  interruptBeforeCommit = false,
 ): Promise<"applied" | "verified_noop"> {
   if (descriptor.sequence_no === 1) fail("ledger_sequence_one_requires_bootstrap_path");
   verifyArtifactBytes(descriptor);
@@ -340,6 +348,26 @@ export async function applyArtifact(
   try {
     await pool.query("SELECT pg_advisory_xact_lock($1::bigint)", [schemaLockKey(target.targetFingerprint).toString()]);
     if (await existingLedgerRow(pool, descriptor.sequence_no)) fail("ledger_artifact_concurrent_change");
+    if (descriptor.sequence_no === 50) {
+      if (!actor) fail("blocked_actor");
+      const liveActor = await pool.query<{ ok: boolean }>(`
+        SELECT EXISTS(
+          SELECT 1 FROM public.users
+          WHERE id=$1 AND user_uid=$2::uuid AND is_admin=true
+          FOR UPDATE
+        ) AS ok
+      `, [actor.userId, actor.userUid]);
+      if (liveActor.rows[0]?.ok !== true) fail("blocked_actor");
+      for (const [key, value] of [
+        ["dgkma.actor_user_id", String(actor.userId)],
+        ["dgkma.actor_user_uid", actor.userUid],
+        ["dgkma.actor_authorization_version", actor.authorizationVersion],
+      ] as const) {
+        await pool.query("SELECT set_config($1,$2,true)", [key, value]);
+      }
+    } else if (actor) {
+      fail("ledger_actor_only_valid_for_sequence_50");
+    }
     const release = await pool.query<{ id: string }>(`
       INSERT INTO public.schema_release_runs
         (release_uid,manifest_sha256,target_fingerprint,requested_through_sequence_no,state,started_at,legacy_feature_state,executor_identity,executor_version)
@@ -358,6 +386,7 @@ export async function applyArtifact(
     `, [descriptor.artifact_id, descriptor.artifact_sha256, descriptor.kind, descriptor.sequence_no, manifest.sha256,
       release.rows[0].id, target.targetFingerprint, receipt.rows[0].id, variant]);
     await pool.query("UPDATE public.schema_release_runs SET state='verified',finished_at=clock_timestamp() WHERE id=$1", [release.rows[0].id]);
+    if (interruptBeforeCommit) fail("ledger_simulated_interrupt");
     await pool.query("COMMIT");
     return "applied";
   } catch (error) {

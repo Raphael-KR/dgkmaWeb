@@ -1,5 +1,6 @@
 import {
   createOrResumeDisposableTarget,
+  closeDisposableTarget,
   createTargetPool,
   resolveDevelopmentTarget,
   resolveDisposableControlTarget,
@@ -17,9 +18,11 @@ import {
   selectedArtifacts,
   type BootstrapTarget,
   type CapabilityReceipt,
+  type MigrationActor,
 } from "./schema-ledger";
+import { verifyActorReceipt } from "./admin-actor-receipt";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { canonicalJson, sha256 } from "./schema-ledger";
 
 function value(flag: string): string | undefined {
   const index = process.argv.indexOf(flag);
@@ -34,6 +37,17 @@ function fail(code: string): never {
   throw new Error(code);
 }
 
+function requireCommittedReceipt(receiptPath: string): void {
+  let committed: Buffer;
+  try {
+    execFileSync("git", ["ls-files", "--error-unmatch", receiptPath], { stdio: "ignore" });
+    committed = execFileSync("git", ["show", `HEAD:${receiptPath}`]);
+  } catch {
+    fail("development_actor_receipt_not_committed");
+  }
+  if (!committed.equals(readFileSync(receiptPath))) fail("development_actor_receipt_worktree_drift");
+}
+
 async function main(): Promise<void> {
   const targetKind = value("--target");
   if (targetKind !== "development" && targetKind !== "disposable-test") fail("apply_schema_target_invalid");
@@ -42,6 +56,7 @@ async function main(): Promise<void> {
   const requestedVariant = value("--capability-variant") ?? "auto";
   const dryRun = present("--dry-run");
   const teardown = present("--teardown");
+  const interruptSequence = Number(value("--interrupt-before-commit-sequence") ?? "0");
   const descriptors = readArtifactDescriptors();
   const planned = plannedArtifacts(throughSequence);
   const unavailable = planned.filter((descriptor) => descriptor.materialization_state === "not_materialized");
@@ -49,8 +64,8 @@ async function main(): Promise<void> {
   const manifest = readManifest();
 
   if (targetKind === "development") {
+    if (interruptSequence !== 0) fail("development_interrupt_fixture_forbidden");
     if (requestedVariant === "fallback-test") fail("fallback_test_development_forbidden");
-    if (!dryRun) fail("apply_schema_development_write_not_authorized_in_todo_2");
     if (teardown) fail("apply_schema_development_teardown_forbidden");
     const resolved = resolveDevelopmentTarget(process.env, "migration");
     const pool = createTargetPool(resolved);
@@ -65,16 +80,82 @@ async function main(): Promise<void> {
         parentTargetFingerprint: null,
         runUid: null,
       });
+      if (dryRun) {
+        console.log(JSON.stringify({
+          schema_version: "dgkma-schema-apply-preview-v1",
+          target: "development",
+          target_fingerprint: verified.targetFingerprint,
+          manifest_sha256: manifest.sha256,
+          through_sequence: throughSequence,
+          materialized_sequences: [...new Set(planned.filter((entry) => entry.materialization_state === "materialized").map((entry) => entry.sequence_no))],
+          not_materialized_sequences: [...new Set(planned.filter((entry) => entry.materialization_state === "not_materialized").map((entry) => entry.sequence_no))],
+          capability_receipt_sha256: capability.receipt_sha256,
+          schema_writes: 0,
+          result: "approved",
+        }));
+        return;
+      }
+      const target: BootstrapTarget = {
+        kind: "development",
+        targetFingerprint: verified.targetFingerprint,
+        parentTargetFingerprint: null,
+        runUid: null,
+        currentDatabase: verified.currentDatabase,
+        currentUser: verified.currentUser,
+        currentUserOid: verified.currentUserOid,
+        serverVersionNum: verified.serverVersionNum,
+        applicationName: resolved.applicationName,
+      };
+      let actor: MigrationActor | undefined;
+      if (throughSequence >= 50) {
+        const receiptPath = value("--actor-receipt") ?? fail("actor_receipt_required");
+        requireCommittedReceipt(receiptPath);
+        actor = await verifyActorReceipt(pool, receiptPath, {
+          kind: "development",
+          targetFingerprint: verified.targetFingerprint,
+          candidateUserId: 315,
+        });
+      }
+      const preferredAvailable = capability.btree_gist_installed ||
+        (capability.btree_gist_available && capability.btree_gist_create_privilege);
+      if (!["auto", "preferred_btree_gist"].includes(requestedVariant)) fail("capability_variant_invalid");
+      if (requestedVariant === "preferred_btree_gist" && !preferredAvailable) fail("preferred_btree_gist_unavailable");
+      let variant = preferredAvailable ? "preferred_btree_gist" as const : "deferred_trigger_fallback" as const;
+      if (fromSequence >= 50) {
+        const selectedForty = await pool.query<{ artifact_id: string }>(
+          "SELECT artifact_id FROM public.schema_change_ledger WHERE sequence_no=40",
+        );
+        if (selectedForty.rowCount !== 1) fail("ledger_sequence_40_required");
+        variant = selectedForty.rows[0].artifact_id === "accounting-temporal-fallback-v1"
+          ? "deferred_trigger_fallback" : "preferred_btree_gist";
+      }
+      const outcomes: Array<{ sequence_no: number; artifact_id: string; outcome: string }> = [];
+      if (fromSequence <= 1 && throughSequence >= 1) {
+        const applied = await applySequenceOne(pool, target, capability as CapabilityReceipt);
+        outcomes.push({ sequence_no: 1, artifact_id: "schema-ledger-bootstrap-v1", outcome: applied.outcome });
+      }
+      const effectiveFrom = Math.max(fromSequence, 10);
+      for (const descriptor of selectedArtifacts(effectiveFrom, throughSequence, variant)) {
+        const outcome = await applyArtifact(
+          pool,
+          target,
+          capability as CapabilityReceipt,
+          descriptor,
+          variant,
+          descriptor.sequence_no === 50 ? actor : undefined,
+          false,
+        );
+        outcomes.push({ sequence_no: descriptor.sequence_no, artifact_id: descriptor.artifact_id, outcome });
+      }
       console.log(JSON.stringify({
-        schema_version: "dgkma-schema-apply-preview-v1",
+        schema_version: "dgkma-schema-apply-result-v1",
         target: "development",
         target_fingerprint: verified.targetFingerprint,
         manifest_sha256: manifest.sha256,
         through_sequence: throughSequence,
-        materialized_sequences: [...new Set(planned.filter((entry) => entry.materialization_state === "materialized").map((entry) => entry.sequence_no))],
-        not_materialized_sequences: [...new Set(planned.filter((entry) => entry.materialization_state === "not_materialized").map((entry) => entry.sequence_no))],
-        capability_receipt_sha256: capability.receipt_sha256,
-        schema_writes: 0,
+        from_sequence: fromSequence,
+        capability_variant: variant,
+        outcomes,
         result: "approved",
       }));
     } finally {
@@ -112,20 +193,15 @@ async function main(): Promise<void> {
       serverVersionNum: disposable.serverVersionNum,
       applicationName: disposable.applicationName,
     };
+    let actor: MigrationActor | undefined;
     if (throughSequence >= 50) {
       const receiptPath = value("--actor-receipt") ?? fail("actor_receipt_required");
-      const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
-      const receiptHash = receipt.receipt_sha256;
-      delete receipt.receipt_sha256;
-      if (receiptHash !== sha256(canonicalJson(receipt)) || receipt.schema_version !== "dgkma-disposable-admin-v1" ||
-          receipt.target_fingerprint !== target.targetFingerprint || receipt.run_uid !== runUid || receipt.manifest_sha256 !== manifest.sha256) {
-        fail("actor_receipt_target_mismatch");
-      }
-      const liveActor = await disposable.pool.query<{ ok: boolean }>(
-        "SELECT EXISTS(SELECT 1 FROM public.users WHERE id=$1 AND user_uid=$2::uuid AND is_admin=true) AS ok",
-        [receipt.actor_user_id, receipt.actor_user_uid],
-      );
-      if (liveActor.rows[0]?.ok !== true) fail("blocked_actor");
+      actor = await verifyActorReceipt(disposable.pool, receiptPath, {
+        kind: "disposable-test",
+        targetFingerprint: target.targetFingerprint,
+        disposableRunUid: runUid,
+        parentTargetFingerprint: target.parentTargetFingerprint!,
+      });
     }
     const preferredAvailable = capability.btree_gist_installed || (capability.btree_gist_available && capability.btree_gist_create_privilege);
     if (!["auto","fallback-test","preferred_btree_gist"].includes(requestedVariant)) fail("capability_variant_invalid");
@@ -148,7 +224,15 @@ async function main(): Promise<void> {
     }
     const effectiveFrom = Math.max(fromSequence, 10);
     for (const descriptor of selectedArtifacts(effectiveFrom, throughSequence, variant)) {
-      const outcome = await applyArtifact(disposable.pool, target, capability as CapabilityReceipt, descriptor, variant);
+      const outcome = await applyArtifact(
+        disposable.pool,
+        target,
+        capability as CapabilityReceipt,
+        descriptor,
+        variant,
+        descriptor.sequence_no === 50 ? actor : undefined,
+        descriptor.sequence_no === interruptSequence,
+      );
       outcomes.push({ sequence_no: descriptor.sequence_no, artifact_id: descriptor.artifact_id, outcome });
     }
     const catalog = await disposable.pool.query<{ ledger_rows: number; verified_runs: number; capability_rows: number }>(`
@@ -175,10 +259,7 @@ async function main(): Promise<void> {
     }));
   } finally {
     if (disposable && teardown && !teardownCompleted) await teardownDisposableTarget(controlPool, disposable);
-    else if (disposable && !disposable.poolClosed) {
-      await shutdownPool(disposable.pool);
-      disposable.poolClosed = true;
-    }
+    else if (disposable) await closeDisposableTarget(controlPool, disposable);
     await shutdownPool(controlPool);
   }
 }

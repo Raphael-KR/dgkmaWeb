@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import {
-  createOrResumeDisposableTarget, createTargetPool, resolveDisposableControlTarget,
+  closeDisposableTarget, createOrResumeDisposableTarget, createTargetPool, resolveDisposableControlTarget,
   shutdownPool, verifyDevelopmentTarget,
 } from "../server/db-target";
-import { canonicalJson, readManifest, sha256 } from "./schema-ledger";
+import { sha256 } from "./schema-ledger";
+import { buildActorReceipt, serializeActorReceipt } from "./admin-actor-receipt";
 
 function arg(name: string): string {
   const index = process.argv.indexOf(name);
@@ -22,33 +22,37 @@ async function main() {
   try {
     const development = await verifyDevelopmentTarget(controlPool, { ...controlResolved, kind: "development" });
     disposable = await createOrResumeDisposableTarget(controlPool, development, runUid);
-    const ledger = await disposable.pool.query<{ release_uid: string; artifact_sha256: string }>(`
-      SELECT r.release_uid::text, l.artifact_sha256 FROM public.schema_change_ledger l
-      JOIN public.schema_release_runs r ON r.id=l.release_run_id
-      WHERE l.sequence_no=40 AND r.state='verified'
-    `);
-    if (ledger.rowCount !== 1) throw new Error("disposable_admin_sequence_40_required");
-    const actorUid = randomUUID();
-    const actor = await disposable.pool.query<{ id: number; user_uid: string; name: string }>(`
-      INSERT INTO public.users (user_uid,email,name,is_verified,is_admin)
-      VALUES ($1,$2,'Disposable migration admin',true,true)
-      ON CONFLICT (email) DO UPDATE SET is_admin=true
-      RETURNING id,user_uid::text,name
-    `, [actorUid, `synthetic-${runUid}@invalid.example`]);
-    const manifest = readManifest();
-    const body: any = {
-      schema_version: "dgkma-disposable-admin-v1", target_kind: "disposable-test", run_uid: runUid,
-      target_fingerprint: disposable.targetFingerprint, through_40_release_uid: ledger.rows[0].release_uid,
-      through_40_artifact_sha256: ledger.rows[0].artifact_sha256, actor_user_id: actor.rows[0].id,
-      actor_user_uid: actor.rows[0].user_uid, actor_name_snapshot: actor.rows[0].name,
-      actor_scope: "migration_admin", authorization_version: sha256(`${manifest.sha256}\n${ledger.rows[0].artifact_sha256}`),
-      manifest_sha256: manifest.sha256, observed_at: new Date().toISOString(),
-    };
-    body.receipt_sha256 = sha256(canonicalJson(body));
-    writeFileSync(receiptPath, `${canonicalJson(body)}\n`, { mode: 0o600 });
-    console.log(JSON.stringify({ schema_version: body.schema_version, target_fingerprint: body.target_fingerprint, actor_user_id: body.actor_user_id, receipt_sha256: body.receipt_sha256, result: "approved" }));
+    const email = `dgkma-disposable+${sha256(runUid).slice(0, 20)}@invalid.example`;
+    await disposable.pool.query(`
+      INSERT INTO public.users
+        (kakao_id,email,name,graduation_year,is_verified,is_admin,kakao_sync_enabled,profile_image,phone_number)
+      VALUES (NULL,$1,'Disposable Migration Admin',NULL,true,true,false,NULL,NULL)
+      ON CONFLICT (email) DO NOTHING
+    `, [email]);
+    const actor = await disposable.pool.query<{ id: number }>(`
+      SELECT id FROM public.users
+      WHERE email=$1 AND name='Disposable Migration Admin' AND kakao_id IS NULL
+        AND graduation_year IS NULL AND is_verified=true AND is_admin=true
+        AND kakao_sync_enabled=false AND profile_image IS NULL AND phone_number IS NULL
+    `, [email]);
+    if (actor.rowCount !== 1) throw new Error("blocked_actor");
+    const receipt = await buildActorReceipt(disposable.pool, {
+      kind: "disposable-test",
+      targetFingerprint: disposable.targetFingerprint,
+      candidateUserId: actor.rows[0].id,
+      disposableRunUid: runUid,
+      parentTargetFingerprint: disposable.parentTargetFingerprint,
+    });
+    writeFileSync(receiptPath, serializeActorReceipt(receipt), { mode: 0o600 });
+    console.log(JSON.stringify({
+      schema_version: receipt.schema_version,
+      target_fingerprint: receipt.target_fingerprint,
+      candidate_user_id: receipt.candidate_user_id,
+      receipt_sha256: receipt.receipt_sha256,
+      result: "approved",
+    }));
   } finally {
-    if (disposable && !disposable.poolClosed) await shutdownPool(disposable.pool);
+    if (disposable) await closeDisposableTarget(controlPool, disposable);
     await shutdownPool(controlPool);
   }
 }

@@ -563,6 +563,24 @@ export async function createOrResumeDisposableTarget(
   }
 }
 
+export async function closeDisposableTarget(
+  controlPool: Pool,
+  target: DisposableTarget,
+  timeoutMillis = 5_000,
+): Promise<void> {
+  if (!target.poolClosed) {
+    await shutdownPool(target.pool);
+    target.poolClosed = true;
+  }
+  const deadline = Date.now() + timeoutMillis;
+  while (true) {
+    const row = await disposableCatalogRow(controlPool, target.databaseName);
+    if (!row || row.session_count === 0) return;
+    if (Date.now() >= deadline) fail("database_target_leaked_session");
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 export async function teardownDisposableTarget(
   controlPool: Pool,
   target: DisposableTarget,
@@ -577,10 +595,7 @@ export async function teardownDisposableTarget(
   ) {
     fail("database_target_development_context_mismatch");
   }
-  if (!target.poolClosed) {
-    await shutdownPool(target.pool);
-    target.poolClosed = true;
-  }
+  await closeDisposableTarget(controlPool, target);
   const before = await disposableCatalogRow(controlPool, target.databaseName);
   if (!before) return { databaseName: target.databaseName, absent: true };
   if (before.session_count !== 0) fail("database_target_leaked_session");

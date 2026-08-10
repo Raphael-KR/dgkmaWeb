@@ -128,13 +128,45 @@ Production read-only 경로는 catalog SELECT만 실행하며 privilege probe나
 
 sequence 1·10·15·20·30·40·50·60과 선택 sequence 65는 모두 체크인된 SQL과 SHA-256 descriptor로 materialize되어 있다. sequence 40은 capability probe에 따라 `preferred_btree_gist` 또는 `deferred_trigger_fallback` 중 정확히 하나를 선택하고, `fallback-test` override는 UUID-bound disposable target에서만 허용한다. 실행기는 누락된 SQL을 실행 시점에 생성하지 않으며 artifact bytes, descriptor, manifest digest 중 하나라도 drift하면 SQL 전에 중단한다.
 
-Development에 대한 현재 안전 확인은 쓰기 없는 다음 명령이다.
+Development에 대한 쓰기 없는 사전 확인은 다음 명령이다.
 
 ```bash
 npx tsx scripts/apply-schema.ts --target development --dry-run
 ```
 
-이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. Todo 16 검증에서는 두 UUID-bound disposable target에 1→10→15→20→30→40→50→60을 적용하고, artifact와 ledger row를 같은 transaction에 commit한다. Catalog는 sequence 50의 exact count `logical sources=10, releases=2, deferred historical releases=0, bank accounts/maps=2/2, draft policies/mappings/categories=16/46/6`와 승인된 두 adapter code만 허용하며, 재실행 `verified_noop`과 최종 database 부재를 증명한다. Development 실제 적용과 actor receipt 생성은 Todo 17의 별도 운영 승인 전까지 실행기가 계속 거부한다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
+이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. Todo 16 검증에서는 두 UUID-bound disposable target에 1→10→15→20→30→40→50→60을 적용하고, artifact와 ledger row를 같은 transaction에 commit한다. Catalog는 sequence 50의 exact count `logical sources=10, releases=2, deferred historical releases=0, bank accounts/maps=2/2, draft policies/mappings/categories=16/46/6`와 승인된 두 adapter code만 허용하며, 재실행 `verified_noop`과 최종 database 부재를 증명한다.
+
+Todo 17 실행기는 Development write path를 구현하지만 대화상의 단일 운영 승인 전에는 호출하지 않는다. 승인 뒤에도 1→40과 50→60은 다음 두 경계로 분리한다.
+
+```bash
+npx tsx scripts/apply-schema.ts --target development --through-sequence 40
+
+npx tsx scripts/create-development-admin-receipt.ts \
+  --target development \
+  --candidate-user-id 315 \
+  --receipt docs/database-targets/development-admin-approved.json
+```
+
+첫 명령에서 sequence 15가 `pre_anchor_blocking`을 기록하거나 sequence 20 이전에 중단되면 그대로 멈춘다. 차단이 없을 때 생성된 receipt는 그 한 파일만 commit·push한다. Sequence 50 실행기는 receipt bytes가 현재 `HEAD`와 같고, target fingerprint·사용자 315의 ID/UID/admin 상태·verified through-40 release·ledger digest가 모두 live 재현될 때만 다음 명령을 허용한다.
+
+```bash
+npx tsx scripts/apply-schema.ts \
+  --target development \
+  --from-sequence 50 \
+  --through-sequence 60 \
+  --actor-receipt docs/database-targets/development-admin-approved.json
+
+npx tsx scripts/approve-accounting-categories.ts \
+  --target development \
+  --actor-receipt docs/database-targets/development-admin-approved.json \
+  --codes DUES_INCOME,OTHER_INCOME,DUES_REFUND,GENERAL_EXPENSE,INTERNAL_TRANSFER_IN,INTERNAL_TRANSFER_OUT
+
+npx tsx scripts/verify-schema-catalog.ts \
+  --target development \
+  --manifest docs/database-manifest.yaml
+```
+
+Category 명령은 정확히 여섯 version-1 draft root에 version-2 approved successor만 append한다. Dues policy 16개와 position mapping 46개는 모두 draft여야 하며 승인 행이 하나라도 생기면 transaction을 rollback한다. Catalog는 `REPEATABLE READ READ ONLY`에서 실행하고 항상 `ROLLBACK`으로 끝낸다. Development 완료 선언은 migrated startup, 전체 schema reapply 8개 `verified_noop`, category reapply `verified_noop`, 갱신된 `docs/database-schema.md`까지 확인한 뒤에만 가능하다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
 
 ## 가역 rollout과 복원 검증 계약
 

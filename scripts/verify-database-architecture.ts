@@ -1973,7 +1973,7 @@ function runTaskSixteen(): void {
   if (caseName === "failure") {
     const output = invoke("npx", ["tsx","scripts/apply-schema.ts","--target","development","--dry-run","--capability-variant","fallback-test"], 1);
     if (!output.includes("fallback_test_development_forbidden")) fail("task_16_development_fallback_not_rejected");
-    const source = readFileSync("scripts/apply-schema.ts", "utf8");
+    const source = `${readFileSync("scripts/apply-schema.ts", "utf8")}\n${readFileSync("scripts/admin-actor-receipt.ts", "utf8")}`;
     for (const token of ["actor_receipt_target_mismatch","preferred_btree_gist_unavailable","fallback_test_development_forbidden"]) {
       if (!source.includes(token)) fail(`task_16_failure_guard_missing:${token}`);
     }
@@ -2563,6 +2563,166 @@ function runTaskTen(): void {
   process.exitCode = 1;
 }
 
+function runTaskSeventeen(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const actorReceiptPath = value("--actor-receipt") ?? fail("--actor-receipt is required");
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const commandLogPath = evidencePath.replace(/\.json$/, "-commands.log");
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
+  delete env.PROD_DATABASE_URL;
+  delete env.PROD_DATABASE_READONLY_URL;
+  const log: string[] = [];
+  const invoke = (command: string, args: string[], expected = 0, extraEnv: NodeJS.ProcessEnv = {}) => {
+    const result = spawnSync(command, args, {
+      cwd: process.cwd(),
+      env: { ...env, ...extraEnv },
+      encoding: "utf8",
+    });
+    log.push(`$ ${command} ${args.join(" ")}`, result.stdout ?? "", result.stderr ?? "");
+    if ((result.status ?? 1) !== expected) {
+      writeFileSync(commandLogPath, log.join("\n"));
+      fail(`task_17_command_status:${command}:${result.status}`);
+    }
+    return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  };
+  const writeEvidence = (result: "approved" | "rejected", assertions: JsonObject): void => {
+    writeFileSync(commandLogPath, log.join("\n"));
+    writeFileSync(evidencePath, `${canonicalJson({
+      schema_version: "dgkma-task-evidence-v1",
+      task: 17,
+      case: caseName,
+      task_commit_sha: process.env.TASK_COMMIT_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+      manifest_sha256: readManifest().sha256,
+      db_target: caseName === "happy" ? "development" : "uuid-bound-disposable-test",
+      db_mode: caseName === "happy" ? "approved-development-rollout" : "rollback-and-actor-drift-failure",
+      assertions,
+      attachment_digests: [{ path: commandLogPath, sha256: sha256(readFileSync(commandLogPath)) }],
+      result,
+    } as never)}\n`);
+  };
+
+  if (caseName === "failure") {
+    const fixture = parseJson(actorReceiptPath);
+    if (
+      fixture.schema_version !== "dgkma-task17-actor-drift-fixture-v1" ||
+      fixture.mutation !== "is_admin_true_to_false" || fixture.expected_error_code !== "blocked_actor"
+    ) {
+      fail("task_17_actor_drift_fixture_mismatch");
+    }
+    const runUid = randomUUID();
+    const disposableReceiptPath = path.join(path.dirname(evidencePath), `${runUid}-admin.json`);
+    const statePath = path.join(path.dirname(evidencePath), `${runUid}-pre-failure-state.json`);
+    const interrupted = invoke("npx", [
+      "tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--through-sequence", "30", "--interrupt-before-commit-sequence", "30",
+    ], 1);
+    if (!interrupted.includes("ledger_simulated_interrupt")) fail("task_17_interrupt_not_observed");
+    invoke("npx", [
+      "tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--from-sequence", "30", "--through-sequence", "40",
+    ]);
+    invoke("npx", [
+      "tsx", "scripts/create-disposable-admin.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--receipt", disposableReceiptPath,
+    ]);
+    invoke("npx", [
+      "tsx", "scripts/task-17-disposable-actor-drift.ts", "--target", "disposable-test", "--action", "drift",
+      "--run-uid", runUid, "--actor-receipt", disposableReceiptPath, "--state", statePath,
+    ]);
+    const blocked = invoke("npx", [
+      "tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--from-sequence", "50", "--through-sequence", "60", "--actor-receipt", disposableReceiptPath,
+    ], 1);
+    if (!blocked.includes("blocked_actor")) fail("task_17_actor_drift_not_blocked");
+    const unchanged = invoke("npx", [
+      "tsx", "scripts/task-17-disposable-actor-drift.ts", "--target", "disposable-test", "--action", "verify",
+      "--run-uid", runUid, "--actor-receipt", disposableReceiptPath, "--state", statePath,
+    ]);
+    if (!unchanged.includes('"identical":true') || !unchanged.includes('"sequence_50_rows":0')) {
+      fail("task_17_failed_attempt_state_changed");
+    }
+    const cleanup = invoke("npx", [
+      "tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid,
+      "--through-sequence", "40", "--teardown",
+    ]);
+    if (!cleanup.includes('"absent":true')) fail("task_17_disposable_cleanup_failed");
+    writeEvidence("rejected", {
+      interrupted_sequence: 30,
+      interrupted_transaction_rolled_back: true,
+      resumed_through_sequence: 40,
+      actor_drift_error_code: "blocked_actor",
+      sequence_50_rows_after_failure: 0,
+      before_after_state_digest_identical: true,
+      teardown_absent: true,
+      development_schema_writes: 0,
+      production_operations: 0,
+    });
+    process.exitCode = 1;
+    return;
+  }
+
+  if (actorReceiptPath !== "docs/database-targets/development-admin-approved.json") {
+    fail("task_17_development_actor_receipt_path_mismatch");
+  }
+  invoke("npm", ["run", "check"]);
+  invoke("npm", ["run", "build"]);
+  const through40 = invoke("npx", [
+    "tsx", "scripts/apply-schema.ts", "--target", "development", "--through-sequence", "40",
+  ]);
+  const through60 = invoke("npx", [
+    "tsx", "scripts/apply-schema.ts", "--target", "development", "--from-sequence", "50",
+    "--through-sequence", "60", "--actor-receipt", actorReceiptPath,
+  ]);
+  const categories = invoke("npx", [
+    "tsx", "scripts/approve-accounting-categories.ts", "--target", "development",
+    "--actor-receipt", actorReceiptPath, "--codes",
+    "DUES_INCOME,OTHER_INCOME,DUES_REFUND,GENERAL_EXPENSE,INTERNAL_TRANSFER_IN,INTERNAL_TRANSFER_OUT",
+  ]);
+  invoke("node", ["dist/index.js"], 0, {
+    NODE_ENV: "production",
+    SESSION_SECRET: "development-ledger-verification-not-a-real-secret",
+    DGKMA_STARTUP_LEDGER_ONLY: "1",
+  });
+  const catalog = invoke("npx", [
+    "tsx", "scripts/verify-schema-catalog.ts", "--target", "development",
+    "--manifest", "docs/database-manifest.yaml",
+  ]);
+  const reapply = invoke("npx", [
+    "tsx", "scripts/apply-schema.ts", "--target", "development", "--through-sequence", "60",
+    "--actor-receipt", actorReceiptPath,
+  ]);
+  const categoryReapply = invoke("npx", [
+    "tsx", "scripts/approve-accounting-categories.ts", "--target", "development",
+    "--actor-receipt", actorReceiptPath, "--codes",
+    "DUES_INCOME,OTHER_INCOME,DUES_REFUND,GENERAL_EXPENSE,INTERNAL_TRANSFER_IN,INTERNAL_TRANSFER_OUT",
+  ]);
+  if (
+    !through40.includes('"result":"approved"') || !through60.includes('"result":"approved"') ||
+    !categories.includes('"approved_category_tips":6') || !catalog.includes('"transaction_terminal":"ROLLBACK"') ||
+    (reapply.match(/"outcome":"verified_noop"/g) ?? []).length !== 8 ||
+    !categoryReapply.includes('"outcome":"verified_noop"')
+  ) {
+    fail("task_17_happy_output_mismatch");
+  }
+  writeEvidence("approved", {
+    ledger_sequences: [1, 10, 15, 20, 30, 40, 50, 60],
+    strict_actor_receipt_reproved: true,
+    approved_category_tips: 6,
+    draft_policy_roots: 16,
+    approved_policies: 0,
+    draft_position_mapping_roots: 46,
+    approved_position_mappings: 0,
+    migrated_startup_emitted_ddl: 0,
+    catalog_transaction_terminal: "ROLLBACK",
+    reapply_verified_noop_count: 8,
+    category_reapply: "verified_noop",
+    production_operations: 0,
+  });
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -2597,6 +2757,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskFifteen();
 } else if (process.argv[2] === "task" && process.argv[3] === "16") {
   runTaskSixteen();
+} else if (process.argv[2] === "task" && process.argv[3] === "17") {
+  runTaskSeventeen();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
