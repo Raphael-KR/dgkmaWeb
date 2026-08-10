@@ -13,8 +13,15 @@ test("materializer creates deterministic name-only quarantine review without raw
   assert.equal(result.input?.rows[0].normalized_payload.name_snapshot, "테스트"); assert.equal("url" in (result.input?.rows[0].normalized_payload ?? {}), false);
 });
 
-test("materializer aggregates mapping blockers and creates no partial input", () => {
-  const invalid = { ...row, "date:임기:start": null, 임명근거: null };
+test("v3 preserves unknown term and appointment evidence but forces quarantine", () => {
+  const incomplete = { ...row, url: "https://www.notion.so/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "date:임기:start": null, 임명근거: null };
+  const result = materializeNotionRoleHistory({ data_source_id: "dae9352c-122b-4902-bdb8-31328c35940f", rows: [row, incomplete], source_revision: "revision-v1" }, profile);
+  assert.deepEqual(result.blockers, {}); assert.equal(result.input?.rows.length, 2);
+  const preserved = result.input?.rows.find((candidate) => candidate.coordinate_key.includes("bbbbbbbb")); assert.equal(preserved?.normalized_payload.effective_from, null); assert.equal(preserved?.normalized_payload.appointment_basis, null); assert.equal(preserved?.decisions[0].decision_payload.outcome, "quarantine");
+});
+
+test("unknown position still blocks the entire source", () => {
+  const invalid = { ...row, 직위: "새로운 미승인 직위" };
   const result = materializeNotionRoleHistory({ data_source_id: "dae9352c-122b-4902-bdb8-31328c35940f", rows: [invalid], source_revision: "revision-v1" }, profile);
-  assert.equal(result.input, null); assert.deepEqual(result.blockers, { "mapping_review_required:appointment_basis": 1, "mapping_review_required:effective_from": 1 });
+  assert.equal(result.input, null); assert.deepEqual(result.blockers, { "mapping_review_required:position": 1 });
 });

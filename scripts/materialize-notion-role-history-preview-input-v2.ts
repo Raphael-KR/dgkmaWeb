@@ -1,14 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { normalizeNotionRoleRowV2 } from "../server/accounting/adapters/notion-organization-role-history-v2";
+import { normalizeNotionRoleRowV3 } from "../server/accounting/adapters/notion-organization-role-history-v3";
 import { sourceFingerprint, validateSourcePreviewInput, type SourcePreviewInput } from "../server/accounting/source-preview-contract-v2";
 
 const DATA_SOURCE_ID = "dae9352c-122b-4902-bdb8-31328c35940f";
 const DATA_SOURCE_TITLE = "조직·직책 이력 — 개발 중 편집 권위";
 const SOURCE_UID = "75dd7485-9c2b-51a9-845f-e7baa6ba8dc1";
-const RELEASE_UID = "bfaeb3c8-d0fc-45ce-b28b-d9d164d1b02e";
 const PROFILE_PATH = "docs/source-contracts/profiles/notion-organization-role-history.json";
+const PLAN_PATH = "docs/source-contracts/releases/notion-role-history-development-release-plan-v3.json";
 type JsonObject = Record<string, unknown>;
 type Profile = { database_columns: string[]; observed_at: string; source_revision: string };
 type Observation = { data_source_id: string; rows: JsonObject[]; source_revision: string };
@@ -33,23 +33,20 @@ export function materializeNotionRoleHistory(value: unknown, profile: Profile): 
     let id: string;
     try { id = pageId(row.url); } catch (error) { const code = reasonCode(error); blockers[code] = (blockers[code] ?? 0) + 1; continue; }
     if (seen.has(id)) fail("notion_role_page_duplicate"); seen.add(id);
-    const missing: string[] = [];
-    if (typeof row["date:임기:start"] !== "string" || row["date:임기:start"].trim().length === 0) missing.push("mapping_review_required:effective_from");
-    if (typeof row["임명근거"] !== "string" || row["임명근거"].trim().length === 0) missing.push("mapping_review_required:appointment_basis");
-    if (missing.length > 0) { for (const code of missing) blockers[code] = (blockers[code] ?? 0) + 1; continue; }
-    try { normalizedRows.push({ id, payload: normalizeNotionRoleRowV2(row) }); }
+    try { normalizedRows.push({ id, payload: normalizeNotionRoleRowV3(row) }); }
     catch (error) { const code = reasonCode(error); blockers[code] = (blockers[code] ?? 0) + 1; }
   }
   if (Object.keys(blockers).length > 0) return { blockers: Object.fromEntries(Object.entries(blockers).sort()), input: null, rowCount: observation.rows.length };
   normalizedRows.sort((left, right) => Buffer.compare(Buffer.from(left.id), Buffer.from(right.id)));
   const rows: SourcePreviewInput["rows"] = normalizedRows.map(({ id, payload }) => ({
     coordinate_key: `notion:page:${id}`, coordinate_normalization_version: "coordinate-v1", issue_status: "warning",
-    normalization_version: "notion-organization-role-history-v2@2.0.0+admin-readable-v1", normalized_payload: payload as SourcePreviewInput["rows"][number]["normalized_payload"], raw_payload: payload as SourcePreviewInput["rows"][number]["raw_payload"],
+    normalization_version: "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1", normalized_payload: payload as SourcePreviewInput["rows"][number]["normalized_payload"], raw_payload: payload as SourcePreviewInput["rows"][number]["raw_payload"],
     source_display_snapshot: DATA_SOURCE_TITLE,
     decisions: [{ decision_kind: "member_match", decision_payload: { candidate_member_uid_or_null: null, case_uid: deterministicUuidV4(`notion-role-member-match\n${id}`), evidence_digest: String(payload.name_key_digest), evidence_kind: "name_only", outcome: "quarantine", score_basis: "name_only_unapprovable" } }],
   }));
-  const starts = rows.map((row) => String(row.normalized_payload.effective_from)).sort();
-  const input: SourcePreviewInput = { schema_version: "accounting-source-preview-input-v2", source_code: "NOTION_ORGANIZATION_ROLE_HISTORY", source_uid: SOURCE_UID, release_uid: RELEASE_UID, source_revision: profile.source_revision, source_fingerprint: "0".repeat(64), operation_uid: randomUUID(), batch_uid: randomUUID(), decision_set_uid: randomUUID(), captured_timezone: "Asia/Seoul", coverage_from: starts[0], coverage_through: profile.observed_at, rows };
+  const starts = rows.map((row) => row.normalized_payload.effective_from).filter((value): value is string => typeof value === "string").sort(); if (starts.length === 0) fail("notion_role_coverage_start_missing");
+  const plan = JSON.parse(readFileSync(PLAN_PATH, "utf8")) as { release_uid: string };
+  const input: SourcePreviewInput = { schema_version: "accounting-source-preview-input-v2", source_code: "NOTION_ORGANIZATION_ROLE_HISTORY", source_uid: SOURCE_UID, release_uid: plan.release_uid, source_revision: profile.source_revision, source_fingerprint: "0".repeat(64), operation_uid: randomUUID(), batch_uid: randomUUID(), decision_set_uid: randomUUID(), captured_timezone: "Asia/Seoul", coverage_from: starts[0], coverage_through: profile.observed_at, rows };
   input.source_fingerprint = sourceFingerprint(input); validateSourcePreviewInput(input); return { blockers, input, rowCount: rows.length };
 }
 

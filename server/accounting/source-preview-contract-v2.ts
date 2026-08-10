@@ -146,7 +146,7 @@ export function reviewDisplay(sourceCode: ActiveV2Source, payload: JsonObject): 
   return Object.fromEntries(keysBySource[sourceCode].map((key) => [key, payload[key] ?? null])) as JsonObject;
 }
 
-function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject): void {
+function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject, normalizationVersion: string): void {
   const expected = sourceCode === "LEDGER_FINAL_2022_2025"
     ? payload.coordinate_kind === "economic" ? LEDGER_ECONOMIC_KEYS : payload.coordinate_kind === "period_metadata" ? LEDGER_PERIOD_KEYS : fail("source_preview_ledger_coordinate_kind_invalid")
     : SOURCE_PAYLOAD_KEYS[sourceCode];
@@ -157,12 +157,15 @@ function validateSourcePayload(sourceCode: ActiveV2Source, payload: JsonObject):
     if (!Number.isInteger(payload.dues_year) || Number(payload.dues_year) < 2024 || Number(payload.dues_year) > 2100) fail("source_preview_policy_year_invalid");
     if (!new Set(["president", "senior_vice_president", "vice_president_auditor_chair", "director", "member", "honorary"]).has(String(payload.tier_code))) fail("source_preview_policy_tier_invalid");
   } else if (sourceCode === "NOTION_ORGANIZATION_ROLE_HISTORY") {
-    for (const key of ["display_position", "effective_from", "name_snapshot", "name_key_digest", "position_code", "source_timezone"]) nonempty(payload[key], `source_preview_role_${key}_invalid`);
+    const nullableQuarantineV3 = normalizationVersion === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1";
+    for (const key of ["display_position", "name_snapshot", "name_key_digest", "position_code", "source_timezone"]) nonempty(payload[key], `source_preview_role_${key}_invalid`);
+    if (payload.effective_from === null) { if (!nullableQuarantineV3) fail("source_preview_role_effective_from_invalid"); } else nonempty(payload.effective_from, "source_preview_role_effective_from_invalid");
     if (payload.source_timezone !== "Asia/Seoul") fail("source_preview_role_timezone_invalid");
     for (const key of ["effective_to", "note_snapshot", "source_appointment_date", "source_date_text", "source_locator_snapshot", "verification_evidence_snapshot"]) if (payload[key] !== null) nonempty(payload[key], `source_preview_role_${key}_invalid`);
     for (const key of ["name_key_digest", "note_digest", "source_locator_digest", "verification_evidence_digest"]) if (payload[key] !== null && (typeof payload[key] !== "string" || !SHA256.test(payload[key]))) fail(`source_preview_role_${key}_invalid`);
     if (!new Set(["alumni_association", "regional_chapter", "graduation_class", "alumni_faculty"]).has(String(payload.organization_code))) fail("source_preview_role_organization_invalid");
-    if (!new Set(["election", "appointment", "concurrent", "historical", "faculty"]).has(String(payload.appointment_basis))) fail("source_preview_role_appointment_basis_invalid");
+    if (payload.appointment_basis === null) { if (!nullableQuarantineV3) fail("source_preview_role_appointment_basis_invalid"); }
+    else if (!new Set(["election", "appointment", "concurrent", "historical", "faculty"]).has(String(payload.appointment_basis))) fail("source_preview_role_appointment_basis_invalid");
     if (!new Set(["day", "instant"]).has(String(payload.date_precision))) fail("source_preview_role_date_precision_invalid");
     if (!new Set(["초안", "검토필요", "승인", "종료"]).has(String(payload.editorial_status))) fail("source_preview_role_editorial_status_invalid");
     if (!new Set(["미매칭", "매칭", "중복후보"]).has(String(payload.member_match_status))) fail("source_preview_role_member_match_status_invalid");
@@ -239,7 +242,7 @@ export function validateSourcePreviewInput(value: unknown): SourcePreviewInput {
     nonempty(row.source_display_snapshot, "source_preview_display_snapshot_invalid");
     if (!new Set(["accepted", "warning"]).has(row.issue_status)) fail("source_preview_issue_status_invalid");
     if (canonicalJson(row.raw_payload) !== canonicalJson(row.normalized_payload)) fail("source_preview_raw_allowlist_mismatch");
-    validateSourcePayload(input.source_code, row.normalized_payload);
+    validateSourcePayload(input.source_code, row.normalized_payload, row.normalization_version);
     const kinds = new Set<string>();
     for (const decision of row.decisions) {
       exactKeys(decision as unknown as JsonObject, ["decision_kind", "decision_payload"], "source_preview_decision_keys_mismatch");
@@ -247,6 +250,10 @@ export function validateSourcePreviewInput(value: unknown): SourcePreviewInput {
       kinds.add(decision.decision_kind); validateDecisionPayload(decision.decision_kind, decision.decision_payload);
     }
     validateDecisionCoverage(input.source_code, row);
+    if (input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && row.normalization_version === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1") {
+      const memberMatch = row.decisions.find((decision) => decision.decision_kind === "member_match");
+      if (!memberMatch || memberMatch.decision_payload.outcome !== "quarantine" || memberMatch.decision_payload.evidence_kind !== "name_only") fail("source_preview_role_v3_quarantine_required");
+    }
   }
   if (sourceFingerprint(input) !== input.source_fingerprint) fail("source_preview_fingerprint_mismatch");
   return input;

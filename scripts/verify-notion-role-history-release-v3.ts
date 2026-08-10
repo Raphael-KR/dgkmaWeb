@@ -1,0 +1,16 @@
+import { readFileSync } from "node:fs";
+import { createTargetPool, resolveDevelopmentTarget, shutdownPool, verifyDevelopmentTarget } from "../server/db-target";
+import { canonicalJson, sha256, type CanonicalValue } from "../server/accounting/source-contracts";
+function fail(code: string): never { throw new Error(code); }
+async function main() {
+  const plan = JSON.parse(readFileSync("docs/source-contracts/releases/notion-role-history-development-release-plan-v3.json", "utf8")) as Record<string, CanonicalValue>; const preimage = { ...plan }; delete preimage.plan_sha256;
+  if (plan.plan_sha256 !== sha256(canonicalJson(preimage))) fail("notion_role_v3_verify_plan_mismatch");
+  const resolved = resolveDevelopmentTarget(process.env, "migration"); const pool = createTargetPool(resolved);
+  try { const target = await verifyDevelopmentTarget(pool, resolved); const client = await pool.connect(); try {
+    await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const result = await client.query<{ v1: number; v2: number; v3: number; receipts: number; entities: number; audits: number; batches: number }>(`SELECT count(*) FILTER (WHERE r.adapter_version='1.0.0')::int v1,count(*) FILTER (WHERE r.adapter_version='2.0.0')::int v2,count(*) FILTER (WHERE r.adapter_version='3.0.0' AND r.release_uid=$1::uuid)::int v3,(SELECT count(*)::int FROM public.business_operation_receipts WHERE operation_uid=$2::uuid) receipts,(SELECT count(*)::int FROM public.business_operation_entities WHERE operation_uid=$2::uuid) entities,(SELECT count(*)::int FROM public.accounting_audit_events WHERE correlation_uid=$3::uuid) audits,(SELECT count(*)::int FROM public.accounting_import_batches b JOIN public.accounting_source_releases br ON br.id=b.source_release_id WHERE br.logical_source_id=s.id) batches FROM public.accounting_logical_sources s JOIN public.accounting_source_releases r ON r.logical_source_id=s.id AND r.status='active' WHERE s.source_code='NOTION_ORGANIZATION_ROLE_HISTORY' GROUP BY s.id`, [plan.release_uid, plan.operation_uid, plan.action_correlation_uid]);
+    const row = result.rows[0]; if (result.rowCount !== 1 || row.v1 !== 1 || row.v2 !== 1 || row.v3 !== 1 || row.receipts !== 1 || row.entities !== 1 || row.audits !== 1 || row.batches !== 0) fail("notion_role_v3_verify_counts_mismatch");
+    await client.query("ROLLBACK"); console.log(JSON.stringify({ schema_version: "notion-role-history-release-verification-v3", target: "development", target_fingerprint: target.targetFingerprint, active_release_versions: { v1: row.v1, v2: row.v2, v3: row.v3 }, receipt_entity_audit: [row.receipts, row.entities, row.audits], source_batch_count: row.batches, terminal_transaction: "ROLLBACK", result: "verified" }));
+  } catch (error) { await client.query("ROLLBACK").catch(() => undefined); throw error; } finally { client.release(); } } finally { await shutdownPool(pool); }
+}
+main().catch((error) => { console.error(JSON.stringify({ schema_version: "notion-role-history-release-verification-error-v3", error_code: error instanceof Error ? error.message : "unknown", result: "rejected" })); process.exitCode = 1; });

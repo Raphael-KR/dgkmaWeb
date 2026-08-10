@@ -61,8 +61,10 @@ function canonicalResult(plan: ResultPlan, ordinal: number) {
 
 function descriptorFor(input: SourcePreviewInput): JsonObject {
   const slug = SOURCE_SLUG[input.source_code]; if (!slug) fail("source_preview_descriptor_source_unknown");
-  const path = `docs/source-contracts/releases/${slug}-v2.json`; const descriptor = readJson(path) as JsonObject;
-  if (descriptor.source_code !== input.source_code || descriptor.adapter_version !== "2.0.0" || typeof descriptor.mapping_table_sha256 !== "string") fail("source_preview_descriptor_invalid");
+  const version = input.source_code === "NOTION_ORGANIZATION_ROLE_HISTORY" && input.rows.every((row) => row.normalization_version === "notion-organization-role-history-v3@3.0.0+nullable-quarantine-v1") ? "v3" : "v2";
+  const path = `docs/source-contracts/releases/${slug}-${version}.json`; const descriptor = readJson(path) as JsonObject;
+  const expectedAdapterVersion = version === "v3" ? "3.0.0" : "2.0.0";
+  if (descriptor.source_code !== input.source_code || descriptor.adapter_version !== expectedAdapterVersion || typeof descriptor.mapping_table_sha256 !== "string") fail("source_preview_descriptor_invalid");
   return descriptor;
 }
 
@@ -179,7 +181,7 @@ async function preview(pool: Pool, targetFingerprint: string, input: SourcePrevi
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
     const locked = await client.query("SELECT 1 FROM public.users WHERE id=$1 AND user_uid=$2::uuid AND is_admin=true FOR UPDATE", [actor.userId, actor.userUid]); if (locked.rowCount !== 1) fail("blocked_actor");
-    const release = await client.query<{ release_id: string; release_uid: string; logical_source_id: string; source_uid: string; adapter_code: string; mapping_table_sha256: string; mapping_approval_receipt_sha256: string; normalized_schema_sha256: string; normalization_implementation_sha256: string }>(`SELECT r.id::text release_id,r.release_uid::text,r.logical_source_id::text,s.source_uid::text,r.adapter_code,r.mapping_table_sha256,r.mapping_approval_receipt_sha256,r.normalized_schema_sha256,r.normalization_implementation_sha256 FROM public.accounting_source_releases r JOIN public.accounting_logical_sources s ON s.id=r.logical_source_id WHERE s.source_code=$1 AND r.adapter_version='2.0.0' AND r.status='active' FOR UPDATE OF r,s`, [input.source_code]);
+    const release = await client.query<{ release_id: string; release_uid: string; logical_source_id: string; source_uid: string; adapter_code: string; mapping_table_sha256: string; mapping_approval_receipt_sha256: string; normalized_schema_sha256: string; normalization_implementation_sha256: string }>(`SELECT r.id::text release_id,r.release_uid::text,r.logical_source_id::text,s.source_uid::text,r.adapter_code,r.mapping_table_sha256,r.mapping_approval_receipt_sha256,r.normalized_schema_sha256,r.normalization_implementation_sha256 FROM public.accounting_source_releases r JOIN public.accounting_logical_sources s ON s.id=r.logical_source_id WHERE s.source_code=$1 AND r.adapter_version=$2 AND r.status='active' FOR UPDATE OF r,s`, [input.source_code, descriptor.adapter_version]);
     if (release.rowCount !== 1) fail("source_preview_exact_v2_release_missing"); const releaseRow = release.rows[0];
     if (releaseRow.release_uid !== input.release_uid || releaseRow.source_uid !== input.source_uid) fail("source_preview_source_release_uid_drift");
     for (const key of ["adapter_code", "mapping_table_sha256", "mapping_approval_receipt_sha256", "normalized_schema_sha256", "normalization_implementation_sha256"] as const) if (releaseRow[key] !== descriptor[key]) fail(`source_preview_release_descriptor_drift:${key}`);
