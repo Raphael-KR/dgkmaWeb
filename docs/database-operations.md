@@ -266,6 +266,12 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 Exact commit `6f25d98c1cad365fe4957132fdcfb66d571ebbd5`의 Replit 격리 worktree에서 집중 테스트 `16/16`, `tsc --noEmit`, release `created → verified_noop`을 통과했다. Read-only API materialization의 source fingerprint는 `b55c210d1eae3c540ecfd3877e81095a0a167d960387cfd99e619decbe4ef855`이고, Development preview는 batch `46e096da-c150-41e7-b4b7-b51f70ab229f`, decision set `0038772a-a505-4e29-9402-1344380cb23b`로 3,458행과 3,458개 name-only `quarantine` item을 `created → verified_noop`으로 재현했다. Verifier는 coordinate/version/link `3458/3458/3458`, operation receipt `1`, result entity/audit `13834/13834`, downstream business row 0, exact batch/decision manifest, terminal `ROLLBACK`을 확인했다. 관리자 reader도 `previewed`, item 3458, 동일 manifest/source fingerprint를 검증했다. Sheet write, 회원 match approve, decision apply, Production 작업은 모두 0건이며 Replit 임시 입력과 격리 worktree는 삭제 후 부재를 확인했다.
 
+### AGM36 period-boundary preview
+
+`scripts/materialize-agm36-period-boundary-preview-input-v2.ts`는 `docs/source-authority/22nd-officers.json`의 현재 bytes를 commit `9922cf3eccb65fa565380f9e7549628721602041`의 동일 파일과 비교하고, payload/receipt self-hash와 33×10 구조, 단 하나의 제36차 총회 회장 경계 행을 재검증한다. 원문 행은 preview payload에 넣지 않고 해당 행의 canonical digest만 `boundary_content_digest`로 사용한다. 결과는 `PRE_AGM36_2026=[2026-01-01T00:00:00+09:00,2026-02-28T12:38:00+09:00)`, `AGM36_TO_AGM37=[2026-02-28T12:38:00+09:00,∞)` 두 좌표와 두 `period_materialization` 승인 후보뿐이다.
+
+Exact commit `b03ad713dc9320012a43369a7e2613e5567c11fb`의 Replit 격리 worktree에서 테스트 `9/9`, `tsc --noEmit`를 통과했다. Source fingerprint `3f16d3f6e3a4d180ab0f0713af357d3b0127d9459a8487002d4a7d20f3d93adf`, batch `6e6fa058-8820-4305-8a38-5a4d95abe39d`, decision set `6b296442-8e87-4d96-aa2a-47c73c348bef`는 Development에서 `created → verified_noop`을 재현했다. Verifier와 관리자 reader는 row/link/item `2/2/2`, operation receipt `1`, result entity/audit `10/10`, downstream period 0, `previewed`, exact manifest/source fingerprint, terminal `ROLLBACK`을 확인했다. Period apply, external write, Production 작업은 0건이고 임시 입력과 Replit worktree는 삭제 후 부재를 확인했다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
