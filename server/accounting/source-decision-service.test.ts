@@ -19,12 +19,14 @@ function fakePool(outcome = "quarantine", decisionKind = "classification", decis
   const decisionPayloadSha256 = sha256(canonicalJson(decisionPayload));
   const manifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: decisionKind, decision_payload_sha256: decisionPayloadSha256 }] };
   const liveManifestSha = sha256(canonicalJson(manifest as CanonicalValue));
+  const batchManifest = [{ coordinate_key: "row:1", content_digest: "b".repeat(64), issue_status: "accepted" }];
   const client = {
     async query(text: string) {
       sql.push(text);
       if (text.includes("FROM public.business_operation_receipts WHERE operation_uid")) return { rowCount: 0, rows: [] };
       if (text.includes("FROM public.users WHERE id")) return { rowCount: 1, rows: [{ id: 7, user_uid: actor.userUid, is_admin: true, name: actor.name }] };
-      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest, manifest_sha256: liveManifestSha, source_fingerprint: fingerprint, status, source_code: sourceCode }] };
+      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, batch_preview_manifest: batchManifest, batch_preview_manifest_sha256: sha256(canonicalJson(batchManifest as CanonicalValue)), row_count: 1, manifest, manifest_sha256: liveManifestSha, source_fingerprint: fingerprint, status, source_code: sourceCode }] };
+      if (text.includes("FROM public.accounting_import_batch_rows br")) return { rowCount: 1, rows: [{ ordinal: 1, coordinate_key: "row:1", content_digest: "b".repeat(64), issue_status: "accepted" }] };
       if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), normalized_payload: { boundary_content_digest: decisionPayload.boundary_content_digest }, decision_kind: decisionKind, decision_payload: decisionPayload, decision_payload_sha256: decisionPayloadSha256 }] };
       if (text.includes("FROM public.accounting_import_row_versions rv JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "51" }] };
       if (text.includes("SELECT 1 FROM public.accounting_periods WHERE period_code")) return { rowCount: 0, rows: [] };
@@ -38,7 +40,7 @@ function fakePool(outcome = "quarantine", decisionKind = "classification", decis
     },
     release() {},
   };
-  return { pool: { connect: async () => client }, sql, status: () => status, manifest, manifestSha: liveManifestSha };
+  return { pool: { connect: async () => client }, sql, status: () => status, batchManifest, manifest, manifestSha: liveManifestSha };
 }
 
 test("reject then full-byte repreview keeps applied arrays empty and uses one transaction each", async () => {
@@ -76,6 +78,12 @@ test("reject fails closed on primary payload or manifest drift before reservatio
   const manifestDrift = fakePool(); manifestDrift.manifest.schema_version = "drift";
   await assert.rejects(() => decideSourcePreview(manifestDrift.pool as never, primaryUid, { ...baseCommand, manifestSha256: manifestDrift.manifestSha, operationUid: randomUUID() }, actor), /primary_manifest_drift/);
   assert.equal(manifestDrift.sql.some((statement) => statement.includes("nextval")), false);
+});
+
+test("reject fails closed on primary batch manifest drift before reservations", async () => {
+  const fake = fakePool(); fake.batchManifest[0].issue_status = "warning";
+  await assert.rejects(() => decideSourcePreview(fake.pool as never, primaryUid, { ...baseCommand, operationUid: randomUUID() }, actor), /primary_batch_manifest_drift/);
+  assert.equal(fake.sql.some((statement) => statement.includes("nextval")), false);
 });
 
 test("approve materializes an exact source-bound period before applying its batch", async () => {
