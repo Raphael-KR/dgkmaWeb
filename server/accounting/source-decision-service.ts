@@ -1,0 +1,140 @@
+import { createHash, randomUUID } from "node:crypto";
+import type { Pool, PoolClient } from "pg";
+import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
+import { validateSourceDecisionCommand, type ApprovalContext } from "./source-decision-api";
+
+type JsonObject = Record<string, CanonicalValue>;
+export type SourceDecisionActor = {
+  userId: number;
+  userUid: string;
+  name: string;
+  authorizationVersion: string;
+  targetFingerprint: string;
+};
+export type SourceDecisionApprovalReceipt = {
+  schema_version: "dgkma-source-decision-approval-v2";
+  operation_uid: string;
+  primary_decision_set_uid: string;
+  primary_batch_uid: string;
+  applied_batch_uids: string[];
+  approved_decision_set_uids: string[];
+  manifest_sha256: string;
+  source_fingerprint: string;
+  decision: "reject" | "repreview";
+  replacement_decision_set_uid: string | null;
+  replacement_manifest_sha256: string | null;
+  actor_user_id: number;
+  actor_user_uid: string;
+  authorization_version: string;
+  target_fingerprint: string;
+  decided_at: string;
+  operation_payload_sha256: string;
+  receipt_sha256: string;
+};
+
+type LockedItem = {
+  id: string;
+  ordinal: number;
+  coordinate_id: string;
+  coordinate_key: string;
+  source_row_version_id: string;
+  content_digest: string;
+  decision_kind: string;
+};
+
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+function fail(code: string): never { throw new Error(code); }
+function deterministicUuidV4(seed: string): string {
+  const bytes = createHash("sha256").update(seed).digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex"); return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+async function reserve(client: PoolClient, table: string): Promise<string> {
+  const result = await client.query<{ id: string }>("SELECT nextval(pg_get_serial_sequence($1,'id'))::text AS id", [`public.${table}`]);
+  return result.rows[0].id;
+}
+function receiptWithoutHash(input: Omit<SourceDecisionApprovalReceipt, "receipt_sha256">): SourceDecisionApprovalReceipt {
+  return { ...input, receipt_sha256: sha256(canonicalJson(input as unknown as CanonicalValue)) };
+}
+function strictStoredReceipt(value: unknown): SourceDecisionApprovalReceipt {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail("source_decision_stored_receipt_invalid");
+  const receipt = value as SourceDecisionApprovalReceipt; const preimage = { ...receipt } as Partial<SourceDecisionApprovalReceipt>; delete preimage.receipt_sha256;
+  if (receipt.schema_version !== "dgkma-source-decision-approval-v2" || receipt.receipt_sha256 !== sha256(canonicalJson(preimage as unknown as CanonicalValue))) fail("source_decision_stored_receipt_invalid");
+  return receipt;
+}
+
+async function existingReceipt(client: PoolClient, operationUid: string, operationPayloadSha256: string): Promise<SourceDecisionApprovalReceipt | undefined> {
+  const existing = await client.query<{ canonical_payload: { inputs?: { approval_receipt?: unknown; operation_payload_sha256?: string } }; target_fingerprint: string }>("SELECT canonical_payload,target_fingerprint FROM public.business_operation_receipts WHERE operation_uid=$1::uuid FOR UPDATE", [operationUid]);
+  if (existing.rowCount === 0) return undefined;
+  if (existing.rowCount !== 1 || existing.rows[0].canonical_payload?.inputs?.operation_payload_sha256 !== operationPayloadSha256) fail("source_decision_operation_uid_reuse");
+  const receipt = strictStoredReceipt(existing.rows[0].canonical_payload?.inputs?.approval_receipt);
+  if (receipt.target_fingerprint !== existing.rows[0].target_fingerprint) fail("source_decision_stored_receipt_target_mismatch");
+  return receipt;
+}
+
+async function insertOperation(
+  client: PoolClient,
+  command: Record<string, unknown>,
+  actor: SourceDecisionActor,
+  receipt: SourceDecisionApprovalReceipt,
+  results: JsonObject[],
+  slots: JsonObject[],
+  receiptId: string,
+): Promise<void> {
+  const payload = { command: `source_decision:${receipt.decision}`, expected_results: results, inputs: { approval_receipt: receipt as unknown as CanonicalValue, operation_payload_sha256: receipt.operation_payload_sha256, primary_decision_set_uid: receipt.primary_decision_set_uid }, reservation_slots: slots, schema_version: "business-operation-payload-v2" };
+  const rootCorrelation = deterministicUuidV4(`${command.operationUid}\nroot-correlation`);
+  await client.query(`INSERT INTO public.business_operation_receipts (id,action,actor_name_snapshot,actor_scope,actor_target_user_id,actor_target_user_id_snapshot,actor_uid_snapshot,actor_user_id,actor_user_id_snapshot,authorization_version,canonical_payload,entity_type,operation_uid,payload_sha256,recorded_at,result_entity_keys,root_correlation_uid,target_fingerprint) OVERRIDING SYSTEM VALUE VALUES ($1,$2,$3,'admin',NULL,NULL,$4::uuid,$5,$5,$6,$7::jsonb,'source_decision',$8::uuid,$9,$10::timestamptz,$11::jsonb,$12::uuid,$13)`, [receiptId, receipt.decision, actor.name, actor.userUid, actor.userId, actor.authorizationVersion, canonicalJson(payload as unknown as CanonicalValue), command.operationUid, sha256(canonicalJson(payload as unknown as CanonicalValue)), receipt.decided_at, canonicalJson(results as unknown as CanonicalValue), rootCorrelation, actor.targetFingerprint]);
+  for (const result of results) await client.query("INSERT INTO public.business_operation_entities (operation_uid,ordinal,entity_type,entity_key,entity_action,action_correlation_uid) VALUES ($1::uuid,$2,$3,$4,$5,$6::uuid)", [command.operationUid, result.ordinal, result.entity_type, result.entity_key, result.entity_action, result.action_correlation_uid]);
+}
+
+export async function decideSourcePreview(
+  pool: Pick<Pool, "connect">,
+  decisionSetUid: string,
+  command: Record<string, unknown>,
+  actor: SourceDecisionActor,
+): Promise<SourceDecisionApprovalReceipt> {
+  if (!UUID_V4.test(decisionSetUid) || command.decision !== "reject" && command.decision !== "repreview") fail("source_decision_service_operation_unsupported");
+  if (typeof command.operationUid !== "string" || !UUID_V4.test(command.operationUid)) fail("source_decision_operation_uid_invalid");
+  const operationPayloadSha256 = sha256(canonicalJson(command as unknown as CanonicalValue));
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+    const replay = await existingReceipt(client, String(command.operationUid), operationPayloadSha256);
+    if (replay) { await client.query("COMMIT"); return replay; }
+    const liveActor = await client.query<{ id: number; user_uid: string; is_admin: boolean; name: string }>("SELECT id,user_uid::text,is_admin,name FROM public.users WHERE id=$1 FOR UPDATE", [actor.userId]);
+    if (liveActor.rowCount !== 1 || !liveActor.rows[0].is_admin || liveActor.rows[0].user_uid !== actor.userUid) fail("source_decision_admin_required");
+    const primary = await client.query<{ id: string; decision_set_uid: string; batch_id: string; batch_uid: string; manifest_sha256: string; source_fingerprint: string; status: string }>(`SELECT ds.id::text,ds.decision_set_uid::text,ds.batch_id::text,b.batch_uid::text,ds.manifest_sha256,b.source_fingerprint,ds.status FROM public.source_decision_sets ds JOIN public.accounting_import_batches b ON b.id=ds.batch_id WHERE ds.decision_set_uid=$1::uuid FOR UPDATE OF ds,b`, [decisionSetUid]);
+    if (primary.rowCount !== 1) fail("source_decision_primary_set_missing");
+    const row = primary.rows[0];
+    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,i.decision_kind FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
+    const expectedItems = itemResult.rows.map((item, index) => { if (item.ordinal !== index + 1) fail("source_decision_primary_item_coverage_mismatch"); return { ordinal: item.ordinal, coordinateKey: item.coordinate_key, sourceContentDigest: item.content_digest, decisionKind: item.decision_kind }; });
+    const context: ApprovalContext = { sessionUserId: actor.userId, liveUserId: actor.userId, liveUserUid: actor.userUid, liveIsAdmin: true, frozenAdminId: actor.userId, frozenAdminUid: actor.userUid, origin: "service://same-origin", hostOrigin: "service://same-origin", fetchSite: "same-origin", expectedDecisionSetUid: decisionSetUid, expectedBatchUid: row.batch_uid, expectedManifestSha256: row.manifest_sha256, expectedSourceFingerprint: row.source_fingerprint, expectedItems };
+    validateSourceDecisionCommand(command, context);
+    if (command.decision === "reject" && row.status !== "previewed") fail("source_decision_reject_state_invalid");
+    if (command.decision === "repreview" && row.status !== "rejected") fail("source_decision_repreview_state_invalid");
+    const decidedAt = new Date().toISOString();
+    const approvalReceipt = receiptWithoutHash({ schema_version: "dgkma-source-decision-approval-v2", operation_uid: String(command.operationUid), primary_decision_set_uid: decisionSetUid, primary_batch_uid: row.batch_uid, applied_batch_uids: [], approved_decision_set_uids: [], manifest_sha256: row.manifest_sha256, source_fingerprint: row.source_fingerprint, decision: command.decision as "reject" | "repreview", replacement_decision_set_uid: command.decision === "repreview" ? String(command.replacementDecisionSetUid) : null, replacement_manifest_sha256: command.decision === "repreview" ? String(command.replacementManifestSha256) : null, actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, decided_at: decidedAt, operation_payload_sha256: operationPayloadSha256 });
+    const receiptId = await reserve(client, "business_operation_receipts"); const plans: Array<{ id: string; table: string; entityType: string; entityKey: string; action: string; correlationUid: string; auditId: string; auditEventUid: string; after: JsonObject }> = [];
+    if (command.decision === "reject") {
+      plans.push({ id: row.id, table: "source_decision_sets", entityType: "source_decision_set", entityKey: `decision-set:${decisionSetUid}`, action: "reject", correlationUid: deterministicUuidV4(`${command.operationUid}\nreject\n${decisionSetUid}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { decision_set_uid: decisionSetUid, status: "rejected" } });
+    } else {
+      const replacementUid = String(command.replacementDecisionSetUid); const collision = await client.query("SELECT 1 FROM public.source_decision_sets WHERE decision_set_uid=$1::uuid", [replacementUid]); if (collision.rowCount !== 0) fail("source_decision_replacement_uid_collision");
+      plans.push({ id: await reserve(client, "source_decision_sets"), table: "source_decision_sets", entityType: "source_decision_set", entityKey: `decision-set:${replacementUid}`, action: "preview", correlationUid: deterministicUuidV4(`${command.operationUid}\npreview\n${replacementUid}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { decision_set_uid: replacementUid, status: "previewed" } });
+      for (const item of itemResult.rows) plans.push({ id: await reserve(client, "source_decision_items"), table: "source_decision_items", entityType: "source_decision_item", entityKey: `decision-item:${replacementUid}:${item.ordinal}`, action: "create", correlationUid: deterministicUuidV4(`${command.operationUid}\nitem\n${item.ordinal}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { decision_kind: item.decision_kind, ordinal: item.ordinal } });
+    }
+    const results = plans.map((plan, index) => ({ action_correlation_uid: plan.correlationUid, entity_action: plan.action, entity_key: plan.entityKey, entity_type: plan.entityType, ordinal: index + 1 }));
+    const slots: JsonObject[] = [{ local_ordinal: 1, phase: 0, qualified_table_name: "public.business_operation_receipts", reserved_id: receiptId, result_ordinal: 0, slot_kind: "operation_receipt", slot_kind_order: 0 }];
+    plans.forEach((plan, index) => { slots.push({ local_ordinal: 1, phase: 1, qualified_table_name: `public.${plan.table}`, reserved_id: plan.id, result_ordinal: index + 1, slot_kind: "business_row", slot_kind_order: 1 }); slots.push({ local_ordinal: 1, phase: 2, qualified_table_name: "public.accounting_audit_events", reserved_id: plan.auditId, result_ordinal: index + 1, slot_kind: "audit_row", slot_kind_order: 2 }); });
+    await insertOperation(client, command, actor, approvalReceipt, results, slots, receiptId);
+    if (command.decision === "reject") {
+      const plan = plans[0]; await client.query(`UPDATE public.source_decision_sets SET status='rejected',rejection_actor_at=$1::timestamptz,rejection_actor_authorization_version=$2,rejection_actor_correlation_uid=$3::uuid,rejection_actor_name_snapshot=$4,rejection_actor_scope='admin',rejection_actor_uid_snapshot=$5::uuid,rejection_actor_user_id=$6 WHERE id=$7`, [decidedAt, actor.authorizationVersion, plan.correlationUid, liveActor.rows[0].name, actor.userUid, actor.userId, row.id]);
+    } else {
+      const setPlan = plans[0]; const replacementUid = String(command.replacementDecisionSetUid);
+      await client.query(`INSERT INTO public.source_decision_sets (id,batch_id,decision_set_uid,manifest,manifest_sha256,preview_actor_at,preview_actor_authorization_version,preview_actor_correlation_uid,preview_actor_name_snapshot,preview_actor_scope,preview_actor_uid_snapshot,preview_actor_user_id,status) OVERRIDING SYSTEM VALUE VALUES ($1,$2,$3::uuid,$4::jsonb,$5,$6::timestamptz,$7,$8::uuid,$9,'admin',$10::uuid,$11,'previewed')`, [setPlan.id, row.batch_id, replacementUid, canonicalJson(command.replacementManifest as CanonicalValue), command.replacementManifestSha256, decidedAt, actor.authorizationVersion, setPlan.correlationUid, liveActor.rows[0].name, actor.userUid, actor.userId]);
+      const replacements = command.replacementItems as Array<{ decisionPayload: CanonicalValue; decisionPayloadSha256: string; ordinal: number }>;
+      for (let index = 0; index < itemResult.rows.length; index += 1) { const original = itemResult.rows[index]; const replacement = replacements[index]; const plan = plans[index + 1]; await client.query(`INSERT INTO public.source_decision_items (id,coordinate_id,decision_kind,decision_payload,decision_payload_sha256,decision_set_id,ordinal,recorded_actor_at,recorded_actor_authorization_version,recorded_actor_correlation_uid,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_uid_snapshot,recorded_actor_user_id,source_row_version_id) OVERRIDING SYSTEM VALUE VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8::timestamptz,$9,$10::uuid,$11,'admin',$12::uuid,$13,$14)`, [plan.id, original.coordinate_id, original.decision_kind, canonicalJson(replacement.decisionPayload), replacement.decisionPayloadSha256, setPlan.id, original.ordinal, decidedAt, actor.authorizationVersion, plan.correlationUid, liveActor.rows[0].name, actor.userUid, actor.userId, original.source_row_version_id]); }
+    }
+    for (const plan of plans) await client.query(`INSERT INTO public.accounting_audit_events (id,event_uid,entity_type,entity_key,action,before_json,after_json,effective_at,recorded_at,reason_code,actor_user_id,actor_uid_snapshot,actor_name_snapshot,actor_scope,actor_at,correlation_uid,actor_authorization_version) OVERRIDING SYSTEM VALUE VALUES ($1,$2::uuid,$3,$4,$5,NULL,$6::jsonb,$7::timestamptz,$7::timestamptz,$8,$9,$10::uuid,$11,'admin',$7::timestamptz,$12::uuid,$13)`, [plan.auditId, plan.auditEventUid, plan.entityType, plan.entityKey, plan.action, canonicalJson(plan.after), decidedAt, `audit/${plan.entityType}/${plan.action}`, actor.userId, actor.userUid, liveActor.rows[0].name, plan.correlationUid, actor.authorizationVersion]);
+    await client.query("COMMIT"); return approvalReceipt;
+  } catch (error) { await client.query("ROLLBACK").catch(() => undefined); throw error; } finally { client.release(); }
+}

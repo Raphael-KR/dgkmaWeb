@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import test from "node:test";
+import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
+import { decideSourcePreview, type SourceDecisionActor } from "./source-decision-service";
+
+const primaryUid = "55555555-5555-4555-8555-555555555555";
+const batchUid = "44444444-4444-4444-8444-444444444444";
+const manifestSha = "9".repeat(64); const fingerprint = "a".repeat(64);
+const actor: SourceDecisionActor = { userId: 7, userUid: "77777777-7777-4777-8777-777777777777", name: "관리자", authorizationVersion: "8".repeat(64), targetFingerprint: "7".repeat(64) };
+const baseCommand = { schemaVersion: "source-decision-command-v1", operationUid: randomUUID(), manifestSha256: manifestSha, sourceFingerprint: fingerprint, decision: "reject", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
+
+function fakePool() {
+  let status = "previewed"; let nextId = 100; const sql: string[] = [];
+  const client = {
+    async query(text: string) {
+      sql.push(text);
+      if (text.includes("FROM public.business_operation_receipts WHERE operation_uid")) return { rowCount: 0, rows: [] };
+      if (text.includes("FROM public.users WHERE id")) return { rowCount: 1, rows: [{ id: 7, user_uid: actor.userUid, is_admin: true, name: actor.name }] };
+      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest_sha256: manifestSha, source_fingerprint: fingerprint, status }] };
+      if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), decision_kind: "classification" }] };
+      if (text.includes("nextval(pg_get_serial_sequence")) return { rowCount: 1, rows: [{ id: String(nextId++) }] };
+      if (text.includes("SELECT 1 FROM public.source_decision_sets WHERE decision_set_uid")) return { rowCount: 0, rows: [] };
+      if (text.includes("UPDATE public.source_decision_sets SET status='rejected'")) status = "rejected";
+      return { rowCount: 1, rows: [] };
+    },
+    release() {},
+  };
+  return { pool: { connect: async () => client }, sql, status: () => status };
+}
+
+test("reject then full-byte repreview keeps applied arrays empty and uses one transaction each", async () => {
+  const fake = fakePool();
+  const rejected = await decideSourcePreview(fake.pool as never, primaryUid, baseCommand, actor);
+  assert.equal(rejected.decision, "reject"); assert.deepEqual(rejected.applied_batch_uids, []); assert.equal(fake.status(), "rejected");
+  const payload = { classification: "quarantine" }; const payloadSha = sha256(canonicalJson(payload));
+  const manifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: payloadSha }] };
+  const command = { ...baseCommand, operationUid: randomUUID(), decision: "repreview", replacementDecisionSetUid: "66666666-6666-4666-8666-666666666666", replacementManifest: manifest, replacementItems: [{ ordinal: 1, decisionPayload: payload, decisionPayloadSha256: payloadSha }], replacementManifestSha256: sha256(canonicalJson(manifest as CanonicalValue)) };
+  const repreviewed = await decideSourcePreview(fake.pool as never, primaryUid, command, actor);
+  assert.equal(repreviewed.decision, "repreview"); assert.equal(repreviewed.replacement_decision_set_uid, command.replacementDecisionSetUid); assert.deepEqual(repreviewed.approved_decision_set_uids, []);
+  assert.ok(fake.sql.some((statement) => statement.includes("INSERT INTO public.source_decision_sets")));
+  assert.ok(fake.sql.some((statement) => statement.includes("INSERT INTO public.source_decision_items")));
+  assert.equal(fake.sql.filter((statement) => statement === "COMMIT").length, 2);
+});
+
+test("repreview rejects incomplete replacement before reserving or inserting rows", async () => {
+  const fake = fakePool(); await decideSourcePreview(fake.pool as never, primaryUid, baseCommand, actor);
+  const command = { ...baseCommand, operationUid: randomUUID(), decision: "repreview", replacementDecisionSetUid: "66666666-6666-4666-8666-666666666666", replacementManifest: { items: [] }, replacementItems: [], replacementManifestSha256: "0".repeat(64) };
+  const before = fake.sql.length;
+  await assert.rejects(() => decideSourcePreview(fake.pool as never, primaryUid, command, actor), /item_coverage_mismatch/);
+  const failureSql = fake.sql.slice(before); assert.ok(failureSql.includes("ROLLBACK")); assert.equal(failureSql.some((statement) => statement.includes("nextval")), false);
+});
