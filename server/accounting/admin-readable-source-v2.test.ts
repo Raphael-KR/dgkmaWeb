@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { adminReviewProjection } from "./adapters/admin-readable-source-v2";
@@ -88,3 +89,29 @@ test("all ten v2 mappings contain no HMAC or secret reference and bind every par
     for (const entry of value.columns as Array<Record<string, unknown>>) assert.ok(Object.hasOwn(parsers, String(entry.parser_code)));
   }
 });
+
+test("all ten v2 mapping approvals bind the exact provider-owned owner approval", () => {
+  const names = [
+    "membership-integrated-address-book", "notion-organization-role-history", "agm36-period-boundary",
+    "bank-ibk-2026", "bank-toss-2026", "group-foreign-faculty-2025", "ledger-dues-policy-2024-2025",
+    "ledger-final-2022-2025", "legacy-payments", "notion-dues-regulation-draft",
+  ];
+  for (const name of names) {
+    const mappingBytes = readFileSync(`docs/source-contracts/mappings/${name}-v2.json`);
+    const approvalBytes = readFileSync(`docs/source-contracts/approvals/${name}-v2.json`, "utf8");
+    const approval = JSON.parse(approvalBytes) as Record<string, unknown>;
+    const preimage = { ...approval }; delete preimage.receipt_sha256;
+    assert.equal(approvalBytes, `${canonicalJson(approval as never)}\n`);
+    assert.equal(approval.mapping_sha256, createSha(mappingBytes));
+    assert.equal(approval.platform_thread_id, "019fe3d1-7669-7911-b30f-2ebc99d3245a");
+    assert.equal(approval.platform_message_id, "item-418");
+    assert.equal(approval.platform_message_created_at, "2026-08-10T06:43:28Z");
+    assert.equal(approval.approved_at, "2026-08-10T06:43:28Z");
+    assert.equal(approval.approval_text_sha256, createSha(Buffer.from("승인\n")));
+    assert.equal(approval.receipt_sha256, createSha(Buffer.from(canonicalJson(preimage as never))));
+  }
+});
+
+function createSha(value: Buffer): string {
+  return createHash("sha256").update(value).digest("hex");
+}
