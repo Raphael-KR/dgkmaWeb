@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 import type { PoolClient } from "pg";
 
@@ -10,9 +11,15 @@ export type GroupMaterializationStep = {
   dependsOn: string[];
 };
 export type GroupReservationBlueprint = { businessRows: Array<{ stepKey: string; table: string }>; transitionAuditKeys: string[]; sequenceTables: string[] };
+export type GroupExecutionReservation = {
+  operationReceiptId: string;
+  transitionAudits: Array<{ key: string; auditId: string; correlationUid: string }>;
+  steps: Array<GroupMaterializationStep & { rowId: string; targetRowId: string | null; auditId: string; correlationUid: string }>;
+};
 
 function fail(code: string): never { throw new Error(code); }
 function compare(left: string, right: string): number { return Buffer.compare(Buffer.from(left), Buffer.from(right)); }
+function deterministicUuidV4(seed: string): string { const bytes=createHash("sha256").update(seed).digest().subarray(0,16);bytes[6]=(bytes[6]&0x0f)|0x40;bytes[8]=(bytes[8]&0x3f)|0x80;const hex=bytes.toString("hex");return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`; }
 
 export async function assertGroupClaimVersionContract(client: Pick<PoolClient, "query">): Promise<void> {
   const catalog = await client.query<{ constraint_names: string[]; unique_indexes: Array<{ name: string; predicate: string | null; columns: string[] }> }>(`
@@ -118,4 +125,16 @@ export function buildGroupReservationBlueprint(plan: GroupMultiBatchApplyPlan): 
   const expectedSequenceTables = ["business_operation_receipts", ...businessRows.map((row) => row.table), ...Array.from({ length: actionAuditCount }, () => "accounting_audit_events")];
   if (new Set(transitionAuditKeys).size !== transitionAuditKeys.length || businessRows.some((row, index) => index > 0 && row.stepKey === businessRows[index - 1].stepKey)) fail("source_decision_group_reservation_blueprint_invalid");
   return { businessRows, transitionAuditKeys, sequenceTables: expectedSequenceTables };
+}
+
+export function bindGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, operationUid: string, reservedIds: string[]): GroupExecutionReservation {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(operationUid)) fail("source_decision_group_operation_uid_invalid");
+  const topology=buildGroupMaterializationTopology(plan);const blueprint=buildGroupReservationBlueprint(plan);
+  if(reservedIds.length!==blueprint.sequenceTables.length||reservedIds.some((id)=>!/^[1-9][0-9]*$/.test(id))||new Set(reservedIds).size!==reservedIds.length)fail("source_decision_group_reservation_count_mismatch");
+  let cursor=0;const operationReceiptId=reservedIds[cursor++];const rowIdsByStep:Record<string,string>={};
+  for(const row of blueprint.businessRows)rowIdsByStep[row.stepKey]=reservedIds[cursor++];
+  const transitionAudits=blueprint.transitionAuditKeys.map((key)=>({key,auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-transition\n${key}`)}));
+  const steps=topology.map((step)=>{const own=rowIdsByStep[step.key];const target=step.targetStepKey?rowIdsByStep[step.targetStepKey]:null;const rowId=step.rowMode==="insert"?own:target;if(!rowId||step.targetStepKey&& !target)fail("source_decision_group_reservation_target_missing");return {...step,rowId,targetRowId:target,auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-step\n${step.key}\n${step.action}`)};});
+  if(cursor!==reservedIds.length)fail("source_decision_group_reservation_count_mismatch");
+  return {operationReceiptId,transitionAudits,steps};
 }

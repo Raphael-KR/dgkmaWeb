@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertGroupClaimVersionContract, buildGroupMaterializationTopology, buildGroupReservationBlueprint, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupReservationBlueprint, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -36,6 +36,18 @@ test("fails closed when an update loses its reserved target", () => {
 test("builds one deterministic reservation for every new row and audit", () => {
   const blueprint = buildGroupReservationBlueprint(plan); const steps = buildGroupMaterializationTopology(plan);
   assert.equal(blueprint.businessRows.length, steps.filter((step) => step.rowMode === "insert").length); assert.ok(blueprint.businessRows.length < steps.length); assert.equal(blueprint.transitionAuditKeys.length, 4); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 4); assert.equal(blueprint.sequenceTables.length, 1 + blueprint.businessRows.length + steps.length + 4); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
+});
+
+test("binds every insert, update target, audit, and correlation without ambiguity", () => {
+  const blueprint=buildGroupReservationBlueprint(plan);const reserved=blueprint.sequenceTables.map((_,index)=>String(index+1));const operationUid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";const bound=bindGroupExecutionReservation(plan,operationUid,reserved);const repeated=bindGroupExecutionReservation(plan,operationUid,reserved);
+  assert.deepEqual(repeated,bound);assert.equal(bound.operationReceiptId,"1");assert.equal(bound.transitionAudits.length,4);assert.equal(bound.steps.length,buildGroupMaterializationTopology(plan).length);assert.equal(new Set(bound.steps.map((step)=>step.auditId)).size,bound.steps.length);
+  for(const step of bound.steps.filter((candidate)=>candidate.rowMode==="update")){assert.equal(step.rowId,step.targetRowId);assert.ok(bound.steps.some((candidate)=>candidate.key===step.targetStepKey&&candidate.rowMode==="insert"&&candidate.rowId===step.rowId));}
+  const open=bound.steps.find((step)=>step.key.endsWith(":claim-open"))!;const boundClaim=bound.steps.find((step)=>step.key.endsWith(":claim-bound"))!;assert.notEqual(boundClaim.rowId,open.rowId);assert.equal(boundClaim.targetRowId,open.rowId);
+});
+
+test("rejects missing, duplicate, and malformed reservations before DML", () => {
+  const blueprint=buildGroupReservationBlueprint(plan);const ids=blueprint.sequenceTables.map((_,index)=>String(index+1));const operationUid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,ids.slice(1)),/reservation_count_mismatch/);const duplicate=[...ids];duplicate[1]=duplicate[0];assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,duplicate),/reservation_count_mismatch/);const malformed=[...ids];malformed[1]="0";assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,malformed),/reservation_count_mismatch/);
 });
 
 test("rejects stable identity reuse before reservations", () => {
