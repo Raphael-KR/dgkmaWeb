@@ -4,7 +4,7 @@ import { validateDecisionPayload, type DecisionKind } from "./source-preview-con
 
 export const SOURCE_DECISION_SCHEMA_VERSION = "source-decision-command-v1";
 const COMMAND_KEYS = ["decision", "manifestSha256", "operationUid", "replacementDecisionSetUid", "replacementItems", "replacementManifest", "replacementManifestSha256", "schemaVersion", "sourceFingerprint"].sort();
-const REPLACEMENT_ITEM_KEYS = ["decisionPayload", "decisionPayloadSha256", "ordinal"].sort();
+const REPLACEMENT_ITEM_KEYS = ["coordinateKey", "decisionKind", "decisionPayload", "decisionPayloadSha256", "ordinal", "sourceContentDigest"].sort();
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 
@@ -60,6 +60,7 @@ export function validateSourceDecisionCommand(command: Record<string, unknown>, 
       if (JSON.stringify(Object.keys(item).sort()) !== JSON.stringify(REPLACEMENT_ITEM_KEYS)) fail("source_decision_replacement_item_keys_mismatch");
       const expected = context.expectedItems[index];
       if (item.ordinal !== index + 1 || expected?.ordinal !== index + 1) fail("source_decision_item_coverage_mismatch");
+      if (item.coordinateKey !== expected.coordinateKey || item.sourceContentDigest !== expected.sourceContentDigest || item.decisionKind !== expected.decisionKind) fail("source_decision_replacement_item_binding_mismatch");
       if (!item.decisionPayload || typeof item.decisionPayload !== "object" || Array.isArray(item.decisionPayload)) fail("source_decision_replacement_payload_invalid");
       validateDecisionPayload(expected.decisionKind as DecisionKind, item.decisionPayload as Record<string, CanonicalValue>);
       if (typeof item.decisionPayloadSha256 !== "string" || !SHA256.test(item.decisionPayloadSha256) || item.decisionPayloadSha256 !== digest(item.decisionPayload)) fail("source_decision_item_digest_mismatch");
