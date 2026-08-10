@@ -234,6 +234,8 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 2026-08-10 Development 첫 실행은 source fingerprint `8d8ab2ca528c4af0eafd20f919f4cc04aad7fe05bcce7c2946d7cf5b9e94a472`로 `created → verified_noop`을 재현했다. read-only verifier는 batch/decision set `1/1`, source coordinate/version/link `10/10/10`, decision item `0`, operation receipt/result entity/audit `1/32/32`, downstream business/source-linked policy row `0/0`을 확인하고 `ROLLBACK`으로 끝났다. 임시 입력과 두 exact-commit Replit worktree의 삭제·부재도 확인했다.
 
+같은 날 연결된 Notion을 search→exact page fetch로 읽어 profile의 page ID·`last_edited_time`과 별표 1의 2026년 6개 tier를 재확인했다. mode-0600 관측 파일을 거친 `NOTION_DUES_REGULATION_DRAFT` preview도 source fingerprint `5c31eace8c84990c87d2a461acc39d8c2485cbf5faabd94c7e231921aa3ac16c`로 `created → verified_noop`을 재현했다. verifier는 row/set/item `6/1/0`, operation receipt/result/audit `1/20/20`, downstream/source-linked policy row `0/0`, terminal `ROLLBACK`을 확인했다. Notion write는 0건이며 로컬·Replit 임시 관측/입력과 exact-commit worktree는 삭제 후 부재를 확인했다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
