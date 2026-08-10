@@ -2,8 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import { validateSourceDecisionCommand, type ApprovalContext } from "./source-decision-api";
-import { loadGroupMultiBatchApplyPlan } from "./source-decision-group-plan";
-import { assertGroupClaimVersionContract, buildGroupReservationBlueprint } from "./source-decision-group-materialization";
+import { loadGroupMultiBatchApplyPlan, type GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
+import { assertGroupClaimVersionContract, buildGroupOperationProjection, reserveGroupExecutionReservationFromDatabase } from "./source-decision-group-materialization";
+import { executeGroupBatchTransitions } from "./source-decision-group-transitions";
+import { executeGroupSourceSpines } from "./source-decision-group-source-spine";
+import { executeGroupFinancialGraphs } from "./source-decision-group-financial";
+import { insertGroupMaterializationAudits } from "./source-decision-group-audit";
 
 type JsonObject = Record<string, CanonicalValue>;
 export type SourceDecisionActor = {
@@ -153,9 +157,10 @@ export async function decideSourcePreview(
       )::int AS descendant_count`, [itemIds]);
       if (descendants.rowCount !== 1 || descendants.rows[0].descendant_count !== 0) fail("source_decision_supersede_descendants_exist");
     }
+    let groupPlan:GroupMultiBatchApplyPlan|undefined;
     if (command.decision === "approve") {
-      const groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, batchId:row.batch_id, decisionSetId:row.id, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
-      if (groupPlan) { await assertGroupClaimVersionContract(client); buildGroupReservationBlueprint(groupPlan); fail("source_decision_group_materialization_not_implemented"); }
+      groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, batchId:row.batch_id, decisionSetId:row.id, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
+      if (groupPlan) await assertGroupClaimVersionContract(client);
     }
     const periodPlans: PeriodPlan[] = [];
     if (command.decision === "approve") for (const item of itemResult.rows) {
@@ -171,7 +176,11 @@ export async function decideSourcePreview(
     }
     const decidedAt = new Date().toISOString();
     const replacementDecision = ["repreview", "supersede"].includes(String(command.decision));
-    const approvalReceipt = receiptWithoutHash({ schema_version: "dgkma-source-decision-approval-v2", operation_uid: String(command.operationUid), primary_decision_set_uid: decisionSetUid, primary_batch_uid: row.batch_uid, applied_batch_uids: command.decision === "approve" ? [row.batch_uid] : [], approved_decision_set_uids: command.decision === "approve" ? [decisionSetUid] : command.decision === "supersede" ? [String(command.replacementDecisionSetUid)] : [], manifest_sha256: row.manifest_sha256, source_fingerprint: row.source_fingerprint, decision: command.decision as "approve" | "reject" | "repreview" | "supersede", replacement_decision_set_uid: replacementDecision ? String(command.replacementDecisionSetUid) : null, replacement_manifest_sha256: replacementDecision ? String(command.replacementManifestSha256) : null, actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, decided_at: decidedAt, operation_payload_sha256: operationPayloadSha256 });
+    const approvalReceipt = receiptWithoutHash({ schema_version: "dgkma-source-decision-approval-v2", operation_uid: String(command.operationUid), primary_decision_set_uid: decisionSetUid, primary_batch_uid: row.batch_uid, applied_batch_uids: command.decision === "approve" ? groupPlan?.orderedBatchUids ?? [row.batch_uid] : [], approved_decision_set_uids: command.decision === "approve" ? groupPlan?.orderedDecisionSetUids ?? [decisionSetUid] : command.decision === "supersede" ? [String(command.replacementDecisionSetUid)] : [], manifest_sha256: row.manifest_sha256, source_fingerprint: row.source_fingerprint, decision: command.decision as "approve" | "reject" | "repreview" | "supersede", replacement_decision_set_uid: replacementDecision ? String(command.replacementDecisionSetUid) : null, replacement_manifest_sha256: replacementDecision ? String(command.replacementManifestSha256) : null, actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, decided_at: decidedAt, operation_payload_sha256: operationPayloadSha256 });
+    if(groupPlan){
+      const reservation=await reserveGroupExecutionReservationFromDatabase(client,groupPlan,String(command.operationUid));const projection=buildGroupOperationProjection(reservation);const results=projection.expectedResults.map((result)=>({ordinal:result.ordinal,entity_type:result.entityType,entity_key:result.entityKey,entity_action:result.entityAction,action_correlation_uid:result.actionCorrelationUid}));const slots=projection.reservationSlots.map((slot)=>({slot_ordinal:slot.slotOrdinal,phase:slot.phase,result_ordinal:slot.resultOrdinal,slot_kind:slot.slotKind,slot_kind_order:slot.slotKindOrder,qualified_table_name:slot.qualifiedTableName,local_ordinal:slot.localOrdinal,sequence_name:slot.sequenceName,reserved_id:slot.reservedId}));const materializationActor={userId:actor.userId,userUid:actor.userUid,name:liveActor.rows[0].name,authorizationVersion:actor.authorizationVersion};
+      await insertOperation(client,command,actor,approvalReceipt,results,slots,reservation.operationReceiptId);await executeGroupBatchTransitions(client,groupPlan,reservation,materializationActor,decidedAt);const spines=await executeGroupSourceSpines(client,groupPlan,reservation,materializationActor,decidedAt);await executeGroupFinancialGraphs(client,groupPlan,reservation,spines,materializationActor,decidedAt);await insertGroupMaterializationAudits(client,groupPlan,reservation,materializationActor,decidedAt);await client.query("COMMIT");return approvalReceipt;
+    }
     const receiptId = await reserve(client, "business_operation_receipts"); const plans: Array<{ id: string; table: string; entityType: string; entityKey: string; action: string; correlationUid: string; auditId: string; auditEventUid: string; after: JsonObject }> = [];
     if (command.decision === "approve") {
       plans.push({ id: row.id, table: "source_decision_sets", entityType: "source_decision_set", entityKey: `decision-set:${decisionSetUid}`, action: "approve", correlationUid: deterministicUuidV4(`${command.operationUid}\napprove\n${decisionSetUid}`), auditId: await reserve(client, "accounting_audit_events"), auditEventUid: randomUUID(), after: { decision_set_uid: decisionSetUid, status: "approved" } });
