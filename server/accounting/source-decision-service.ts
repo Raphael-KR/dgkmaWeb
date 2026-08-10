@@ -42,6 +42,7 @@ type LockedItem = {
   content_digest: string;
   decision_kind: string;
   decision_payload: JsonObject;
+  decision_payload_sha256: string;
   normalized_payload: JsonObject;
 };
 type PeriodPlan = { itemId: string; evidenceRowVersionId: string; boundaryRowVersionId: string; periodCode: string; startsAt: string; endsAt: string | null };
@@ -108,11 +109,18 @@ export async function decideSourcePreview(
     if (liveActor.rowCount !== 1 || !liveActor.rows[0].is_admin || liveActor.rows[0].user_uid !== actor.userUid) fail("source_decision_admin_required");
     const replay = await existingReceipt(client, String(command.operationUid), operationPayloadSha256, actor);
     if (replay) { await client.query("COMMIT"); return replay; }
-    const primary = await client.query<{ id: string; decision_set_uid: string; batch_id: string; batch_uid: string; manifest_sha256: string; source_fingerprint: string; status: string; source_code: string }>(`SELECT ds.id::text,ds.decision_set_uid::text,ds.batch_id::text,b.batch_uid::text,ds.manifest_sha256,b.source_fingerprint,ds.status,ls.source_code FROM public.source_decision_sets ds JOIN public.accounting_import_batches b ON b.id=ds.batch_id JOIN public.accounting_source_releases r ON r.id=b.source_release_id JOIN public.accounting_logical_sources ls ON ls.id=r.logical_source_id WHERE ds.decision_set_uid=$1::uuid FOR UPDATE OF ds,b,r,ls`, [decisionSetUid]);
+    const primary = await client.query<{ id: string; decision_set_uid: string; batch_id: string; batch_uid: string; manifest: CanonicalValue; manifest_sha256: string; source_fingerprint: string; status: string; source_code: string }>(`SELECT ds.id::text,ds.decision_set_uid::text,ds.batch_id::text,b.batch_uid::text,ds.manifest,ds.manifest_sha256,b.source_fingerprint,ds.status,ls.source_code FROM public.source_decision_sets ds JOIN public.accounting_import_batches b ON b.id=ds.batch_id JOIN public.accounting_source_releases r ON r.id=b.source_release_id JOIN public.accounting_logical_sources ls ON ls.id=r.logical_source_id WHERE ds.decision_set_uid=$1::uuid FOR UPDATE OF ds,b,r,ls`, [decisionSetUid]);
     if (primary.rowCount !== 1) fail("source_decision_primary_set_missing");
     const row = primary.rows[0];
-    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,rv.normalized_payload,i.decision_kind,i.decision_payload FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
-    const expectedItems = itemResult.rows.map((item, index) => { if (item.ordinal !== index + 1) fail("source_decision_primary_item_coverage_mismatch"); return { ordinal: item.ordinal, coordinateKey: item.coordinate_key, sourceContentDigest: item.content_digest, decisionKind: item.decision_kind }; });
+    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,rv.normalized_payload,i.decision_kind,i.decision_payload,i.decision_payload_sha256 FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
+    const manifestItems = itemResult.rows.map((item, index) => {
+      if (item.ordinal !== index + 1 || item.decision_payload_sha256 !== sha256(canonicalJson(item.decision_payload))) fail("source_decision_primary_item_drift");
+      if (index > 0 && Buffer.compare(Buffer.from(`${itemResult.rows[index - 1].coordinate_key}\u0000${itemResult.rows[index - 1].decision_kind}`), Buffer.from(`${item.coordinate_key}\u0000${item.decision_kind}`)) >= 0) fail("source_decision_primary_item_order_mismatch");
+      return { ordinal: item.ordinal, coordinate_key: item.coordinate_key, source_content_digest: item.content_digest, decision_kind: item.decision_kind, decision_payload_sha256: item.decision_payload_sha256 };
+    });
+    const expectedManifest = { schema_version: "source-decision-preview-v1", batch_uid: row.batch_uid, source_fingerprint: row.source_fingerprint, items: manifestItems };
+    if (row.manifest_sha256 !== sha256(canonicalJson(expectedManifest)) || canonicalJson(row.manifest) !== canonicalJson(expectedManifest)) fail("source_decision_primary_manifest_drift");
+    const expectedItems = itemResult.rows.map((item) => ({ ordinal: item.ordinal, coordinateKey: item.coordinate_key, sourceContentDigest: item.content_digest, decisionKind: item.decision_kind }));
     const context: ApprovalContext = { sessionUserId: actor.userId, liveUserId: actor.userId, liveUserUid: actor.userUid, liveIsAdmin: true, frozenAdminId: actor.userId, frozenAdminUid: actor.userUid, origin: "service://same-origin", hostOrigin: "service://same-origin", fetchSite: "same-origin", expectedDecisionSetUid: decisionSetUid, expectedBatchUid: row.batch_uid, expectedManifestSha256: row.manifest_sha256, expectedSourceFingerprint: row.source_fingerprint, expectedItems };
     validateSourceDecisionCommand(command, context);
     if (command.decision === "approve" && row.status !== "previewed") fail("source_decision_approve_state_invalid");

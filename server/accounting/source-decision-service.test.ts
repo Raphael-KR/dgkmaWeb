@@ -6,20 +6,26 @@ import { decideSourcePreview, type SourceDecisionActor } from "./source-decision
 
 const primaryUid = "55555555-5555-4555-8555-555555555555";
 const batchUid = "44444444-4444-4444-8444-444444444444";
-const manifestSha = "9".repeat(64); const fingerprint = "a".repeat(64);
+const fingerprint = "a".repeat(64);
+const defaultPayloadSha = sha256(canonicalJson({ outcome: "quarantine" }));
+const defaultManifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: defaultPayloadSha }] };
+const manifestSha = sha256(canonicalJson(defaultManifest as CanonicalValue));
 const actor: SourceDecisionActor = { userId: 7, userUid: "77777777-7777-4777-8777-777777777777", name: "관리자", authorizationVersion: "8".repeat(64), targetFingerprint: "7".repeat(64) };
 const baseCommand = { schemaVersion: "source-decision-command-v1", operationUid: randomUUID(), manifestSha256: manifestSha, sourceFingerprint: fingerprint, decision: "reject", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
 const quarantineClassification = { allocation_request_uid_or_null: null, category_splits: [], classification_kind: "pending_manual_source_decision", direction: "credit", dues_year_or_null: null, event_kind: "unclassified_credit", event_party_uid_or_null: null, group_roster_batch_uid_or_null: null, member_uid_or_null: null, outcome: "quarantine", party_kind: "unknown", receipt_uid_or_null: null, refund_receipt_uid_or_null: null, reverses_event_uid_or_null: null };
 
 function fakePool(outcome = "quarantine", decisionKind = "classification", decisionPayload: Record<string, unknown> = { outcome }, sourceCode = "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK") {
   let status = "previewed"; let nextId = 100; const sql: string[] = [];
+  const decisionPayloadSha256 = sha256(canonicalJson(decisionPayload));
+  const manifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: decisionKind, decision_payload_sha256: decisionPayloadSha256 }] };
+  const liveManifestSha = sha256(canonicalJson(manifest as CanonicalValue));
   const client = {
     async query(text: string) {
       sql.push(text);
       if (text.includes("FROM public.business_operation_receipts WHERE operation_uid")) return { rowCount: 0, rows: [] };
       if (text.includes("FROM public.users WHERE id")) return { rowCount: 1, rows: [{ id: 7, user_uid: actor.userUid, is_admin: true, name: actor.name }] };
-      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest_sha256: manifestSha, source_fingerprint: fingerprint, status, source_code: sourceCode }] };
-      if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), normalized_payload: { boundary_content_digest: decisionPayload.boundary_content_digest }, decision_kind: decisionKind, decision_payload: decisionPayload }] };
+      if (text.includes("FROM public.source_decision_sets ds JOIN public.accounting_import_batches")) return { rowCount: 1, rows: [{ id: "10", decision_set_uid: primaryUid, batch_id: "20", batch_uid: batchUid, manifest, manifest_sha256: liveManifestSha, source_fingerprint: fingerprint, status, source_code: sourceCode }] };
+      if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), normalized_payload: { boundary_content_digest: decisionPayload.boundary_content_digest }, decision_kind: decisionKind, decision_payload: decisionPayload, decision_payload_sha256: decisionPayloadSha256 }] };
       if (text.includes("FROM public.accounting_import_row_versions rv JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "51" }] };
       if (text.includes("SELECT 1 FROM public.accounting_periods WHERE period_code")) return { rowCount: 0, rows: [] };
       if (text.includes("AS descendant_count")) return { rowCount: 1, rows: [{ descendant_count: 0 }] };
@@ -32,7 +38,7 @@ function fakePool(outcome = "quarantine", decisionKind = "classification", decis
     },
     release() {},
   };
-  return { pool: { connect: async () => client }, sql, status: () => status };
+  return { pool: { connect: async () => client }, sql, status: () => status, manifest, manifestSha: liveManifestSha };
 }
 
 test("reject then full-byte repreview keeps applied arrays empty and uses one transaction each", async () => {
@@ -58,24 +64,33 @@ test("approve applies only a quarantine-only preview and records the ordered set
 });
 
 test("approve refuses non-quarantine items before reservations or state changes", async () => {
-  const fake = fakePool("approve"); const command = { ...baseCommand, operationUid: randomUUID(), decision: "approve" }; const before = fake.sql.length;
+  const fake = fakePool("approve"); const command = { ...baseCommand, manifestSha256: fake.manifestSha, operationUid: randomUUID(), decision: "approve" }; const before = fake.sql.length;
   await assert.rejects(() => decideSourcePreview(fake.pool as never, primaryUid, command, actor), /nonquarantine_apply_not_implemented/);
   const failureSql = fake.sql.slice(before); assert.ok(failureSql.includes("ROLLBACK")); assert.equal(failureSql.some((statement) => statement.includes("nextval")), false); assert.equal(fake.status(), "previewed");
 });
 
+test("reject fails closed on primary payload or manifest drift before reservations", async () => {
+  const payload: Record<string, unknown> = { outcome: "quarantine" }; const payloadDrift = fakePool("quarantine", "classification", payload); payload.outcome = "reject";
+  await assert.rejects(() => decideSourcePreview(payloadDrift.pool as never, primaryUid, { ...baseCommand, manifestSha256: payloadDrift.manifestSha, operationUid: randomUUID() }, actor), /primary_item_drift/);
+  assert.equal(payloadDrift.sql.some((statement) => statement.includes("nextval")), false);
+  const manifestDrift = fakePool(); manifestDrift.manifest.schema_version = "drift";
+  await assert.rejects(() => decideSourcePreview(manifestDrift.pool as never, primaryUid, { ...baseCommand, manifestSha256: manifestDrift.manifestSha, operationUid: randomUUID() }, actor), /primary_manifest_drift/);
+  assert.equal(manifestDrift.sql.some((statement) => statement.includes("nextval")), false);
+});
+
 test("approve materializes an exact source-bound period before applying its batch", async () => {
   const payload = { outcome:"approve",period_code:"TEST_2026",starts_at:"2026-01-01T00:00:00+09:00",ends_at:"2027-01-01T00:00:00+09:00",boundary_source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",boundary_coordinate_key:"row:1",boundary_content_digest:"b".repeat(64) };
-  const fake=fakePool("approve","period_materialization",payload,"LEDGER_FINAL_2022_2025");const command={...baseCommand,operationUid:randomUUID(),decision:"approve"};const approved=await decideSourcePreview(fake.pool as never,primaryUid,command,actor);
+  const fake=fakePool("approve","period_materialization",payload,"LEDGER_FINAL_2022_2025");const command={...baseCommand,manifestSha256:fake.manifestSha,operationUid:randomUUID(),decision:"approve"};const approved=await decideSourcePreview(fake.pool as never,primaryUid,command,actor);
   assert.equal(approved.decision,"approve");assert.ok(fake.sql.some((statement)=>statement.includes("INSERT INTO public.accounting_periods")));assert.ok(fake.sql.findIndex((statement)=>statement.includes("INSERT INTO public.accounting_periods"))<fake.sql.findIndex((statement)=>statement==="COMMIT"));
 });
 
 test("period materialization refuses an unregistered source family", async () => {
-  const payload={outcome:"approve",period_code:"TEST_2026",starts_at:"2026-01-01T00:00:00+09:00",ends_at:null,boundary_source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",boundary_coordinate_key:"row:1",boundary_content_digest:"b".repeat(64)};const fake=fakePool("approve","period_materialization",payload);const command={...baseCommand,operationUid:randomUUID(),decision:"approve"};
+  const payload={outcome:"approve",period_code:"TEST_2026",starts_at:"2026-01-01T00:00:00+09:00",ends_at:null,boundary_source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",boundary_coordinate_key:"row:1",boundary_content_digest:"b".repeat(64)};const fake=fakePool("approve","period_materialization",payload);const command={...baseCommand,manifestSha256:fake.manifestSha,operationUid:randomUUID(),decision:"approve"};
   await assert.rejects(()=>decideSourcePreview(fake.pool as never,primaryUid,command,actor),/period_source_family_mismatch/);assert.equal(fake.sql.some((statement)=>statement.includes("nextval")),false);
 });
 
 test("approve forbids applying a roster companion directly", async () => {
-  const payload = { outcome: "approve" }; const fake = fakePool("approve", "group_allocation", payload, "GROUP_FOREIGN_FACULTY_2025"); const command = { ...baseCommand, operationUid: randomUUID(), decision: "approve" };
+  const payload = { outcome: "approve" }; const fake = fakePool("approve", "group_allocation", payload, "GROUP_FOREIGN_FACULTY_2025"); const command = { ...baseCommand, manifestSha256: fake.manifestSha, operationUid: randomUUID(), decision: "approve" };
   await assert.rejects(() => decideSourcePreview(fake.pool as never, primaryUid, command, actor), /direct_companion_apply_forbidden/);
   assert.equal(fake.sql.some((statement) => statement.includes("nextval")), false);
 });
