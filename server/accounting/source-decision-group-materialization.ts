@@ -13,13 +13,16 @@ export type GroupMaterializationStep = {
 export type GroupReservationBlueprint = { businessRows: Array<{ stepKey: string; table: string }>; transitionAuditKeys: string[]; sequenceTables: string[] };
 export type GroupExecutionReservation = {
   operationReceiptId: string;
-  transitionAudits: Array<{ key: string; auditId: string; correlationUid: string }>;
-  steps: Array<GroupMaterializationStep & { rowId: string; targetRowId: string | null; auditId: string; correlationUid: string }>;
+  transitionAudits: GroupBoundAction[];
+  steps: Array<GroupMaterializationStep & GroupBoundAction & { rowId: string; targetRowId: string | null }>;
 };
+export type GroupBoundAction = { key: string; entityType: string; entityKey: string; action: string; auditId: string; correlationUid: string; executionOrdinal: number; resultOrdinal: number };
 
 function fail(code: string): never { throw new Error(code); }
 function compare(left: string, right: string): number { return Buffer.compare(Buffer.from(left), Buffer.from(right)); }
 function deterministicUuidV4(seed: string): string { const bytes=createHash("sha256").update(seed).digest().subarray(0,16);bytes[6]=(bytes[6]&0x0f)|0x40;bytes[8]=(bytes[8]&0x3f)|0x80;const hex=bytes.toString("hex");return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`; }
+const ENTITY_TYPE_BY_TABLE: Record<string,string>={economic_event_parties:"event_party",economic_event_party_aliases:"event_party_alias",source_row_classification_decisions:"source_row_classification",economic_event_claims:"event_claim",economic_events:"economic_event",economic_event_provenance:"event_provenance",economic_event_authority_decisions:"event_authority_decision",bank_transactions:"bank_transaction",cashbook_entries:"cashbook_entry",dues_receipts:"receipt",dues_payment_groups:"group",member_match_cases:"match_case",member_match_candidates:"match_candidate",dues_group_members:"group_member",dues_allocations:"allocation"};
+function resultSortKey(action:{entityType:string;entityKey:string;action:string}):string{return `${action.entityType}\u0000${action.entityKey}\u0000${action.action}`;}
 
 export async function assertGroupClaimVersionContract(client: Pick<PoolClient, "query">): Promise<void> {
   const catalog = await client.query<{ constraint_names: string[]; unique_indexes: Array<{ name: string; predicate: string | null; columns: string[] }> }>(`
@@ -133,8 +136,10 @@ export function bindGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, op
   if(reservedIds.length!==blueprint.sequenceTables.length||reservedIds.some((id)=>!/^[1-9][0-9]*$/.test(id))||new Set(reservedIds).size!==reservedIds.length)fail("source_decision_group_reservation_count_mismatch");
   let cursor=0;const operationReceiptId=reservedIds[cursor++];const rowIdsByStep:Record<string,string>={};
   for(const row of blueprint.businessRows)rowIdsByStep[row.stepKey]=reservedIds[cursor++];
-  const transitionAudits=blueprint.transitionAuditKeys.map((key)=>({key,auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-transition\n${key}`)}));
-  const steps=topology.map((step)=>{const own=rowIdsByStep[step.key];const target=step.targetStepKey?rowIdsByStep[step.targetStepKey]:null;const rowId=step.rowMode==="insert"?own:target;if(!rowId||step.targetStepKey&& !target)fail("source_decision_group_reservation_target_missing");return {...step,rowId,targetRowId:target,auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-step\n${step.key}\n${step.action}`)};});
+  const transitionAudits=blueprint.transitionAuditKeys.map((key,index)=>{const decision=key.startsWith("decision-set:");const value=key.slice(decision?"decision-set:".length:"batch:".length,key.lastIndexOf(":"));return {key,entityType:decision?"source_decision_set":"import_batch",entityKey:`${decision?"decision-set":"batch"}:${value}`,action:decision?"approve":"apply",auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-transition\n${key}`),executionOrdinal:index+1,resultOrdinal:0};});
+  const steps=topology.map((step,index)=>{const own=rowIdsByStep[step.key];const target=step.targetStepKey?rowIdsByStep[step.targetStepKey]:null;const rowId=step.rowMode==="insert"?own:target;const entityType=ENTITY_TYPE_BY_TABLE[step.table];if(!rowId||step.targetStepKey&&!target||!entityType)fail("source_decision_group_reservation_target_missing");return {...step,rowId,targetRowId:target,entityType,entityKey:step.key,action:step.action,auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-step\n${step.key}\n${step.action}`),executionOrdinal:transitionAudits.length+index+1,resultOrdinal:0};});
   if(cursor!==reservedIds.length)fail("source_decision_group_reservation_count_mismatch");
+  const actions:GroupBoundAction[]=[...transitionAudits,...steps];const sorted=[...actions].sort((left,right)=>compare(resultSortKey(left),resultSortKey(right)));sorted.forEach((action,index)=>{action.resultOrdinal=index+1;});
+  if(new Set(actions.map((action)=>action.correlationUid)).size!==actions.length||new Set(actions.map((action)=>action.resultOrdinal)).size!==actions.length)fail("source_decision_group_result_bijection_invalid");
   return {operationReceiptId,transitionAudits,steps};
 }
