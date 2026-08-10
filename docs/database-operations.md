@@ -252,6 +252,12 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 2026-08-10에는 두 policy decision set을 commit `b48a7fa75d5a02fd3e6041040d5232c3ce6290b7`에서 실제 Development DB에 대해 검증했다. 두 set 모두 `previewed`, item 0, 기존 decision manifest와 source fingerprint 일치, terminal `ROLLBACK`이었다. 정적 검사 1/1과 TypeScript 검사도 통과했으며 exact-commit Replit worktree를 삭제하고 부재를 확인했다. 이는 DB reader 검증이지 개발 홈페이지 runtime route 활성화·배포 증거가 아니다.
 
+### Notion 조직·직책 이력 preflight
+
+`scripts/materialize-notion-role-history-preview-input-v2.ts`는 connected Notion에서 읽은 exact data-source 행을 mode-0600 임시 관측 파일 또는 stdin으로 받아 승인된 v2 adapter를 전 행에 적용한다. 원문·이름은 출력하지 않고 mapping reason별 건수만 출력한다. 한 행이라도 실패하면 일부 행을 누락한 preview를 만들지 않으며 output 파일도 생성하지 않는다. 모든 행이 통과할 때에만 이름은 관리자 가독 snapshot으로, integrity key는 secretless digest로 정규화하고 name-only member-match 제안은 `quarantine`으로 고정한 임시 preview 입력을 만든다.
+
+2026-08-10 read-only 전수 preflight는 활성 data source 90행을 확인했으나 `임명근거` 누락 58행, `임기 시작` 누락 27행, closed position map 누락 4행으로 `blocked_mapping`이었다. 일부 preview와 Development DB write는 0건이며 임시 관측/output 파일은 모두 부재를 확인했다. Exact commit `2c1aff5`는 로컬·Replit 집중 테스트 16/16과 Replit TypeScript 검사를 통과했다. 다음 단계는 누락값을 추정하지 않는 새 nullable-quarantine source contract와 기존 registry의 부산지부 4개 position code를 결합한 mapping/release amendment의 owner 승인이다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
