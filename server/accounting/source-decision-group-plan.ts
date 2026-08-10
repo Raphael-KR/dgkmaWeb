@@ -4,7 +4,7 @@ import type { PoolClient } from "pg";
 type JsonObject = Record<string, CanonicalValue>;
 export type GroupApplyEvidence = { decisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizationVersion?: string; normalizedPayload: JsonObject };
 export type GroupApplyItem = { coordinateKey: string; decisionKind: string; decisionPayload: JsonObject; evidence?: GroupApplyEvidence };
-export type GroupApplySet = { sourceCode: string; batchUid: string; decisionSetUid: string; items: GroupApplyItem[] };
+export type GroupApplySet = { sourceCode: string; batchUid: string; decisionSetUid: string; batchId?: string; decisionSetId?: string; items: GroupApplyItem[] };
 export type GroupMultiBatchApplyPlan = {
   orderedBatchUids: string[];
   orderedDecisionSetUids: string[];
@@ -25,7 +25,7 @@ export type GroupMultiBatchApplyPlan = {
     primaryEvidence?: GroupApplyEvidence;
     allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidenceKind: string; evidenceDigest: string; scoreBasis: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizationVersion?: string; normalizedPayload: JsonObject } }>;
   }>;
-  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; rosterBatchIdsByUid: Record<string, string>; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoriesByCoordinate: Record<string, Record<string, { id: string; displayName: string }>>; periodIdsByCoordinate: Record<string, string>; financialDigestsByCoordinate: Record<string, { rowFingerprint: string; snapshotDigest: string; payerDigest: string; descriptionDigest: string }> };
+  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; batchIdsByUid?: Record<string, string>; decisionSetIdsByUid?: Record<string, string>; rosterBatchIdsByUid: Record<string, string>; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoriesByCoordinate: Record<string, Record<string, { id: string; displayName: string }>>; periodIdsByCoordinate: Record<string, string>; financialDigestsByCoordinate: Record<string, { rowFingerprint: string; snapshotDigest: string; payerDigest: string; descriptionDigest: string }> };
 };
 type StoredCompanion = { batch_id: string; batch_uid: string; batch_status: string; preview_manifest: CanonicalValue; preview_manifest_sha256: string; row_count: number; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
@@ -145,7 +145,7 @@ export async function loadGroupMultiBatchApplyPlan(
     if (row.manifest_sha256 !== sha256(canonicalJson(expectedManifest)) || canonicalJson(row.manifest) !== canonicalJson(expectedManifest)) fail("source_decision_group_companion_manifest_drift");
     const coverage = new Map<string, string[]>(); for (const item of items.rows) coverage.set(item.coordinate_key, [...(coverage.get(item.coordinate_key) ?? []), item.decision_kind]);
     if ([...coverage.values()].some((kinds) => canonicalJson([...kinds].sort()) !== canonicalJson(["group_allocation", "member_match"]))) fail("source_decision_group_companion_coverage_mismatch");
-    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
+    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, batchId:row.batch_id, decisionSetId:row.decision_set_id, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
   }
   const plan = buildGroupMultiBatchApplyPlan(primary, companions);
   if (plan.groups.some((group) => !group.primaryEvidence || !group.occurredAt || !group.postedDate || group.allocations.some((allocation) => !allocation.evidence))) fail("source_decision_group_materialization_evidence_missing");
@@ -187,7 +187,8 @@ export async function loadGroupMultiBatchApplyPlan(
     const snapshotDigest = sha256(canonicalJson({ digest_version: "group-snapshot-v1", receipt_uid: group.receiptUid, roster_batch_uid: group.rosterBatchUid, children }));
     financialDigestsByCoordinate[group.primaryCoordinateKey] = { rowFingerprint, snapshotDigest, payerDigest, descriptionDigest };
   }
-  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, rosterBatchIdsByUid: Object.fromEntries(stored.rows.map((row) => [row.batch_uid, row.batch_id])), eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoriesByCoordinate, periodIdsByCoordinate, financialDigestsByCoordinate };
+  if(!primary.batchId||!primary.decisionSetId)fail("source_decision_group_primary_identity_invalid");
+  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, batchIdsByUid:Object.fromEntries([[primary.batchUid,primary.batchId],...stored.rows.map((row)=>[row.batch_uid,row.batch_id])]), decisionSetIdsByUid:Object.fromEntries([[primary.decisionSetUid,primary.decisionSetId],...stored.rows.map((row)=>[row.decision_set_uid,row.decision_set_id])]), rosterBatchIdsByUid: Object.fromEntries(stored.rows.map((row) => [row.batch_uid, row.batch_id])), eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoriesByCoordinate, periodIdsByCoordinate, financialDigestsByCoordinate };
   return plan;
 }
 
