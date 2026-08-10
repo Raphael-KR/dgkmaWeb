@@ -256,7 +256,9 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 `scripts/materialize-notion-role-history-preview-input-v2.ts`는 connected Notion에서 읽은 exact data-source 행을 mode-0600 임시 관측 파일 또는 stdin으로 받아 승인된 v2 adapter를 전 행에 적용한다. 원문·이름은 출력하지 않고 mapping reason별 건수만 출력한다. 한 행이라도 실패하면 일부 행을 누락한 preview를 만들지 않으며 output 파일도 생성하지 않는다. 모든 행이 통과할 때에만 이름은 관리자 가독 snapshot으로, integrity key는 secretless digest로 정규화하고 name-only member-match 제안은 `quarantine`으로 고정한 임시 preview 입력을 만든다.
 
-2026-08-10 read-only 전수 preflight는 활성 data source 90행을 확인했으나 `임명근거` 누락 58행, `임기 시작` 누락 27행, closed position map 누락 4행으로 `blocked_mapping`이었다. 일부 preview와 Development DB write는 0건이며 임시 관측/output 파일은 모두 부재를 확인했다. Exact commit `2c1aff5`는 로컬·Replit 집중 테스트 16/16과 Replit TypeScript 검사를 통과했다. 다음 단계는 누락값을 추정하지 않는 새 nullable-quarantine source contract와 기존 registry의 부산지부 4개 position code를 결합한 mapping/release amendment의 owner 승인이다.
+2026-08-10 read-only 전수 preflight는 활성 data source 90행에서 `임명근거` 누락 58행, `임기 시작` 누락 27행, closed position map 누락 4행을 먼저 차단했다. Owner가 위임한 safe-development 판단에 따라 기존 v2는 변경하지 않고 nullable unknown evidence와 부산지부의 기존 4개 position code를 결합한 v3를 append했다. 재조회에서 `졸업기수=대학원` 6행이 추가로 확인되어, 이를 숫자로 추정하지 않고 `generation=null`과 readable source snapshot/digest를 함께 보존하는 v4를 다시 append했다. v3·v4 release는 각각 `created → verified_noop`, receipt/entity/audit `1/1/1`, read-only `ROLLBACK`을 통과했다.
+
+최종 v4 전수 materialization과 Development preview는 90행/90개 name-only `quarantine` decision item을 생성하고 동일 입력에서 `created → verified_noop`을 재현했다. Exact graph는 coordinate/version/link `90/90/90`, operation receipt `1`, result entity/audit `362/362`, downstream business row 0을 확인했다. 관리자 review reader도 같은 decision set을 `previewed`, item 90, exact manifest/source fingerprint, terminal `ROLLBACK`으로 검증했다. 누락 날짜·임명근거는 계속 null이고, 어떤 회원 match·직책 assignment·source apply도 실행하지 않았다. Notion write는 0건이며 로컬/Replit 임시 관측·입력과 exact-commit worktree는 삭제 후 부재를 확인했다.
 
 ## 가역 rollout과 복원 검증 계약
 

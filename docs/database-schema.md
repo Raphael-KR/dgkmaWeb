@@ -15,6 +15,7 @@
 | Todo 18 first source-preview verification KST | `2026-08-10 16:53 KST +0900` |
 | Todo 18 source-decision reader verification KST | `2026-08-10 17:41 KST +0900` |
 | Todo 18 Notion role preflight KST | `2026-08-10 17:53 KST +0900` |
+| Todo 18 Notion role v4 preview verification KST | `2026-08-10 18:15 KST +0900` |
 | verified receipt commit | `4711badbb13e236df8a1f00f4f87156d31960d98` |
 | code status | verified |
 | Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
@@ -24,7 +25,7 @@
 | manifest SHA-256 | `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8` |
 | catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
 | Development evidence | uncommitted Todo 17 evidence; ledger `[1,10,15,20,30,40,50,60]`, catalog SHA `7115c2ceed89f693405303eae6ad826fc0aa98c764774e3f1832b333d385bd37`, transaction terminal `ROLLBACK` |
-| Development source/import state | verified: logical source 10, active release 20 (`v1=10`, admin-readable `v2=10`); import batch/decision set/item `2/2/0`; two policy previews coordinate/version/link `16/16/16`; preview operation receipt/entity/audit `2/52/52`; downstream/source-linked policy row `0/0`; both reruns `verified_noop`, verifier terminal `ROLLBACK` |
+| Development source/import state | verified: logical source 10, active release 22 (`v1=10`, admin-readable `v2=10`, Notion role nullable `v3=1`, generation-evidence `v4=1`); import batch/decision set/item `3/3/90`; all previews coordinate/version/link `106/106/106`; preview operation receipt/entity/audit `3/414/414`; downstream/source-linked policy row `0/0`; all reruns `verified_noop`, verifier terminal `ROLLBACK` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
 
@@ -32,7 +33,7 @@ Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a
 
 Production의 성공 catalog가 없으므로 Production schema, Development와의 일치, Production drift 유무를 주장하지 않는다.
 
-Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable release를 Development에 추가했다. 이후 owner가 관리자 가독형 source snapshot과 secretless domain-separated SHA-256, stable `member_uid` 경계를 승인해 10개 logical source 각각에 v2 immutable release를 append했다. v2 mapping·approval·schema·secret-free implementation closure는 checked-in descriptor에 결합되며 등록 명령은 `created → verified_noop`을 재현했다. 기존 v1 release는 이력으로 보존되지만 신규 import batch는 v2 descriptor만 선택한다. 이어 비개인정보 `LEDGER_DUES_POLICY_2024_2025` 10행과 `NOTION_DUES_REGULATION_DRAFT` 6행을 각각 durable preview로 등록했고 동일 입력은 모두 `created → verified_noop`이었다. 두 policy source는 decision item과 downstream/source-linked policy row를 만들지 않았으며, exact graph verifier는 각각 read-only `ROLLBACK`으로 끝났다. 관리자용 source-decision GET과 persisted-byte 검증 reader도 구현·Replit 검증됐고 두 policy set은 `previewed`, item 0, terminal `ROLLBACK`이었다. 이 route는 아직 개발 홈페이지 runtime에 활성화되지 않았다. Notion role data source 90행은 read-only 전수 preflight에서 appointment basis 58, effective-from 27, position map 4의 blocker가 확인되어 partial preview 없이 중단됐고 Development row는 추가되지 않았다. 외래교수회 26행의 50,000원 값은 계속 candidate-only다. `ACCOUNTING_PII_HMAC_KEY_V1`은 생성하거나 사용하지 않았다.
+Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable release를 Development에 추가했다. 이후 owner가 관리자 가독형 source snapshot과 secretless domain-separated SHA-256, stable `member_uid` 경계를 승인해 10개 logical source 각각에 v2 immutable release를 append했다. 기존 v1/v2 release는 모두 immutable 이력으로 보존한다. 비개인정보 `LEDGER_DUES_POLICY_2024_2025` 10행과 `NOTION_DUES_REGULATION_DRAFT` 6행은 각각 durable preview로 등록했고 decision item과 downstream/source-linked policy row는 만들지 않았다. 관리자용 source-decision GET과 persisted-byte 검증 reader도 구현·Replit 검증됐으며 route는 아직 개발 홈페이지 runtime에 활성화되지 않았다. Notion role 90행은 누락 사실을 추정하지 않는 v3와 `대학원` 6행 원문을 별도 snapshot/digest로 보존하는 v4 release를 순차 append한 뒤, v4로 90개 name-only quarantine preview를 생성했다. Exact graph는 row/item `90/90`, result/audit `362/362`, downstream 0이고 관리자 reader는 `previewed`, terminal `ROLLBACK`이었다. 회원 match·직책 assignment·source apply는 아직 0건이다. 외래교수회 26행의 50,000원 값은 계속 candidate-only다. `ACCOUNTING_PII_HMAC_KEY_V1`은 생성하거나 사용하지 않았다.
 
 ## 2. system and external boundaries
 
