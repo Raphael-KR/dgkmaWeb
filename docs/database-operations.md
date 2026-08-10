@@ -187,6 +187,23 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 등록기는 live frozen admin과 target fingerprint를 다시 검증하고 8개 release·operation receipt·result entity·audit event를 한 serializable transaction에 생성한다. 정확한 재실행은 `verified_noop`이어야 한다. Verifier는 `READ ONLY` transaction에서 total release 10, historical active 8, Todo 18 receipt/entity/audit `8/8/8`, import batch/decision set `0/0`을 요구하고 `ROLLBACK`으로 끝난다. 이 명령은 source batch preview나 business data apply를 승인하지 않는다.
 
+### 관리자 가독형 v2 source release
+
+Owner가 승인한 v2는 업무상 필요한 이름·입금자명·적요의 immutable source snapshot과 secretless domain-separated SHA-256 key digest를 함께 사용한다. 회원의 개명 전후 연속성은 이름 digest가 아니라 stable `member_uid`가 담당한다. 전화번호·주소·계좌번호·CMS 코드·receipt URL·provider body는 계속 제외하고, decision manifest·operation receipt·로그에는 snapshot을 직렬화하지 않는다. `ACCOUNTING_PII_HMAC_KEY_V1` Secret은 필요하지 않으며 생성하거나 전달하지 않는다.
+
+```bash
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/register-admin-readable-source-releases-v2.ts \
+  --target development \
+  --plan docs/source-contracts/releases/admin-readable-development-source-release-plan-v2.json \
+  --actor-receipt docs/database-targets/development-admin-approved.json
+
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/verify-admin-readable-source-releases-v2.ts
+```
+
+등록기는 기존 v1 active release가 source별 정확히 하나이고 import batch가 아직 없는 baseline에서만 10개 v2 release·operation receipt·result entity·audit event를 한 serializable transaction에 append한다. 부분 v2 상태는 fail closed한다. 실행 결과는 `created → verified_noop`이어야 한다. 읽기 전용 verifier는 total release 20, v1/v2 active `10/10`, v2 receipt/entity/audit `10/10/10`, import batch/decision set `0/0`을 확인하고 `ROLLBACK`으로 끝난다. 기존 v1은 immutable 이력이며, 이후 batch preview는 승인된 v2 descriptor를 명시적으로 선택해야 한다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.

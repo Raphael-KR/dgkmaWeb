@@ -28,15 +28,18 @@ async function register(pool: Pool, targetFingerprint: string) {
     const locked = await client.query<{ name: string }>("SELECT name FROM public.users WHERE id=$1 AND user_uid=$2::uuid AND is_admin=true FOR UPDATE", [actor.userId, actor.userUid]);
     if (locked.rowCount !== 1) throw new Error("blocked_actor");
     const sourceCodes = operations.map((entry) => String(entry.source_code));
-    const preflight = await client.query<{ all_active: number; v2_exact: number }>(`
+    const preflight = await client.query<{ all_active: number; v2_exact: number; import_batches: number; decision_sets: number }>(`
       SELECT
         count(*)::int AS all_active,
-        count(*) FILTER (WHERE r.adapter_version='2.0.0')::int AS v2_exact
+        count(*) FILTER (WHERE r.adapter_version='2.0.0')::int AS v2_exact,
+        (SELECT count(*)::int FROM public.accounting_import_batches) AS import_batches,
+        (SELECT count(*)::int FROM public.source_decision_sets) AS decision_sets
       FROM public.accounting_source_releases r
       JOIN public.accounting_logical_sources s ON s.id=r.logical_source_id
       WHERE s.source_code=ANY($1::text[]) AND r.status='active'
     `, [sourceCodes]);
     if (![0, 10].includes(preflight.rows[0].v2_exact)) throw new Error("admin_readable_release_partial_drift");
+    if (preflight.rows[0].import_batches !== 0 || preflight.rows[0].decision_sets !== 0) throw new Error("admin_readable_release_import_already_started");
     if (preflight.rows[0].v2_exact === 0 && preflight.rows[0].all_active !== 10) throw new Error("admin_readable_release_v1_baseline_mismatch");
     if (preflight.rows[0].v2_exact === 10 && preflight.rows[0].all_active !== 20) throw new Error("admin_readable_release_retry_baseline_mismatch");
     let created = 0;
