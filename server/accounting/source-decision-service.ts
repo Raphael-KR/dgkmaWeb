@@ -8,6 +8,8 @@ import { executeGroupBatchTransitions } from "./source-decision-group-transition
 import { executeGroupSourceSpines } from "./source-decision-group-source-spine";
 import { executeGroupFinancialGraphs } from "./source-decision-group-financial";
 import { insertGroupMaterializationAudits } from "./source-decision-group-audit";
+import { loadRoleApplyPlans } from "./source-decision-role-plan";
+import { executeRoleMaterialization, projectRoleOperation, reserveRoleExecution } from "./source-decision-role-materialization";
 
 type JsonObject = Record<string, CanonicalValue>;
 export type SourceDecisionActor = {
@@ -162,9 +164,13 @@ export async function decideSourcePreview(
       groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, batchId:row.batch_id, decisionSetId:row.id, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
       if (groupPlan){await assertGroupClaimVersionContract(client);await assertGroupMemberVersionContract(client);}
     }
+    const rolePlans = command.decision === "approve" && !groupPlan
+      ? await loadRoleApplyPlans(client, row.source_code, String(command.operationUid), itemResult.rows.filter((item) => item.decision_kind === "member_match").map((item) => ({ decisionItemId:item.id, coordinateId:item.coordinate_id, coordinateKey:item.coordinate_key, sourceRowVersionId:item.source_row_version_id, contentDigest:item.content_digest, normalizedPayload:item.normalized_payload, decisionPayload:item.decision_payload })))
+      : [];
+    const roleCoordinates = new Set(rolePlans.map((plan) => plan.coordinateKey));
     const periodPlans: PeriodPlan[] = [];
     if (command.decision === "approve" && !groupPlan) for (const item of itemResult.rows) {
-      if (item.decision_payload.outcome === "quarantine") continue;
+      if (item.decision_payload.outcome === "quarantine" || item.decision_payload.outcome === "reject" || roleCoordinates.has(item.coordinate_key) && item.decision_kind === "member_match") continue;
       if (item.decision_kind !== "period_materialization" || item.decision_payload.outcome !== "approve") fail("source_decision_nonquarantine_apply_not_implemented");
       if (!['AGM36_PERIOD_BOUNDARY','LEDGER_FINAL_2022_2025'].includes(row.source_code)) fail("source_decision_period_source_family_mismatch");
       const payload = item.decision_payload; const periodCode = payload.period_code; const startsAt = payload.starts_at; const endsAt = payload.ends_at; const boundarySourceCode = payload.boundary_source_code; const boundaryCoordinateKey = payload.boundary_coordinate_key; const boundaryContentDigest = payload.boundary_content_digest;
@@ -180,6 +186,10 @@ export async function decideSourcePreview(
     if(groupPlan){
       const reservation=await reserveGroupExecutionReservationFromDatabase(client,groupPlan,String(command.operationUid));const projection=buildGroupOperationProjection(reservation);const results=projection.expectedResults.map((result)=>({ordinal:result.ordinal,entity_type:result.entityType,entity_key:result.entityKey,entity_action:result.entityAction,action_correlation_uid:result.actionCorrelationUid}));const slots=projection.reservationSlots.map((slot)=>({slot_ordinal:slot.slotOrdinal,phase:slot.phase,result_ordinal:slot.resultOrdinal,slot_kind:slot.slotKind,slot_kind_order:slot.slotKindOrder,qualified_table_name:slot.qualifiedTableName,local_ordinal:slot.localOrdinal,sequence_name:slot.sequenceName,reserved_id:slot.reservedId}));const materializationActor={userId:actor.userId,userUid:actor.userUid,name:liveActor.rows[0].name,authorizationVersion:actor.authorizationVersion};
       await insertOperation(client,command,actor,approvalReceipt,results,slots,reservation.operationReceiptId);await executeGroupBatchTransitions(client,groupPlan,reservation,materializationActor,decidedAt);const spines=await executeGroupSourceSpines(client,groupPlan,reservation,materializationActor,decidedAt);await executeGroupFinancialGraphs(client,groupPlan,reservation,spines,materializationActor,decidedAt);await insertGroupMaterializationAudits(client,groupPlan,reservation,materializationActor,decidedAt);await client.query("COMMIT");return approvalReceipt;
+    }
+    if(rolePlans.length>0){
+      const reservation=await reserveRoleExecution(client,rolePlans,String(command.operationUid),decisionSetUid,row.batch_uid,row.id,row.batch_id);const projection=projectRoleOperation(reservation);const materializationActor={userId:actor.userId,userUid:actor.userUid,name:liveActor.rows[0].name,authorizationVersion:actor.authorizationVersion};
+      await insertOperation(client,command,actor,approvalReceipt,projection.expectedResults,projection.reservationSlots,reservation.operationReceiptId);await executeRoleMaterialization(client,rolePlans,reservation,materializationActor,decidedAt,decisionSetUid,row.batch_uid);await client.query("COMMIT");return approvalReceipt;
     }
     const receiptId = await reserve(client, "business_operation_receipts"); const plans: Array<{ id: string; table: string; entityType: string; entityKey: string; action: string; correlationUid: string; auditId: string; auditEventUid: string; after: JsonObject }> = [];
     if (command.decision === "approve") {
