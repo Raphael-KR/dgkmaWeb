@@ -38,7 +38,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
         (SELECT count(*)::int FROM public.accounting_logical_sources) AS logical_sources,
         (SELECT count(*)::int FROM public.accounting_source_releases) AS source_releases,
         (SELECT count(*)::int FROM public.accounting_source_releases
-          WHERE adapter_code IN ('membership-integrated-address-book-v1','notion-organization-role-history-v1')) AS seed_source_releases,
+          WHERE adapter_version='1.0.0'
+            AND adapter_code IN ('membership-integrated-address-book-v1','notion-organization-role-history-v1')) AS seed_source_releases,
         (SELECT count(*)::int FROM public.accounting_source_releases release
           JOIN public.accounting_logical_sources source ON source.id=release.logical_source_id
           WHERE source.source_code NOT IN ('MEMBERSHIP_INTEGRATED_ADDRESS_BOOK','NOTION_ORGANIZATION_ROLE_HISTORY')) AS historical_source_releases,
@@ -52,7 +53,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
         (SELECT count(*)::int FROM public.accounting_categories c WHERE c.status='approved'
           AND NOT EXISTS (SELECT 1 FROM public.accounting_categories child WHERE child.supersedes_id=c.id)) AS approved_category_tips,
         (SELECT array_agg(adapter_code ORDER BY adapter_code) FROM public.accounting_source_releases
-          WHERE adapter_code IN ('membership-integrated-address-book-v1','notion-organization-role-history-v1')) AS release_codes
+          WHERE adapter_version='1.0.0'
+            AND adapter_code IN ('membership-integrated-address-book-v1','notion-organization-role-history-v1')) AS release_codes
     `);
     const transaction = await pool.query<{ read_only: string; isolation: string }>(`
       SELECT current_setting('transaction_read_only') AS read_only,
