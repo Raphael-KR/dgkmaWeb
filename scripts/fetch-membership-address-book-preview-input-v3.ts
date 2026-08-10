@@ -28,17 +28,18 @@ async function main() {
   const credentials = { type: "service_account", project_id: "dynamic-waters-446615-e5", private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"), client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL, token_uri: "https://oauth2.googleapis.com/token" };
   if (!credentials.private_key || !credentials.client_email) fail("google_service_account_unavailable");
   const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly", "https://www.googleapis.com/auth/drive.metadata.readonly"] });
-  const [driveResult, sheetResult, valuesResult] = await Promise.all([
+  const [driveResult, sheetResult, sentinelResult, valuesResult] = await Promise.all([
     google.drive({ version: "v3", auth }).files.get({ fileId: SPREADSHEET_ID, fields: "version,modifiedTime" }),
     google.sheets({ version: "v4", auth }).spreadsheets.get({ spreadsheetId: SPREADSHEET_ID, fields: "sheets(properties(sheetId,title,gridProperties(rowCount,columnCount)))" }),
+    google.sheets({ version: "v4", auth }).spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "'통합주소록'!A1:L10" }),
     google.sheets({ version: "v4", auth }).spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: RANGE, valueRenderOption: "UNFORMATTED_VALUE", dateTimeRenderOption: "SERIAL_NUMBER" }),
   ]);
   const revision = `drive-version:${driveResult.data.version};modified:${driveResult.data.modifiedTime}`;
   if (revision !== profile.source_revision) fail("membership_address_book_source_profile_stale");
   const tabProfile = profile.tabs[0]; const tabs = (sheetResult.data.sheets ?? []).filter((sheet) => sheet.properties?.sheetId === SHEET_ID);
   if (profile.tabs.length !== 1 || tabs.length !== 1 || tabProfile.tab_id !== String(SHEET_ID) || tabProfile.title !== TITLE || tabs[0].properties?.title !== TITLE || tabs[0].properties?.gridProperties?.rowCount !== tabProfile.max_row || tabs[0].properties?.gridProperties?.columnCount !== tabProfile.max_column) fail("membership_address_book_tab_profile_drift");
-  const providerRows = valuesResult.data.values ?? [];
-  for (const candidate of tabProfile.header_candidates) if (sha(providerRows[candidate.row - 1] ?? []) !== candidate.values_sha256) fail("membership_address_book_header_candidate_drift");
+  const providerRows = valuesResult.data.values ?? []; const sentinelRows = sentinelResult.data.values ?? [];
+  for (const candidate of tabProfile.header_candidates) if (sha(sentinelRows[candidate.row - 1] ?? []) !== candidate.values_sha256) fail("membership_address_book_header_candidate_drift");
   const headers = (providerRows[0] ?? []).map(text); const required = ["성명", "기수", "입학일자", "졸업일자", "그룹", "상태"];
   const indices: Record<string, number> = {};
   for (const header of required) { const found = headers.flatMap((value, index) => value === header ? [index] : []); if (found.length !== 1) fail("membership_address_book_header_contract_mismatch"); indices[header] = found[0]; }
