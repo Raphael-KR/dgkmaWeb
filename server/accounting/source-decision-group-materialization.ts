@@ -26,9 +26,9 @@ export function buildGroupMaterializationTopology(plan: GroupMultiBatchApplyPlan
   const add = (key: string, table: string, dependsOn: string[]) => steps.push({ key, table, action: "create", dependsOn });
   const groups = [...plan.groups].sort((left, right) => compare(left.primaryCoordinateKey, right.primaryCoordinateKey));
   for (const group of groups) {
+    claim("party", group.eventPartyUid); claim("receipt", group.receiptUid);
     const categoryBindings = plan.resolvedBindings.categoryIdsByCoordinate[group.primaryCoordinateKey];
     if (!(group.eventPartyUid in plan.resolvedBindings.eventPartyIdsByUid) || group.allocations.some((allocation) => !plan.resolvedBindings!.memberIdsByUid[allocation.memberUid]) || !categoryBindings || group.categorySplits.some((split) => !categoryBindings[split.categoryCode]) || !plan.resolvedBindings.periodIdsByCoordinate[group.primaryCoordinateKey] || !plan.resolvedBindings.financialDigestsByCoordinate[group.primaryCoordinateKey]) fail("source_decision_group_materialization_binding_missing");
-    claim("party", group.eventPartyUid); claim("receipt", group.receiptUid);
     const prefix = `group:${group.primaryCoordinateKey}`;
     const party = `${prefix}:party`; const alias = `${prefix}:alias`; const classification = `${prefix}:classification`; const openClaim = `${prefix}:claim-open`; const event = `${prefix}:event`; const boundClaim = `${prefix}:claim-bound`; const provenance = `${prefix}:provenance`; const authority = `${prefix}:authority`; const transaction = `${prefix}:bank-transaction`; const receipt = `${prefix}:receipt`; const paymentGroup = `${prefix}:payment-group`;
     if (plan.resolvedBindings.eventPartyIdsByUid[group.eventPartyUid] === null) add(party, "economic_event_parties", []);
