@@ -13,7 +13,8 @@ export type GroupMaterializationStep = {
   categoryCode: string | null;
   dependsOn: string[];
 };
-export type GroupReservationBlueprint = { businessRows: Array<{ stepKey: string; table: string }>; transitionAuditKeys: string[]; sequenceTables: string[] };
+export type GroupReservationSlot = { phase: 0 | 10 | 30; resultOrdinal: number; slotKind: "receipt" | "business" | "audit"; table: string; actionKey: string | null };
+export type GroupReservationBlueprint = { businessRows: Array<{ stepKey: string; table: string; resultOrdinal: number }>; transitionAuditKeys: string[]; sequenceSlots: GroupReservationSlot[]; sequenceTables: string[] };
 export type GroupExecutionReservation = {
   operationReceiptId: string;
   transitionAudits: GroupBoundAction[];
@@ -127,22 +128,31 @@ export function buildGroupReservationBlueprint(plan: GroupMultiBatchApplyPlan): 
     ...plan.orderedDecisionSetUids.map((uid) => `decision-set:${uid}:approve`),
     ...plan.orderedBatchUids.map((uid) => `batch:${uid}:apply`),
   ];
-  const businessRows = steps.filter((step) => step.rowMode === "insert").map((step) => ({ stepKey: step.key, table: step.table }));
-  const actionAuditCount = steps.length + transitionAuditKeys.length;
-  const expectedSequenceTables = ["business_operation_receipts", ...businessRows.map((row) => row.table), ...Array.from({ length: actionAuditCount }, () => "accounting_audit_events")];
+  const resultKeys = [
+    ...transitionAuditKeys.map((key) => ({ actionKey: key, entityType: key.startsWith("decision-set:") ? "source_decision_set" : "import_batch", entityKey: key.slice(0, key.lastIndexOf(":")), action: key.startsWith("decision-set:") ? "approve" : "apply" })),
+    ...steps.map((step) => ({ actionKey: step.key, entityType: ENTITY_TYPE_BY_TABLE[step.table], entityKey: step.key, action: step.action })),
+  ].sort((left,right)=>compare(resultSortKey(left),resultSortKey(right)));
+  if (resultKeys.some((result) => !result.entityType) || new Set(resultKeys.map((result) => result.actionKey)).size !== resultKeys.length) fail("source_decision_group_reservation_blueprint_invalid");
+  const resultOrdinalByActionKey=Object.fromEntries(resultKeys.map((result,index)=>[result.actionKey,index+1]));
+  const businessRows = steps.filter((step) => step.rowMode === "insert").map((step) => ({ stepKey: step.key, table: step.table, resultOrdinal: resultOrdinalByActionKey[step.key] })).sort((left,right)=>left.resultOrdinal-right.resultOrdinal||compare(left.table,right.table)||compare(left.stepKey,right.stepKey));
+  const sequenceSlots:GroupReservationSlot[]=[
+    {phase:0,resultOrdinal:0,slotKind:"receipt",table:"business_operation_receipts",actionKey:null},
+    ...businessRows.map((row)=>({phase:10 as const,resultOrdinal:row.resultOrdinal,slotKind:"business" as const,table:row.table,actionKey:row.stepKey})),
+    ...resultKeys.map((result,index)=>({phase:30 as const,resultOrdinal:index+1,slotKind:"audit" as const,table:"accounting_audit_events",actionKey:result.actionKey})),
+  ];
+  const expectedSequenceTables = sequenceSlots.map((slot)=>slot.table);
   if (new Set(transitionAuditKeys).size !== transitionAuditKeys.length || businessRows.some((row, index) => index > 0 && row.stepKey === businessRows[index - 1].stepKey)) fail("source_decision_group_reservation_blueprint_invalid");
-  return { businessRows, transitionAuditKeys, sequenceTables: expectedSequenceTables };
+  return { businessRows, transitionAuditKeys, sequenceSlots, sequenceTables: expectedSequenceTables };
 }
 
 export function bindGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, operationUid: string, reservedIds: string[]): GroupExecutionReservation {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(operationUid)) fail("source_decision_group_operation_uid_invalid");
   const topology=buildGroupMaterializationTopology(plan);const blueprint=buildGroupReservationBlueprint(plan);
   if(reservedIds.length!==blueprint.sequenceTables.length||reservedIds.some((id)=>!/^[1-9][0-9]*$/.test(id))||new Set(reservedIds).size!==reservedIds.length)fail("source_decision_group_reservation_count_mismatch");
-  let cursor=0;const operationReceiptId=reservedIds[cursor++];const rowIdsByStep:Record<string,string>={};
-  for(const row of blueprint.businessRows)rowIdsByStep[row.stepKey]=reservedIds[cursor++];
-  const transitionAudits=blueprint.transitionAuditKeys.map((key,index)=>{const decision=key.startsWith("decision-set:");const value=key.slice(decision?"decision-set:".length:"batch:".length,key.lastIndexOf(":"));return {key,entityType:decision?"source_decision_set":"import_batch",entityKey:`${decision?"decision-set":"batch"}:${value}`,action:decision?"approve":"apply",auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-transition\n${key}`),executionOrdinal:index+1,resultOrdinal:0};});
-  const steps=topology.map((step,index)=>{const own=rowIdsByStep[step.key];const target=step.targetStepKey?rowIdsByStep[step.targetStepKey]:null;const rowId=step.rowMode==="insert"?own:target;const entityType=ENTITY_TYPE_BY_TABLE[step.table];if(!rowId||step.targetStepKey&&!target||!entityType)fail("source_decision_group_reservation_target_missing");return {...step,rowId,targetRowId:target,entityType,entityKey:step.key,action:step.action,auditId:reservedIds[cursor++],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-step\n${step.key}\n${step.action}`),executionOrdinal:transitionAudits.length+index+1,resultOrdinal:0};});
-  if(cursor!==reservedIds.length)fail("source_decision_group_reservation_count_mismatch");
+  const operationReceiptId=reservedIds[0];const rowIdsByStep:Record<string,string>={};const auditIdsByAction:Record<string,string>={};
+  blueprint.sequenceSlots.forEach((slot,index)=>{if(slot.slotKind==="business"&&slot.actionKey)rowIdsByStep[slot.actionKey]=reservedIds[index];if(slot.slotKind==="audit"&&slot.actionKey)auditIdsByAction[slot.actionKey]=reservedIds[index];});
+  const transitionAudits=blueprint.transitionAuditKeys.map((key,index)=>{const decision=key.startsWith("decision-set:");const value=key.slice(decision?"decision-set:".length:"batch:".length,key.lastIndexOf(":"));const auditId=auditIdsByAction[key];if(!auditId)fail("source_decision_group_reservation_target_missing");return {key,entityType:decision?"source_decision_set":"import_batch",entityKey:`${decision?"decision-set":"batch"}:${value}`,action:decision?"approve":"apply",auditId,correlationUid:deterministicUuidV4(`${operationUid}\ngroup-transition\n${key}`),executionOrdinal:index+1,resultOrdinal:0};});
+  const steps=topology.map((step,index)=>{const own=rowIdsByStep[step.key];const target=step.targetStepKey?rowIdsByStep[step.targetStepKey]:null;const rowId=step.rowMode==="insert"?own:target;const entityType=ENTITY_TYPE_BY_TABLE[step.table];if(!rowId||step.targetStepKey&&!target||!entityType||!auditIdsByAction[step.key])fail("source_decision_group_reservation_target_missing");return {...step,rowId,targetRowId:target,entityType,entityKey:step.key,action:step.action,auditId:auditIdsByAction[step.key],correlationUid:deterministicUuidV4(`${operationUid}\ngroup-step\n${step.key}\n${step.action}`),executionOrdinal:transitionAudits.length+index+1,resultOrdinal:0};});
   const actions:GroupBoundAction[]=[...transitionAudits,...steps];const sorted=[...actions].sort((left,right)=>compare(resultSortKey(left),resultSortKey(right)));sorted.forEach((action,index)=>{action.resultOrdinal=index+1;});
   if(new Set(actions.map((action)=>action.correlationUid)).size!==actions.length||new Set(actions.map((action)=>action.resultOrdinal)).size!==actions.length)fail("source_decision_group_result_bijection_invalid");
   return {operationReceiptId,transitionAudits,steps};

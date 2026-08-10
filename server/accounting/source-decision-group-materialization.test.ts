@@ -50,6 +50,10 @@ test("fails closed when explicit source metadata does not match the target table
 test("builds one deterministic reservation for every new row and audit", () => {
   const blueprint = buildGroupReservationBlueprint(plan); const steps = buildGroupMaterializationTopology(plan);
   assert.equal(blueprint.businessRows.length, steps.filter((step) => step.rowMode === "insert").length); assert.ok(blueprint.businessRows.length < steps.length); assert.equal(blueprint.transitionAuditKeys.length, 4); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 4); assert.equal(blueprint.sequenceTables.length, 1 + blueprint.businessRows.length + steps.length + 4); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
+  assert.deepEqual(blueprint.sequenceSlots.map((slot) => slot.phase), [0, ...Array(blueprint.businessRows.length).fill(10), ...Array(steps.length + 4).fill(30)]);
+  assert.deepEqual(blueprint.businessRows.map((row) => row.resultOrdinal), [...blueprint.businessRows.map((row) => row.resultOrdinal)].sort((left, right) => left - right));
+  assert.deepEqual(blueprint.sequenceSlots.filter((slot) => slot.slotKind === "audit").map((slot) => slot.resultOrdinal), Array.from({ length: steps.length + 4 }, (_, index) => index + 1));
+  assert.equal(new Set(blueprint.sequenceSlots.filter((slot) => slot.actionKey !== null).map((slot) => `${slot.slotKind}:${slot.actionKey}`)).size, blueprint.sequenceSlots.length - 1);
 });
 
 test("binds every insert, update target, audit, and correlation without ambiguity", () => {
