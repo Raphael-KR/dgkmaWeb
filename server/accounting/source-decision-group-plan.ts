@@ -13,6 +13,9 @@ export type GroupMultiBatchApplyPlan = {
     eventPartyUid: string;
     receiptUid: string;
     rosterBatchUid: string;
+    classificationKind: string;
+    classificationDecisionPayloadSha256: string;
+    duesYear: number;
     duesAmount: string;
     approvedAllocationAmount: string;
     categorySplits: Array<{ categoryCode: string; amount: string }>;
@@ -90,7 +93,8 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       approvedAllocationAmount += amount; approvedCount += 1;
     }
     if (approvedCount === 0 || approvedAllocationAmount !== duesAmount) fail("source_decision_group_allocation_total_mismatch");
-    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString(), categorySplits, eventAmount: eventAmount.toString(), occurredAt, postedDate, primaryEvidence: item.evidence, allocations };
+    if(!Number.isInteger(payload.dues_year_or_null)||Number(payload.dues_year_or_null)<=0)fail("source_decision_group_primary_shape_invalid");
+    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, classificationKind:String(payload.classification_kind), classificationDecisionPayloadSha256:sha256(canonicalJson(payload)), duesYear:Number(payload.dues_year_or_null), duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString(), categorySplits, eventAmount: eventAmount.toString(), occurredAt, postedDate, primaryEvidence: item.evidence, allocations };
   });
   if (seenCompanions.size !== companionByBatch.size) fail("source_decision_group_unreferenced_companion");
   const orderedCompanions = [...companions].sort((left, right) => Buffer.compare(Buffer.from(left.batchUid), Buffer.from(right.batchUid)));
