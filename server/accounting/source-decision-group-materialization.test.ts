@@ -17,17 +17,18 @@ const plan: GroupMultiBatchApplyPlan = {
 test("builds the exact dependency-ordered group materialization topology", () => {
   const steps = buildGroupMaterializationTopology(plan); const repeated = buildGroupMaterializationTopology(plan); const index = (key: string) => steps.findIndex((step) => step.key.endsWith(key));
   assert.deepEqual(repeated, steps);
-  assert.ok(index(":party") < index(":alias")); assert.ok(index(":alias") < index(":classification")); assert.ok(index(":claim-open") < index(":event")); assert.ok(index(":event") < index(":claim-bound")); assert.ok(index(":claim-bound") < index(":provenance")); assert.ok(index(":provenance") < index(":authority")); assert.ok(index(":authority") < index(":bank-transaction")); assert.ok(index(":receipt") < index(":payment-group")); assert.ok(index(":match-case") < index(":match-candidate")); assert.ok(index(":match-candidate") < index(":group-member")); assert.ok(index(":group-member") < index(":allocation"));
+  assert.ok(index(":party") < index(":alias")); assert.ok(index(":alias") < index(":classification")); assert.ok(index(":claim-open") < index(":event-create")); assert.ok(index(":event-create") < index(":claim-bound")); assert.ok(index(":claim-bound") < index(":provenance")); assert.ok(index(":provenance") < index(":authority")); assert.ok(index(":authority") < index(":bank-transaction")); assert.ok(index(":receipt-create") < index(":payment-group-create"));
+  assert.ok(index(":match-case-create") < index(":match-candidate-create")); assert.ok(index(":match-candidate-create") < index(":group-member-create")); assert.ok(index(":group-member-create") < index(":match-candidate-approve")); assert.ok(index(":match-candidate-approve") < index(":match-case-approve")); assert.ok(index(":match-case-approve") < index(":group-member-approve")); assert.ok(index(":group-member-approve") < index(":allocation-create")); assert.ok(index(":allocation-create") < index(":allocation-approve")); assert.ok(index(":allocation-approve") < index(":receipt-approve")); assert.ok(index(":receipt-approve") < index(":payment-group-approve")); assert.ok(index(":payment-group-approve") < index(":event-approve"));
 });
 
 test("fails closed when a dependency is moved after its consumer", () => {
-  const steps = buildGroupMaterializationTopology(plan); const reversed = [...steps]; const eventIndex = reversed.findIndex((step) => step.key.endsWith(":event")); const [event] = reversed.splice(eventIndex, 1); reversed.push(event);
+  const steps = buildGroupMaterializationTopology(plan); const reversed = [...steps]; const eventIndex = reversed.findIndex((step) => step.key.endsWith(":event-create")); const [event] = reversed.splice(eventIndex, 1); reversed.push(event);
   assert.throws(() => validateGroupMaterializationTopology(reversed), /materialization_topology_invalid/);
 });
 
 test("builds one deterministic reservation for every new row and audit", () => {
   const blueprint = buildGroupReservationBlueprint(plan); const steps = buildGroupMaterializationTopology(plan);
-  assert.equal(blueprint.businessRows.length, steps.length); assert.equal(blueprint.transitionAuditKeys.length, 4); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 4); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
+  assert.equal(blueprint.businessRows.length, steps.filter((step) => step.rowMode === "insert").length); assert.ok(blueprint.businessRows.length < steps.length); assert.equal(blueprint.transitionAuditKeys.length, 4); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 4); assert.equal(blueprint.sequenceTables.length, 1 + blueprint.businessRows.length + steps.length + 4); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
 });
 
 test("rejects stable identity reuse before reservations", () => {
