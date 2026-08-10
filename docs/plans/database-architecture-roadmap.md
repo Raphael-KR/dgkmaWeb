@@ -39,6 +39,8 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 
 - 외래교수회 26개 행의 각 50,000원은 후보일 뿐 자동 배분 근거가 아니다. 실제 `include|reject|quarantine`, 총액 KRW 1,300,000 일치, primary bank receipt와 companion roster 결합은 별도 source-decision 승인을 요구한다.
 - 현재 실제 preview의 제안값은 `AGM36_PERIOD_BOUNDARY` approve 2, `LEDGER_FINAL_2022_2025` approve 4/quarantine 3,014, 나머지 decision item 6,988개 quarantine이다. 이는 deterministic preview이지 운영 승인이나 apply가 아니다.
+- PII-free read-only 충돌 점검에서 기존 period는 0개였다. 승인 후보 6개는 `CALENDAR_2022`–`CALENDAR_2025`, `PRE_AGM36_2026`, `AGM36_TO_AGM37`이며 코드 충돌이 없다.
+- 다음 단일 운영안은 exact commit `85ee71c`를 Development에만 활성화하고, 저장된 관리자 세션의 authenticated GET/POST로 외래교수회 companion을 제외한 8개 preview를 그대로 승인·적용하는 것이다. 예상 결과는 batch/set `8/8 applied/approved`, 외래교수회 `1/1 previewed`, period 6개 생성, 나머지 회원·직책·financial downstream 0, 동일 POST replay no-op이다. 외래교수회는 exact primary bank receipt 결정 전 direct companion apply 금지를 유지한다. GUI saved-session 사용과 Development restart가 필요하므로 명시 승인 전에는 실행하지 않는다.
 - 그 전까지 Codex는 synthetic/disposable 검증, Development additive schema, read-only preflight, deterministic preview, 테스트·문서·Git/GitHub 작업을 계속한다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
 
