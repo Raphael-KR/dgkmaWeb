@@ -272,6 +272,12 @@ Exact commit `6f25d98c1cad365fe4957132fdcfb66d571ebbd5`의 Replit 격리 worktre
 
 Exact commit `b03ad713dc9320012a43369a7e2613e5567c11fb`의 Replit 격리 worktree에서 테스트 `9/9`, `tsc --noEmit`를 통과했다. Source fingerprint `3f16d3f6e3a4d180ab0f0713af357d3b0127d9459a8487002d4a7d20f3d93adf`, batch `6e6fa058-8820-4305-8a38-5a4d95abe39d`, decision set `6b296442-8e87-4d96-aa2a-47c73c348bef`는 Development에서 `created → verified_noop`을 재현했다. Verifier와 관리자 reader는 row/link/item `2/2/2`, operation receipt `1`, result entity/audit `10/10`, downstream period 0, `previewed`, exact manifest/source fingerprint, terminal `ROLLBACK`을 확인했다. Period apply, external write, Production 작업은 0건이고 임시 입력과 Replit worktree는 삭제 후 부재를 확인했다.
 
+### Finalized ledger v3 preview
+
+기존 `LEDGER_FINAL_2022_2025` v1/v2 release는 immutable 이력으로 남긴다. Read-only preflight는 Drive revision `20`이 승인 profile과 같고 7개 거래 block의 필수 header·금액·설명·방향 근거가 전부 존재함을 확인했지만, 기존 profile의 5개 header hash는 동일 API bytes에서 재현되지 않았다. 또한 2022·2023 좌·우 block은 같은 sheet row를 공유하므로 기존 `sheet_id:row`만으로는 좌표가 충돌한다. Delegated safe-development decision으로 v3는 재현 가능한 observed header hash, `sheet_id:selector_code:row` 좌표, Google serial·점표기·ISO·한국어 오전/오후 날짜 parser를 사용한다. 경제행의 category·party·event kind는 추정하지 않고 전부 `classification:quarantine`이며, 2022–2025 달력 경계만 `period_materialization:approve` 후보다.
+
+Exact commit `8844013`에서 v3 release `6ec542d2-61e4-41ed-8813-946297185a99`는 Development에 `created → verified_noop`으로 등록됐고 read-only verifier가 v1/v2/v3 `1/1/1`, receipt/entity/audit `1/1/1`, batch 0, terminal `ROLLBACK`을 확인했다. Exact preview commit `f549e7c`에서 집중 테스트 `12/12`와 `tsc --noEmit`를 통과했다. Source fingerprint `3a47e4238d73f6c5abb360f6b60ca8c395d63231623d21d6afe9a55e78da76b2`, batch `27be5ade-4b78-4772-8e19-4ea19d2260d7`, decision set `0f85f7cc-dbde-45cc-97cc-85fe6a59be4f`는 `created → verified_noop`을 재현했다. Verifier와 관리자 reader는 row/coordinate/version/link/item `3018/3018/3018/3018/3018`, operation receipt `1`, result entity/audit `12074/12074`, 경제행 quarantine `3014`, period 후보 `4`, downstream classification/economic event/period `0/0/0`, `previewed`, terminal `ROLLBACK`을 확인했다. 원본 Sheet write와 source apply는 0건이며 mode-0600 임시 입력과 Replit 격리 worktree는 삭제 후 부재를 확인했다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
