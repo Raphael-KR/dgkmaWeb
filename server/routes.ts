@@ -1,6 +1,7 @@
 import type { Express, Request, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
   AlumniSyncBlockedError,
   AlumniSyncFingerprintMismatchError,
@@ -66,6 +67,7 @@ import {
   type KakaoOAuthGeneration,
 } from "./kakao-identity";
 import { isConfiguredKakaoAdministrator } from "./kakao-admin-allowlist";
+import { readSourceDecisionReview, type SourceDecisionReview } from "./accounting/source-decision-review";
 
 declare module "express-session" {
   interface SessionData {
@@ -164,7 +166,21 @@ export type RouteDependencies = {
   eventParseTimeoutMs?: number;
   eventParseLimiter?: RequestHandler;
   isKakaoAdministrator?: (kakaoId: string) => boolean;
+  getSourceDecisionAdmin?: (userId: number) => Promise<{ id: number; userUid: string; isAdmin?: boolean | null } | undefined>;
+  sourceDecisionAdminReceipt?: { userId: number; userUid: string };
+  sourceDecisionReviewReader?: (decisionSetUid: string) => Promise<SourceDecisionReview | undefined>;
 };
+
+function requestHostOrigin(req: Request): string | undefined {
+  const host = req.get("host"); if (!host) return undefined;
+  const forwarded = req.get("x-forwarded-proto")?.split(",", 1)[0].trim();
+  return `${forwarded || req.protocol}://${host}`;
+}
+
+function hasTrustedSameOrigin(req: Request): boolean {
+  const origin = req.get("origin"); const hostOrigin = requestHostOrigin(req); const fetchSite = req.get("sec-fetch-site");
+  return Boolean(origin && hostOrigin && origin === hostOrigin && ["same-origin", "same-site"].includes(fetchSite ?? ""));
+}
 
 function saveSession(req: Request): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -225,6 +241,20 @@ export async function registerRoutes(
     ?? (() => resolveKakaoAdminConfig());
   const isKakaoAdministrator = dependencies.isKakaoAdministrator
     ?? isConfiguredKakaoAdministrator;
+  const getSourceDecisionAdmin = dependencies.getSourceDecisionAdmin
+    ?? (async (userId: number) => {
+      const { pool } = await import("./db");
+      const result = await pool.query<{ id: number; user_uid: string; is_admin: boolean }>("SELECT id,user_uid::text,is_admin FROM public.users WHERE id=$1", [userId]);
+      const user = result.rows[0]; return user ? { id: user.id, userUid: user.user_uid, isAdmin: user.is_admin } : undefined;
+    });
+  const sourceDecisionAdminReceipt = dependencies.sourceDecisionAdminReceipt ?? (() => {
+    const receipt = JSON.parse(readFileSync("docs/database-targets/development-admin-approved.json", "utf8")) as { candidate_user_id: number; candidate_user_uid: string };
+    return { userId: receipt.candidate_user_id, userUid: receipt.candidate_user_uid };
+  })();
+  const sourceDecisionReviewReader = dependencies.sourceDecisionReviewReader
+    ?? (async (decisionSetUid: string) => {
+      const { pool } = await import("./db"); return readSourceDecisionReview(pool, decisionSetUid);
+    });
   const getAccountDeletionUser = dependencies.getAccountDeletionUser
     ?? ((userId: number) => storage.getUser(userId));
   const deleteUserAccount = dependencies.deleteUserAccount
@@ -1349,6 +1379,22 @@ export async function registerRoutes(
       res.json(registrations.map(toAdminPendingRegistrationDto));
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch pending registrations" });
+    }
+  });
+
+  app.get("/api/admin/accounting/source-decisions/:decisionSetUid", async (req, res) => {
+    if (!hasTrustedSameOrigin(req)) return res.status(403).json({ message: "동일 출처의 관리자 요청이 필요합니다" });
+    const userId = req.session.userId!;
+    try {
+      const live = await getSourceDecisionAdmin(userId);
+      if (!live || !live.isAdmin || live.id !== sourceDecisionAdminReceipt.userId || live.userUid !== sourceDecisionAdminReceipt.userUid) return res.status(403).json({ message: "승인된 관리자만 검토할 수 있습니다" });
+      const review = await sourceDecisionReviewReader(req.params.decisionSetUid);
+      if (!review) return res.status(404).json({ message: "검토 대상을 찾을 수 없습니다" });
+      return res.json(review);
+    } catch (error) {
+      if (error instanceof Error && error.message === "source_decision_review_uid_invalid") return res.status(400).json({ message: "유효한 검토 식별자가 필요합니다" });
+      console.error("Source decision review failed:", getErrorType(error));
+      return res.status(500).json({ message: "검토 정보를 불러오지 못했습니다" });
     }
   });
 

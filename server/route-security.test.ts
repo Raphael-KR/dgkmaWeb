@@ -38,7 +38,7 @@ test("all admin routes are registered after the shared administrator guard", asy
   ).map((match) => match.index ?? -1);
 
   assert.ok(guardIndex >= 0);
-  assert.equal(adminRouteIndexes.length, 6);
+  assert.equal(adminRouteIndexes.length, 7);
   assert.ok(adminRouteIndexes.every((index) => index > guardIndex));
 });
 
@@ -117,6 +117,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
   try {
     const adminEndpoints = [
       { method: "GET", path: "/api/admin/pending-registrations" },
+      { method: "GET", path: "/api/admin/accounting/source-decisions/55555555-5555-4555-8555-555555555555" },
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
       { method: "POST", path: "/api/admin/sync-alumni/preview" },
       { method: "POST", path: "/api/admin/sync-alumni" },
