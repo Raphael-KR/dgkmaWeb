@@ -76,6 +76,15 @@ const SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60, 65];
 const EXPECTED_KINDS = new Map<number, ArtifactDescriptor["kind"]>([
   [1,"manual"],[10,"baseline"],[15,"ordinary"],[20,"ordinary"],[30,"ordinary"],[40,"manual"],[50,"ordinary"],[60,"manual"],[65,"ordinary"],
 ]);
+const BASELINE_TABLES = [
+  "alumni_database", "categories", "comments", "community_events", "event_parse_rate_limits",
+  "kakao_identity_terminations", "kakao_oauth_states", "obituaries", "payments",
+  "pending_registrations", "posts", "session", "users",
+] as const;
+const LEDGER_TABLES = ["schema_capability_receipts", "schema_change_ledger", "schema_release_runs"] as const;
+// Filled from the target-neutral object catalog produced by the checked-in baseline artifact.
+// The same digest must be reproduced by the frozen Development brownfield and a clean disposable apply.
+const BASELINE_OBJECT_CATALOG_SHA256 = "551af090142392fbc2f56b835e1986544daa144cae89d45960ac02d992070c08";
 
 export function sha256(bytes: string | Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -313,6 +322,87 @@ async function existingLedgerRow(pool: Pool, sequence: number) {
   return result.rows[0] ?? null;
 }
 
+export async function baselineObjectCatalog(pool: Pool): Promise<{ sha256: string; value: Record<string, Json> }> {
+  const names = [...BASELINE_TABLES];
+  // Keep every query on the transaction-owning pool connection. Concurrent pool.query calls
+  // can allocate other sessions that cannot see uncommitted clean-baseline DDL.
+  const tables = await pool.query(`
+      SELECT c.relname AS table_name, c.relkind AS table_kind, c.relpersistence AS persistence
+      FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname = ANY($1::text[])
+      ORDER BY c.relname
+    `, [names]);
+  const columns = await pool.query(`
+      SELECT c.relname AS table_name, a.attnum::int AS position, a.attname AS column_name,
+             pg_catalog.format_type(a.atttypid,a.atttypmod) AS formatted_type,
+             NOT a.attnotnull AS is_nullable, pg_catalog.pg_get_expr(ad.adbin,ad.adrelid,true) AS column_default,
+             NULLIF(a.attidentity,'') AS identity_kind, NULLIF(a.attgenerated,'') AS generated_kind
+      FROM pg_catalog.pg_attribute a
+      JOIN pg_catalog.pg_class c ON c.oid=a.attrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      LEFT JOIN pg_catalog.pg_attrdef ad ON ad.adrelid=a.attrelid AND ad.adnum=a.attnum
+      WHERE n.nspname='public' AND c.relname = ANY($1::text[]) AND a.attnum>0 AND NOT a.attisdropped
+      ORDER BY c.relname,a.attnum
+    `, [names]);
+  const constraints = await pool.query(`
+      SELECT c.relname AS table_name, con.conname AS constraint_name, con.contype AS constraint_type,
+             con.convalidated AS is_validated, pg_catalog.pg_get_constraintdef(con.oid,true) AS definition
+      FROM pg_catalog.pg_constraint con
+      JOIN pg_catalog.pg_class c ON c.oid=con.conrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname = ANY($1::text[]) AND con.contype IN ('p','f','u','c','x')
+      ORDER BY c.relname,con.contype,con.conname
+    `, [names]);
+  const indexes = await pool.query(`
+      SELECT tbl.relname AS table_name, idx.relname AS index_name, i.indisprimary AS is_primary,
+             i.indisunique AS is_unique, i.indisvalid AS is_valid, i.indisready AS is_ready,
+             pg_catalog.pg_get_expr(i.indexprs,i.indrelid,true) AS expressions,
+             pg_catalog.pg_get_expr(i.indpred,i.indrelid,true) AS predicate,
+             pg_catalog.pg_get_indexdef(i.indexrelid,0,true) AS definition
+      FROM pg_catalog.pg_index i
+      JOIN pg_catalog.pg_class tbl ON tbl.oid=i.indrelid
+      JOIN pg_catalog.pg_class idx ON idx.oid=i.indexrelid
+      JOIN pg_catalog.pg_namespace n ON n.oid=tbl.relnamespace
+      WHERE n.nspname='public' AND tbl.relname = ANY($1::text[])
+      ORDER BY tbl.relname,idx.relname
+    `, [names]);
+  const sequences = await pool.query(`
+      SELECT c.relname AS sequence_name, pg_catalog.format_type(s.seqtypid,NULL) AS data_type,
+             s.seqstart::text AS start_value, s.seqincrement::text AS increment_by,
+             s.seqmin::text AS minimum_value, s.seqmax::text AS maximum_value,
+             s.seqcache::text AS cache_size, s.seqcycle AS cycles
+      FROM pg_catalog.pg_class c
+      JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_catalog.pg_sequence s ON s.seqrelid=c.oid
+      WHERE n.nspname='public' AND c.relkind='S' AND c.relname = ANY($1::text[])
+      ORDER BY c.relname
+    `, [names.map((name) => `${name}_id_seq`)]);
+  const publicTables = await pool.query(`
+      SELECT c.relname AS table_name
+      FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relkind IN ('r','p')
+      ORDER BY c.relname
+    `);
+  const allowed = new Set<string>([...BASELINE_TABLES, ...LEDGER_TABLES]);
+  const actualPublicTables = publicTables.rows.map((row) => String(row.table_name));
+  if (actualPublicTables.some((name) => !allowed.has(name))) {
+    fail("baseline_catalog_unexpected_table");
+  }
+  const value = {
+    tables: tables.rows as Json,
+    columns: columns.rows as Json,
+    constraints: constraints.rows as Json,
+    indexes: indexes.rows as Json,
+    sequences: sequences.rows as Json,
+  };
+  return { value, sha256: sha256(canonicalJson(value)) };
+}
+
+async function verifyBaselineObjectCatalog(pool: Pool): Promise<void> {
+  const observed = await baselineObjectCatalog(pool);
+  if (observed.sha256 !== BASELINE_OBJECT_CATALOG_SHA256) fail("baseline_catalog_object_drift");
+}
+
 export async function applyArtifact(
   pool: Pool,
   target: BootstrapTarget,
@@ -348,6 +438,7 @@ export async function applyArtifact(
   try {
     await pool.query("SELECT pg_advisory_xact_lock($1::bigint)", [schemaLockKey(target.targetFingerprint).toString()]);
     if (await existingLedgerRow(pool, descriptor.sequence_no)) fail("ledger_artifact_concurrent_change");
+    if (descriptor.sequence_no === 10 && target.kind === "development") await verifyBaselineObjectCatalog(pool);
     if (descriptor.sequence_no === 50) {
       if (!actor) fail("blocked_actor");
       const liveActor = await pool.query<{ ok: boolean }>(`
@@ -379,6 +470,7 @@ export async function applyArtifact(
     `, [target.targetFingerprint]);
     if (!receipt.rows[0]) fail("ledger_capability_receipt_missing");
     await pool.query(readFileSync(descriptor.path, "utf8"));
+    if (descriptor.sequence_no === 10) await verifyBaselineObjectCatalog(pool);
     await pool.query(`
       INSERT INTO public.schema_change_ledger
         (artifact_id,artifact_sha256,artifact_kind,sequence_no,manifest_sha256,release_run_id,target_database,target_fingerprint,capability_receipt_id,capability_variant,executor_version)

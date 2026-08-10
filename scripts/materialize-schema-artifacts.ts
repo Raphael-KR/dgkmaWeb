@@ -64,7 +64,15 @@ function isBooleanCheck(expression: string): boolean {
   return /(?:=|<>|>=|<=|>|<|\bIS\b|\bIN\b|~|\bAND\b|\bOR\b|\bNOT\b|\bBETWEEN\b|\bEXISTS\b)/i.test(expression);
 }
 
-const baseline = `${readFileSync("migrations/0000_cheerful_nick_fury.sql", "utf8").replaceAll("--> statement-breakpoint", "")}\n
+const baselineDrizzle = readFileSync("migrations/0000_cheerful_nick_fury.sql", "utf8")
+  .replaceAll("--> statement-breakpoint", "")
+  .replaceAll('CREATE TABLE "', 'CREATE TABLE IF NOT EXISTS "')
+  .replace(
+    /^ALTER TABLE "([^"]+)" ADD CONSTRAINT "([^"]+)" (.+);$/gm,
+    (_statement, table, constraint, definition) =>
+      `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=${literal(constraint)}) THEN ALTER TABLE ${q(table)} ADD CONSTRAINT ${q(constraint)} ${definition}; END IF; END $$;`,
+  );
+const baseline = `${baselineDrizzle}\n
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS birthday text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS birthday_type text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_leap_month boolean;
@@ -72,27 +80,27 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS activity_region text;
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS image_urls text[];
 
 CREATE TABLE IF NOT EXISTS public.comments (
-  id serial PRIMARY KEY, post_id integer NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
-  author_id integer REFERENCES public.users(id), content text NOT NULL, created_at timestamp DEFAULT now()
+  id serial PRIMARY KEY, post_id integer NOT NULL CONSTRAINT comments_post_id_posts_id_fk REFERENCES public.posts(id) ON DELETE CASCADE,
+  author_id integer CONSTRAINT comments_author_id_users_id_fk REFERENCES public.users(id), content text NOT NULL, created_at timestamp DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.obituaries (
   id serial PRIMARY KEY, title text NOT NULL, deceased_name text NOT NULL, deceased_relation text NOT NULL,
   date_of_death text NOT NULL, funeral_home text DEFAULT '', jangji text DEFAULT '', bank_account text DEFAULT '',
-  chief_mourner text DEFAULT '', contact_number text DEFAULT '', author_id integer REFERENCES public.users(id), created_at timestamp DEFAULT now()
+  chief_mourner text DEFAULT '', contact_number text DEFAULT '', author_id integer CONSTRAINT obituaries_author_id_users_id_fk REFERENCES public.users(id), created_at timestamp DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.community_events (
-  id serial PRIMARY KEY, legacy_obituary_id integer UNIQUE, event_type text NOT NULL, status text NOT NULL DEFAULT 'draft',
+  id serial PRIMARY KEY, legacy_obituary_id integer CONSTRAINT community_events_legacy_obituary_id_unique UNIQUE, event_type text NOT NULL, status text NOT NULL DEFAULT 'draft',
   title text, event_date text, location text, related_member_name text, contact_number text, account_info text,
-  source_text text, source_urls text[] DEFAULT '{}', details jsonb NOT NULL DEFAULT '{}', author_id integer REFERENCES public.users(id),
+  source_text text, source_urls text[] DEFAULT '{}', details jsonb NOT NULL DEFAULT '{}', author_id integer CONSTRAINT community_events_author_id_users_id_fk REFERENCES public.users(id),
   published_at timestamp, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.event_parse_rate_limits (
-  user_id integer PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE, window_started_at timestamptz NOT NULL DEFAULT now(),
+  user_id integer PRIMARY KEY CONSTRAINT event_parse_rate_limits_user_id_users_id_fk REFERENCES public.users(id) ON DELETE CASCADE, window_started_at timestamptz NOT NULL DEFAULT now(),
   request_count integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.kakao_oauth_states (
-  state_hash text PRIMARY KEY, session_binding_hash text NOT NULL UNIQUE, started_at timestamptz NOT NULL DEFAULT now(),
-  expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+  state_hash text PRIMARY KEY, session_binding_hash text NOT NULL CONSTRAINT kakao_oauth_states_session_binding_hash_unique UNIQUE,
+  expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.kakao_identity_terminations (
   identity_hash text PRIMARY KEY, terminated_at timestamptz NOT NULL DEFAULT now()

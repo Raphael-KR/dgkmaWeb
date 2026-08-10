@@ -1,4 +1,4 @@
-CREATE TABLE "alumni_database" (
+CREATE TABLE IF NOT EXISTS "alumni_database" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"department" text NOT NULL,
 	"generation" text NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE "alumni_database" (
 	CONSTRAINT "alumni_database_mobile_unique" UNIQUE("mobile")
 );
 
-CREATE TABLE "categories" (
+CREATE TABLE IF NOT EXISTS "categories" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"display_name" text NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE "categories" (
 	CONSTRAINT "categories_name_unique" UNIQUE("name")
 );
 
-CREATE TABLE "payments" (
+CREATE TABLE IF NOT EXISTS "payments" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer,
 	"amount" integer NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE "payments" (
 	"created_at" timestamp DEFAULT now()
 );
 
-CREATE TABLE "pending_registrations" (
+CREATE TABLE IF NOT EXISTS "pending_registrations" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"kakao_id" text NOT NULL,
 	"email" text NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE "pending_registrations" (
 	"created_at" timestamp DEFAULT now()
 );
 
-CREATE TABLE "posts" (
+CREATE TABLE IF NOT EXISTS "posts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"content" text NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE "posts" (
 	"updated_at" timestamp DEFAULT now()
 );
 
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"kakao_id" text,
 	"email" text NOT NULL,
@@ -79,10 +79,10 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 
-ALTER TABLE "alumni_database" ADD CONSTRAINT "alumni_database_matched_user_id_users_id_fk" FOREIGN KEY ("matched_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "payments" ADD CONSTRAINT "payments_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "posts" ADD CONSTRAINT "posts_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "posts" ADD CONSTRAINT "posts_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='alumni_database_matched_user_id_users_id_fk') THEN ALTER TABLE "alumni_database" ADD CONSTRAINT "alumni_database_matched_user_id_users_id_fk" FOREIGN KEY ("matched_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='payments_user_id_users_id_fk') THEN ALTER TABLE "payments" ADD CONSTRAINT "payments_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='posts_category_id_categories_id_fk') THEN ALTER TABLE "posts" ADD CONSTRAINT "posts_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='posts_author_id_users_id_fk') THEN ALTER TABLE "posts" ADD CONSTRAINT "posts_author_id_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;
 
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS birthday text;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS birthday_type text;
@@ -91,27 +91,27 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS activity_region text;
 ALTER TABLE public.posts ADD COLUMN IF NOT EXISTS image_urls text[];
 
 CREATE TABLE IF NOT EXISTS public.comments (
-  id serial PRIMARY KEY, post_id integer NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
-  author_id integer REFERENCES public.users(id), content text NOT NULL, created_at timestamp DEFAULT now()
+  id serial PRIMARY KEY, post_id integer NOT NULL CONSTRAINT comments_post_id_posts_id_fk REFERENCES public.posts(id) ON DELETE CASCADE,
+  author_id integer CONSTRAINT comments_author_id_users_id_fk REFERENCES public.users(id), content text NOT NULL, created_at timestamp DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.obituaries (
   id serial PRIMARY KEY, title text NOT NULL, deceased_name text NOT NULL, deceased_relation text NOT NULL,
   date_of_death text NOT NULL, funeral_home text DEFAULT '', jangji text DEFAULT '', bank_account text DEFAULT '',
-  chief_mourner text DEFAULT '', contact_number text DEFAULT '', author_id integer REFERENCES public.users(id), created_at timestamp DEFAULT now()
+  chief_mourner text DEFAULT '', contact_number text DEFAULT '', author_id integer CONSTRAINT obituaries_author_id_users_id_fk REFERENCES public.users(id), created_at timestamp DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.community_events (
-  id serial PRIMARY KEY, legacy_obituary_id integer UNIQUE, event_type text NOT NULL, status text NOT NULL DEFAULT 'draft',
+  id serial PRIMARY KEY, legacy_obituary_id integer CONSTRAINT community_events_legacy_obituary_id_unique UNIQUE, event_type text NOT NULL, status text NOT NULL DEFAULT 'draft',
   title text, event_date text, location text, related_member_name text, contact_number text, account_info text,
-  source_text text, source_urls text[] DEFAULT '{}', details jsonb NOT NULL DEFAULT '{}', author_id integer REFERENCES public.users(id),
+  source_text text, source_urls text[] DEFAULT '{}', details jsonb NOT NULL DEFAULT '{}', author_id integer CONSTRAINT community_events_author_id_users_id_fk REFERENCES public.users(id),
   published_at timestamp, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.event_parse_rate_limits (
-  user_id integer PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE, window_started_at timestamptz NOT NULL DEFAULT now(),
+  user_id integer PRIMARY KEY CONSTRAINT event_parse_rate_limits_user_id_users_id_fk REFERENCES public.users(id) ON DELETE CASCADE, window_started_at timestamptz NOT NULL DEFAULT now(),
   request_count integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.kakao_oauth_states (
-  state_hash text PRIMARY KEY, session_binding_hash text NOT NULL UNIQUE, started_at timestamptz NOT NULL DEFAULT now(),
-  expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+  state_hash text PRIMARY KEY, session_binding_hash text NOT NULL CONSTRAINT kakao_oauth_states_session_binding_hash_unique UNIQUE,
+  expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), started_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS public.kakao_identity_terminations (
   identity_hash text PRIMARY KEY, terminated_at timestamptz NOT NULL DEFAULT now()
