@@ -9,6 +9,7 @@ const batchUid = "44444444-4444-4444-8444-444444444444";
 const manifestSha = "9".repeat(64); const fingerprint = "a".repeat(64);
 const actor: SourceDecisionActor = { userId: 7, userUid: "77777777-7777-4777-8777-777777777777", name: "관리자", authorizationVersion: "8".repeat(64), targetFingerprint: "7".repeat(64) };
 const baseCommand = { schemaVersion: "source-decision-command-v1", operationUid: randomUUID(), manifestSha256: manifestSha, sourceFingerprint: fingerprint, decision: "reject", replacementDecisionSetUid: null, replacementManifest: null, replacementItems: null, replacementManifestSha256: null };
+const quarantineClassification = { allocation_request_uid_or_null: null, category_splits: [], classification_kind: "pending_manual_source_decision", direction: "credit", dues_year_or_null: null, event_kind: "unclassified_credit", event_party_uid_or_null: null, group_roster_batch_uid_or_null: null, member_uid_or_null: null, outcome: "quarantine", party_kind: "unknown", receipt_uid_or_null: null, refund_receipt_uid_or_null: null, reverses_event_uid_or_null: null };
 
 function fakePool(outcome = "quarantine", decisionKind = "classification", decisionPayload: Record<string, unknown> = { outcome }, sourceCode = "MEMBERSHIP_INTEGRATED_ADDRESS_BOOK") {
   let status = "previewed"; let nextId = 100; const sql: string[] = [];
@@ -38,7 +39,7 @@ test("reject then full-byte repreview keeps applied arrays empty and uses one tr
   const fake = fakePool();
   const rejected = await decideSourcePreview(fake.pool as never, primaryUid, baseCommand, actor);
   assert.equal(rejected.decision, "reject"); assert.deepEqual(rejected.applied_batch_uids, []); assert.equal(fake.status(), "rejected");
-  const payload = { classification: "quarantine" }; const payloadSha = sha256(canonicalJson(payload));
+  const payload = quarantineClassification; const payloadSha = sha256(canonicalJson(payload));
   const manifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: payloadSha }] };
   const command = { ...baseCommand, operationUid: randomUUID(), decision: "repreview", replacementDecisionSetUid: "66666666-6666-4666-8666-666666666666", replacementManifest: manifest, replacementItems: [{ ordinal: 1, decisionPayload: payload, decisionPayloadSha256: payloadSha }], replacementManifestSha256: sha256(canonicalJson(manifest as CanonicalValue)) };
   const repreviewed = await decideSourcePreview(fake.pool as never, primaryUid, command, actor);
@@ -76,7 +77,7 @@ test("period materialization refuses an unregistered source family", async () =>
 test("supersede atomically replaces an approved zero-child quarantine set", async () => {
   const fake = fakePool();
   await decideSourcePreview(fake.pool as never, primaryUid, { ...baseCommand, operationUid: randomUUID(), decision: "approve" }, actor);
-  const replacementPayload = { outcome: "quarantine" }; const replacementPayloadSha = sha256(canonicalJson(replacementPayload));
+  const replacementPayload = quarantineClassification; const replacementPayloadSha = sha256(canonicalJson(replacementPayload));
   const replacementUid = "66666666-6666-4666-8666-666666666666";
   const replacementManifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: replacementPayloadSha }] };
   const command = { ...baseCommand, operationUid: randomUUID(), decision: "supersede", replacementDecisionSetUid: replacementUid, replacementManifest, replacementItems: [{ ordinal: 1, decisionPayload: replacementPayload, decisionPayloadSha256: replacementPayloadSha }], replacementManifestSha256: sha256(canonicalJson(replacementManifest as CanonicalValue)) };

@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import type { CanonicalValue } from "./source-contracts";
+import { validateDecisionPayload, type DecisionKind } from "./source-preview-contract-v2";
 
 export const SOURCE_DECISION_SCHEMA_VERSION = "source-decision-command-v1";
 const COMMAND_KEYS = ["decision", "manifestSha256", "operationUid", "replacementDecisionSetUid", "replacementItems", "replacementManifest", "replacementManifestSha256", "schemaVersion", "sourceFingerprint"].sort();
@@ -58,6 +60,8 @@ export function validateSourceDecisionCommand(command: Record<string, unknown>, 
       if (JSON.stringify(Object.keys(item).sort()) !== JSON.stringify(REPLACEMENT_ITEM_KEYS)) fail("source_decision_replacement_item_keys_mismatch");
       const expected = context.expectedItems[index];
       if (item.ordinal !== index + 1 || expected?.ordinal !== index + 1) fail("source_decision_item_coverage_mismatch");
+      if (!item.decisionPayload || typeof item.decisionPayload !== "object" || Array.isArray(item.decisionPayload)) fail("source_decision_replacement_payload_invalid");
+      validateDecisionPayload(expected.decisionKind as DecisionKind, item.decisionPayload as Record<string, CanonicalValue>);
       if (typeof item.decisionPayloadSha256 !== "string" || !SHA256.test(item.decisionPayloadSha256) || item.decisionPayloadSha256 !== digest(item.decisionPayload)) fail("source_decision_item_digest_mismatch");
       return { ordinal: expected.ordinal, coordinate_key: expected.coordinateKey, source_content_digest: expected.sourceContentDigest, decision_kind: expected.decisionKind, decision_payload_sha256: item.decisionPayloadSha256 };
     });

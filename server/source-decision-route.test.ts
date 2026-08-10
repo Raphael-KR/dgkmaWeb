@@ -26,8 +26,8 @@ test("approval receipt binds canonical command and actor without source PII", ()
 });
 
 test("replacement paths require complete ordinal/digest-bound items", () => {
-  const payload = { classification: "DUES_INCOME" };
-  const payloadDigest = createHash("sha256").update('{"classification":"DUES_INCOME"}').digest("hex");
+  const payload = { allocation_request_uid_or_null: null, category_splits: [], classification_kind: "pending_manual_source_decision", direction: "credit", dues_year_or_null: null, event_kind: "unclassified_credit", event_party_uid_or_null: null, group_roster_batch_uid_or_null: null, member_uid_or_null: null, outcome: "quarantine", party_kind: "unknown", receipt_uid_or_null: null, refund_receipt_uid_or_null: null, reverses_event_uid_or_null: null };
+  const payloadDigest = createHash("sha256").update(canonicalJson(payload)).digest("hex");
   const replacementManifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: context.expectedSourceFingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: payloadDigest }] };
   const replacementManifestSha256 = createHash("sha256").update(canonicalJson(replacementManifest)).digest("hex");
   const repreview = { ...command, decision: "repreview", replacementDecisionSetUid: "87654321-4321-4321-8321-cba987654321", replacementManifest, replacementItems: [{ ordinal: 1, decisionPayload: payload, decisionPayloadSha256: payloadDigest }], replacementManifestSha256 };
@@ -36,4 +36,6 @@ test("replacement paths require complete ordinal/digest-bound items", () => {
   assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementItems: [{ ...repreview.replacementItems[0], decisionPayloadSha256: "0".repeat(64) }] }, context), /digest_mismatch/);
   assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementItems: [...repreview.replacementItems, repreview.replacementItems[0]] }, context), /coverage_mismatch/);
   assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementManifest: { ...replacementManifest, extra: true } }, context), /manifest_mismatch/);
+  const extraPayload = { ...payload, unapproved_extra: true }; const extraDigest = createHash("sha256").update(canonicalJson(extraPayload)).digest("hex");
+  assert.throws(() => validateSourceDecisionCommand({ ...repreview, replacementItems: [{ ordinal: 1, decisionPayload: extraPayload, decisionPayloadSha256: extraDigest }] }, context), /classification_keys_mismatch/);
 });
