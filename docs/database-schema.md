@@ -19,6 +19,7 @@
 | Todo 18 integrated-address-book v3 preview verification KST | `2026-08-10 18:50 KST +0900` |
 | Todo 18 AGM36 boundary preview verification KST | `2026-08-10 19:04 KST +0900` |
 | Todo 18 finalized-ledger v3 preview verification KST | `2026-08-10 19:26 KST +0900` |
+| Todo 18 2026 bank-source preflight KST | `2026-08-10 19:35 KST +0900` |
 | verified receipt commit | `4711badbb13e236df8a1f00f4f87156d31960d98` |
 | code status | verified |
 | Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
@@ -37,6 +38,8 @@ Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a
 Production의 성공 catalog가 없으므로 Production schema, Development와의 일치, Production drift 유무를 주장하지 않는다.
 
 Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable release를 Development에 추가했다. 이후 owner가 관리자 가독형 source snapshot과 secretless domain-separated SHA-256, stable `member_uid` 경계를 승인해 10개 logical source 각각에 v2 immutable release를 append했다. 기존 v1/v2 release는 모두 immutable 이력으로 보존한다. 비개인정보 `LEDGER_DUES_POLICY_2024_2025` 10행과 `NOTION_DUES_REGULATION_DRAFT` 6행은 각각 durable preview로 등록했고 decision item과 downstream/source-linked policy row는 만들지 않았다. 관리자용 source-decision GET과 persisted-byte 검증 reader도 구현·Replit 검증됐으며 route는 아직 개발 홈페이지 runtime에 활성화되지 않았다. Notion role 90행은 누락 사실을 추정하지 않는 v3와 `대학원` 6행 원문을 별도 snapshot/digest로 보존하는 v4 release를 순차 append한 뒤, v4로 90개 name-only quarantine preview를 생성했다. 사용자가 승인한 3개 role 탭 삭제로 workbook version이 2130으로 변한 통합주소록은 기존 profile을 덮지 않고, 실제 3,458행의 숫자형 기수·점 구분 날짜를 추정 없이 받는 v3 release를 append했다. 이 release의 3,458행 전체는 관리자 가독 snapshot과 name-only `quarantine` item으로 preview됐고 result/audit `13834/13834`, downstream 0, 관리자 reader `previewed`, terminal `ROLLBACK`을 통과했다. 동결 payload에 결박된 AGM36 기간 경계 2행도 별도 source preview로 생성해 2개 `period_materialization` 승인 후보를 등록했으며, result/audit `10/10`, downstream period 0, 관리자 reader `previewed`, terminal `ROLLBACK`을 통과했다. 확정 회계원장의 재현 불가능한 v2 header hash와 좌·우 블록 행 좌표 충돌 가능성은 기존 이력을 수정하지 않고 v3 release로 교정했다. 7개 블록 3,014행은 전부 관리자 가독 snapshot과 `classification:quarantine`으로, 달력연도 경계 4행은 `period_materialization` 승인 후보로 preview했으며 result/audit `12074/12074`, downstream classification/economic event/period 0, 관리자 reader `previewed`, terminal `ROLLBACK`을 통과했다. 회원 match·직책 assignment·period materialization·source apply는 아직 0건이다. 외래교수회 26행의 50,000원 값은 계속 candidate-only다. `ACCOUNTING_PII_HMAC_KEY_V1`은 생성하거나 사용하지 않았다.
+
+2026 은행 source의 후속 read-only preflight는 승인 workbook revision을 재확인하고 계좌번호·CMS 열을 읽지 않은 채 Toss 200개 거래행과 IBK 174개 거래행을 구조 검증했다. IBK 2행은 날짜·출금·입금·잔액만 있고 비영 단일방향 금액과 표시 설명이 없는 opening-balance/anchor evidence이므로 경제 이벤트로 추정하지 않는다. 두 v2 header hash는 재현되지 않아 immutable v3 profile/map이 필요하며, 아직 bank release 추가·batch preview·classification apply는 0건이다.
 
 ## 2. system and external boundaries
 

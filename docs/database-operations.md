@@ -278,6 +278,10 @@ Exact commit `b03ad713dc9320012a43369a7e2613e5567c11fb`의 Replit 격리 worktre
 
 Exact commit `8844013`에서 v3 release `6ec542d2-61e4-41ed-8813-946297185a99`는 Development에 `created → verified_noop`으로 등록됐고 read-only verifier가 v1/v2/v3 `1/1/1`, receipt/entity/audit `1/1/1`, batch 0, terminal `ROLLBACK`을 확인했다. Exact preview commit `f549e7c`에서 집중 테스트 `12/12`와 `tsc --noEmit`를 통과했다. Source fingerprint `3a47e4238d73f6c5abb360f6b60ca8c395d63231623d21d6afe9a55e78da76b2`, batch `27be5ade-4b78-4772-8e19-4ea19d2260d7`, decision set `0f85f7cc-dbde-45cc-97cc-85fe6a59be4f`는 `created → verified_noop`을 재현했다. Verifier와 관리자 reader는 row/coordinate/version/link/item `3018/3018/3018/3018/3018`, operation receipt `1`, result entity/audit `12074/12074`, 경제행 quarantine `3014`, period 후보 `4`, downstream classification/economic event/period `0/0/0`, `previewed`, terminal `ROLLBACK`을 확인했다. 원본 Sheet write와 source apply는 0건이며 mode-0600 임시 입력과 Replit 격리 worktree는 삭제 후 부재를 확인했다.
 
+### 2026 bank-source read-only preflight
+
+Exact commit `e57db48`의 Replit 격리 worktree에서 `scripts/preflight-bank-sources-v2.ts`를 실행했다. 공용 workbook revision은 승인 profile과 같지만 Toss·IBK의 기존 header hash는 동일 API bytes에서 재현되지 않았다. Preflight는 허용된 열만 개별 조회해 계좌번호·CMS 열 read를 0으로 유지했다. Toss는 승인 범위 200행 모두 날짜·금액·잔액·방향·표시 근거가 완전했다. IBK는 승인 범위 175행 중 3–176행 174개가 거래 구조를 충족했고, 2행은 날짜·출금·입금·잔액 header만 존재하면서 유효한 비영(非零) 단일 방향 금액과 표시 설명이 없는 opening-balance/anchor 형식이었다. 이 행을 경제 이벤트로 추정하지 않는다. 기존 v1/v2 이력은 유지하고, 후속 v3 profile/map은 재현 가능한 header hash와 `IBK row 2 = anchor evidence only`, `IBK rows 3–176 = economic quarantine preview` 경계를 명시해야 한다. 원본 write는 0건이고 격리 worktree는 삭제 후 부재를 확인했다.
+
 ## 가역 rollout과 복원 검증 계약
 
 복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
