@@ -21,6 +21,11 @@ test("builds the exact dependency-ordered group materialization topology", () =>
   assert.ok(index(":match-case-create") < index(":match-candidate-create")); assert.ok(index(":match-candidate-create") < index(":group-member-create")); assert.ok(index(":group-member-create") < index(":match-candidate-approve")); assert.ok(index(":match-candidate-approve") < index(":match-case-approve")); assert.ok(index(":match-case-approve") < index(":group-member-approve")); assert.ok(index(":group-member-approve") < index(":allocation-create")); assert.ok(index(":allocation-create") < index(":allocation-approve")); assert.ok(index(":allocation-approve") < index(":receipt-approve")); assert.ok(index(":receipt-approve") < index(":payment-group-approve")); assert.ok(index(":payment-group-approve") < index(":event-approve"));
   for (const step of steps.filter((candidate) => candidate.rowMode === "update")) { assert.ok(step.targetStepKey); assert.ok(step.dependsOn.includes(step.targetStepKey!)); assert.ok(steps.findIndex((candidate) => candidate.key === step.targetStepKey) < steps.indexOf(step)); }
   assert.equal(steps.find((step) => step.key.endsWith(":claim-bound"))?.targetStepKey, steps.find((step) => step.key.endsWith(":claim-open"))?.key);
+  assert.ok(steps.every((step) => step.groupCoordinateKey === "bank:toss:1"));
+  assert.ok(steps.filter((step) => ["member_match_cases", "member_match_candidates", "dues_group_members", "dues_allocations"].includes(step.table)).every((step) => step.allocationCoordinateKey === "roster:1"));
+  assert.ok(steps.filter((step) => !["member_match_cases", "member_match_candidates", "dues_group_members", "dues_allocations"].includes(step.table)).every((step) => step.allocationCoordinateKey === null));
+  assert.ok(steps.filter((step) => step.table === "cashbook_entries").every((step) => step.categoryCode === "DUES_INCOME"));
+  assert.ok(steps.filter((step) => step.table !== "cashbook_entries").every((step) => step.categoryCode === null));
 });
 
 test("fails closed when a dependency is moved after its consumer", () => {
@@ -31,6 +36,15 @@ test("fails closed when a dependency is moved after its consumer", () => {
 test("fails closed when an update loses its reserved target", () => {
   const steps = buildGroupMaterializationTopology(plan); const broken = structuredClone(steps); const update = broken.find((step) => step.rowMode === "update")!; update.targetStepKey = null;
   assert.throws(() => validateGroupMaterializationTopology(broken), /materialization_topology_invalid/);
+});
+
+test("fails closed when explicit source metadata does not match the target table", () => {
+  const steps = buildGroupMaterializationTopology(plan); const broken = structuredClone(steps);
+  broken.find((step) => step.table === "cashbook_entries")!.categoryCode = null;
+  assert.throws(() => validateGroupMaterializationTopology(broken), /materialization_topology_invalid/);
+  const allocationBroken = structuredClone(steps);
+  allocationBroken.find((step) => step.table === "dues_allocations")!.allocationCoordinateKey = null;
+  assert.throws(() => validateGroupMaterializationTopology(allocationBroken), /materialization_topology_invalid/);
 });
 
 test("builds one deterministic reservation for every new row and audit", () => {
