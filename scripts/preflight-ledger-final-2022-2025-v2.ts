@@ -68,12 +68,14 @@ async function main() {
     sheets.spreadsheets.values.batchGet({ spreadsheetId: SPREADSHEET_ID, ranges: selectorRanges, valueRenderOption: "UNFORMATTED_VALUE", dateTimeRenderOption: "SERIAL_NUMBER" }),
   ]);
   let headerOffset = 0;
+  const headerChecks: Array<{ tab_id: string; row: number; expected_sha256: string; observed_sha256: string; matches: boolean }> = [];
   for (const tab of profile.tabs) {
     const matches = providerTabs.filter((sheet) => String(sheet.properties?.sheetId) === tab.tab_id);
     if (matches.length !== 1 || matches[0].properties?.title !== tab.title || matches[0].properties?.gridProperties?.rowCount !== tab.max_row || matches[0].properties?.gridProperties?.columnCount !== tab.max_column) fail("ledger_preflight_tab_profile_drift");
     for (const candidate of tab.header_candidates) {
       const row = headerResult.data.valueRanges?.[headerOffset]?.values?.[0] ?? [];
-      if (sha(row) !== candidate.values_sha256) fail("ledger_preflight_header_candidate_drift");
+      const observed = sha(row);
+      headerChecks.push({ tab_id: tab.tab_id, row: candidate.row, expected_sha256: candidate.values_sha256, observed_sha256: observed, matches: observed === candidate.values_sha256 });
       headerOffset += 1;
     }
   }
@@ -103,7 +105,7 @@ async function main() {
     }
     return { selector_code: selector.selector_code, tab_id: selector.tab_id_or_null, range_sha256: sha(String(selector.a1_range_or_null)), header_sha256: sha(headers), missing_required_headers: missingRequired, duplicate_schema_header_count: Object.values(headerPositions).filter((positions) => positions.length > 1).length, nonempty_row_count: rows.length, ...counts };
   });
-  console.log(JSON.stringify({ schema_version: "ledger-final-preflight-result-v2", source_code: "LEDGER_FINAL_2022_2025", source_revision_sha256: createHash("sha256").update(revision).digest("hex"), profile_revision_match: true, tab_count: profile.tabs.length, selector_count: selectorSummaries.length, total_nonempty_rows: selectorSummaries.reduce((sum, row) => sum + row.nonempty_row_count, 0), selectors: selectorSummaries, original_write_count: 0, result: "profiled" }));
+  console.log(JSON.stringify({ schema_version: "ledger-final-preflight-result-v2", source_code: "LEDGER_FINAL_2022_2025", source_revision_sha256: createHash("sha256").update(revision).digest("hex"), profile_revision_match: true, profile_header_hash_match: headerChecks.every((check) => check.matches), header_checks: headerChecks, tab_count: profile.tabs.length, selector_count: selectorSummaries.length, total_nonempty_rows: selectorSummaries.reduce((sum, row) => sum + row.nonempty_row_count, 0), selectors: selectorSummaries, original_write_count: 0, result: headerChecks.every((check) => check.matches) ? "profiled" : "blocked_profile_hash" }));
 }
 
 main().catch((error) => { console.error(JSON.stringify({ schema_version: "ledger-final-preflight-error-v2", error_code: error instanceof Error ? error.message : "unknown", original_write_count: 0, result: "rejected" })); process.exitCode = 1; });
