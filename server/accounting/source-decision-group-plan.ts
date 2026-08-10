@@ -22,7 +22,7 @@ export type GroupMultiBatchApplyPlan = {
     primaryEvidence?: GroupApplyEvidence;
     allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; normalizedPayload: JsonObject } }>;
   }>;
-  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoryIdsByCoordinate: Record<string, Record<string, string>> };
+  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoryIdsByCoordinate: Record<string, Record<string, string>>; periodIdsByCoordinate: Record<string, string> };
 };
 type StoredCompanion = { batch_id: string; batch_uid: string; batch_status: string; preview_manifest: CanonicalValue; preview_manifest_sha256: string; row_count: number; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
@@ -171,7 +171,10 @@ export async function loadGroupMultiBatchApplyPlan(
     for (const split of group.categorySplits) { const matches = categories.rows.filter((category) => category.category_code === split.categoryCode && category.active_from <= group.postedDate! && (category.active_to === null || group.postedDate! < category.active_to)); if (matches.length !== 1 || directionByCode[split.categoryCode] !== "credit" || split.categoryCode === "DUES_INCOME" && matches[0].dues_effect !== "dues_credit") fail("source_decision_group_category_binding_mismatch"); bindings[split.categoryCode] = matches[0].id; }
     categoryIdsByCoordinate[group.primaryCoordinateKey] = bindings;
   }
-  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoryIdsByCoordinate };
+  const periods = await client.query<{ id: string; starts_at: string; ends_at: string | null }>("SELECT id::text,starts_at::text,ends_at::text FROM public.accounting_periods WHERE status='open' ORDER BY starts_at FOR UPDATE");
+  const periodIdsByCoordinate: Record<string, string> = {};
+  for (const group of plan.groups) { const occurredAt = Date.parse(group.occurredAt!); const matches = periods.rows.filter((period) => Date.parse(period.starts_at) <= occurredAt && (period.ends_at === null || occurredAt < Date.parse(period.ends_at))); if (matches.length !== 1) fail("source_decision_group_period_binding_mismatch"); periodIdsByCoordinate[group.primaryCoordinateKey] = matches[0].id; }
+  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoryIdsByCoordinate, periodIdsByCoordinate };
   return plan;
 }
 
