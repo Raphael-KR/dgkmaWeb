@@ -136,7 +136,7 @@ npx tsx scripts/apply-schema.ts --target development --dry-run
 
 이 명령은 공용 target resolver로 `heliumdb` identity를 검증하고 table/routine capability probe를 각각 rollback한 뒤 sequence 계획만 출력한다. Todo 16 검증에서는 두 UUID-bound disposable target에 1→10→15→20→30→40→50→60을 적용하고, artifact와 ledger row를 같은 transaction에 commit한다. Catalog는 sequence 50의 exact count `logical sources=10, releases=2, deferred historical releases=0, bank accounts/maps=2/2, draft policies/mappings/categories=16/46/6`와 승인된 두 adapter code만 허용하며, 재실행 `verified_noop`과 최종 database 부재를 증명한다.
 
-Todo 17 실행기는 Development write path를 구현하지만 대화상의 단일 운영 승인 전에는 호출하지 않는다. 승인 뒤에도 1→40과 50→60은 다음 두 경계로 분리한다.
+Todo 17 실행기는 2026-08-10 승인된 Development write path를 완료했다. 재현·감사 시에도 1→40과 50→60은 다음 두 경계로 분리한다.
 
 ```bash
 npx tsx scripts/apply-schema.ts --target development --through-sequence 40
@@ -167,6 +167,8 @@ npx tsx scripts/verify-schema-catalog.ts \
 ```
 
 Category 명령은 정확히 여섯 version-1 draft root에 version-2 approved successor만 append한다. Dues policy 16개와 position mapping 46개는 모두 draft여야 하며 승인 행이 하나라도 생기면 transaction을 rollback한다. Catalog는 `REPEATABLE READ READ ONLY`에서 실행하고 항상 `ROLLBACK`으로 끝낸다. Development 완료 선언은 migrated startup, 전체 schema reapply 8개 `verified_noop`, category reapply `verified_noop`, 갱신된 `docs/database-schema.md`까지 확인한 뒤에만 가능하다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
+
+실제 완료 상태는 ledger `1,10,15,20,30,40,50,60`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Brownfield sequence 10은 baseline 객체 catalog digest가 일치해야 하며, sequence 20은 저장된 exception 상태와 별개로 raw pre-anchor predicate를 다시 검사하고 exact canonical phone/mobile generated column을 보장한다. 전체 schema와 category 재실행은 `verified_noop`, catalog terminal은 `ROLLBACK`, migrated startup DDL은 0이었다.
 
 ## 가역 rollout과 복원 검증 계약
 

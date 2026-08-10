@@ -6,22 +6,20 @@
 
 | 항목 | 값 |
 | --- | --- |
-| code intent | `shared/schema.ts`의 12 `pgTable` + `server/index.ts` 런타임 `session` DDL |
+| code intent | `docs/database-manifest.yaml` + checksum-bound sequence `1,10,15,20,30,40,50,60` |
 | source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
 | source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
-| Development catalog verification start KST | `2026-07-27 16:25:11 KST +0900` |
-| Development catalog verification start UTC | `2026-07-27 07:25:11 UTC +0000` |
-| Development catalog verification end KST | `2026-07-27 16:25:13 KST +0900` |
-| Development catalog verification end UTC | `2026-07-27 07:25:14 UTC +0000` |
-| local HEAD | `f8518c0d7ebeff957b5b20ad66ae7a46611981c2` |
-| Replit Development HEAD | `a0c421428081f375b4f72a72bff0e2b91a125ef5` |
+| Development migrated verification KST | `2026-08-10 13:25 KST +0900` |
+| Development migrated verification UTC | `2026-08-10 04:25 UTC +0000` |
+| verified receipt commit | `4711badbb13e236df8a1f00f4f87156d31960d98` |
 | code status | verified |
 | Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
 | Production catalog | unverified |
 | Production drift | unknown |
-| 기준 count (tables/columns/PK/FK/non-PK UNIQUE/index/sequence) | `13/112/13/9/6/20/9` |
-| catalog SQL SHA-256 | `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f` |
-| Development evidence | local/uncommitted orchestration evidence: `.omo/evidence/current-db-schema-documentation/task-7-development-normalized-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-summary-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-rerun-receipt.md` |
+| 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence) | `68/1403/68/257/80/287/432/63` |
+| manifest SHA-256 | `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8` |
+| catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
+| Development evidence | uncommitted Todo 17 evidence; ledger `[1,10,15,20,30,40,50,60]`, catalog SHA `7115c2ceed89f693405303eae6ad826fc0aa98c764774e3f1832b333d385bd37`, transaction terminal `ROLLBACK` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
 
@@ -33,24 +31,24 @@ Production의 성공 catalog가 없으므로 Production schema, Development와�
 
 시스템은 Express/Drizzle 애플리케이션과 하나의 PostgreSQL `public` 스키마로 구성된 modular monolith이다. Google Sheets는 동문 명부 원본이고 `alumni_database`는 로그인·가입 심사용 runtime copy이며, Kakao는 OAuth/연결 해제 경계, Object Storage는 게시글·행사 첨부 경계다. 이 외부 시스템들은 물리 테이블을 소유하지 않는다.
 
-`session`은 `server/index.ts`가 `CREATE TABLE IF NOT EXISTS` 및 `session_expire_idx`를 보장하는 runtime DDL이고 Drizzle migration 대상은 아니다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
+`session`을 포함한 required schema는 migration ledger가 소유한다. 시작 경로는 sequence 60까지의 exact ledger를 검증할 뿐 DDL을 방출하지 않는다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
 
 ## 3. environment drift matrix
 
 | object_kind | schema | physical_name | code_status | dev_status | prod_status | drift_note | evidence_ref |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| ordinary tables | public | baseline 13 | verified | verified (13) | unverified | Production 비교 불가 | Todo 7 rerun |
-| columns | public | baseline 112 | verified | verified (112) | unverified | Production 비교 불가 | Todo 7 rerun |
-| constraints/indexes/sequences | public | 13/9/6/20/9 | verified | verified | unverified | Production 비교 불가 | Todo 7 rerun |
+| ordinary tables | public | manifest + baseline 68 | verified | verified (68) | unverified | Production 비교 불가 | Todo 17 |
+| columns | public | 1403 | verified | verified (1403) | unverified | Production 비교 불가 | Todo 17 |
+| constraints/indexes/sequences | public | PK 68/FK 257/UNIQUE 80/CHECK 287/index 432/sequence 63 | verified | verified | unverified | Production 비교 불가 | Todo 17 |
 | views | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
 | materialized views | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| triggers | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
+| triggers | public | ABSENT (catalog count=0) | verified | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 17 |
 | policies | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| routines | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
+| routines | public | manifest-owned functions 188 | verified | verified (188) | unverified | Production 비교 불가 | Todo 17 |
 | enums | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
 | domains | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
 
-## 4. baseline ERD
+## 4. baseline application-subset ERD
 
 ```mermaid
 erDiagram
@@ -78,7 +76,7 @@ flowchart LR
   App --> Storage[Object Storage]
 ```
 
-ERD의 선은 catalog의 9 FK를 표현한다. nullable FK는 부모 쪽을 `o|`로 표시한다. `alumni_database.matched_user_id`는 FK이나 UNIQUE가 없어 물리 cardinality는 `users o|--o{ alumni_database`이고 1:1은 logical_only다. `community_events.legacy_obituary_id`는 UNIQUE이나 `obituaries` FK는 없다.
+이 ERD는 기존 홈페이지 13-table subset만 표시한다. 최종 257 FK와 회계·회비·출처·감사 관계의 상세 권위는 manifest다. Sequence 20은 `alumni_database.matched_user_id`의 non-null uniqueness와 `community_events.legacy_obituary_id → obituaries.id`를 물리적으로 강제한다.
 
 | FK constraint | ON UPDATE | ON DELETE |
 | --- | --- | --- |
@@ -94,7 +92,20 @@ ERD의 선은 catalog의 9 FK를 표현한다. nullable FK는 부모 쪽을 `o|`
 
 ## 5. per-table dictionary
 
-모든 열은 `name:type NULL/NOT NULL default; identity/generated` 순서다. 명시하지 않은 `identity/generated`는 `none/none`이며, 모든 CHECK는 `없음`이다. 각 행의 drift note는 `code/Development verified; Production unverified`다.
+아래 13개 row는 기존 홈페이지 application subset의 역할·PII·lifecycle 설명을 보존한다. 최종 물리 column/constraint 정의는 manifest가 권위이며, Todo 17 overlay는 다음과 같다.
+
+| existing table | migrated overlay |
+| --- | --- |
+| `users` | immutable `user_uid`, generated canonical email/phone, exact canonical CHECK/UNIQUE/index |
+| `alumni_database` | generated canonical mobile, non-null matched-user uniqueness/index |
+| `pending_registrations` | generated canonical email, status/domain and pending identity partial uniqueness |
+| `categories` | badge-variant and nonnegative sort-order CHECK |
+| `payments` | amount/year/type/status CHECK; legacy validation state는 ledger/catalog로 판정 |
+| `community_events` | event type/status CHECK와 nullable obituary FK `ON DELETE SET NULL ON UPDATE RESTRICT` |
+| `event_parse_rate_limits` | nonnegative count 및 timestamp ordering CHECK |
+| `kakao_oauth_states` | expiry-after-start CHECK |
+
+나머지 manifest-owned 55개 table의 1286 columns, keys, audit/transition routines와 관계는 [`database-manifest.yaml`](database-manifest.yaml)의 closed registry가 상세 권위다. 아래 기존 row에서 `CHECK 없음` 또는 pre-Todo-17 relation 표기는 historical baseline 설명이며 최종 catalog 주장으로 사용하지 않는다. Production은 전부 unverified다.
 
 ### TABLE_ROW: users
 
@@ -207,24 +218,24 @@ Development saved catalog 기준이다. Production 열은 모두 unverified이�
 
 | category | Development object/status | Production |
 | --- | --- | --- |
-| ordinary/partitioned tables | ordinary 13: `alumni_database`, `categories`, `comments`, `community_events`, `event_parse_rate_limits`, `kakao_identity_terminations`, `kakao_oauth_states`, `obituaries`, `payments`, `pending_registrations`, `posts`, `session`, `users`; partitioned 없음 | unverified |
+| ordinary/partitioned tables | ordinary 68; baseline 13 + manifest-owned 55, partitioned 없음 | unverified |
 | views | ABSENT (catalog count=0) | unverified |
 | materialized views | ABSENT (catalog count=0) | unverified |
 | triggers | ABSENT (catalog count=0) | unverified |
-| RLS/force-RLS | 13 tables 모두 `rls_enabled=false`, `rls_forced=false` | unverified |
+| RLS/force-RLS | 68 tables 모두 disabled | unverified |
 | policies | ABSENT (catalog count=0) | unverified |
-| routines | ABSENT (catalog count=0) | unverified |
+| routines | 188; manifest-owned integrity, transition, audit and operation routines | unverified |
 | enums | ABSENT (catalog count=0) | unverified |
 | domains | ABSENT (catalog count=0); domain constraints ABSENT (catalog count=0) | unverified |
-| extensions/dependencies | `plpgsql` version `1.0`, schema `pg_catalog`, relocatable=false; public dependency ABSENT (catalog count=0) | unverified |
-| sequences | `alumni_database_id_seq`, `categories_id_seq`, `comments_id_seq`, `community_events_id_seq`, `obituaries_id_seq`, `payments_id_seq`, `pending_registrations_id_seq`, `posts_id_seq`, `users_id_seq`; 모두 integer start/increment/min/cache `1`, max `2147483647`, cycles=false | unverified |
-| indexes/constraints | PK 13, FK 9, non-PK UNIQUE 6, indexes 20. FK: `alumni_database_matched_user_id_users_id_fk`, `comments_author_id_users_id_fk`, `comments_post_id_posts_id_fk`, `community_events_author_id_users_id_fk`, `event_parse_rate_limits_user_id_users_id_fk`, `obituaries_author_id_users_id_fk`, `payments_user_id_users_id_fk`, `posts_author_id_users_id_fk`, `posts_category_id_categories_id_fk`; all catalog-valid/ready | unverified |
+| extensions/dependencies | `plpgsql` 및 selected preferred variant의 `btree_gist` 설치 확인 | unverified |
+| sequences | 63 | unverified |
+| indexes/constraints | PK 68, FK 257, UNIQUE 80, CHECK 287, EXCLUDE 0, indexes 432; catalog-valid/ready | unverified |
 
 PK index names are `alumni_database_pkey`, `categories_pkey`, `comments_pkey`, `community_events_pkey`, `event_parse_rate_limits_pkey`, `kakao_identity_terminations_pkey`, `kakao_oauth_states_pkey`, `obituaries_pkey`, `payments_pkey`, `pending_registrations_pkey`, `posts_pkey`, `session_pkey`, `users_pkey`. Non-PK unique indexes are `alumni_database_mobile_unique`, `categories_name_unique`, `community_events_legacy_obituary_id_unique`, `kakao_oauth_states_session_binding_hash_unique`, `users_email_unique`, `users_kakao_id_unique`; standalone index is `session_expire_idx`.
 
 ## 7. logical invariants
 
-물리 강제는 PK/FK/UNIQUE/CASCADE뿐이다. 다음은 logical_only다: `matched_user_id` 1:1 기대(UNIQUE 없음), pending `status` 및 payment/event `type/status`의 허용값, category/post visibility coupling, `legacy_obituary_id`의 obituary FK, Object Storage URL GC, 등록 승인·거절 중복 방지와 alumni claim 경쟁, `session.sess.userId`의 users 연결. CHECK 없음은 유효값 보장을 뜻하지 않는다.
+Manifest가 PK/FK/UNIQUE/CHECK, generated canonical identity, closed transition, actor/action, append-only audit와 전역 lock 순서를 물리적으로 강제한다. `session.sess.userId`, Object Storage URL GC와 외부 provider 상태는 계속 logical/external 경계다. Legacy payment CHECK 네 개의 validation 상태와 선택 sequence 65는 ledger/catalog로 별도 판정한다.
 
 ## 8. CRUD/transaction/lifecycle
 
@@ -255,20 +266,20 @@ registration/approval, account deletion, alumni claim/sync는 여러 owner의 �
 
 | risk key | evidence-grounded gap | 영향/완화 |
 | --- | --- | --- |
-| R1 | `alumni_database.matched_user_id` non-UNIQUE | 1:1 claim 중복 가능; approval/sync transaction 유지와 제약 검토 |
-| R2 | pending/payment/event 자유 text status/type | 허용값 drift; 코드 validation과 catalog를 분리 재검증 |
+| R1 | Production catalog 미검증 | Development parity를 추정하지 않고 별도 read-only dossier 전까지 unverified 유지 |
+| R2 | dues policy 16개·position mapping 46개가 draft | 별도 board approval 전 승인·권리 산출 금지 |
 | R3 | manual user deletion lifecycle | orphan/PII 잔존; 정책 미정 |
-| R4 | `legacy_obituary_id` UNIQUE, obituary FK 없음 | migration/link integrity를 logical_only로 추적 |
+| R4 | legacy payment validation/cutover 미완료 | Todo 19 및 선택 sequence 65 경계 유지 |
 | R5 | category/post visibility coupling | inactive/published 불일치 가능 |
 | R6 | Object Storage URL GC 없음 | orphan·retention 위험; 정책 미정 |
 | R7 | checked-in six-table migration | 13-table current reproduction path 아님 |
 
 ## 13. migration drift
 
-`migrations/0000_cheerful_nick_fury.sql`은 6-table historical incomplete baseline이며 현재 13-table reproduction path가 아니다. `session`은 runtime DDL, `kakao_oauth_states`·`kakao_identity_terminations`·`event_parse_rate_limits`은 additive operation, `seed-categories.sql`은 seed, `migrate-obituaries-to-community-events.sql`은 explicit data migration이다. 등록 schema command는 `drizzle-kit push`이며, 이 문서 작업에서는 실행하지 않았다. Production 미검증 상태를 migration drift로 감추지 않는다.
+Development의 정본 경로는 checksum-bound ledger sequence `1,10,15,20,30,40,50,60`이다. Sequence 40은 `preferred_btree_gist`, sequence 65는 미적용이다. 전체 재실행은 8개 모두 `verified_noop`이었고 migrated startup은 DDL을 방출하지 않았다. `migrations/0000_cheerful_nick_fury.sql`은 sequence 10 생성 입력으로만 유지한다. Production 미검증 상태를 migration drift로 감추지 않는다.
 
 ## 14. revalidation link/checklist
 
 Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행하며 `ROLLBACK`과 completion marker를 확인한다. Production은 명시적으로 `expected_database=neondb`를 선택하고 성공 catalog가 생기기 전까지 unverified/unknown을 유지한다.
 
-체크리스트: 문서 14개 장의 고정 순서와 catalog 출력 18개 section의 고정 순서를 각각 확인하고, 13 table row, 112 columns, 13 PK/9 FK/6 non-PK UNIQUE/20 indexes/9 sequences, zero-count category, RLS false 13, Production 미검증을 재확인한다. 재검증은 metadata-only이고 결과의 행·PII·Secret을 저장하지 않는다.
+체크리스트: ledger `1,10,15,20,30,40,50,60`, 68 tables, 1403 columns, 68 PK/257 FK/80 UNIQUE/287 CHECK/432 indexes/63 sequences, routines 188, triggers/views/policies/enums/domains 0, RLS enabled 0, approved category tips 6, approved dues policy/mapping 0, Production unverified를 재확인한다. 재검증은 metadata-only이고 `REPEATABLE READ READ ONLY` 후 `ROLLBACK`하며 행·PII·Secret을 저장하지 않는다.

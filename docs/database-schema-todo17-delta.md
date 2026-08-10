@@ -1,8 +1,8 @@
 # Todo 17 Development schema delta
 
-이 문서는 아직 Development Database에 적용되지 않은 Todo 16 생성 산출물의 결정적 변경 목록이다. 현재 검증 상태를 기술하는 `docs/database-schema.md`를 선반영하거나 적용 완료로 간주하지 않는다.
+이 문서는 Todo 17에서 Development Database에 적용·검증한 결정적 변경 기록이다. 현재 검증 상태는 `docs/database-schema.md`가 권위다.
 
-> Development 적용은 Todo 17의 단일 운영 승인 경계까지 미실행 상태다. 2026-08-10 disposable 검증에서 strict actor receipt, sequence 50–60, 여섯 category 승인, category 재실행 `verified_noop`, metadata-only catalog `ROLLBACK`, database 부재를 재현했다.
+> 2026-08-10 Development에 sequence `1,10,15,20,30,40,50,60`을 적용했다. strict actor receipt commit은 `4711badbb13e236df8a1f00f4f87156d31960d98`; 전체 재실행 8개와 category 재실행은 `verified_noop`, migrated startup DDL은 0, metadata-only catalog는 `ROLLBACK`으로 끝났다. Production 작업은 0이다.
 
 - sequence 10: 현재 13개 애플리케이션 테이블의 빈 disposable baseline을 재현한다.
 - sequence 15: 기존 데이터의 `pre_anchor_blocking` 및 `legacy_not_valid` 예외를 append-only로 캡처한다.
@@ -13,6 +13,8 @@
 - sequence 60: PUBLIC schema/table/sequence/routine 권한과 default privileges를 fail-closed 상태로 조정한다.
 - sequence 65: sequence 15에 남은 legacy-payment 예외가 0일 때만 네 CHECK를 검증하는 선택적 validator다.
 
-Todo 17 도구는 sequence 50의 actor를 임의의 첫 관리자가 아니라 receipt의 exact user ID·UID와 transaction-local 설정에 결합한다. Development receipt는 사용자 315, verified through-40 release와 여섯 ledger row digest에 결합된 closed canonical JSON+LF이며, 현재 `HEAD`에 같은 bytes로 commit된 경우에만 sequence 50을 허용한다. Category 승인은 여섯 draft root에 version 2 approved successor만 append하고, 16개 dues policy와 46개 position mapping은 draft로 유지한다.
+Todo 17 도구는 sequence 50의 actor를 receipt의 exact user ID·UID와 transaction-local 설정에 결합했다. Development receipt는 사용자 315, verified through-40 release와 여섯 ledger row digest에 결합되었고 현재 `HEAD` bytes를 재증명한 뒤에만 sequence 50을 허용했다. Category 여섯 tip은 승인되었으며, 16개 dues policy와 46개 position mapping은 모두 draft로 유지된다.
 
-다음 단계는 단일 운영 승인 후 Replit SSH에서 Development target identity를 다시 확인하고 1→40을 적용하는 것이다. 차단 예외가 없을 때만 strict receipt를 생성·단독 commit한 뒤 50→60과 category 승인을 계속한다. 마지막에는 migrated startup, metadata-only catalog `ROLLBACK`, 전체 reapply `verified_noop`을 확인하고, 그 실제 관찰 결과로만 `docs/database-schema.md`와 이 문서를 갱신한다.
+Brownfield 적용 중 두 fail-closed 결함을 수정했다. Sequence 10은 13-table/112-column baseline 객체 digest를 검증한 뒤 idempotent DDL을 실행하도록 고쳤고, sequence 20은 raw pre-anchor predicate를 독립 재검사한 뒤 정확한 `10…/82 10…→010…` generated canonical column으로 교체한다. 관리자 후보 315의 원본 전화번호 교정 시도는 정확한 정규화상 유효함이 확인되어 transaction이 사전조건에서 rollback됐고 데이터 변경은 0건이었다.
+
+다음 단계는 Todo 18의 source별 profile·mapping 승인과 explicit decision preview다. Sequence 65, dues policy/mapping 승인, Production, merge·deploy는 계속 제외된다.
