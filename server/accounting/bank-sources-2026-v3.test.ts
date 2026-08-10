@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeBankRowV3 } from "./adapters/bank-sources-2026-v3";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 
-function implementationDigest(paths: string[]): string { return sha256(canonicalJson({ schema_version: "normalization-implementation-closure-v1", files: [...paths].sort().map((path) => ({ path, sha256: sha256(readFileSync(path)) })) })); }
+function historicalImplementationDigest(commit: string, paths: string[]): string { return sha256(canonicalJson({ schema_version: "normalization-implementation-closure-v1", files: [...paths].sort().map((path) => ({ path, sha256: sha256(execFileSync("git", ["show", `${commit}:${path}`])) })) })); }
 
 test("Toss and IBK v3 retain readable work snapshots without account fields", () => {
   const toss = normalizeBankRowV3("BANK_TOSS_2026", { coordinateKey: "toss:10", values: { "거래 일시": "2026. 1. 2. 03:04", "거래 금액": "50,000", "거래 후 잔액": "100,000", 적요: "입금자", "거래 유형": "입금", "거래 기관": "은행", 메모: null } });
@@ -49,7 +50,7 @@ test("bank v3 approvals, descriptors, and Development plan are immutable and sel
     assert.equal(approvalBytes, `${canonicalJson(approval)}\n`); assert.equal(approval.mapping_sha256, sha256(mappingBytes)); assert.equal(approval.receipt_sha256, sha256(canonicalJson(approvalPreimage)));
     assert.equal(descriptor.mapping_approval_receipt_sha256, approval.receipt_sha256); assert.equal(descriptor.mapping_table_sha256, sha256(mappingBytes));
     assert.equal(descriptor.normalized_schema_sha256, sha256(readFileSync("docs/source-contracts/schemas/deferred-source-normalized-row-v2.schema.json")));
-    assert.equal(descriptor.normalization_implementation_sha256, implementationDigest(["server/accounting/adapters/admin-readable-source-v2.ts", "server/accounting/adapters/bank-sources-2026-v3.ts", "server/accounting/source-contracts.ts"]));
+    assert.equal(descriptor.normalization_implementation_sha256, historicalImplementationDigest("2c79c7b", ["server/accounting/adapters/admin-readable-source-v2.ts", "server/accounting/adapters/bank-sources-2026-v3.ts", "server/accounting/source-contracts.ts"]));
     assert.equal(operations.get(sourceCode)?.descriptor_sha256, sha256(descriptorBytes));
   }
 });

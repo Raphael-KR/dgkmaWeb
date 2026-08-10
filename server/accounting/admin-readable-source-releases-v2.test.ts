@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
@@ -8,8 +9,8 @@ const contracts = [
   { name: "notion-organization-role-history", schema: "docs/source-contracts/schemas/role-row-v3.schema.json", implementation: ["server/accounting/adapters/admin-readable-source-v2.ts", "server/accounting/adapters/notion-organization-role-history-v2.ts", "server/accounting/source-contracts.ts"] },
   ...["agm36-period-boundary", "bank-ibk-2026", "bank-toss-2026", "group-foreign-faculty-2025", "ledger-dues-policy-2024-2025", "ledger-final-2022-2025", "legacy-payments", "notion-dues-regulation-draft"].map((name) => ({ name, schema: "docs/source-contracts/schemas/deferred-source-normalized-row-v2.schema.json", implementation: ["server/accounting/adapters/admin-readable-source-v2.ts", "server/accounting/adapters/deferred-source-normalization-v2.ts", "server/accounting/source-contracts.ts"] })),
 ];
-function implementationDigest(paths: string[]): string {
-  return sha256(canonicalJson({ schema_version: "normalization-implementation-closure-v1", files: [...paths].sort().map((path) => ({ path, sha256: sha256(readFileSync(path)) })) }));
+function historicalImplementationDigest(commit: string, paths: string[]): string {
+  return sha256(canonicalJson({ schema_version: "normalization-implementation-closure-v1", files: [...paths].sort().map((path) => ({ path, sha256: sha256(execFileSync("git", ["show", `${commit}:${path}`])) })) }));
 }
 
 test("ten v2 release descriptors bind approved mappings, schemas, and secret-free implementation closures", () => {
@@ -23,7 +24,7 @@ test("ten v2 release descriptors bind approved mappings, schemas, and secret-fre
     assert.equal(descriptor.mapping_table_sha256, sha256(mappingBytes));
     assert.equal(descriptor.mapping_approval_receipt_sha256, approval.receipt_sha256);
     assert.equal(descriptor.normalized_schema_sha256, sha256(readFileSync(contract.schema)));
-    assert.equal(descriptor.normalization_implementation_sha256, implementationDigest(contract.implementation));
+    assert.equal(descriptor.normalization_implementation_sha256, historicalImplementationDigest("06dadbb", contract.implementation));
     for (const path of contract.implementation) assert.doesNotMatch(readFileSync(path, "utf8"), /createHmac|ACCOUNTING_PII_HMAC_KEY_V1|source-row-hmac/i);
   }
 });
