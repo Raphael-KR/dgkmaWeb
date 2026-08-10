@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupReservationBlueprint, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupReservationBlueprint, reserveGroupExecutionReservation, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -50,6 +50,11 @@ test("binds every insert, update target, audit, and correlation without ambiguit
 test("rejects missing, duplicate, and malformed reservations before DML", () => {
   const blueprint=buildGroupReservationBlueprint(plan);const ids=blueprint.sequenceTables.map((_,index)=>String(index+1));const operationUid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,ids.slice(1)),/reservation_count_mismatch/);const duplicate=[...ids];duplicate[1]=duplicate[0];assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,duplicate),/reservation_count_mismatch/);const malformed=[...ids];malformed[1]="0";assert.throws(()=>bindGroupExecutionReservation(plan,operationUid,malformed),/reservation_count_mismatch/);
+});
+
+test("reserves the exact closed sequence-table order once", async () => {
+  const blueprint=buildGroupReservationBlueprint(plan);const observed:string[]=[];const bound=await reserveGroupExecutionReservation(plan,"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",async(table)=>{observed.push(table);return String(observed.length);});
+  assert.deepEqual(observed,blueprint.sequenceTables);assert.equal(bound.operationReceiptId,"1");assert.equal(new Set([...bound.transitionAudits,...bound.steps].map((action)=>action.auditId)).size,bound.transitionAudits.length+bound.steps.length);
 });
 
 test("rejects stable identity reuse before reservations", () => {

@@ -143,3 +143,9 @@ export function bindGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, op
   if(new Set(actions.map((action)=>action.correlationUid)).size!==actions.length||new Set(actions.map((action)=>action.resultOrdinal)).size!==actions.length)fail("source_decision_group_result_bijection_invalid");
   return {operationReceiptId,transitionAudits,steps};
 }
+
+export async function reserveGroupExecutionReservation(plan: GroupMultiBatchApplyPlan, operationUid: string, reserveId: (table: string) => Promise<string>): Promise<GroupExecutionReservation> {
+  const blueprint=buildGroupReservationBlueprint(plan);const ids:string[]=[];
+  for(const table of blueprint.sequenceTables)ids.push(await reserveId(table));
+  return bindGroupExecutionReservation(plan,operationUid,ids);
+}
