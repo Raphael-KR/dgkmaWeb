@@ -69,6 +69,7 @@ import {
 import { isConfiguredKakaoAdministrator } from "./kakao-admin-allowlist";
 import { readSourceDecisionReview, type SourceDecisionReview } from "./accounting/source-decision-review";
 import { decideSourcePreview, type SourceDecisionActor, type SourceDecisionApprovalReceipt } from "./accounting/source-decision-service";
+import { canonicalJson as canonicalAccountingJson, sha256 as accountingSha256, type CanonicalValue as AccountingCanonicalValue } from "./accounting/source-contracts";
 
 declare module "express-session" {
   interface SessionData {
@@ -250,7 +251,9 @@ export async function registerRoutes(
       const user = result.rows[0]; return user ? { id: user.id, userUid: user.user_uid, name: user.name, isAdmin: user.is_admin } : undefined;
     });
   const sourceDecisionAdminReceipt = dependencies.sourceDecisionAdminReceipt ?? (() => {
-    const receipt = JSON.parse(readFileSync("docs/database-targets/development-admin-approved.json", "utf8")) as { candidate_user_id: number; candidate_user_uid: string; authorization_version: string; target_fingerprint: string };
+    const receipt = JSON.parse(readFileSync("docs/database-targets/development-admin-approved.json", "utf8")) as { schema_version: string; candidate_user_id: number; candidate_user_uid: string; authorization_version: string; target_fingerprint: string; is_admin: boolean; receipt_sha256: string };
+    const preimage = { ...receipt } as Partial<typeof receipt>; delete preimage.receipt_sha256;
+    if (receipt.schema_version !== "dgkma-development-admin-v1" || receipt.is_admin !== true || !Number.isSafeInteger(receipt.candidate_user_id) || receipt.candidate_user_id <= 0 || !/^[0-9a-f-]{36}$/.test(receipt.candidate_user_uid) || !/^[0-9a-f]{64}$/.test(receipt.authorization_version) || !/^[0-9a-f]{64}$/.test(receipt.target_fingerprint) || receipt.receipt_sha256 !== accountingSha256(canonicalAccountingJson(preimage as unknown as AccountingCanonicalValue))) throw new Error("source_decision_admin_receipt_invalid");
     return { userId: receipt.candidate_user_id, userUid: receipt.candidate_user_uid, authorizationVersion: receipt.authorization_version, targetFingerprint: receipt.target_fingerprint };
   })();
   const sourceDecisionReviewReader = dependencies.sourceDecisionReviewReader
