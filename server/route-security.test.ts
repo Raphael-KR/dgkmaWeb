@@ -118,6 +118,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
     const adminEndpoints = [
       { method: "GET", path: "/api/admin/pending-registrations" },
       { method: "GET", path: "/api/admin/accounting/source-decisions/55555555-5555-4555-8555-555555555555" },
+      { method: "POST", path: "/api/admin/accounting/source-decisions/55555555-5555-4555-8555-555555555555/decision", body: "{}" },
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
       { method: "POST", path: "/api/admin/sync-alumni/preview" },
       { method: "POST", path: "/api/admin/sync-alumni" },

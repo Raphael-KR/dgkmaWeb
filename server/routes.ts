@@ -1,4 +1,4 @@
-import type { Express, Request, RequestHandler } from "express";
+import express, { type Express, type Request, type RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -68,6 +68,7 @@ import {
 } from "./kakao-identity";
 import { isConfiguredKakaoAdministrator } from "./kakao-admin-allowlist";
 import { readSourceDecisionReview, type SourceDecisionReview } from "./accounting/source-decision-review";
+import { decideSourcePreview, type SourceDecisionActor, type SourceDecisionApprovalReceipt } from "./accounting/source-decision-service";
 
 declare module "express-session" {
   interface SessionData {
@@ -166,9 +167,10 @@ export type RouteDependencies = {
   eventParseTimeoutMs?: number;
   eventParseLimiter?: RequestHandler;
   isKakaoAdministrator?: (kakaoId: string) => boolean;
-  getSourceDecisionAdmin?: (userId: number) => Promise<{ id: number; userUid: string; isAdmin?: boolean | null } | undefined>;
-  sourceDecisionAdminReceipt?: { userId: number; userUid: string };
+  getSourceDecisionAdmin?: (userId: number) => Promise<{ id: number; userUid: string; name?: string; isAdmin?: boolean | null } | undefined>;
+  sourceDecisionAdminReceipt?: { userId: number; userUid: string; authorizationVersion?: string; targetFingerprint?: string };
   sourceDecisionReviewReader?: (decisionSetUid: string) => Promise<SourceDecisionReview | undefined>;
+  sourceDecisionExecutor?: (decisionSetUid: string, command: Record<string, unknown>, actor: SourceDecisionActor) => Promise<SourceDecisionApprovalReceipt>;
 };
 
 function requestHostOrigin(req: Request): string | undefined {
@@ -244,16 +246,20 @@ export async function registerRoutes(
   const getSourceDecisionAdmin = dependencies.getSourceDecisionAdmin
     ?? (async (userId: number) => {
       const { pool } = await import("./db");
-      const result = await pool.query<{ id: number; user_uid: string; is_admin: boolean }>("SELECT id,user_uid::text,is_admin FROM public.users WHERE id=$1", [userId]);
-      const user = result.rows[0]; return user ? { id: user.id, userUid: user.user_uid, isAdmin: user.is_admin } : undefined;
+      const result = await pool.query<{ id: number; user_uid: string; name: string; is_admin: boolean }>("SELECT id,user_uid::text,name,is_admin FROM public.users WHERE id=$1", [userId]);
+      const user = result.rows[0]; return user ? { id: user.id, userUid: user.user_uid, name: user.name, isAdmin: user.is_admin } : undefined;
     });
   const sourceDecisionAdminReceipt = dependencies.sourceDecisionAdminReceipt ?? (() => {
-    const receipt = JSON.parse(readFileSync("docs/database-targets/development-admin-approved.json", "utf8")) as { candidate_user_id: number; candidate_user_uid: string };
-    return { userId: receipt.candidate_user_id, userUid: receipt.candidate_user_uid };
+    const receipt = JSON.parse(readFileSync("docs/database-targets/development-admin-approved.json", "utf8")) as { candidate_user_id: number; candidate_user_uid: string; authorization_version: string; target_fingerprint: string };
+    return { userId: receipt.candidate_user_id, userUid: receipt.candidate_user_uid, authorizationVersion: receipt.authorization_version, targetFingerprint: receipt.target_fingerprint };
   })();
   const sourceDecisionReviewReader = dependencies.sourceDecisionReviewReader
     ?? (async (decisionSetUid: string) => {
       const { pool } = await import("./db"); return readSourceDecisionReview(pool, decisionSetUid);
+    });
+  const sourceDecisionExecutor = dependencies.sourceDecisionExecutor
+    ?? (async (decisionSetUid: string, command: Record<string, unknown>, actor: SourceDecisionActor) => {
+      const { pool } = await import("./db"); return decideSourcePreview(pool, decisionSetUid, command, actor);
     });
   const getAccountDeletionUser = dependencies.getAccountDeletionUser
     ?? ((userId: number) => storage.getUser(userId));
@@ -1395,6 +1401,25 @@ export async function registerRoutes(
       if (error instanceof Error && error.message === "source_decision_review_uid_invalid") return res.status(400).json({ message: "유효한 검토 식별자가 필요합니다" });
       console.error("Source decision review failed:", getErrorType(error));
       return res.status(500).json({ message: "검토 정보를 불러오지 못했습니다" });
+    }
+  });
+
+  app.post("/api/admin/accounting/source-decisions/:decisionSetUid/decision", express.json({ limit: "1mb" }), async (req, res) => {
+    if (!hasTrustedSameOrigin(req)) return res.status(403).json({ message: "동일 출처의 관리자 요청이 필요합니다" });
+    const userId = req.session.userId!;
+    try {
+      const live = await getSourceDecisionAdmin(userId);
+      if (!live || !live.isAdmin || live.id !== sourceDecisionAdminReceipt.userId || live.userUid !== sourceDecisionAdminReceipt.userUid || !live.name || !sourceDecisionAdminReceipt.authorizationVersion || !sourceDecisionAdminReceipt.targetFingerprint) return res.status(403).json({ message: "승인된 관리자만 결정할 수 있습니다" });
+      if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) return res.status(400).json({ message: "유효한 결정 명령이 필요합니다" });
+      const receipt = await sourceDecisionExecutor(req.params.decisionSetUid, req.body as Record<string, unknown>, { userId: live.id, userUid: live.userUid, name: live.name, authorizationVersion: sourceDecisionAdminReceipt.authorizationVersion, targetFingerprint: sourceDecisionAdminReceipt.targetFingerprint });
+      return res.json(receipt);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "source_decision_unknown";
+      if (code.includes("invalid") || code.includes("mismatch") || code.includes("coverage")) return res.status(400).json({ message: "결정 명령이 저장된 검토안과 일치하지 않습니다" });
+      if (code.includes("stale") || code.includes("state") || code.includes("collision") || code.includes("reuse")) return res.status(409).json({ message: "검토안 상태가 변경되었습니다. 다시 불러오세요" });
+      if (code.includes("admin_required") || code.includes("unauthenticated") || code.includes("frozen_admin")) return res.status(403).json({ message: "승인된 관리자만 결정할 수 있습니다" });
+      console.error("Source decision apply failed:", getErrorType(error));
+      return res.status(500).json({ message: "결정을 적용하지 못했습니다" });
     }
   });
 
