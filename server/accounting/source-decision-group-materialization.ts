@@ -6,6 +6,7 @@ export type GroupMaterializationStep = {
   action: "create";
   dependsOn: string[];
 };
+export type GroupReservationBlueprint = { businessRows: Array<{ stepKey: string; table: string }>; transitionAuditKeys: string[]; sequenceTables: string[] };
 
 function fail(code: string): never { throw new Error(code); }
 function compare(left: string, right: string): number { return Buffer.compare(Buffer.from(left), Buffer.from(right)); }
@@ -55,4 +56,16 @@ export function buildGroupMaterializationTopology(plan: GroupMultiBatchApplyPlan
   }
   validateGroupMaterializationTopology(steps);
   return steps;
+}
+
+export function buildGroupReservationBlueprint(plan: GroupMultiBatchApplyPlan): GroupReservationBlueprint {
+  const steps = buildGroupMaterializationTopology(plan);
+  const transitionAuditKeys = [
+    ...plan.orderedDecisionSetUids.map((uid) => `decision-set:${uid}:approve`),
+    ...plan.orderedBatchUids.map((uid) => `batch:${uid}:apply`),
+  ];
+  const businessRows = steps.map((step) => ({ stepKey: step.key, table: step.table }));
+  const sequenceTables = ["business_operation_receipts", ...businessRows.map((row) => row.table), ...Array.from({ length: transitionAuditKeys.length + businessRows.length }, () => "accounting_audit_events")];
+  if (new Set(transitionAuditKeys).size !== transitionAuditKeys.length || businessRows.some((row, index) => index > 0 && row.stepKey === businessRows[index - 1].stepKey)) fail("source_decision_group_reservation_blueprint_invalid");
+  return { businessRows, transitionAuditKeys, sequenceTables };
 }

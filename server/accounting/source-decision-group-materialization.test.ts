@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildGroupMaterializationTopology, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { buildGroupMaterializationTopology, buildGroupReservationBlueprint, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -23,6 +23,11 @@ test("builds the exact dependency-ordered group materialization topology", () =>
 test("fails closed when a dependency is moved after its consumer", () => {
   const steps = buildGroupMaterializationTopology(plan); const reversed = [...steps]; const eventIndex = reversed.findIndex((step) => step.key.endsWith(":event")); const [event] = reversed.splice(eventIndex, 1); reversed.push(event);
   assert.throws(() => validateGroupMaterializationTopology(reversed), /materialization_topology_invalid/);
+});
+
+test("builds one deterministic reservation for every new row and audit", () => {
+  const blueprint = buildGroupReservationBlueprint(plan); const steps = buildGroupMaterializationTopology(plan);
+  assert.equal(blueprint.businessRows.length, steps.length); assert.equal(blueprint.transitionAuditKeys.length, 2); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 2); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
 });
 
 test("rejects stable identity reuse before reservations", () => {
