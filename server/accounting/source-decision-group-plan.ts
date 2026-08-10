@@ -15,6 +15,7 @@ export type GroupMultiBatchApplyPlan = {
     rosterBatchUid: string;
     duesAmount: string;
     approvedAllocationAmount: string;
+    categorySplits: Array<{ categoryCode: string; amount: string }>;
     primaryEvidence?: GroupApplyEvidence;
     allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; normalizedPayload: JsonObject } }>;
   }>;
@@ -49,11 +50,16 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
     if (payload.event_kind !== "bank" || payload.direction !== "credit" || payload.party_kind !== "group" || !["dues", "mixed"].includes(String(payload.classification_kind)) || typeof rosterBatchUid !== "string" || !UUID.test(rosterBatchUid) || typeof receiptUid !== "string" || !UUID.test(receiptUid) || typeof eventPartyUid !== "string" || !UUID.test(eventPartyUid)) fail("source_decision_group_primary_shape_invalid");
     if (seenCompanions.has(rosterBatchUid)) fail("source_decision_group_companion_reused"); seenCompanions.add(rosterBatchUid);
     const companion = companionByBatch.get(rosterBatchUid); if (!companion) fail("source_decision_group_companion_missing");
-    const categorySplits = payload.category_splits; if (!Array.isArray(categorySplits)) fail("source_decision_group_category_splits_invalid");
-    const duesAmount = categorySplits.reduce((sum, split) => {
+    const rawCategorySplits = payload.category_splits; if (!Array.isArray(rawCategorySplits)) fail("source_decision_group_category_splits_invalid");
+    const categorySplits = rawCategorySplits.map((split) => {
       if (!split || Array.isArray(split) || typeof split !== "object") fail("source_decision_group_category_split_invalid");
-      const row = split as JsonObject; return row.category_code === "DUES_INCOME" ? sum + money(row.amount, "source_decision_group_category_amount_invalid") : sum;
-    }, 0n);
+      const row = split as JsonObject; if (typeof row.category_code !== "string" || !row.category_code) fail("source_decision_group_category_split_invalid");
+      return { categoryCode: row.category_code, amount: money(row.amount, "source_decision_group_category_amount_invalid").toString() };
+    });
+    if (new Set(categorySplits.map((split) => split.categoryCode)).size !== categorySplits.length) fail("source_decision_group_category_duplicate");
+    const duesAmount = categorySplits.filter((split) => split.categoryCode === "DUES_INCOME").reduce((sum, split) => sum + BigInt(split.amount), 0n);
+    const eventAmount = categorySplits.reduce((sum, split) => sum + BigInt(split.amount), 0n);
+    if (item.evidence && item.evidence.normalizedPayload.amount !== eventAmount.toString()) fail("source_decision_group_event_amount_mismatch");
     if (duesAmount <= 0n) fail("source_decision_group_dues_amount_missing");
     let approvedAllocationAmount = 0n; let approvedCount = 0; const allocations: GroupMultiBatchApplyPlan["groups"][number]["allocations"] = [];
     for (const allocation of companion.items.filter((candidate) => candidate.decisionKind === "group_allocation")) {
@@ -77,7 +83,7 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       approvedAllocationAmount += amount; approvedCount += 1;
     }
     if (approvedCount === 0 || approvedAllocationAmount !== duesAmount) fail("source_decision_group_allocation_total_mismatch");
-    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString(), primaryEvidence: item.evidence, allocations };
+    return { primaryCoordinateKey: item.coordinateKey, eventPartyUid, receiptUid, rosterBatchUid, duesAmount: duesAmount.toString(), approvedAllocationAmount: approvedAllocationAmount.toString(), categorySplits, primaryEvidence: item.evidence, allocations };
   });
   if (seenCompanions.size !== companionByBatch.size) fail("source_decision_group_unreferenced_companion");
   const orderedCompanions = [...companions].sort((left, right) => Buffer.compare(Buffer.from(left.batchUid), Buffer.from(right.batchUid)));
