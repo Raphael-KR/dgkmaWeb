@@ -27,7 +27,7 @@ test("fails closed when a dependency is moved after its consumer", () => {
 
 test("builds one deterministic reservation for every new row and audit", () => {
   const blueprint = buildGroupReservationBlueprint(plan); const steps = buildGroupMaterializationTopology(plan);
-  assert.equal(blueprint.businessRows.length, steps.length); assert.equal(blueprint.transitionAuditKeys.length, 2); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 2); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
+  assert.equal(blueprint.businessRows.length, steps.length); assert.equal(blueprint.transitionAuditKeys.length, 4); assert.equal(blueprint.sequenceTables[0], "business_operation_receipts"); assert.equal(blueprint.sequenceTables.filter((table) => table === "accounting_audit_events").length, steps.length + 4); assert.deepEqual(buildGroupReservationBlueprint(plan), blueprint);
 });
 
 test("rejects stable identity reuse before reservations", () => {
