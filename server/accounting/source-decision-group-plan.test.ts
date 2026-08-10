@@ -27,6 +27,12 @@ test("requires each approved allocation to bind the same approved member match",
   const wrong = structuredClone(companion); (wrong.items[1].decisionPayload as Record<string, unknown>).candidate_member_uid_or_null = "99999999-9999-4999-8999-999999999999";
   assert.throws(() => buildGroupMultiBatchApplyPlan(primary, [wrong]), /member_match_binding_mismatch/);
 });
+test("requires paired companion items to share exact stored evidence", () => {
+  const bound = structuredClone(companion); const normalizedPayload = { group_name_snapshot: "synthetic group" };
+  bound.items.forEach((item, index) => { item.evidence = { decisionItemId: String(index + 1), coordinateId: item.coordinateKey === "roster:a" ? "11" : "12", sourceRowVersionId: item.coordinateKey === "roster:a" ? "21" : "22", normalizedPayload }; });
+  bound.items[1].evidence = { ...bound.items[1].evidence!, sourceRowVersionId: "99" };
+  assert.throws(() => buildGroupMultiBatchApplyPlan(primary, [bound]), /companion_evidence_mismatch/);
+});
 test("rejects duplicate or unreferenced companion batches", () => {
   assert.throws(() => buildGroupMultiBatchApplyPlan(primary, [companion, companion]), /companion_duplicate/);
   const extra = { ...companion, batchUid: "77777777-7777-4777-8777-777777777777", decisionSetUid: "88888888-8888-4888-8888-888888888888" };
@@ -38,7 +44,7 @@ test("loads and locks the exact live companion graph before planning", async () 
   const sourceFingerprint = "f".repeat(64); const contentDigest = "c".repeat(64);
   const batchRows = ["roster:a", "roster:b"].map((coordinate_key, index) => ({ ordinal: index + 1, coordinate_key, content_digest: contentDigest, issue_status: "accepted" }));
   const batchManifest = batchRows.map(({ coordinate_key, content_digest, issue_status }) => ({ coordinate_key, content_digest, issue_status }));
-  const storedItems = companion.items.map((item, index) => ({ coordinate_key: item.coordinateKey, content_digest: contentDigest, decision_kind: item.decisionKind, decision_payload: item.decisionPayload, ordinal: index + 1, decision_payload_sha256: sha256(canonicalJson(item.decisionPayload as CanonicalValue)) }));
+  const storedItems = companion.items.map((item, index) => ({ id: String(30 + index), coordinate_id: item.coordinateKey === "roster:a" ? "41" : "42", coordinate_key: item.coordinateKey, source_row_version_id: item.coordinateKey === "roster:a" ? "51" : "52", content_digest: contentDigest, normalized_payload: { group_name_snapshot: "synthetic group" }, decision_kind: item.decisionKind, decision_payload: item.decisionPayload, ordinal: index + 1, decision_payload_sha256: sha256(canonicalJson(item.decisionPayload as CanonicalValue)) }));
   const manifest = { schema_version: "source-decision-preview-v1", batch_uid: rosterBatch, source_fingerprint: sourceFingerprint, items: storedItems.map((item) => ({ ordinal: item.ordinal, coordinate_key: item.coordinate_key, source_content_digest: item.content_digest, decision_kind: item.decision_kind, decision_payload_sha256: item.decision_payload_sha256 })) };
   const client = { query: async (text: string) => {
     sql.push(text);
@@ -49,8 +55,9 @@ test("loads and locks the exact live companion graph before planning", async () 
     if (text.includes("FROM public.accounting_logical_sources s JOIN public.bank_source_account_mappings")) return { rowCount: 1, rows: [{ account_id: "91", account_code: "TOSS_OFFICER_2026", source_code_snapshot: "BANK_TOSS_2026", account_code_snapshot: "TOSS_OFFICER_2026" }] };
     return { rowCount: storedItems.length, rows: storedItems };
   } };
-  const result = await loadGroupMultiBatchApplyPlan(client as never, primary);
-  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.equal(sql.length, 6); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
+  const primaryWithEvidence = structuredClone(primary); primaryWithEvidence.items[0].evidence = { decisionItemId: "19", coordinateId: "29", sourceRowVersionId: "39", normalizedPayload: { amount: "100000" } };
+  const result = await loadGroupMultiBatchApplyPlan(client as never, primaryWithEvidence);
+  assert.deepEqual(result?.orderedBatchUids, [primaryBatch, rosterBatch]); assert.equal(result?.groups[0].primaryEvidence?.decisionItemId, "19"); assert.equal(result?.groups[0].allocations[0].evidence?.allocationDecisionItemId, "30"); assert.equal(result?.resolvedBindings?.bankAccountId, "91"); assert.deepEqual(result?.resolvedBindings?.memberIdsByUid, { "a0000000-0000-4000-8000-000000000003": "81", "b0000000-0000-4000-8000-000000000003": "82" }); assert.equal(sql.length, 6); assert.ok(sql.every((statement) => statement.includes("FOR UPDATE")));
 });
 
 test("fails closed when the referenced companion has no unique live preview set", async () => {
