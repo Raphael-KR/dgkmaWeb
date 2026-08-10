@@ -13,6 +13,7 @@
 | Development migrated verification UTC | `2026-08-10 04:25 UTC +0000` |
 | Todo 18 source-release verification KST | `2026-08-10 15:57 KST +0900` |
 | Todo 18 first source-preview verification KST | `2026-08-10 16:53 KST +0900` |
+| Todo 18 source-decision reader verification KST | `2026-08-10 17:41 KST +0900` |
 | verified receipt commit | `4711badbb13e236df8a1f00f4f87156d31960d98` |
 | code status | verified |
 | Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
@@ -30,7 +31,7 @@ Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a
 
 Production의 성공 catalog가 없으므로 Production schema, Development와의 일치, Production drift 유무를 주장하지 않는다.
 
-Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable release를 Development에 추가했다. 이후 owner가 관리자 가독형 source snapshot과 secretless domain-separated SHA-256, stable `member_uid` 경계를 승인해 10개 logical source 각각에 v2 immutable release를 append했다. v2 mapping·approval·schema·secret-free implementation closure는 checked-in descriptor에 결합되며 등록 명령은 `created → verified_noop`을 재현했다. 기존 v1 release는 이력으로 보존되지만 신규 import batch는 v2 descriptor만 선택한다. 이어 비개인정보 `LEDGER_DUES_POLICY_2024_2025` 10행과 `NOTION_DUES_REGULATION_DRAFT` 6행을 각각 durable preview로 등록했고 동일 입력은 모두 `created → verified_noop`이었다. 두 policy source는 decision item과 downstream/source-linked policy row를 만들지 않았으며, exact graph verifier는 각각 read-only `ROLLBACK`으로 끝났다. 외래교수회 26행의 50,000원 값은 계속 candidate-only다. `ACCOUNTING_PII_HMAC_KEY_V1`은 생성하거나 사용하지 않았다.
+Todo 18의 첫 checkpoint에서 승인된 deferred source 8개의 v1 immutable release를 Development에 추가했다. 이후 owner가 관리자 가독형 source snapshot과 secretless domain-separated SHA-256, stable `member_uid` 경계를 승인해 10개 logical source 각각에 v2 immutable release를 append했다. v2 mapping·approval·schema·secret-free implementation closure는 checked-in descriptor에 결합되며 등록 명령은 `created → verified_noop`을 재현했다. 기존 v1 release는 이력으로 보존되지만 신규 import batch는 v2 descriptor만 선택한다. 이어 비개인정보 `LEDGER_DUES_POLICY_2024_2025` 10행과 `NOTION_DUES_REGULATION_DRAFT` 6행을 각각 durable preview로 등록했고 동일 입력은 모두 `created → verified_noop`이었다. 두 policy source는 decision item과 downstream/source-linked policy row를 만들지 않았으며, exact graph verifier는 각각 read-only `ROLLBACK`으로 끝났다. 관리자용 source-decision GET과 persisted-byte 검증 reader도 구현·Replit 검증됐고 두 policy set은 `previewed`, item 0, terminal `ROLLBACK`이었다. 이 route는 아직 개발 홈페이지 runtime에 활성화되지 않았다. 외래교수회 26행의 50,000원 값은 계속 candidate-only다. `ACCOUNTING_PII_HMAC_KEY_V1`은 생성하거나 사용하지 않았다.
 
 ## 2. system and external boundaries
 
