@@ -9,7 +9,7 @@ export async function verifyStartupSchema(pool: Pool): Promise<void> {
            l.executor_version, r.state AS release_state
     FROM public.schema_change_ledger AS l
     JOIN public.schema_release_runs AS r ON r.id=l.release_run_id
-    WHERE l.sequence_no <= 70
+    WHERE l.sequence_no <= 80
     ORDER BY l.sequence_no, l.artifact_id
   `);
   const verification = verifyStartupLedger(result.rows, readArtifactDescriptors());

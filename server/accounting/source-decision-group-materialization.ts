@@ -69,6 +69,13 @@ export async function assertGroupClaimVersionContract(client: Pick<PoolClient, "
   if (row.constraint_names.length !== 0 || !rootUnique) fail("source_decision_claim_version_contract_mismatch");
 }
 
+export async function assertGroupMemberVersionContract(client:Pick<PoolClient,"query">):Promise<void>{
+  const catalog=await client.query<{constraint_names:string[];unique_indexes:Array<{name:string;predicate:string|null;columns:string[]}>}>(`
+    SELECT COALESCE((SELECT jsonb_agg(c.conname ORDER BY c.conname) FROM pg_catalog.pg_constraint c WHERE c.conrelid='public.dues_group_members'::regclass AND c.contype='u' AND c.conkey=ARRAY[(SELECT attnum FROM pg_catalog.pg_attribute WHERE attrelid=c.conrelid AND attname='group_id'),(SELECT attnum FROM pg_catalog.pg_attribute WHERE attrelid=c.conrelid AND attname='source_row_version_id')]::smallint[]),'[]'::jsonb) AS constraint_names,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('name',ci.relname,'predicate',pg_catalog.pg_get_expr(i.indpred,i.indrelid),'columns',ARRAY(SELECT a.attname FROM unnest(i.indkey::smallint[]) WITH ORDINALITY AS key(attnum,ordinality) JOIN pg_catalog.pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=key.attnum WHERE key.ordinality<=i.indnkeyatts ORDER BY key.ordinality)) ORDER BY ci.relname) FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class ci ON ci.oid=i.indexrelid WHERE i.indrelid='public.dues_group_members'::regclass AND i.indisunique),'[]'::jsonb) AS unique_indexes`);
+  if(catalog.rowCount!==1)fail("source_decision_group_member_version_contract_unreadable");const row=catalog.rows[0];const rootUnique=row.unique_indexes.some((index)=>{const predicate=(index.predicate??"").replace(/[\s()]/g,"").replace(/::integer/g,"");return index.columns.length===2&&index.columns[0]==="group_id"&&index.columns[1]==="source_row_version_id"&&predicate==="version=1";});if(row.constraint_names.length!==0||!rootUnique)fail("source_decision_group_member_version_contract_mismatch");
+}
+
 export function validateGroupMaterializationTopology(steps: GroupMaterializationStep[]): void {
   const seen = new Set<string>();
   for (const step of steps) {

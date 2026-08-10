@@ -107,10 +107,8 @@ export async function observeLedgerThrough40(
   pool: Pool,
   targetFingerprint: string,
 ): Promise<{ coveringReleaseUid: string; rows: LedgerProjectionRow[]; digest: string }> {
-  const manifest = readManifest();
-  const lineage = manifest.value.manifest_lineage as { parent_manifest_sha256?: unknown } | undefined;
-  if (typeof lineage?.parent_manifest_sha256 !== "string" || !SHA256.test(lineage.parent_manifest_sha256)) fail("actor_receipt_manifest_lineage_mismatch");
-  const through40ManifestSha = lineage.parent_manifest_sha256;
+  let ancestor=readManifest();for(;;){const lineage=ancestor.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown}|undefined;if(!lineage)break;if(typeof lineage.parent_manifest_sha256!=="string"||!SHA256.test(lineage.parent_manifest_sha256)||typeof lineage.parent_manifest_path!=="string")fail("actor_receipt_manifest_lineage_mismatch");const parent=readManifest(lineage.parent_manifest_path);if(parent.sha256!==lineage.parent_manifest_sha256)fail("actor_receipt_manifest_lineage_mismatch");ancestor=parent;}
+  const through40ManifestSha = ancestor.sha256;
   const covering = await pool.query<{ release_uid: string }>(`
     SELECT release_uid::text
     FROM public.schema_release_runs

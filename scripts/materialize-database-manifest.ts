@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Column = {
@@ -12,8 +12,8 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "d29f62339b9e26cbf91d88ca29c6976d828d54f6e9bae3af3f6372110e805991";
-const PARENT_MANIFEST_SHA = "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8";
+const EXPECTED_PLAN_SHA = "bf03b4c5fa505edb869a47ce53d971ea736110f7f957a7c1c64357f3b8938c14";
+const PARENT_MANIFEST_SHA = "31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -566,6 +566,8 @@ function main(): void {
   }
   uniqueConstraints.delete("economic_event_claims:coordinate_id:");
   addUnique("economic_event_claims", ["coordinate_id"], "version=1", "sequence_70_materialization_correction");
+  uniqueConstraints.delete("dues_group_members:group_id,source_row_version_id:");
+  addUnique("dues_group_members", ["group_id","source_row_version_id"], "version=1", "sequence_80_materialization_correction");
   for (const [table, columns] of Object.entries({
     schema_release_runs: [["release_uid"]],
     business_operation_receipts: [["operation_uid"],["root_correlation_uid"]],
@@ -606,7 +608,7 @@ function main(): void {
     manifest_lineage: {
       parent_manifest_sha256: PARENT_MANIFEST_SHA,
       parent_manifest_path: `docs/database-manifests/${PARENT_MANIFEST_SHA}.yaml`,
-      amendment_code: "event_claim_coordinate_root_v1",
+      amendment_code: "group_member_source_root_v1",
     },
     manifest_contract: {
       deterministic_serialization: "RFC8785_JSON_AS_YAML_1_2_PLUS_LF",
@@ -730,7 +732,7 @@ function main(): void {
       classification_statuses: ["approved","quarantined"],
       collision_open_successor: { parent_status: "open", new_status: "open", action: "supersede", reason_code: "COLLISION_REVIEW_REQUIRED" },
     },
-    artifact_sequences: [1,10,15,20,30,40,50,60,65,70],
+    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80],
   };
   const bytes = `${canonicalJson(manifest)}\n`;
   const unresolved = bytes.match(/\b(?:ACTOR|AUDIT_ACTOR|OPTIONAL_ACTOR|VCHAIN|CANONICAL_PHONE|DEFAULT_ACTOR)\b|<[a-z][a-z0-9_-]*>/);
@@ -738,6 +740,11 @@ function main(): void {
     throw new Error(`manifest_unexpanded_token:${unresolved[0]}`);
   }
   if (!SHA.test(EXPECTED_PLAN_SHA)) throw new Error("manifest_invalid_plan_sha");
+  const currentBytes=readFileSync(MANIFEST_PATH);const currentSha=sha256(currentBytes);const nextSha=sha256(bytes);
+  const archiveDir="docs/database-manifests";const archivePath=`${archiveDir}/${PARENT_MANIFEST_SHA}.yaml`;mkdirSync(archiveDir,{recursive:true});
+  const parentBytes=currentSha===PARENT_MANIFEST_SHA?currentBytes:existsSync(archivePath)?readFileSync(archivePath):Buffer.alloc(0);
+  if((currentSha!==PARENT_MANIFEST_SHA&&currentSha!==nextSha)||sha256(parentBytes)!==PARENT_MANIFEST_SHA)throw new Error("manifest_amendment_parent_mismatch");
+  if(existsSync(archivePath)){if(!readFileSync(archivePath).equals(parentBytes))throw new Error("manifest_amendment_archive_drift");}else writeFileSync(archivePath,parentBytes);
   writeFileSync(MANIFEST_PATH, bytes);
 }
 

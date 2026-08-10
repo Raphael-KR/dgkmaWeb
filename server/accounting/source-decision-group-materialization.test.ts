@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertGroupClaimVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupOperationProjection, buildGroupReservationBlueprint, reserveGroupExecutionReservation, reserveGroupExecutionReservationFromDatabase, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, assertGroupMemberVersionContract, bindGroupExecutionReservation, buildGroupMaterializationTopology, buildGroupOperationProjection, buildGroupReservationBlueprint, reserveGroupExecutionReservation, reserveGroupExecutionReservationFromDatabase, validateGroupMaterializationTopology } from "./source-decision-group-materialization";
 import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 
 const plan: GroupMultiBatchApplyPlan = {
@@ -98,4 +98,5 @@ test("requires root-only coordinate uniqueness for append-only claim successors"
   await assert.doesNotReject(() => assertGroupClaimVersionContract(accepted as never));
   const allVersionsUnique = { query: async () => ({ rowCount: 1, rows: [{ constraint_names: ["economic_event_claims__coordinate_id__key"], unique_indexes: [{ name: "economic_event_claims__coordinate_id__key", predicate: null, columns: ["coordinate_id"] }] }] }) };
   await assert.rejects(() => assertGroupClaimVersionContract(allVersionsUnique as never), /claim_version_contract_mismatch/);
+  const groupRootOnly={query:async()=>({rowCount:1,rows:[{constraint_names:[],unique_indexes:[{name:"dues_group_members__group_id_source_row_version_id__key",predicate:"(version = 1)",columns:["group_id","source_row_version_id"]}]}]})};await assert.doesNotReject(()=>assertGroupMemberVersionContract(groupRootOnly as never));const groupAllVersions={query:async()=>({rowCount:1,rows:[{constraint_names:["dues_group_members__group_id_source_row_version_id__key"],unique_indexes:[{name:"dues_group_members__group_id_source_row_version_id__key",predicate:null,columns:["group_id","source_row_version_id"]}]}]})};await assert.rejects(()=>assertGroupMemberVersionContract(groupAllVersions as never),/group_member_version_contract_mismatch/);
 });

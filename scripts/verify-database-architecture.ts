@@ -1574,7 +1574,7 @@ function runTaskEleven(): void {
       fail("task_11_happy_plan_lint_failed");
     }
     if (
-      lintResult.manifest_sha256 !== "31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6" ||
+      lintResult.manifest_sha256 !== "bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b" ||
       lintResult.manifest_commit !== "47a9cf63545371ea258fc1c2264acf531fe5facf" ||
       lintResult.owner_decision_count !== 35 ||
       lintResult.accounting_gate_pairs !== 1 ||
@@ -1602,6 +1602,7 @@ function runTaskEleven(): void {
   }
 
   const requiredRules = ["obsolete-overlap-role", "fixed-new-table-count"];
+  let manifestAncestor=readManifest();for(;;){const lineage=manifestAncestor.value.manifest_lineage as {parent_manifest_path?:unknown;parent_manifest_sha256?:unknown}|undefined;if(!lineage)break;if(typeof lineage.parent_manifest_path!=="string"||typeof lineage.parent_manifest_sha256!=="string")fail("task_14_manifest_rebind_mismatch");const parent=readManifest(lineage.parent_manifest_path);if(parent.sha256!==lineage.parent_manifest_sha256)fail("task_14_manifest_rebind_mismatch");manifestAncestor=parent;}
   if (
     expectedRules.length !== requiredRules.length ||
     requiredRules.some((rule) => !expectedRules.includes(rule)) ||
@@ -1688,7 +1689,7 @@ function runTaskFourteen(): void {
     amendment.schema_version !== "dgkma-sequence-50-release-scope-amendment-v1" ||
     amendment.receipt_sha256 !== sha256(canonicalJson(amendmentPreimage as never)) ||
     amendment.prior_manifest_sha256 !== rebind.amended_manifest_sha256 ||
-    amendment.amended_manifest_sha256 !== (readManifest().value.manifest_lineage as { parent_manifest_sha256: string }).parent_manifest_sha256 ||
+    amendment.amended_manifest_sha256 !== manifestAncestor.sha256 ||
     amendment.source_mapping_receipts_unchanged !== true ||
     amendment.logical_source_identity_count !== 10 || amendment.source_release_count !== 2 ||
     amendment.deferred_historical_release_count !== 8 ||

@@ -62,8 +62,8 @@ test("descriptor set rejects altered canonical manifest bytes with the same sche
 
 test("artifact descriptors close the fully materialized sequence registry", () => {
   const descriptors = readArtifactDescriptors();
-  assert.equal(descriptors.length, 11);
-  assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65,70]);
+  assert.equal(descriptors.length, 12);
+  assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65,70,80]);
   for (const descriptor of descriptors) {
     assert.equal(descriptor.materialization_state, "materialized");
     assert.match(descriptor.artifact_sha256!, /^[0-9a-f]{64}$/);
@@ -73,13 +73,14 @@ test("artifact descriptors close the fully materialized sequence registry", () =
   assert.equal(sequence65.required_for_startup, false);
   assert.equal(sequence65.required_for_production, true);
   const sequence70 = descriptors.find((entry) => entry.sequence_no === 70)!;
-  assert.equal(sequence70.manifest_sha256, readManifest().sha256);
+  const manifest=readManifest();const parent=readManifest((manifest.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);assert.equal(sequence70.manifest_sha256,parent.sha256);
   assert.equal(sequence70.required_for_startup, true);
   assert.deepEqual(selectedArtifacts(70, 70, "preferred_btree_gist").map((entry) => entry.sequence_no), [70]);
   const sequence70Sql = readFileSync(sequence70.path, "utf8");
   assert.match(sequence70Sql, /DROP CONSTRAINT economic_event_claims__coordinate_id__key/);
   assert.match(sequence70Sql, /WHERE version=1/);
   assert.match(sequence70Sql, /requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70\)/);
+  const sequence80=descriptors.find((entry)=>entry.sequence_no===80)!;assert.equal(sequence80.manifest_sha256,manifest.sha256);assert.equal(sequence80.required_for_startup,true);assert.deepEqual(selectedArtifacts(80,80,"preferred_btree_gist").map((entry)=>entry.sequence_no),[80]);const sequence80Sql=readFileSync(sequence80.path,"utf8");assert.match(sequence80Sql,/DROP CONSTRAINT dues_group_members__group_id_source_row_version_id__key/);assert.match(sequence80Sql,/WHERE version=1/);assert.match(sequence80Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80\)/);
 });
 
 test("standalone manifest validator accepts the committed bytes", () => {
@@ -87,5 +88,5 @@ test("standalone manifest validator accepts the committed bytes", () => {
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout.trim());
   assert.equal(output.result, "approved");
-  assert.equal(output.materialized_artifacts, 11);
+  assert.equal(output.materialized_artifacts, 12);
 });

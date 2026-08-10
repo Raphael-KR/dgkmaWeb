@@ -176,9 +176,19 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
   --through-sequence 70
 ```
 
+Sequence 80 group-member source-root amendment는 sequence 70 child manifest와 기존 ledger를 변경하지 않고 grandchild manifest ledger 행으로만 적용한다. 기존 all-version `dues_group_members(group_id,source_row_version_id)` UNIQUE가 정확히 존재할 때만 이를 version-1 root partial UNIQUE로 교체한다. Sequence 50 actor receipt는 요구하지 않으며, disposable 검증을 먼저 통과한 뒤 Development에서 첫 실행 `applied`, 동일 재실행 `verified_noop`을 요구한다.
+
+```bash
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/apply-schema.ts \
+  --target development \
+  --from-sequence 80 \
+  --through-sequence 80
+```
+
 Category 명령은 정확히 여섯 version-1 draft root에 version-2 approved successor만 append한다. Dues policy 16개와 position mapping 46개는 모두 draft여야 하며 승인 행이 하나라도 생기면 transaction을 rollback한다. Catalog는 `REPEATABLE READ READ ONLY`에서 실행하고 항상 `ROLLBACK`으로 끝낸다. Development 완료 선언은 migrated startup, 전체 schema reapply 8개 `verified_noop`, category reapply `verified_noop`, 갱신된 `docs/database-schema.md`까지 확인한 뒤에만 가능하다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
 
-2026-08-11 현재 실제 완료 상태는 ledger `1,10,15,20,30,40,50,60,70`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Brownfield sequence 10은 baseline 객체 catalog digest가 일치해야 하며, sequence 20은 저장된 exception 상태와 별개로 raw pre-anchor predicate를 다시 검사하고 exact canonical phone/mobile generated column을 보장한다. Sequence 70은 전체-version claim coordinate UNIQUE를 version-1 root-only partial UNIQUE로 교체했고 동일 재실행 `verified_noop`, catalog terminal `ROLLBACK`, startup schema verification `approved`를 통과했다.
+2026-08-11 마지막 Development 검증 상태는 ledger `1,10,15,20,30,40,50,60,70`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Brownfield sequence 10은 baseline 객체 catalog digest가 일치해야 하며, sequence 20은 저장된 exception 상태와 별개로 raw pre-anchor predicate를 다시 검사하고 exact canonical phone/mobile generated column을 보장한다. Sequence 70은 전체-version claim coordinate UNIQUE를 version-1 root-only partial UNIQUE로 교체했고 동일 재실행 `verified_noop`, catalog terminal `ROLLBACK`을 통과했다. Sequence 80은 저장소에 materialize되었지만 disposable 검증과 Development 적용 전이므로 새 startup schema verification은 그때까지 의도적으로 pending이다.
 
 ## Todo 18 deferred source release
 

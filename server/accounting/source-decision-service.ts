@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import { validateSourceDecisionCommand, type ApprovalContext } from "./source-decision-api";
 import { loadGroupMultiBatchApplyPlan, type GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
-import { assertGroupClaimVersionContract, buildGroupOperationProjection, reserveGroupExecutionReservationFromDatabase } from "./source-decision-group-materialization";
+import { assertGroupClaimVersionContract, assertGroupMemberVersionContract, buildGroupOperationProjection, reserveGroupExecutionReservationFromDatabase } from "./source-decision-group-materialization";
 import { executeGroupBatchTransitions } from "./source-decision-group-transitions";
 import { executeGroupSourceSpines } from "./source-decision-group-source-spine";
 import { executeGroupFinancialGraphs } from "./source-decision-group-financial";
@@ -160,7 +160,7 @@ export async function decideSourcePreview(
     let groupPlan:GroupMultiBatchApplyPlan|undefined;
     if (command.decision === "approve") {
       groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, batchId:row.batch_id, decisionSetId:row.id, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
-      if (groupPlan) await assertGroupClaimVersionContract(client);
+      if (groupPlan){await assertGroupClaimVersionContract(client);await assertGroupMemberVersionContract(client);}
     }
     const periodPlans: PeriodPlan[] = [];
     if (command.decision === "approve" && !groupPlan) for (const item of itemResult.rows) {
