@@ -41,6 +41,7 @@ type LockedItem = {
   coordinate_key: string;
   source_row_version_id: string;
   content_digest: string;
+  normalization_version: string;
   decision_kind: string;
   decision_payload: JsonObject;
   decision_payload_sha256: string;
@@ -120,7 +121,7 @@ export async function decideSourcePreview(
       return { coordinate_key: item.coordinate_key, content_digest: item.content_digest, issue_status: item.issue_status };
     });
     if (row.row_count !== batchRows.rowCount || row.batch_preview_manifest_sha256 !== sha256(canonicalJson(expectedBatchManifest)) || canonicalJson(row.batch_preview_manifest) !== canonicalJson(expectedBatchManifest)) fail("source_decision_primary_batch_manifest_drift");
-    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,rv.normalized_payload,i.decision_kind,i.decision_payload,i.decision_payload_sha256 FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
+    const itemResult = await client.query<LockedItem>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,rv.normalization_version,rv.normalized_payload,i.decision_kind,i.decision_payload,i.decision_payload_sha256 FROM public.source_decision_items i JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id WHERE i.decision_set_id=$1 ORDER BY i.ordinal FOR UPDATE OF i,c,rv`, [row.id]);
     const manifestItems = itemResult.rows.map((item, index) => {
       if (item.ordinal !== index + 1 || item.decision_payload_sha256 !== sha256(canonicalJson(item.decision_payload))) fail("source_decision_primary_item_drift");
       if (index > 0 && Buffer.compare(Buffer.from(`${itemResult.rows[index - 1].coordinate_key}\u0000${itemResult.rows[index - 1].decision_kind}`), Buffer.from(`${item.coordinate_key}\u0000${item.decision_kind}`)) >= 0) fail("source_decision_primary_item_order_mismatch");
@@ -153,7 +154,7 @@ export async function decideSourcePreview(
       if (descendants.rowCount !== 1 || descendants.rows[0].descendant_count !== 0) fail("source_decision_supersede_descendants_exist");
     }
     if (command.decision === "approve") {
-      const groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizedPayload: item.normalized_payload } })) });
+      const groupPlan = await loadGroupMultiBatchApplyPlan(client, { sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: itemResult.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
       if (groupPlan) { await assertGroupClaimVersionContract(client); buildGroupReservationBlueprint(groupPlan); fail("source_decision_group_materialization_not_implemented"); }
     }
     const periodPlans: PeriodPlan[] = [];

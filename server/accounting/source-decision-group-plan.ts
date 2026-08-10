@@ -2,7 +2,7 @@ import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import type { PoolClient } from "pg";
 
 type JsonObject = Record<string, CanonicalValue>;
-export type GroupApplyEvidence = { decisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizedPayload: JsonObject };
+export type GroupApplyEvidence = { decisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizationVersion?: string; normalizedPayload: JsonObject };
 export type GroupApplyItem = { coordinateKey: string; decisionKind: string; decisionPayload: JsonObject; evidence?: GroupApplyEvidence };
 export type GroupApplySet = { sourceCode: string; batchUid: string; decisionSetUid: string; items: GroupApplyItem[] };
 export type GroupMultiBatchApplyPlan = {
@@ -20,9 +20,9 @@ export type GroupMultiBatchApplyPlan = {
     occurredAt?: string;
     postedDate?: string;
     primaryEvidence?: GroupApplyEvidence;
-    allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizedPayload: JsonObject } }>;
+    allocations: Array<{ coordinateKey: string; allocationRequestUid: string; groupMemberUid: string; memberUid: string; caseUid: string; amount: string; duesYear: number; allocationKind: string; evidenceKind: string; evidenceDigest: string; scoreBasis: string; evidence?: { allocationDecisionItemId: string; memberMatchDecisionItemId: string; coordinateId: string; sourceRowVersionId: string; contentDigest: string; normalizationVersion?: string; normalizedPayload: JsonObject } }>;
   }>;
-  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoryIdsByCoordinate: Record<string, Record<string, string>>; periodIdsByCoordinate: Record<string, string>; financialDigestsByCoordinate: Record<string, { rowFingerprint: string; snapshotDigest: string; payerDigest: string; descriptionDigest: string }> };
+  resolvedBindings?: { bankAccountId: string; bankAccountCode: string; rosterBatchIdsByUid: Record<string, string>; eventPartyIdsByUid: Record<string, string | null>; memberIdsByUid: Record<string, string>; categoriesByCoordinate: Record<string, Record<string, { id: string; displayName: string }>>; periodIdsByCoordinate: Record<string, string>; financialDigestsByCoordinate: Record<string, { rowFingerprint: string; snapshotDigest: string; payerDigest: string; descriptionDigest: string }> };
 };
 type StoredCompanion = { batch_id: string; batch_uid: string; batch_status: string; preview_manifest: CanonicalValue; preview_manifest_sha256: string; row_count: number; decision_set_id: string; decision_set_uid: string; decision_set_status: string; manifest: CanonicalValue; manifest_sha256: string; source_code: string; source_fingerprint: string };
 
@@ -78,7 +78,7 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       if (decision.primary_bank_batch_uid_or_null !== primary.batchUid || decision.primary_bank_coordinate_key_or_null !== item.coordinateKey || decision.receipt_uid_or_null !== receiptUid) fail("source_decision_group_primary_binding_mismatch");
       for (const key of ["allocation_request_uid_or_null", "group_member_uid_or_null", "member_uid_or_null"]) if (typeof decision[key] !== "string" || !UUID.test(String(decision[key]))) fail("source_decision_group_allocation_identity_invalid");
       const match = companion.items.find((candidate) => candidate.coordinateKey === allocation.coordinateKey && candidate.decisionKind === "member_match");
-      if (!match || match.decisionPayload.outcome !== "approve" || match.decisionPayload.candidate_member_uid_or_null !== decision.member_uid_or_null || typeof match.decisionPayload.case_uid !== "string" || !UUID.test(match.decisionPayload.case_uid) || match.decisionPayload.evidence_kind === "name_only") fail("source_decision_group_member_match_binding_mismatch");
+      if (!match || match.decisionPayload.outcome !== "approve" || match.decisionPayload.candidate_member_uid_or_null !== decision.member_uid_or_null || typeof match.decisionPayload.case_uid !== "string" || !UUID.test(match.decisionPayload.case_uid) || typeof match.decisionPayload.evidence_kind !== "string" || match.decisionPayload.evidence_kind === "name_only" || typeof match.decisionPayload.evidence_digest !== "string" || !/^[0-9a-f]{64}$/.test(match.decisionPayload.evidence_digest) || typeof match.decisionPayload.score_basis !== "string" || !match.decisionPayload.score_basis) fail("source_decision_group_member_match_binding_mismatch");
       let evidence: GroupMultiBatchApplyPlan["groups"][number]["allocations"][number]["evidence"];
       if (allocation.evidence || match.evidence) {
         if (!allocation.evidence || !match.evidence || allocation.evidence.coordinateId !== match.evidence.coordinateId || allocation.evidence.sourceRowVersionId !== match.evidence.sourceRowVersionId || allocation.evidence.contentDigest !== match.evidence.contentDigest || canonicalJson(allocation.evidence.normalizedPayload) !== canonicalJson(match.evidence.normalizedPayload)) fail("source_decision_group_companion_evidence_mismatch");
@@ -86,7 +86,7 @@ export function buildGroupMultiBatchApplyPlan(primary: GroupApplySet, companions
       }
       const amount = money(decision.amount_or_null, "source_decision_group_allocation_amount_invalid");
       if (!Number.isInteger(decision.dues_year_or_null) || typeof decision.allocation_kind_or_null !== "string" || !decision.allocation_kind_or_null) fail("source_decision_group_allocation_shape_invalid");
-      allocations.push({ coordinateKey: allocation.coordinateKey, allocationRequestUid: String(decision.allocation_request_uid_or_null), groupMemberUid: String(decision.group_member_uid_or_null), memberUid: String(decision.member_uid_or_null), caseUid: String(match.decisionPayload.case_uid), amount: amount.toString(), duesYear: Number(decision.dues_year_or_null), allocationKind: decision.allocation_kind_or_null, evidence });
+      allocations.push({ coordinateKey: allocation.coordinateKey, allocationRequestUid: String(decision.allocation_request_uid_or_null), groupMemberUid: String(decision.group_member_uid_or_null), memberUid: String(decision.member_uid_or_null), caseUid: String(match.decisionPayload.case_uid), amount: amount.toString(), duesYear: Number(decision.dues_year_or_null), allocationKind: decision.allocation_kind_or_null, evidenceKind: String(match.decisionPayload.evidence_kind), evidenceDigest: String(match.decisionPayload.evidence_digest), scoreBasis: String(match.decisionPayload.score_basis), evidence });
       approvedAllocationAmount += amount; approvedCount += 1;
     }
     if (approvedCount === 0 || approvedAllocationAmount !== duesAmount) fail("source_decision_group_allocation_total_mismatch");
@@ -125,7 +125,7 @@ export async function loadGroupMultiBatchApplyPlan(
       return { coordinate_key: item.coordinate_key, content_digest: item.content_digest, issue_status: item.issue_status };
     });
     if (row.row_count !== batchRows.rowCount || row.preview_manifest_sha256 !== sha256(canonicalJson(expectedBatchManifest)) || canonicalJson(row.preview_manifest) !== canonicalJson(expectedBatchManifest)) fail("source_decision_group_companion_batch_manifest_drift");
-    const items = await client.query<{ id: string; ordinal: number; coordinate_id: string; coordinate_key: string; source_row_version_id: string; content_digest: string; normalized_payload: JsonObject; decision_kind: string; decision_payload: JsonObject; decision_payload_sha256: string }>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,rv.normalized_payload,i.decision_kind,i.decision_payload,i.decision_payload_sha256
+    const items = await client.query<{ id: string; ordinal: number; coordinate_id: string; coordinate_key: string; source_row_version_id: string; content_digest: string; normalization_version: string; normalized_payload: JsonObject; decision_kind: string; decision_payload: JsonObject; decision_payload_sha256: string }>(`SELECT i.id::text,i.ordinal,i.coordinate_id::text,c.coordinate_key,i.source_row_version_id::text,rv.content_digest,rv.normalization_version,rv.normalized_payload,i.decision_kind,i.decision_payload,i.decision_payload_sha256
       FROM public.source_decision_items i
       JOIN public.accounting_import_coordinates c ON c.id=i.coordinate_id
       JOIN public.accounting_import_row_versions rv ON rv.id=i.source_row_version_id
@@ -141,7 +141,7 @@ export async function loadGroupMultiBatchApplyPlan(
     if (row.manifest_sha256 !== sha256(canonicalJson(expectedManifest)) || canonicalJson(row.manifest) !== canonicalJson(expectedManifest)) fail("source_decision_group_companion_manifest_drift");
     const coverage = new Map<string, string[]>(); for (const item of items.rows) coverage.set(item.coordinate_key, [...(coverage.get(item.coordinate_key) ?? []), item.decision_kind]);
     if ([...coverage.values()].some((kinds) => canonicalJson([...kinds].sort()) !== canonicalJson(["group_allocation", "member_match"]))) fail("source_decision_group_companion_coverage_mismatch");
-    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizedPayload: item.normalized_payload } })) });
+    companions.push({ sourceCode: row.source_code, batchUid: row.batch_uid, decisionSetUid: row.decision_set_uid, items: items.rows.map((item) => ({ coordinateKey: item.coordinate_key, decisionKind: item.decision_kind, decisionPayload: item.decision_payload, evidence: { decisionItemId: item.id, coordinateId: item.coordinate_id, sourceRowVersionId: item.source_row_version_id, contentDigest: item.content_digest, normalizationVersion: item.normalization_version, normalizedPayload: item.normalized_payload } })) });
   }
   const plan = buildGroupMultiBatchApplyPlan(primary, companions);
   if (plan.groups.some((group) => !group.primaryEvidence || !group.occurredAt || !group.postedDate || group.allocations.some((allocation) => !allocation.evidence))) fail("source_decision_group_materialization_evidence_missing");
@@ -163,13 +163,13 @@ export async function loadGroupMultiBatchApplyPlan(
   ];
   if (collisions.some((collision) => collision.rowCount !== 0)) fail("source_decision_group_materialization_identity_collision");
   const categoryCodes = [...new Set(plan.groups.flatMap((group) => group.categorySplits.map((split) => split.categoryCode)))].sort(compareUtf8);
-  const categories = await client.query<{ id: string; category_code: string; active_from: string; active_to: string | null; dues_effect: string }>("SELECT id::text,category_code,active_from::text,active_to::text,dues_effect FROM public.accounting_categories WHERE status='approved' AND category_code=ANY($1::text[]) ORDER BY category_code,active_from FOR UPDATE", [categoryCodes]);
+  const categories = await client.query<{ id: string; category_code: string; display_name: string; active_from: string; active_to: string | null; dues_effect: string }>("SELECT id::text,category_code,display_name,active_from::text,active_to::text,dues_effect FROM public.accounting_categories WHERE status='approved' AND category_code=ANY($1::text[]) ORDER BY category_code,active_from FOR UPDATE", [categoryCodes]);
   const directionByCode: Record<string, string> = { DUES_INCOME: "credit", OTHER_INCOME: "credit", DUES_REFUND: "debit", GENERAL_EXPENSE: "debit", INTERNAL_TRANSFER_IN: "credit", INTERNAL_TRANSFER_OUT: "debit" };
-  const categoryIdsByCoordinate: Record<string, Record<string, string>> = {};
+  const categoriesByCoordinate: Record<string, Record<string, { id: string; displayName: string }>> = {};
   for (const group of plan.groups) {
-    const bindings: Record<string, string> = {};
-    for (const split of group.categorySplits) { const matches = categories.rows.filter((category) => category.category_code === split.categoryCode && category.active_from <= group.postedDate! && (category.active_to === null || group.postedDate! < category.active_to)); if (matches.length !== 1 || directionByCode[split.categoryCode] !== "credit" || split.categoryCode === "DUES_INCOME" && matches[0].dues_effect !== "dues_credit") fail("source_decision_group_category_binding_mismatch"); bindings[split.categoryCode] = matches[0].id; }
-    categoryIdsByCoordinate[group.primaryCoordinateKey] = bindings;
+    const bindings: Record<string, { id: string; displayName: string }> = {};
+    for (const split of group.categorySplits) { const matches = categories.rows.filter((category) => category.category_code === split.categoryCode && category.active_from <= group.postedDate! && (category.active_to === null || group.postedDate! < category.active_to)); if (matches.length !== 1 || directionByCode[split.categoryCode] !== "credit" || split.categoryCode === "DUES_INCOME" && matches[0].dues_effect !== "dues_credit") fail("source_decision_group_category_binding_mismatch"); bindings[split.categoryCode] = { id: matches[0].id, displayName: matches[0].display_name }; }
+    categoriesByCoordinate[group.primaryCoordinateKey] = bindings;
   }
   const periods = await client.query<{ id: string; starts_at: string; ends_at: string | null }>("SELECT id::text,starts_at::text,ends_at::text FROM public.accounting_periods WHERE status='open' ORDER BY starts_at FOR UPDATE");
   const periodIdsByCoordinate: Record<string, string> = {};
@@ -183,7 +183,7 @@ export async function loadGroupMultiBatchApplyPlan(
     const snapshotDigest = sha256(canonicalJson({ digest_version: "group-snapshot-v1", receipt_uid: group.receiptUid, roster_batch_uid: group.rosterBatchUid, children }));
     financialDigestsByCoordinate[group.primaryCoordinateKey] = { rowFingerprint, snapshotDigest, payerDigest, descriptionDigest };
   }
-  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoryIdsByCoordinate, periodIdsByCoordinate, financialDigestsByCoordinate };
+  plan.resolvedBindings = { bankAccountId: mapping.rows[0].account_id, bankAccountCode: mapping.rows[0].account_code, rosterBatchIdsByUid: Object.fromEntries(stored.rows.map((row) => [row.batch_uid, row.batch_id])), eventPartyIdsByUid: Object.fromEntries(eventPartyUids.map((uid) => [uid, parties.rows.find((party) => party.party_uid === uid)?.id ?? null])), memberIdsByUid: Object.fromEntries(members.rows.map((member) => [member.member_uid, member.id])), categoriesByCoordinate, periodIdsByCoordinate, financialDigestsByCoordinate };
   return plan;
 }
 

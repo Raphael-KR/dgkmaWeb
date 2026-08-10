@@ -6,11 +6,11 @@ import type { GroupMultiBatchApplyPlan } from "./source-decision-group-plan";
 const plan: GroupMultiBatchApplyPlan = {
   orderedBatchUids: ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"],
   orderedDecisionSetUids: ["33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444"],
-  resolvedBindings: { bankAccountId: "1", bankAccountCode: "TOSS_OFFICER_2026", eventPartyIdsByUid: { "55555555-5555-4555-8555-555555555555": null }, memberIdsByUid: { "66666666-6666-4666-8666-666666666666": "9" }, categoryIdsByCoordinate: { "bank:toss:1": { DUES_INCOME: "7" } }, periodIdsByCoordinate: { "bank:toss:1": "8" }, financialDigestsByCoordinate: { "bank:toss:1": { rowFingerprint: "a".repeat(64), snapshotDigest: "b".repeat(64), payerDigest: "c".repeat(64), descriptionDigest: "d".repeat(64) } } },
+  resolvedBindings: { bankAccountId: "1", bankAccountCode: "TOSS_OFFICER_2026", rosterBatchIdsByUid: { "22222222-2222-4222-8222-222222222222": "6" }, eventPartyIdsByUid: { "55555555-5555-4555-8555-555555555555": null }, memberIdsByUid: { "66666666-6666-4666-8666-666666666666": "9" }, categoriesByCoordinate: { "bank:toss:1": { DUES_INCOME: { id: "7", displayName: "회비 수입" } } }, periodIdsByCoordinate: { "bank:toss:1": "8" }, financialDigestsByCoordinate: { "bank:toss:1": { rowFingerprint: "a".repeat(64), snapshotDigest: "b".repeat(64), payerDigest: "c".repeat(64), descriptionDigest: "d".repeat(64) } } },
   groups: [{
     primaryCoordinateKey: "bank:toss:1", eventPartyUid: "55555555-5555-4555-8555-555555555555", receiptUid: "77777777-7777-4777-8777-777777777777", rosterBatchUid: "22222222-2222-4222-8222-222222222222", duesAmount: "50000", approvedAllocationAmount: "50000", categorySplits: [{ categoryCode: "DUES_INCOME", amount: "50000" }], eventAmount: "50000", occurredAt: "2026-01-01T00:00:00+09:00", postedDate: "2026-01-01",
-    primaryEvidence: { decisionItemId: "10", coordinateId: "11", sourceRowVersionId: "12", contentDigest: "e".repeat(64), normalizedPayload: { amount: "50000" } },
-    allocations: [{ coordinateKey: "roster:1", allocationRequestUid: "88888888-8888-4888-8888-888888888888", groupMemberUid: "99999999-9999-4999-8999-999999999999", memberUid: "66666666-6666-4666-8666-666666666666", caseUid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", amount: "50000", duesYear: 2025, allocationKind: "dues", evidence: { allocationDecisionItemId: "20", memberMatchDecisionItemId: "21", coordinateId: "22", sourceRowVersionId: "23", contentDigest: "f".repeat(64), normalizedPayload: { proposed_amount: "50000" } } }],
+    primaryEvidence: { decisionItemId: "10", coordinateId: "11", sourceRowVersionId: "12", contentDigest: "e".repeat(64), normalizationVersion: "bank-row-v1@1.0.0", normalizedPayload: { amount: "50000" } },
+    allocations: [{ coordinateKey: "roster:1", allocationRequestUid: "88888888-8888-4888-8888-888888888888", groupMemberUid: "99999999-9999-4999-8999-999999999999", memberUid: "66666666-6666-4666-8666-666666666666", caseUid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", amount: "50000", duesYear: 2025, allocationKind: "dues", evidenceKind: "roster_member_uid", evidenceDigest: "1".repeat(64), scoreBasis: "exact_roster_member_uid", evidence: { allocationDecisionItemId: "20", memberMatchDecisionItemId: "21", coordinateId: "22", sourceRowVersionId: "23", contentDigest: "f".repeat(64), normalizationVersion: "allocation-roster-row-v1@1.0.0", normalizedPayload: { member_name_key_digest: "2".repeat(64), proposed_amount: "50000" } } }],
   }],
 };
 
@@ -72,7 +72,7 @@ test("reserves the exact closed sequence-table order once", async () => {
 });
 
 test("rejects stable identity reuse before reservations", () => {
-  const duplicate = structuredClone(plan); duplicate.groups.push(structuredClone(duplicate.groups[0])); duplicate.groups[1].primaryCoordinateKey = "bank:toss:2"; duplicate.resolvedBindings!.categoryIdsByCoordinate["bank:toss:2"] = { DUES_INCOME: "7" }; duplicate.resolvedBindings!.periodIdsByCoordinate["bank:toss:2"] = "8";
+  const duplicate = structuredClone(plan); duplicate.groups.push(structuredClone(duplicate.groups[0])); duplicate.groups[1].primaryCoordinateKey = "bank:toss:2"; duplicate.resolvedBindings!.categoriesByCoordinate["bank:toss:2"] = { DUES_INCOME: { id: "7", displayName: "회비 수입" } }; duplicate.resolvedBindings!.periodIdsByCoordinate["bank:toss:2"] = "8";
   assert.throws(() => buildGroupMaterializationTopology(duplicate), /materialization_identity_collision/);
 });
 
