@@ -21,10 +21,12 @@ function fakePool(outcome = "quarantine", decisionKind = "classification", decis
       if (text.includes("FROM public.source_decision_items i JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "30", ordinal: 1, coordinate_id: "40", coordinate_key: "row:1", source_row_version_id: "50", content_digest: "b".repeat(64), normalized_payload: { boundary_content_digest: decisionPayload.boundary_content_digest }, decision_kind: decisionKind, decision_payload: decisionPayload }] };
       if (text.includes("FROM public.accounting_import_row_versions rv JOIN public.accounting_import_coordinates")) return { rowCount: 1, rows: [{ id: "51" }] };
       if (text.includes("SELECT 1 FROM public.accounting_periods WHERE period_code")) return { rowCount: 0, rows: [] };
+      if (text.includes("AS descendant_count")) return { rowCount: 1, rows: [{ descendant_count: 0 }] };
       if (text.includes("nextval(pg_get_serial_sequence")) return { rowCount: 1, rows: [{ id: String(nextId++) }] };
       if (text.includes("SELECT 1 FROM public.source_decision_sets WHERE decision_set_uid")) return { rowCount: 0, rows: [] };
       if (text.includes("UPDATE public.source_decision_sets SET status='rejected'")) status = "rejected";
       if (text.includes("UPDATE public.source_decision_sets SET status='approved'")) status = "approved";
+      if (text.includes("UPDATE public.source_decision_sets SET status='superseded'")) status = "superseded";
       return { rowCount: 1, rows: [] };
     },
     release() {},
@@ -69,6 +71,19 @@ test("approve materializes an exact source-bound period before applying its batc
 test("period materialization refuses an unregistered source family", async () => {
   const payload={outcome:"approve",period_code:"TEST_2026",starts_at:"2026-01-01T00:00:00+09:00",ends_at:null,boundary_source_code:"MEMBERSHIP_INTEGRATED_ADDRESS_BOOK",boundary_coordinate_key:"row:1",boundary_content_digest:"b".repeat(64)};const fake=fakePool("approve","period_materialization",payload);const command={...baseCommand,operationUid:randomUUID(),decision:"approve"};
   await assert.rejects(()=>decideSourcePreview(fake.pool as never,primaryUid,command,actor),/period_source_family_mismatch/);assert.equal(fake.sql.some((statement)=>statement.includes("nextval")),false);
+});
+
+test("supersede atomically replaces an approved zero-child quarantine set", async () => {
+  const fake = fakePool();
+  await decideSourcePreview(fake.pool as never, primaryUid, { ...baseCommand, operationUid: randomUUID(), decision: "approve" }, actor);
+  const replacementPayload = { outcome: "quarantine" }; const replacementPayloadSha = sha256(canonicalJson(replacementPayload));
+  const replacementUid = "66666666-6666-4666-8666-666666666666";
+  const replacementManifest = { schema_version: "source-decision-preview-v1", batch_uid: batchUid, source_fingerprint: fingerprint, items: [{ ordinal: 1, coordinate_key: "row:1", source_content_digest: "b".repeat(64), decision_kind: "classification", decision_payload_sha256: replacementPayloadSha }] };
+  const command = { ...baseCommand, operationUid: randomUUID(), decision: "supersede", replacementDecisionSetUid: replacementUid, replacementManifest, replacementItems: [{ ordinal: 1, decisionPayload: replacementPayload, decisionPayloadSha256: replacementPayloadSha }], replacementManifestSha256: sha256(canonicalJson(replacementManifest as CanonicalValue)) };
+  const receipt = await decideSourcePreview(fake.pool as never, primaryUid, command, actor);
+  assert.equal(receipt.decision, "supersede"); assert.deepEqual(receipt.applied_batch_uids, []); assert.deepEqual(receipt.approved_decision_set_uids, [replacementUid]);
+  assert.ok(fake.sql.some((statement) => statement.includes("SET status='superseded'")));
+  assert.equal(fake.sql.filter((statement) => statement.includes("SET status='approved'")).length, 2);
 });
 
 test("repreview rejects incomplete replacement before reserving or inserting rows", async () => {
