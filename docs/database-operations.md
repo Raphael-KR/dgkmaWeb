@@ -197,6 +197,8 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 등록기는 live frozen admin과 target fingerprint를 다시 검증하고 8개 release·operation receipt·result entity·audit event를 한 serializable transaction에 생성한다. 정확한 재실행은 `verified_noop`이어야 한다. Verifier는 `READ ONLY` transaction에서 total release 10, historical active 8, Todo 18 receipt/entity/audit `8/8/8`, import batch/decision set `0/0`을 요구하고 `ROLLBACK`으로 끝난다. 이 명령은 source batch preview나 business data apply를 승인하지 않는다.
 
+Group multi-batch apply의 현재 구현 checkpoint는 예약·receipt projection과 party/alias/classification/open-claim/event/bound-claim/provenance/authority/bank-transaction source spine까지다. 모든 신규 ID는 phase/result/table 순으로 catalog sequence에서 예약하며, operation result와 audit correlation은 canonical result ordinal에 대해 bijection이어야 한다. 아직 financial/member graph와 service atomic wiring이 없으므로 `source_decision_group_materialization_not_implemented` stop은 유지한다. 이 stop을 제거하려면 disposable DB에서 전체 graph commit, 동일 operation replay의 zero-`nextval` no-op, reverse-order failure, rollback 후 row/status/identity-sequence 계약 및 guarded teardown을 먼저 통과해야 한다.
+
 ### 관리자 가독형 v2 source release
 
 Owner가 승인한 v2는 업무상 필요한 이름·입금자명·적요의 immutable source snapshot과 secretless domain-separated SHA-256 key digest를 함께 사용한다. 회원의 개명 전후 연속성은 이름 digest가 아니라 stable `member_uid`가 담당한다. 전화번호·주소·계좌번호·CMS 코드·receipt URL·provider body는 계속 제외하고, decision manifest·operation receipt·로그에는 snapshot을 직렬화하지 않는다. `ACCOUNTING_PII_HMAC_KEY_V1` Secret은 필요하지 않으며 생성하거나 전달하지 않는다.
