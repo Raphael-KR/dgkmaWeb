@@ -26,6 +26,6 @@ test("fails closed when a dependency is moved after its consumer", () => {
 });
 
 test("rejects stable identity reuse before reservations", () => {
-  const duplicate = structuredClone(plan); duplicate.groups.push(structuredClone(duplicate.groups[0])); duplicate.groups[1].primaryCoordinateKey = "bank:toss:2";
+  const duplicate = structuredClone(plan); duplicate.groups.push(structuredClone(duplicate.groups[0])); duplicate.groups[1].primaryCoordinateKey = "bank:toss:2"; duplicate.resolvedBindings!.categoryIdsByCoordinate["bank:toss:2"] = { DUES_INCOME: "7" };
   assert.throws(() => buildGroupMaterializationTopology(duplicate), /materialization_identity_collision/);
 });
