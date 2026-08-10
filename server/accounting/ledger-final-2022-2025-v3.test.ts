@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ledgerPeriodRowV3, normalizeLedgerFinalRowV3, parseLedgerDateV3 } from "./adapters/ledger-final-2022-2025-v3";
+import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
+
+const read = (path: string) => JSON.parse(readFileSync(path, "utf8")) as Record<string, CanonicalValue>;
+
+test("ledger v3 binds profile, mapping, delegated receipt, descriptor and plan", () => {
+  const profilePath = "docs/source-contracts/profiles/ledger-final-2022-2025-v3.json"; const profile = read(profilePath); const profilePreimage = { ...profile }; delete profilePreimage.profile_sha256;
+  const mappingBytes = readFileSync("docs/source-contracts/mappings/ledger-final-2022-2025-v3.json"); const approval = read("docs/source-contracts/approvals/ledger-final-2022-2025-v3.json"); const approvalPreimage = { ...approval }; delete approvalPreimage.receipt_sha256;
+  const descriptorBytes = readFileSync("docs/source-contracts/releases/ledger-final-2022-2025-v3.json"); const descriptor = JSON.parse(descriptorBytes.toString("utf8")) as Record<string, CanonicalValue>;
+  const plan = read("docs/source-contracts/releases/ledger-final-development-release-plan-v3.json"); const planPreimage = { ...plan }; delete planPreimage.plan_sha256;
+  assert.equal(profile.profile_sha256, sha256(canonicalJson(profilePreimage))); assert.equal(approval.mapping_sha256, sha256(mappingBytes)); assert.equal(approval.receipt_sha256, sha256(canonicalJson(approvalPreimage)));
+  assert.equal(descriptor.source_profile_file_sha256, sha256(readFileSync(profilePath))); assert.equal(descriptor.normalized_schema_sha256, sha256(readFileSync("docs/source-contracts/schemas/deferred-source-normalized-row-v2.schema.json")));
+  assert.equal(plan.release_uid, "6ec542d2-61e4-41ed-8813-946297185a99"); assert.equal(plan.descriptor_sha256, sha256(descriptorBytes)); assert.equal(plan.plan_sha256, sha256(canonicalJson(planPreimage)));
+});
 
 test("ledger v3 normalizes serial and dotted KST dates", () => {
   assert.deepEqual(parseLedgerDateV3(45292.5), { occurred_at: "2024-01-01T12:00:00+09:00", occurred_date: "2024-01-01", year: 2024 });
