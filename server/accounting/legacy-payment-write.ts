@@ -15,7 +15,7 @@ function actor(actorValue: SourceDecisionActor, at: string, correlationUid: stri
 
 const SPEC: Record<LegacyMaterializationKind, { table: string; entityType: string; action: string; createsRow: boolean; scope: "admin" | "migration_admin" }> = {
   "claim:open": { table: "economic_event_claims", entityType: "event_claim", action: "create", createsRow: true, scope: "migration_admin" },
-  "event:create": { table: "economic_events", entityType: "economic_event", action: "create", createsRow: true, scope: "migration_admin" },
+  "event:create": { table: "economic_events", entityType: "economic_event", action: "create", createsRow: true, scope: "admin" },
   "claim:bind": { table: "economic_event_claims", entityType: "event_claim", action: "bind", createsRow: true, scope: "migration_admin" },
   "provenance:create": { table: "economic_event_provenance", entityType: "event_provenance", action: "create", createsRow: true, scope: "migration_admin" },
   "authority:select": { table: "economic_event_authority_decisions", entityType: "event_authority_decision", action: "select", createsRow: true, scope: "migration_admin" },
@@ -67,7 +67,7 @@ export async function executeLegacyMaterialization(client: Pick<PoolClient, "que
       let eventId = row.candidateEventId;
       if (row.projection.decision === "new_compatibility_event") {
         const event = action(reservation, paymentId, "event:create"); eventId = event.rowId;
-        await client.query(`INSERT INTO public.economic_events (id,amount,direction,dues_year,event_kind,event_uid,occurred_at,recorded_actor_at,recorded_actor_authorization_version,recorded_actor_correlation_uid,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_uid_snapshot,recorded_actor_user_id,reverses_event_id,status) OVERRIDING SYSTEM VALUE VALUES ($1,$2,'credit',$3,'legacy_compatibility',$4::uuid,$5::timestamptz,$6::timestamptz,$7,$8::uuid,$9,'migration_admin',$10::uuid,$11,NULL,'proposed')`, [event.rowId, amount, row.row.year, row.createdEventUid, occurredAt, ...actor(actorValue, at, event.correlationUid)]);
+        await client.query(`INSERT INTO public.economic_events (id,amount,direction,dues_year,event_kind,event_uid,occurred_at,recorded_actor_at,recorded_actor_authorization_version,recorded_actor_correlation_uid,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_uid_snapshot,recorded_actor_user_id,reverses_event_id,status) OVERRIDING SYSTEM VALUE VALUES ($1,$2,'credit',$3,'legacy_compatibility',$4::uuid,$5::timestamptz,$6::timestamptz,$7,$8::uuid,$9,'admin',$10::uuid,$11,NULL,'proposed')`, [event.rowId, amount, row.row.year, row.createdEventUid, occurredAt, ...actor(actorValue, at, event.correlationUid)]);
       }
       if (!eventId) fail("legacy_materialization_event_binding_missing");
       const bound = action(reservation, paymentId, "claim:bind");
