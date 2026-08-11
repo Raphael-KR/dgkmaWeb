@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { canonicalJson, sha256 } from "./database-architecture-verifier-contracts";
 
 type JsonObject = Record<string, unknown>;
@@ -613,4 +614,8 @@ export function runTaskEight(): void {
     },
     attachments,
   );
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  runTaskEight();
 }
