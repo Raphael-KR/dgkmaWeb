@@ -116,8 +116,15 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
         throw new Error(`catalog_reference_seed_count_mismatch:${key}:${observed}:${expected}`);
       }
     }
-    if (target === "disposable-test" && (seeds.source_releases !== 2 || seeds.historical_source_releases !== 0)) {
-      throw new Error("catalog_disposable_release_scope_mismatch");
+    if (target === "disposable-test") {
+      const expectedDisposableReleases = process.argv.includes("--legacy-v3")
+        ? { total: 5, historical: 3 }
+        : process.argv.includes("--legacy-baseline")
+          ? { total: 4, historical: 2 }
+          : { total: 2, historical: 0 };
+      if (seeds.source_releases !== expectedDisposableReleases.total || seeds.historical_source_releases !== expectedDisposableReleases.historical) {
+        throw new Error("catalog_disposable_release_scope_mismatch");
+      }
     }
     if (target === "development" && seeds.source_releases < 2) {
       throw new Error("catalog_development_release_scope_mismatch");

@@ -99,5 +99,7 @@ test("metadata-only catalog verifier requires the sequence 100 payments write fe
   assert.match(source, /legacy_payments_write_fence_v1/);
   assert.match(source, /public\.dgkma_guard_legacy_payments_write_v1\(\)/);
   assert.match(source, /catalog_legacy_payments_write_fence_mismatch/);
+  assert.match(source, /--legacy-baseline/);
+  assert.match(source, /--legacy-v3/);
   assert.match(source, /BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
 });
