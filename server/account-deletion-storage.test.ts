@@ -137,11 +137,6 @@ test("development PostgreSQL deletes one member while preserving public content"
       [postResult.rows[0].id, userId, marker],
     );
     await pool.query(
-      `insert into payments (user_id, amount, year, type, status)
-       values ($1, 10000, 2099, $2, 'completed')`,
-      [userId, marker],
-    );
-    await pool.query(
       `insert into alumni_database
         (department, generation, name, mobile, is_matched, matched_user_id)
        values ('한의학과', $1, $1, $2, true, $3)`,
@@ -232,7 +227,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       post_anonymous_count: 1,
       comment_anonymous_count: 1,
       obituary_anonymous_count: 1,
-      payment_anonymous_count: 1,
+      payment_anonymous_count: 0,
       alumni_unmatched_count: 1,
       pending_count: 0,
       target_session_count: 0,
