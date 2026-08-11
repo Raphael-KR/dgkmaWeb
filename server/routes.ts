@@ -1306,6 +1306,27 @@ export async function registerRoutes(
   });
 
   // Payments routes
+  app.get("/api/payments/me", async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "로그인이 필요합니다" });
+      }
+      const payments = await storage.getPaymentsByUser(userId);
+      res.json(payments.map(({ id, year, type, status, amount, createdAt }) => ({
+        id,
+        year,
+        type,
+        status,
+        amount,
+        createdAt,
+      })));
+    } catch (error) {
+      console.error("Payment history error:", getErrorType(error));
+      res.status(500).json({ message: "납부 내역을 불러오지 못했습니다" });
+    }
+  });
+
   app.get("/api/payments/user/:userId", async (req, res) => {
     try {
       const sessionUserId = req.session.userId;

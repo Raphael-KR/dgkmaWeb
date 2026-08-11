@@ -30,9 +30,9 @@ export default function Profile() {
   };
 
   const { data: payments, isLoading: paymentsLoading } = useQuery({
-    queryKey: ["/api/payments/user", user?.id],
+    queryKey: ["/api/payments/me"],
     queryFn: async () => {
-      const response = await fetch(`/api/payments/user/${user?.id}`, { credentials: "include" });
+      const response = await fetch("/api/payments/me", { credentials: "include" });
       return response.json();
     },
     enabled: !!user?.id,
