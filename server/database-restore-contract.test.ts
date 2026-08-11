@@ -56,6 +56,16 @@ test("checksum-bound synthetic sequence 60 authorizes only a disposable dry auth
   );
 });
 
+test("materialized runtime restore sidecar normalizes to the same closed authorization contract", () => {
+  const runtimeDescriptorPath = path.join(root, "migrations/artifacts/0060_database_security.restore.json");
+  const descriptor = readSyntheticSequence60Descriptor(runtimeDescriptorPath);
+  assert.equal(descriptor.sequence_no, 60);
+  assert.equal(descriptor.artifact_id, "database-security-v1");
+  assert.equal(descriptor.materialization_state, "materialized");
+  assert.equal(sha256(readFileSync(descriptor.artifact_path)), descriptor.artifact_sha256);
+  assert.equal(sha256(readFileSync(descriptor.restore_reconcile_path)), descriptor.restore_reconcile_sha256);
+});
+
 test("target, checksum, role-membership, and default-privilege attacks reject before SQL", () => {
   const fixtures = JSON.parse(readFileSync(path.join(fixtureRoot, "failure-cases.json"), "utf8")) as {
     cases: Array<{

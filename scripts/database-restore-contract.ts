@@ -65,6 +65,9 @@ const DESCRIPTOR_KEYS = [
   "artifact_id","artifact_path","artifact_sha256","materialization_state","restore_reconcile_path","restore_reconcile_sha256",
   "schema_version","sequence_no",
 ].sort();
+const RESTORE_SIDECAR_KEYS = [
+  "artifact_id","artifact_path","artifact_sha256","restore_reconcile_path","restore_reconcile_sha256","schema_version","sequence_no",
+].sort();
 
 export function canonicalJson(value: Json): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -132,9 +135,13 @@ export function readRestoreReceipt(filePath: string): RestoreValidationReceipt {
 
 export function readSyntheticSequence60Descriptor(filePath: string): SyntheticSequence60Descriptor {
   const value = readCanonicalJson(filePath, "sequence_60_descriptor");
-  exactKeys(value, DESCRIPTOR_KEYS, "sequence_60_descriptor_key_mismatch");
-  const descriptor = value as unknown as SyntheticSequence60Descriptor;
-  if (descriptor.schema_version !== "dgkma-synthetic-sequence-60-v1" || descriptor.sequence_no !== 60 || descriptor.artifact_id !== "database-security-v1" || descriptor.materialization_state !== "materialized") fail("sequence_60_descriptor_identity_mismatch");
+  const isRuntimeSidecar = value.schema_version === "dgkma-restore-security-sidecar-v1";
+  exactKeys(value, isRuntimeSidecar ? RESTORE_SIDECAR_KEYS : DESCRIPTOR_KEYS, "sequence_60_descriptor_key_mismatch");
+  const descriptor = {
+    ...value,
+    materialization_state: isRuntimeSidecar ? "materialized" : value.materialization_state,
+  } as unknown as SyntheticSequence60Descriptor;
+  if (!["dgkma-synthetic-sequence-60-v1", "dgkma-restore-security-sidecar-v1"].includes(String(value.schema_version)) || descriptor.sequence_no !== 60 || descriptor.artifact_id !== "database-security-v1" || descriptor.materialization_state !== "materialized") fail("sequence_60_descriptor_identity_mismatch");
   if (!SHA.test(descriptor.artifact_sha256) || !SHA.test(descriptor.restore_reconcile_sha256)) fail("sequence_60_descriptor_sha_invalid");
   return descriptor;
 }
