@@ -7,6 +7,7 @@ import { canonicalJson, sha256 } from "../server/accounting/source-contracts";
 import type { CanonicalValue } from "../server/accounting/source-contracts";
 import { assertBusinessOperationPayloadHash, validateBusinessOperationPayloadV2 } from "../server/accounting/business-operation-payload";
 import { buildLegacyPaymentCommand, executeLegacyPaymentCommand } from "../server/accounting/legacy-payment-service";
+import { materializeAnnualPolicyActivation } from "../server/accounting/annual-policy-activation-write";
 import { verifyActorReceipt } from "./admin-actor-receipt";
 
 const BUSINESS_REASON_TABLES = [
@@ -31,9 +32,55 @@ async function aggregateDigest(pool: Pool): Promise<string> {
     (SELECT count(*)::int FROM public.schema_data_exceptions) schema_exceptions,
     (SELECT count(*)::int FROM public.dues_receipts) dues_receipts,
     (SELECT count(*)::int FROM public.dues_allocations) dues_allocations,
+    (SELECT count(*)::int FROM public.dues_policies) dues_policies,
+    (SELECT count(*)::int FROM public.dues_position_tier_mappings) dues_mappings,
     (SELECT count(*)::int FROM public.economic_events) economic_events,
     (SELECT count(*)::int FROM public.bank_reconciliations) reconciliations`);
   return sha256(canonicalJson(result.rows[0] as never));
+}
+
+async function annualActivationCounts(pool: Pool): Promise<{ policies: number; mappings: number; brokenBindings: number }> {
+  const result = await pool.query<{ policies: number; mappings: number; broken_bindings: number }>(`SELECT
+    (SELECT count(*)::int FROM public.dues_policies WHERE dues_year=2026 AND version=2) policies,
+    (SELECT count(*)::int FROM public.dues_position_tier_mappings WHERE dues_year=2026 AND version=2) mappings,
+    (SELECT count(*)::int FROM public.dues_position_tier_mappings mapping
+      LEFT JOIN public.dues_policies policy ON policy.id=mapping.policy_id
+      WHERE mapping.dues_year=2026 AND mapping.version=2
+        AND ((mapping.adds_obligation AND (policy.id IS NULL OR policy.dues_year<>2026 OR policy.version<>2 OR policy.status<>'approved' OR policy.tier_code<>mapping.tier_code))
+          OR (NOT mapping.adds_obligation AND mapping.policy_id IS NOT NULL))) broken_bindings`);
+  return { policies: result.rows[0].policies, mappings: result.rows[0].mappings, brokenBindings: result.rows[0].broken_bindings };
+}
+
+async function runAnnualActivationProbe(pool: Pool, actor: Awaited<ReturnType<typeof verifyActorReceipt>>): Promise<Record<string, unknown>> {
+  const before = await annualActivationCounts(pool);
+  if (before.policies !== 0 || before.mappings !== 0 || before.brokenBindings !== 0) throw new Error("task_20_annual_activation_preexisting_successor");
+  const input = { duesYear: 2026, effectiveAt: "2026-01-01T00:00:00+09:00", resolutionRef: "todo20-synthetic-annual-activation", actor };
+
+  const failureClient = await pool.connect();
+  let failureCode = "none";
+  try {
+    await failureClient.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+    await failureClient.query(`CREATE FUNCTION pg_temp.task20_fail_mapping() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'task20_synthetic_mapping_failure'; END $$`);
+    await failureClient.query(`CREATE TRIGGER task20_fail_mapping BEFORE INSERT ON public.dues_position_tier_mappings FOR EACH ROW WHEN (NEW.version=2) EXECUTE FUNCTION pg_temp.task20_fail_mapping()`);
+    try { await materializeAnnualPolicyActivation(failureClient, input); }
+    catch (error) { failureCode = error instanceof Error ? error.message : "unknown"; }
+    await failureClient.query("ROLLBACK");
+  } finally { failureClient.release(); }
+  if (!failureCode.includes("task20_synthetic_mapping_failure")) throw new Error(`task_20_annual_activation_failure_fixture_mismatch:${failureCode}`);
+  const afterFailure = await annualActivationCounts(pool);
+  if (canonicalJson(afterFailure as never) !== canonicalJson(before as never)) throw new Error("task_20_annual_activation_failure_residue");
+
+  const happyClient = await pool.connect();
+  let result!: Awaited<ReturnType<typeof materializeAnnualPolicyActivation>>;
+  try {
+    await happyClient.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+    result = await materializeAnnualPolicyActivation(happyClient, input);
+    await happyClient.query("COMMIT");
+  } catch (error) { await happyClient.query("ROLLBACK").catch(() => undefined); throw error; }
+  finally { happyClient.release(); }
+  const after = await annualActivationCounts(pool);
+  if (after.policies !== 6 || after.mappings !== result.mappingIds.length || after.brokenBindings !== 0 || result.executionOrder.slice(0, 6).some((entry) => !entry.startsWith("policy:")) || result.executionOrder.slice(6).some((entry) => !entry.startsWith("mapping:"))) throw new Error("task_20_annual_activation_result_mismatch");
+  return { failure_code: "task20_synthetic_mapping_failure", failure_zero_residue: true, policies_created: after.policies, mappings_created: after.mappings, broken_policy_bindings: after.brokenBindings, policy_before_mapping: true };
 }
 
 async function identitySequenceDigest(pool: Pool): Promise<string> {
@@ -128,6 +175,7 @@ async function main(): Promise<void> {
     const client = await disposable.pool.connect(); let assertions: Record<string, unknown>;
     try { assertions = await runProbe(client); } finally { client.release(); }
     assertions.legacy_receipt_replay = await runLegacyReceiptProbe(disposable.pool, actor, runUid, disposable.targetFingerprint, disposable.parentTargetFingerprint);
+    assertions.annual_activation = await runAnnualActivationProbe(disposable.pool, actor);
     const teardown = await teardownDisposableTarget(controlPool, disposable); disposable = undefined;
     const developmentAfter = await aggregateDigest(controlPool);
     if (!teardown.absent || developmentBefore !== developmentAfter) throw new Error("task_20_teardown_or_development_digest_mismatch");
