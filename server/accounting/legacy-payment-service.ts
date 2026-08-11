@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
-import { buildLegacyCutoverComparison, type LegacyCutoverPhase } from "./legacy-cutover-contract";
+import { buildLegacyCutoverComparison, type FrozenLegacyCutoverRow, type LegacyCutoverPhase, type NewLegacyCutoverRow } from "./legacy-cutover-contract";
+import { discoverLegacyMaterializationRows, type ResolvedLegacyMaterializationRow } from "./legacy-payment-discovery";
 import { buildLegacyPaymentPreviewIdentity, readLockedLegacyPayments } from "./legacy-payment-preview";
+import { executeLegacyMaterialization, reserveLegacyMaterialization } from "./legacy-payment-write";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 import type { SourceDecisionActor } from "./source-decision-service";
 
@@ -135,6 +137,39 @@ async function audit(client: PoolClient, id: string, eventUid: string, result: J
   await client.query(`INSERT INTO public.accounting_audit_events (id,event_uid,entity_type,entity_key,action,before_json,after_json,effective_at,recorded_at,reason_code,actor_user_id,actor_uid_snapshot,actor_name_snapshot,actor_scope,actor_at,correlation_uid,actor_authorization_version) OVERRIDING SYSTEM VALUE VALUES ($1,$2::uuid,$3,$4,$5,$6::jsonb,$7::jsonb,$8::timestamptz,$8::timestamptz,$9,$10,$11::uuid,$12,'migration_admin',$8::timestamptz,$13::uuid,$14)`, [id, eventUid, result.entity_type, result.entity_key, result.entity_action, before === null ? null : canonicalJson(before), canonicalJson(after), at, reason, actor.userId, actor.userUid, actor.name, result.action_correlation_uid, actor.authorizationVersion]);
 }
 
+function cutoverProjection(rows: ResolvedLegacyMaterializationRow[]): { frozenRows: FrozenLegacyCutoverRow[]; newRows: NewLegacyCutoverRow[] } {
+  return {
+    frozenRows: rows.map((row) => ({ paymentId: row.row.paymentId, memberUidOrNull: row.projection.memberUidOrNull, duesYearOrNull: row.row.year, sourceAmountSignedOrNull: row.row.amountParse.sourceAmountSignedOrNull, sourceStatus: row.row.status, sourceContentDigest: row.row.sourceContentDigest, decision: row.projection.decision, reasonCode: row.projection.reasonCode })),
+    newRows: rows.filter((row) => row.projection.decision === "cross_link" || row.projection.decision === "new_compatibility_event").map((row) => ({ paymentId: row.row.paymentId, decision: row.projection.decision as "cross_link" | "new_compatibility_event", currentEventUid: row.projection.candidateEventUidOrNull ?? row.projection.createdEventUidOrNull!, memberUid: row.projection.memberUidOrNull!, duesYear: row.row.year!, netApprovedAllocationAmount: row.row.amountParse.sourceAmountSignedOrNull!, sourceContentDigest: row.row.sourceContentDigest })),
+  };
+}
+
+async function persistedCutoverProjection(client: PoolClient, batchId: string, previewRows: Awaited<ReturnType<typeof readLockedLegacyPayments>>): Promise<{ frozenRows: FrozenLegacyCutoverRow[]; newRows: NewLegacyCutoverRow[] }> {
+  const decisions = await client.query<{ payment_id: number; decision: FrozenLegacyCutoverRow["decision"]; reason_code: FrozenLegacyCutoverRow["reasonCode"]; member_uid: string | null; event_uid: string | null; allocated: string }>(`
+    SELECT d.legacy_payment_id payment_id,d.decision,d.reason_code,m.member_uid::text,
+      COALESCE(candidate.event_uid,created.event_uid)::text event_uid,
+      COALESCE((SELECT sum(a.amount)::text FROM public.dues_allocations a WHERE a.legacy_decision_id=d.id AND a.status='approved'),'0') allocated
+    FROM public.legacy_payment_decisions d
+    LEFT JOIN public.association_members m ON m.id=d.member_id
+    LEFT JOIN public.economic_events candidate ON candidate.id=d.candidate_event_id
+    LEFT JOIN public.economic_events created ON created.id=d.created_event_id
+    WHERE d.preview_batch_id=$1 AND NOT EXISTS (SELECT 1 FROM public.legacy_payment_decisions child WHERE child.supersedes_id=d.id)
+    ORDER BY d.legacy_payment_id FOR UPDATE OF d
+  `, [batchId]);
+  if (decisions.rowCount !== previewRows.length) fail("legacy_payment_terminal_decision_coverage_mismatch");
+  const frozenRows: FrozenLegacyCutoverRow[] = []; const newRows: NewLegacyCutoverRow[] = [];
+  for (let index=0; index<previewRows.length; index+=1) {
+    const preview=previewRows[index], decision=decisions.rows[index]; if(decision.payment_id!==preview.paymentId)fail("legacy_payment_terminal_decision_order_mismatch");
+    frozenRows.push({paymentId:preview.paymentId,memberUidOrNull:decision.member_uid,duesYearOrNull:preview.frozenRow.year,sourceAmountSignedOrNull:preview.frozenRow.amountParse.sourceAmountSignedOrNull,sourceStatus:preview.frozenRow.status,sourceContentDigest:preview.frozenRow.sourceContentDigest,decision:decision.decision,reasonCode:decision.reason_code});
+    if(decision.decision==="cross_link"||decision.decision==="new_compatibility_event"){
+      if(!decision.event_uid||!decision.member_uid)fail("legacy_payment_terminal_event_binding_missing");
+      const amount=decision.decision==="new_compatibility_event"?decision.allocated:preview.frozenRow.amountParse.sourceAmountSignedOrNull!;
+      newRows.push({paymentId:preview.paymentId,decision:decision.decision,currentEventUid:decision.event_uid,memberUid:decision.member_uid,duesYear:preview.frozenRow.year!,netApprovedAllocationAmount:amount,sourceContentDigest:preview.frozenRow.sourceContentDigest});
+    }
+  }
+  return {frozenRows,newRows};
+}
+
 export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, rawCommand: Record<string, unknown>, actor: SourceDecisionActor, scope: LegacyPaymentExecutionScope = { kind: "development" }): Promise<LegacyPaymentExecution> {
   const { plan, descriptor } = loadLegacyPaymentPlan(); const command = validateLegacyPaymentCommand(rawCommand, plan);
   if (scope.kind === "development") {
@@ -207,28 +242,38 @@ export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, r
     }
 
     const batchRow = await client.query<{ id: string; status: string; row_count: number; preview_manifest_sha256: string; source_fingerprint: string }>("SELECT id::text,status,row_count,preview_manifest_sha256,source_fingerprint FROM public.accounting_import_batches WHERE batch_uid=$1::uuid AND source_release_id=$2 FOR UPDATE", [batch.batch_uid, releaseRow.rows[0].id]);
-    if (batchRow.rowCount !== 1 || batchRow.rows[0].row_count !== 0 || batchRow.rows[0].preview_manifest_sha256 !== batch.preview_manifest_sha256 || batchRow.rows[0].source_fingerprint !== batch.source_fingerprint) fail("legacy_payment_batch_binding_mismatch");
-    if ((await client.query("SELECT 1 FROM public.source_decision_sets WHERE batch_id=$1", [batchRow.rows[0].id])).rowCount !== 0 || (await client.query("SELECT 1 FROM public.accounting_import_batch_rows WHERE batch_id=$1", [batchRow.rows[0].id])).rowCount !== 0) fail("legacy_payment_decision_only_violation");
-    await client.query("LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE"); const paymentStats = (await client.query<{ count: number; watermark: number }>("SELECT count(*)::int count,COALESCE(max(id),0)::int watermark FROM public.payments")).rows[0]; if (paymentStats.count !== 0 || paymentStats.watermark !== 0) fail("legacy_payment_nonzero_materialization_not_implemented");
+    if (batchRow.rowCount !== 1) fail("legacy_payment_batch_binding_mismatch");
+    if ((await client.query("SELECT 1 FROM public.source_decision_sets WHERE batch_id=$1", [batchRow.rows[0].id])).rowCount !== 0) fail("legacy_payment_decision_only_violation");
+    await client.query("LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE"); const previewRows = await readLockedLegacyPayments(client); const paymentStats = { count: previewRows.length, watermark: previewRows.at(-1)?.paymentId ?? 0 };
+    const identity = previewRows.length === 0 ? { sourceFingerprint:String(batch.source_fingerprint),previewManifestSha256:String(batch.preview_manifest_sha256) } : buildLegacyPaymentPreviewIdentity({sourceUid:source.rows[0].source_uid,releaseUid:String(release.release_uid),sourceRevision:`disposable:${scope.kind === "disposable-test" ? scope.runUid : "forbidden"};rows:${previewRows.length}`,coverageFrom:String(batch.coverage_from),coverageThrough:String(batch.coverage_through),rows:previewRows});
+    if (batchRow.rows[0].row_count !== previewRows.length || batchRow.rows[0].preview_manifest_sha256 !== identity.previewManifestSha256 || batchRow.rows[0].source_fingerprint !== identity.sourceFingerprint || scope.kind === "development" && previewRows.length !== 0) fail("legacy_payment_batch_binding_mismatch");
+    if ((await client.query<{count:number}>("SELECT count(*)::int count FROM public.accounting_import_batch_rows WHERE batch_id=$1", [batchRow.rows[0].id])).rows[0].count !== previewRows.length) fail("legacy_payment_batch_row_coverage_mismatch");
     const tip = await client.query<{ id: string; cutover_uid: string; phase: LegacyCutoverPhase; version: number; watermark_payment_id: number | null; comparison_digest: string | null }>("SELECT id::text,cutover_uid::text,phase,version,watermark_payment_id,comparison_digest FROM public.legacy_cutover_states WHERE cutover_code=$1 ORDER BY version DESC LIMIT 1 FOR UPDATE", [cutover.cutover_code]);
     if (command.action === "initialize" ? tip.rowCount !== 0 || batchRow.rows[0].status !== "previewed" : tip.rowCount !== 1 || tip.rows[0].phase !== expectedPhase(command.action)) fail("legacy_payment_cutover_state_mismatch");
     if (command.action === "fence" && batchRow.rows[0].status !== "previewed" || command.action === "cutover" && batchRow.rows[0].status !== "applied") fail("legacy_payment_batch_state_mismatch");
-    if ((await client.query("SELECT 1 FROM public.legacy_payment_decisions LIMIT 1 FOR UPDATE")).rowCount !== 0) fail("legacy_payment_zero_row_decision_mismatch");
+    const decisionCount=(await client.query<{count:number}>("SELECT count(*)::int count FROM public.legacy_payment_decisions WHERE preview_batch_id=$1",[batchRow.rows[0].id])).rows[0].count;
+    if (command.action === "initialize" && decisionCount !== 0 || command.action === "fence" && decisionCount !== 0 || command.action === "cutover" && decisionCount !== previewRows.length) fail("legacy_payment_decision_state_mismatch");
     const downstream = await client.query<{ legacy_events: number; legacy_receipts: number; legacy_allocations: number }>(`SELECT
       (SELECT count(*)::int FROM public.economic_events WHERE event_kind='legacy_compatibility') legacy_events,
       (SELECT count(*)::int FROM public.dues_receipts WHERE legacy_decision_id IS NOT NULL) legacy_receipts,
       (SELECT count(*)::int FROM public.dues_allocations WHERE legacy_decision_id IS NOT NULL) legacy_allocations`);
-    if (downstream.rows[0].legacy_events !== 0 || downstream.rows[0].legacy_receipts !== 0 || downstream.rows[0].legacy_allocations !== 0) fail("legacy_payment_zero_row_downstream_mismatch");
+    if (command.action === "initialize" && (downstream.rows[0].legacy_events !== 0 || downstream.rows[0].legacy_receipts !== 0 || downstream.rows[0].legacy_allocations !== 0)) fail("legacy_payment_initialize_downstream_mismatch");
+    let materialization: ResolvedLegacyMaterializationRow[] = [];
+    if (command.action === "fence" && previewRows.length > 0) materialization = await discoverLegacyMaterializationRows(client,batchRow.rows[0].id,previewRows);
+    const projection = command.action === "fence" ? cutoverProjection(materialization) : command.action === "cutover" ? await persistedCutoverProjection(client,batchRow.rows[0].id,previewRows) : {frozenRows:[],newRows:[]};
     const cutoverId = await reserve(client, "legacy_cutover_states");
     phase = command.action === "initialize" ? "legacy" : command.action === "fence" ? "fenced" : "new";
-    if (phase !== "legacy") { watermark = 0; comparisonDigest = buildLegacyCutoverComparison(0, [], []).comparisonDigest; }
-    const cutoverResult = { ordinal: 1, entity_type: "legacy_cutover", entity_key: `cutover:${cutover.cutover_code}:${phase}`, entity_action: phase === "legacy" ? "create" : phase, action_correlation_uid: selected.action_correlation_uid } as Json;
+    if (phase !== "legacy") { watermark = paymentStats.watermark; comparisonDigest = buildLegacyCutoverComparison(watermark, projection.frozenRows, projection.newRows).comparisonDigest; }
+    const materializationReservation = materialization.length > 0 ? await reserveLegacyMaterialization(client,materialization,1) : {actions:[],results:[],slots:[]};
+    results.push(...materializationReservation.results); slots.push(...materializationReservation.slots);
+    const cutoverResult = { ordinal: results.length + 1, entity_type: "legacy_cutover", entity_key: `cutover:${cutover.cutover_code}:${phase}`, entity_action: phase === "legacy" ? "create" : phase, action_correlation_uid: selected.action_correlation_uid } as Json;
     results.push(cutoverResult);
-    if (command.action === "fence") results.push({ ordinal: 2, entity_type: "import_batch", entity_key: `batch:${batch.batch_uid}`, entity_action: "apply", action_correlation_uid: selected.batch_action_correlation_uid } as Json);
-    slots.push({ local_ordinal: 1, phase: 10, qualified_table_name: "public.legacy_cutover_states", reserved_id: cutoverId, result_ordinal: 1, slot_kind: "business_row", slot_kind_order: 10 });
+    if (command.action === "fence") results.push({ ordinal: results.length + 1, entity_type: "import_batch", entity_key: `batch:${batch.batch_uid}`, entity_action: "apply", action_correlation_uid: selected.batch_action_correlation_uid } as Json);
+    slots.push({ local_ordinal: 1, phase: 10, qualified_table_name: "public.legacy_cutover_states", reserved_id: cutoverId, result_ordinal: cutoverResult.ordinal, slot_kind: "business_row", slot_kind_order: 10 });
     const auditIds: string[] = []; for (const result of results) { const id = await reserve(client, "accounting_audit_events"); auditIds.push(id); slots.push({ local_ordinal: 1, phase: 30, qualified_table_name: "public.accounting_audit_events", reserved_id: id, result_ordinal: result.ordinal, slot_kind: "audit_row", slot_kind_order: 30 }); }
-    const receipt = hashedReceipt({ schema_version: "dgkma-legacy-payment-operation-v1", action: command.action, operation_uid: command.operationUid, plan_sha256: String(plan.plan_sha256), committed_outcome: "created", phase, watermark_payment_id: watermark, comparison_digest: comparisonDigest, source_release_uid: String(release.release_uid), batch_uid: String(batch.batch_uid), source_fingerprint: String(batch.source_fingerprint), actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, recorded_at: at, command_sha256: commandSha });
+    const receipt = hashedReceipt({ schema_version: "dgkma-legacy-payment-operation-v1", action: command.action, operation_uid: command.operationUid, plan_sha256: String(plan.plan_sha256), committed_outcome: "created", phase, watermark_payment_id: watermark, comparison_digest: comparisonDigest, source_release_uid: String(release.release_uid), batch_uid: String(batch.batch_uid), source_fingerprint: identity.sourceFingerprint, actor_user_id: actor.userId, actor_user_uid: actor.userUid, authorization_version: actor.authorizationVersion, target_fingerprint: actor.targetFingerprint, recorded_at: at, command_sha256: commandSha });
     await insertOperation(client, { command, actor, receipt, rootCorrelationUid: String(selected.root_correlation_uid), results, slots, receiptId });
+    if(materialization.length>0)await executeLegacyMaterialization(client,materialization,materializationReservation,actor,at,batchRow.rows[0].id);
     if (command.action === "fence") await client.query("UPDATE public.accounting_import_batches SET status='applied',applied_at=$1::timestamptz,apply_actor_at=$1::timestamptz,apply_actor_authorization_version=$2,apply_actor_correlation_uid=$3::uuid,apply_actor_name_snapshot=$4,apply_actor_scope='admin',apply_actor_uid_snapshot=$5::uuid,apply_actor_user_id=$6 WHERE id=$7", [at, actor.authorizationVersion, selected.batch_action_correlation_uid, actor.name, actor.userUid, actor.userId, batchRow.rows[0].id]);
     const parent = tip.rows[0]; await client.query(`INSERT INTO public.legacy_cutover_states (id,cutover_uid,cutover_code,phase,watermark_payment_id,comparison_digest,effective_at,recorded_actor_at,recorded_actor_authorization_version,recorded_actor_correlation_uid,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_uid_snapshot,recorded_actor_user_id,supersedes_id,version) OVERRIDING SYSTEM VALUE VALUES ($1,$2::uuid,$3,$4,$5,$6,$7::timestamptz,$7::timestamptz,$8,$9::uuid,$10,'migration_admin',$11::uuid,$12,$13,$14)`, [cutoverId, command.action === "initialize" ? cutover.cutover_uid : parent.cutover_uid, cutover.cutover_code, phase, watermark, comparisonDigest, at, actor.authorizationVersion, selected.action_correlation_uid, actor.name, actor.userUid, actor.userId, command.action === "initialize" ? null : parent.id, command.action === "initialize" ? 1 : parent.version + 1]);
     for (let index = 0; index < results.length; index += 1) {
@@ -236,7 +281,7 @@ export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, r
       const before: CanonicalValue | null = result.entity_type === "legacy_cutover" && tip.rowCount === 1 ? { phase: tip.rows[0].phase, version: tip.rows[0].version } : null;
       const after: CanonicalValue = result.entity_type === "legacy_cutover"
         ? { comparison_digest: comparisonDigest, phase, version: command.action === "initialize" ? 1 : tip.rows[0].version + 1, watermark_payment_id: watermark }
-        : { row_count: 0, status: "applied" };
+        : { row_count: previewRows.length, status: "applied" };
       await audit(client, auditIds[index], result === cutoverResult ? String(selected.audit_event_uid) : String(selected.batch_audit_event_uid), result, actor, at, before, after, result.entity_type === "legacy_cutover" ? "TODO19_LEGACY_CUTOVER" : "TODO19_LEGACY_ZERO_ROW_APPLY");
     }
     await client.query("COMMIT"); return { execution_outcome: "created", receipt };
