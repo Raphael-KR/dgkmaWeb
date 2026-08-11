@@ -104,11 +104,14 @@ export async function prepareReceiptRefund(
   const receiptResult = await client.query<OriginalReceipt>(`SELECT receipt.id::text,receipt.event_id::text,receipt.gross_amount::text,receipt.status
     FROM public.dues_receipts receipt WHERE receipt.receipt_uid=$1::uuid FOR UPDATE`, [input.receiptUid]);
   if (receiptResult.rowCount !== 1 || receiptResult.rows[0].status !== "approved") fail("receipt_refund_original_receipt_missing");
-  const allocationResult = await client.query<OriginalAllocation>(`SELECT id::text,request_uid::text,amount::text,allocation_kind,assessment_id::text,dues_year,effective_at::text,
+  const allocationResult = await client.query<OriginalAllocation>(`SELECT id::text,request_uid::text,amount::text,allocation_kind,assessment_id::text,dues_year,
+    to_char(effective_at AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD"T"HH24:MI:SS')||'+09:00' effective_at,
     group_member_id::text,member_id::text,receipt_id::text,status FROM public.dues_allocations
     WHERE request_uid=ANY($1::uuid[]) ORDER BY request_uid FOR UPDATE`, [input.originalAllocationRequestUids]);
   if (allocationResult.rowCount !== input.originalAllocationRequestUids.length || allocationResult.rows.some((row, index) => row.request_uid !== input.originalAllocationRequestUids[index] || row.receipt_id !== receiptResult.rows[0].id || row.status !== "approved")) fail("receipt_refund_original_allocation_missing");
-  const eventResult = await client.query<RefundEvent>(`SELECT event.id::text,event.event_uid::text,event.amount::text,event.occurred_at::text,event.direction,event.status,event.reverses_event_id::text,
+  const eventResult = await client.query<RefundEvent>(`SELECT event.id::text,event.event_uid::text,event.amount::text,
+    to_char(event.occurred_at AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD"T"HH24:MI:SS')||'+09:00' occurred_at,
+    event.direction,event.status,event.reverses_event_id::text,
     (SELECT count(*)::int FROM public.economic_event_claims claim WHERE claim.event_id=event.id AND claim.state='bound') bound_claims,
     (SELECT count(*)::int FROM public.bank_transactions bank WHERE bank.event_id=event.id) bank_transactions
     FROM public.economic_events event WHERE event.event_uid=$1::uuid FOR UPDATE`, [input.refundEventUid]);
