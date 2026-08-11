@@ -14,11 +14,11 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | 항목 | 확인된 상태 |
 |---|---|
 | 구현 브랜치 | `codex/database-architecture-todo16` |
-| 현재 단계 | Todo 20 exact Replit 재검증 대기; Todo 21 완료 |
-| 완료 범위 | Todo 1–19, 21, Todo 23 방향 전환, N1 |
+| 현재 단계 | Todo 20·21 완료; Todo 22 시작 가능 |
+| 완료 범위 | Todo 1–21, Todo 23 방향 전환, N1 |
 | manifest | sequence-130 descendant SHA-256 `ec18e2c2a60ee9fed75ac97bd77f56b281804313de624cf7d18bce0f43a86b1e` verified |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80,90,100,110,120,130]`; sequence 130 `applied → verified_noop`; schema-exception CHECK/trigger `6/1`, 행 0; business-reason CHECK/trigger `8/8`; startup/catalog 승인 |
-| Todo 20 현재 단위 | strict payload/live-service, 48개 reason, 25-code exception, KST rights·close/balance·62-class lock trace 완료. registry disposable, stored payload/hash/result·same-UID replay sequence 불변, 서로 다른 operation UID의 동일 stable-key race `1 commit/1 serialization abort`·loser receipt 0·DB absence를 증명했다. `2092b52` annual activation service와 `82fb58d` probe는 receipt→정책 6→매핑 24→audit, receipt/entity/audit `1/30/30`, `created → verified_noop`, failure residue 0을 증명했다. `d71b2c5` refund service, `8f54853` FK/trigger probe, `c3d559f` timestamp 정규화와 `e4e0c0c` canonical instant 검증은 승인 원본 receipt/allocation과 source-bound debit event·bound claim·bank transaction lock 뒤 receipt→reversal/allocation→audit를 결합했다. fresh run `bfd1986d-208b-43bc-a5e3-e7603bef7375`는 forced late failure residue `0/0/0/0`, 성공 receipt/entity/audit `1/2/2`, reversal/allocation `1/1`, ordinary refund `2026-04-01T00:00:00+09:00`, `created → verified_noop`, replay identity sequence 불변과 Development digest·DB/worktree/receipt 부재를 증명했다. `ed521f2` exact Replit harness는 `npm run check`, 집중 테스트 72개, happy core 2·stable-key race 2와 failure core 1을 통과했고 모든 disposable DB·receipt가 부재다. `568e252`는 multi-row source workflow 2회를 같은 harness에 추가했으며 로컬 순수·mock 집중 테스트 114/114와 `git diff --check`를 통과했다. Development 합성 쓰기를 감지하는 계정삭제·Kakao 통합 테스트는 Todo 20에서 제외하고, 순수 global-lock 계약과 이미 완료된 Todo 21 disposable 37/37 증거로 결합한다. 남은 일은 `568e252` exact Replit happy 2회/failure 1회뿐이다. 현재 SSH 프록시는 기존 ED25519 공개키를 제시받고도 `Permission denied (publickey)`로 거부하므로 DB 명령은 시작되지 않았고, 키 접근 복구 후 동일 커밋에서 재실행한다. |
+| Todo 20 완료 | strict payload/live-service, 48개 reason, 25-code exception, KST rights·close/balance·62-class lock trace 완료. registry disposable, stored payload/hash/result·same-UID replay sequence 불변, 서로 다른 operation UID의 동일 stable-key race `1 commit/1 serialization abort`·loser receipt 0·DB absence를 증명했다. `2092b52` annual activation service와 `82fb58d` probe는 receipt→정책 6→매핑 24→audit, receipt/entity/audit `1/30/30`, `created → verified_noop`, failure residue 0을 증명했다. `d71b2c5` refund service, `8f54853` FK/trigger probe, `c3d559f` timestamp 정규화와 `e4e0c0c` canonical instant 검증은 승인 원본 receipt/allocation과 source-bound debit event·bound claim·bank transaction lock 뒤 receipt→reversal/allocation→audit를 결합했다. fresh run `bfd1986d-208b-43bc-a5e3-e7603bef7375`는 forced late failure residue `0/0/0/0`, 성공 receipt/entity/audit `1/2/2`, reversal/allocation `1/1`, ordinary refund `2026-04-01T00:00:00+09:00`, `created → verified_noop`, replay identity sequence 불변과 Development digest·DB/worktree/receipt 부재를 증명했다. exact commit `568e252` Replit harness는 `npm run check`, 집중 테스트 114/114, happy core 2·stable-key race 2·multi-row source workflow 2를 승인하고 failure core 1·16개 failure contract를 의도한 exit 1/rejected로 닫았다. happy/failure evidence SHA-256은 `219b2684d24f8a3eea26ac369b1a70e2529930008d81ba9f099f7fa9af67382a`/`cd8e2d87bba30590cd8f31feb30d337634e6e0362836f2b79a1cbb5f2cb67c3c`다. Development digest 불변, Production operation 0, 모든 disposable DB·actor receipt·임시 evidence/worktree 부재를 확인했다. 계정삭제·Kakao 통합은 Development 합성 쓰기 없이 Todo 21 disposable 37/37과 Todo 20 순수 global-lock 계약으로 결합했다. |
 | Todo 21 완료 | `4f43cb8` exact happy/failure harness가 Replit `npm run check`, 계정 삭제·Kakao 종료 경합·route security·startup retention·security evidence 37/37, Development 13-table cardinality 불변과 15 workload×2 stable plan, current index 432개 불변, ANALYZE-only, schema/business write 0을 재현했다. failure는 redundant index를 DB call 0으로 거부하고 synthetic credential log를 탐지했다. happy/failure fresh disposable `f582fd29-7703-453a-a6b1-381c08202934`/`1d9c28d9-883e-42d7-808f-74e94cee9d4c`는 PUBLIC routine grant를 `security_catalog_drift`로 탐지한 뒤 rollback catalog 동일성·role membership digest 불변·DB/actor receipt 부재를 증명했다. 미설치 `payments__user_id__idx` runtime effectiveness는 사실대로 `false`다. Production·배포 작업 0 |
 | Todo 19 schema prerequisite | sequence 90 legacy cutover-code root correction committed; disposable와 Development 모두 `applied → verified_noop`, startup/catalog 승인; cutover/payment/legacy-decision row 0 유지 |
 | Todo 19 zero-row cutover | sequence 100과 Development legacy v3 release·preview·`legacy→fenced→new` 완료; five-service operation `created → verified_noop`; phase `new`, watermark 0, payment/decision 0, receipt/entity/audit `5/6/6` |
@@ -34,11 +34,10 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 
 | 순서 | Todo/Phase | 다음 완료 조건 |
 |---:|---|---|
-| 1 | 20 | exact happy 2회/failure 1회 통합 harness로 시간·금액·마감·동시성·slot/lock 전체 coverage 닫기 |
-| 2 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
-| 3 | F1–F4 | 동일 frozen SHA를 독립 검증한 provider-bound receipts |
-| 4 | A1 | 최종 architecture attestation |
-| 5 | C1 | 정식 오픈 직전 최종 source freeze·Production backup/restore·reconciliation 후 사용자 선언 시각부터 PostgreSQL을 회원·조직 SSOT로 전환 |
+| 1 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
+| 2 | F1–F4 | 동일 frozen SHA를 독립 검증한 provider-bound receipts |
+| 3 | A1 | 최종 architecture attestation |
+| 4 | C1 | 정식 오픈 직전 최종 source freeze·Production backup/restore·reconciliation 후 사용자 선언 시각부터 PostgreSQL을 회원·조직 SSOT로 전환 |
 
 ## 현재 운영 승인 경계
 
@@ -50,9 +49,9 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 - Todo 18 source coverage와 Todo 19의 zero-row Development cutover는 완료됐다. 관리자 CLI의 다섯 service operation은 `created → verified_noop`, identity sequence와 receipt collection digest 불변을 증명했다. 임시 receipt 10개와 exact Replit worktree는 삭제 후 부재를 확인했고 원래 Replit dirty 상태는 보존했다.
 - Todo 19 nonzero fixture는 5개 frozen legacy row에서 결정 5개, 호환 이벤트·receipt·allocation 각 1개와 double-count 0을 증명했다. 다섯 고정 operation과 `read_rollback|recutover`는 모두 `created → verified_noop`이고 rollback 중에도 legacy write fence가 유지됐다.
 - ambiguity는 `legacy_materialization_unresolved_decision`, 선행 concurrent writer는 lock 대기 후 새 snapshot의 `legacy_payment_batch_binding_mismatch`로 각각 phase `legacy`, 결정·호환 이벤트·fence receipt 0을 유지했다. 이 검증은 기존 actor 조회가 SERIALIZABLE snapshot을 너무 일찍 고정하던 결함을 발견했고, fence/cutover가 첫 조회 전에 `payments` 배타 lock을 잡도록 교정했다.
-- fresh happy/ambiguity/concurrent UUID의 disposable DB와 임시 receipt는 모두 부재다. 현재 Development business row, Production, 배포는 이 완료 작업에서 변경하지 않았다. 다음 안전 범위는 Todo 20·21이다.
+- fresh Todo 18–20 disposable UUID의 DB와 임시 receipt/evidence/worktree는 모두 부재다. 현재 Development business row, Production, 배포는 Todo 20 검증에서 변경하지 않았다. 다음 안전 범위는 Todo 22다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
-- Production DB write, Republish, 실제 결제 연동, C1 SSOT 전환만 현재 사용자 운영 승인 경계다. Todo 20·21의 synthetic/disposable 및 read-only 검증은 Codex 책임 범위에서 계속한다.
+- Production DB write, Republish, 실제 결제 연동, C1 SSOT 전환만 현재 사용자 운영 승인 경계다. Todo 22의 Development 검증·disposable restore drill과 credential 부재 시 Production `unverified` 기록은 Codex 책임 범위에서 계속한다.
 
 ## 문서 동기화 규칙
 
