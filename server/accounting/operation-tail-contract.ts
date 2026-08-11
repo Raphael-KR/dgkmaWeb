@@ -43,6 +43,19 @@ function assertIds(ids: readonly string[], expected: number): void {
   }
 }
 
+function assertQualifiedReservations(
+  reservations: readonly Readonly<{ table: string; id: string }>[],
+  expected: number,
+): void {
+  if (
+    reservations.length !== expected ||
+    reservations.some((entry) => entry.table.trim() === "" || !ID.test(entry.id)) ||
+    new Set(reservations.map((entry) => `${entry.table}:${entry.id}`)).size !== reservations.length
+  ) {
+    fail("operation_tail_reservation_invalid");
+  }
+}
+
 function project(
   command: string,
   inputs: CanonicalValue,
@@ -52,7 +65,7 @@ function project(
   auditIds: readonly string[],
 ): OperationTailProjection {
   assertIds([receiptId], 1);
-  assertIds(business.map((entry) => entry.id), results.length);
+  assertQualifiedReservations(business, results.length);
   assertIds(auditIds, results.length);
   if (results.length === 0 || business.length !== results.length) fail("operation_tail_result_coverage_invalid");
   const reservationSlots: ReservationSlot[] = [

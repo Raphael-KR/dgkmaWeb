@@ -38,3 +38,23 @@ test("missing, duplicate or miscounted reservations fail before payload acceptan
   assert.throws(() => projectAnnualPolicyActivationOperation({ operationUid, commandSha256: "a".repeat(64), duesYear: 2026, resolutionRef: "approved", receiptId: "1", policyReservations: [], mappingReservations: [], auditIds: [] }), /annual_activation_operation_coverage_invalid/);
   assert.throws(() => projectReceiptRefundOperation({ operationUid, commandSha256: "b".repeat(64), receiptUid, refundEventUid, correctionReasonCode: null, correctionEvidenceSha256: null, operationReceiptId: "1", reversalId: "2", allocationIds: ["2", "2"], allocationRequestUids: requestUids, auditIds: ["5", "6", "7"] }), /operation_tail_reservation_invalid/);
 });
+
+test("business reservation identity is qualified by table", () => {
+  const projection = projectReceiptRefundOperation({
+    operationUid,
+    commandSha256: "e".repeat(64),
+    receiptUid,
+    refundEventUid,
+    correctionReasonCode: null,
+    correctionEvidenceSha256: null,
+    operationReceiptId: "1",
+    reversalId: "2",
+    allocationIds: ["2", "3"],
+    allocationRequestUids: requestUids,
+    auditIds: ["4", "5", "6"],
+  });
+  assert.deepEqual(
+    projection.reservationSlots.filter((slot) => slot.phase === 1).map((slot) => [slot.qualified_table_name, slot.reserved_id]),
+    [["public.dues_receipt_reversals", "2"], ["public.dues_allocations", "2"], ["public.dues_allocations", "3"]],
+  );
+});
