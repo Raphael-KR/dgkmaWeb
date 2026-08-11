@@ -2868,6 +2868,167 @@ function runTaskEighteen(): void {
   if (caseName === "failure") process.exitCode = 1;
 }
 
+const TASK_20_FOCUSED_TESTS = [
+  "server/accounting/business-operation-payload.test.ts",
+  "server/accounting/business-reason-contract.test.ts",
+  "server/accounting/business-reason-transition-contract.test.ts",
+  "server/accounting/schema-exception-contract.test.ts",
+  "server/accounting/schema-exception-transition-contract.test.ts",
+  "server/accounting/dues-rights-contract.test.ts",
+  "server/accounting/accounting-close-contract.test.ts",
+  "server/accounting/global-lock-contract.test.ts",
+  "server/accounting/source-preview-contract-v2.test.ts",
+  "server/accounting/operation-tail-contract.test.ts",
+  "server/accounting/annual-policy-activation-write.test.ts",
+  "server/accounting/annual-policy-activation-service.test.ts",
+  "server/accounting/refund-activation-contract.test.ts",
+  "server/accounting/receipt-refund-write.test.ts",
+  "server/accounting/receipt-refund-service.test.ts",
+  "server/accounting/legacy-payment-contract.test.ts",
+  "server/accounting/legacy-payment-materialization.test.ts",
+  "server/accounting/legacy-payments-v3.test.ts",
+] as const;
+
+const TASK_20_FAILURE_CASES = [
+  "payload-extra-key",
+  "slot-numeric-reserved-id",
+  "slot-missing-extra-misordered",
+  "payload-hash-mismatch",
+  "wrong-business-reason",
+  "wrong-schema-exception-transition",
+  "lock-rank-regression",
+  "reservation-before-rank20-complete",
+  "source-batch-before-release",
+  "refund-correction-pair-mismatch",
+  "refund-retroactive-ordinary",
+  "refund-late-tail-failure",
+  "annual-mapping-before-policy",
+  "annual-partial-commit",
+  "approved-unallocated-receipt",
+  "noncanonical-signed-money",
+] as const;
+
+function runTaskTwenty(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  if (value("--target") !== "disposable-test") fail("task_20_target_mismatch");
+  const runs = Number(value("--runs"));
+  if (!Number.isInteger(runs) || runs !== (caseName === "happy" ? 2 : 1)) fail("task_20_run_count_mismatch");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const fixturesPath = value("--fixtures");
+  if (caseName === "failure" && fixturesPath !== "server/fixtures/database-architecture/task-20") fail("task_20_fixture_path_mismatch");
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const commandLogPath = evidencePath.replace(/\.json$/, "-commands.log");
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
+  delete env.PROD_DATABASE_URL;
+  delete env.PROD_DATABASE_READONLY_URL;
+  const log: string[] = [];
+  const invoke = (command: string, args: string[], expected = 0): string => {
+    const result = spawnSync(command, args, { cwd: process.cwd(), env, encoding: "utf8" });
+    log.push(`$ ${command} ${args.join(" ")}`, result.stdout ?? "", result.stderr ?? "");
+    if ((result.status ?? 1) !== expected) {
+      writeFileSync(commandLogPath, log.join("\n"));
+      fail(`task_20_command_status:${command}:${args.join(" ")}:${result.status}`);
+    }
+    return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  };
+
+  if (caseName === "failure") {
+    const fixture = parseJson(path.join(fixturesPath!, "failure-cases.json"));
+    const cases = arrayValue(fixture.cases, "task 20 failure cases").map((entry) => objectValue(entry, "task 20 failure case"));
+    const ids = cases.map((entry) => String(entry.id));
+    if (fixture.schema_version !== "dgkma-task20-failure-cases-v1" || canonicalJson(ids as never) !== canonicalJson(TASK_20_FAILURE_CASES as never)) fail("task_20_failure_fixture_mismatch");
+    for (const entry of cases) {
+      if (!TASK_20_FOCUSED_TESTS.includes(String(entry.covered_by) as typeof TASK_20_FOCUSED_TESTS[number])) fail(`task_20_failure_coverage_missing:${entry.id}`);
+    }
+  }
+
+  invoke("npm", ["run", "check"]);
+  const testOutput = invoke("node", ["--import", "tsx", "--test", ...TASK_20_FOCUSED_TESTS]);
+  const testCount = Number(/# tests (\d+)/.exec(testOutput)?.[1] ?? /ℹ tests (\d+)/.exec(testOutput)?.[1]);
+  if (!Number.isInteger(testCount) || testCount <= 0 || !testOutput.includes("# fail 0") && !testOutput.includes("ℹ fail 0")) fail("task_20_focused_test_summary_mismatch");
+
+  const coreRuns: JsonObject[] = [];
+  for (let index = 0; index < runs; index += 1) {
+    const runUid = randomUUID();
+    const actorReceiptPath = path.join(path.dirname(evidencePath), `${runUid}-admin.json`);
+    let teardownProved = false;
+    try {
+      invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--through-sequence", "40"]);
+      invoke("npx", ["tsx", "scripts/create-disposable-admin.ts", "--target", "disposable-test", "--run-uid", runUid, "--receipt", actorReceiptPath]);
+      invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--from-sequence", "50", "--through-sequence", "50", "--actor-receipt", actorReceiptPath]);
+      invoke("npx", ["tsx", "scripts/seed-legacy-payment-disposable-baseline.ts", "--target", "disposable-test", "--run-uid", runUid, "--actor-receipt", actorReceiptPath]);
+      invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--from-sequence", "60", "--through-sequence", "130"]);
+      const output = invoke("npx", ["tsx", "scripts/task-20-disposable-invariants.ts", "--target", "disposable-test", "--case", caseName, "--run-uid", runUid, "--actor-receipt", actorReceiptPath], caseName === "happy" ? 0 : 1);
+      const required = [
+        '"development_digest_unchanged":true', '"absent":true', '"failure_zero_residue":true',
+        '"first_apply":"created"', '"replay":"verified_noop"', '"replay_sequence_unchanged":true',
+        '"operation_receipts":1', '"result_entities":30', '"audits":30', '"result_entities":2', '"audits":2',
+      ];
+      if (required.some((token) => !output.includes(token)) || !output.includes(`"case":"${caseName}"`) || !output.includes(`"result":"${caseName === "happy" ? "approved" : "rejected"}"`)) fail(`task_20_core_output_mismatch:${runUid}`);
+      teardownProved = true;
+      coreRuns.push({ run_uid: runUid, outcome: caseName === "happy" ? "approved" : "rejected", teardown_absent: true, actor_receipt_absent: true });
+    } finally {
+      if (!teardownProved) {
+        const cleanup = invoke("npx", ["tsx", "scripts/teardown-disposable-target.ts", "--target", "disposable-test", "--run-uid", runUid]);
+        if (!cleanup.includes('"absent":true')) fail(`task_20_cleanup_failed:${runUid}`);
+      }
+      if (existsSync(actorReceiptPath)) unlinkSync(actorReceiptPath);
+      if (existsSync(actorReceiptPath)) fail(`task_20_actor_receipt_cleanup_failed:${runUid}`);
+    }
+  }
+
+  const raceRuns: JsonObject[] = [];
+  if (caseName === "happy") {
+    for (let index = 0; index < runs; index += 1) {
+      const runUid = randomUUID();
+      const actorReceiptPath = path.join(path.dirname(evidencePath), `${runUid}-race-admin.json`);
+      let teardownProved = false;
+      try {
+        invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--through-sequence", "40"]);
+        invoke("npx", ["tsx", "scripts/create-disposable-admin.ts", "--target", "disposable-test", "--run-uid", runUid, "--receipt", actorReceiptPath]);
+        invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--from-sequence", "50", "--through-sequence", "80", "--actor-receipt", actorReceiptPath]);
+        const output = invoke("npx", ["tsx", "scripts/task-18-disposable-repreview.ts", "--target", "disposable-test", "--action", "task20-race", "--run-uid", runUid, "--actor-receipt", actorReceiptPath]);
+        if (!output.includes('"one_commit":true') || !output.includes('"one_no_receipt_abort":true') || !output.includes('"loser_receipts":0') || !output.includes('"absent":true')) fail(`task_20_race_output_mismatch:${runUid}`);
+        teardownProved = true;
+        raceRuns.push({ run_uid: runUid, one_commit: true, one_no_receipt_abort: true, loser_receipts: 0, teardown_absent: true, actor_receipt_absent: true });
+      } finally {
+        if (!teardownProved) {
+          const cleanup = invoke("npx", ["tsx", "scripts/teardown-disposable-target.ts", "--target", "disposable-test", "--run-uid", runUid]);
+          if (!cleanup.includes('"absent":true')) fail(`task_20_race_cleanup_failed:${runUid}`);
+        }
+        if (existsSync(actorReceiptPath)) unlinkSync(actorReceiptPath);
+        if (existsSync(actorReceiptPath)) fail(`task_20_race_actor_receipt_cleanup_failed:${runUid}`);
+      }
+    }
+  }
+
+  writeFileSync(commandLogPath, log.join("\n"));
+  writeFileSync(evidencePath, `${canonicalJson({
+    schema_version: "dgkma-task-evidence-v1",
+    task: 20,
+    case: caseName,
+    task_commit_sha: process.env.TASK_COMMIT_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+    manifest_sha256: readManifest().sha256,
+    db_target: "uuid-bound-disposable-test",
+    db_mode: caseName === "happy" ? "temporal-monetary-close-invariants" : "forced-zero-residue-failures",
+    assertions: {
+      focused_test_count: testCount,
+      failure_case_count: caseName === "failure" ? TASK_20_FAILURE_CASES.length : 0,
+      core_runs: coreRuns,
+      stable_key_race_runs: raceRuns,
+      all_teardowns_absent: true,
+      all_actor_receipts_absent: true,
+      development_digests_unchanged: true,
+      production_operations: 0,
+    },
+    attachment_digests: [{ path: commandLogPath, sha256: sha256(readFileSync(commandLogPath)) }],
+    result: caseName === "happy" ? "approved" : "rejected",
+  } as never)}\n`);
+  if (caseName === "failure") process.exitCode = 1;
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -2906,6 +3067,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskSeventeen();
 } else if (process.argv[2] === "task" && process.argv[3] === "18") {
   runTaskEighteen();
+} else if (process.argv[2] === "task" && process.argv[3] === "20") {
+  runTaskTwenty();
 } else if (process.argv[2] === "task" && process.argv[3] === "21") {
   runTaskTwentyOne();
 } else {

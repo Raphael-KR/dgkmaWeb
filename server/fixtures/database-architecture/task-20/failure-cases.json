@@ -1,0 +1,21 @@
+{
+  "schema_version": "dgkma-task20-failure-cases-v1",
+  "cases": [
+    { "id": "payload-extra-key", "covered_by": "server/accounting/business-operation-payload.test.ts" },
+    { "id": "slot-numeric-reserved-id", "covered_by": "server/accounting/business-operation-payload.test.ts" },
+    { "id": "slot-missing-extra-misordered", "covered_by": "server/accounting/business-operation-payload.test.ts" },
+    { "id": "payload-hash-mismatch", "covered_by": "server/accounting/business-operation-payload.test.ts" },
+    { "id": "wrong-business-reason", "covered_by": "server/accounting/business-reason-transition-contract.test.ts" },
+    { "id": "wrong-schema-exception-transition", "covered_by": "server/accounting/schema-exception-transition-contract.test.ts" },
+    { "id": "lock-rank-regression", "covered_by": "server/accounting/global-lock-contract.test.ts" },
+    { "id": "reservation-before-rank20-complete", "covered_by": "server/accounting/global-lock-contract.test.ts" },
+    { "id": "source-batch-before-release", "covered_by": "server/accounting/source-preview-contract-v2.test.ts" },
+    { "id": "refund-correction-pair-mismatch", "covered_by": "server/accounting/refund-activation-contract.test.ts" },
+    { "id": "refund-retroactive-ordinary", "covered_by": "server/accounting/refund-activation-contract.test.ts" },
+    { "id": "refund-late-tail-failure", "covered_by": "server/accounting/receipt-refund-service.test.ts" },
+    { "id": "annual-mapping-before-policy", "covered_by": "server/accounting/refund-activation-contract.test.ts" },
+    { "id": "annual-partial-commit", "covered_by": "server/accounting/annual-policy-activation-write.test.ts" },
+    { "id": "approved-unallocated-receipt", "covered_by": "server/accounting/accounting-close-contract.test.ts" },
+    { "id": "noncanonical-signed-money", "covered_by": "server/accounting/accounting-close-contract.test.ts" }
+  ]
+}
