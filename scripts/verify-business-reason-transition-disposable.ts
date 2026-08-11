@@ -9,23 +9,24 @@ async function main():Promise<void>{
   const runUid=value("--run-uid");const resolved=resolveDisposableControlTarget(process.env,runUid);const control=createTargetPool(resolved);let disposable:Awaited<ReturnType<typeof createOrResumeDisposableTarget>>|undefined;
   try{
     const development=await verifyDevelopmentTarget(control,{...resolved,kind:"development"});disposable=await createOrResumeDisposableTarget(control,development,runUid);
-    const catalog=await disposable.pool.query<{count:number}>(`SELECT count(*)::int count FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='dgkma_validate_business_reason_transition_v1' AND NOT t.tgisinternal`);
-    if(catalog.rows[0].count!==8)fail("business_reason_transition_catalog_mismatch");
-    await disposable.pool.query("BEGIN");
+    const client=await disposable.pool.connect();
     try{
-      await disposable.pool.query("CREATE TEMP TABLE legacy_payment_decisions(decision text,reason_code text)");
-      await disposable.pool.query("CREATE TRIGGER verify_business_reason_transition BEFORE INSERT OR UPDATE ON pg_temp.legacy_payment_decisions FOR EACH ROW EXECUTE FUNCTION public.dgkma_validate_business_reason_transition_v1()");
-      await disposable.pool.query("SAVEPOINT invalid_pair");
+      const catalog=await client.query<{count:number}>(`SELECT count(*)::int count FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='dgkma_validate_business_reason_transition_v1' AND NOT t.tgisinternal`);
+      if(catalog.rows[0].count!==8)fail("business_reason_transition_catalog_mismatch");
+      await client.query("BEGIN");
+      await client.query("CREATE TEMP TABLE legacy_payment_decisions(decision text,reason_code text)");
+      await client.query("CREATE TRIGGER verify_business_reason_transition BEFORE INSERT OR UPDATE ON pg_temp.legacy_payment_decisions FOR EACH ROW EXECUTE FUNCTION public.dgkma_validate_business_reason_transition_v1()");
+      await client.query("SAVEPOINT invalid_pair");
       let rejected=false;
-      try{await disposable.pool.query("INSERT INTO pg_temp.legacy_payment_decisions(decision,reason_code) VALUES ('review','LEGACY_CROSS_LINK_MATCHED')");}
+      try{await client.query("INSERT INTO pg_temp.legacy_payment_decisions(decision,reason_code) VALUES ('review','LEGACY_CROSS_LINK_MATCHED')");}
       catch(error){const candidate=error as {code?:unknown;message?:unknown};rejected=candidate.code==="23514"&&typeof candidate.message==="string"&&candidate.message.includes("business_reason_transition_invalid");}
-      await disposable.pool.query("ROLLBACK TO SAVEPOINT invalid_pair");
+      await client.query("ROLLBACK TO SAVEPOINT invalid_pair");
       if(!rejected)fail("business_reason_transition_wrong_pair_not_rejected");
-      await disposable.pool.query("INSERT INTO pg_temp.legacy_payment_decisions(decision,reason_code) VALUES ('review','LEGACY_TIMEZONE_UNRESOLVED')");
-      const valid=await disposable.pool.query<{count:number}>("SELECT count(*)::int count FROM pg_temp.legacy_payment_decisions");if(valid.rows[0].count!==1)fail("business_reason_transition_valid_pair_missing");
-      await disposable.pool.query("ROLLBACK");
+      await client.query("INSERT INTO pg_temp.legacy_payment_decisions(decision,reason_code) VALUES ('review','LEGACY_TIMEZONE_UNRESOLVED')");
+      const valid=await client.query<{count:number}>("SELECT count(*)::int count FROM pg_temp.legacy_payment_decisions");if(valid.rows[0].count!==1)fail("business_reason_transition_valid_pair_missing");
+      await client.query("ROLLBACK");
       console.log(canonicalJson({schema_version:"dgkma-business-reason-transition-disposable-verification-v1",run_uid:runUid,target_fingerprint:disposable.targetFingerprint,governed_trigger_count:catalog.rows[0].count,wrong_pair_sqlstate:"23514",valid_pair_rows:valid.rows[0].count,transaction_terminal:"ROLLBACK",production_operations:0,result:"approved"} as unknown as CanonicalValue));
-    }catch(error){await disposable.pool.query("ROLLBACK").catch(()=>undefined);throw error;}
+    }catch(error){await client.query("ROLLBACK").catch(()=>undefined);throw error;}finally{client.release();}
   }finally{if(disposable)await closeDisposableTarget(control,disposable);await shutdownPool(control);}
 }
 
