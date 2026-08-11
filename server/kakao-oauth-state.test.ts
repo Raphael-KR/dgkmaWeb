@@ -112,6 +112,7 @@ test("development PostgreSQL atomically consumes one unexpired OAuth state", {
     const expired = await kakaoOAuthStateStore.issue({
       stateHash: expiredStateHash,
       sessionBindingHash: expiredSessionBindingHash,
+      startedAt: new Date(Date.now() - 120_000),
       expiresAt: new Date(Date.now() - 1_000),
     });
     assert.equal(await kakaoOAuthStateStore.consume({

@@ -29,16 +29,16 @@ export const consumePostgresEventParseQuota: ConsumeEventParseQuota = async (
     ) VALUES ($1, now(), 1, now())
     ON CONFLICT (user_id) DO UPDATE SET
       window_started_at = CASE
-        WHEN event_parse_rate_limits.window_started_at <= now() - ($2::double precision * interval '1 millisecond')
-          THEN now()
+        WHEN event_parse_rate_limits.window_started_at <= clock_timestamp() - ($2::double precision * interval '1 millisecond')
+          THEN clock_timestamp()
         ELSE event_parse_rate_limits.window_started_at
       END,
       request_count = CASE
-        WHEN event_parse_rate_limits.window_started_at <= now() - ($2::double precision * interval '1 millisecond')
+        WHEN event_parse_rate_limits.window_started_at <= clock_timestamp() - ($2::double precision * interval '1 millisecond')
           THEN 1
         ELSE event_parse_rate_limits.request_count + 1
       END,
-      updated_at = now()
+      updated_at = GREATEST(event_parse_rate_limits.window_started_at, clock_timestamp())
     RETURNING request_count
   `, [userId, windowMs]);
 
