@@ -23,6 +23,7 @@
 | Todo 18 integrated disposable harness KST | `2026-08-11 08:08 KST +0900` |
 | Todo 18 authenticated admin CLI apply KST | `2026-08-11 10:03 KST +0900` |
 | Todo 18 AGM36 v3 apply verification KST | `2026-08-11 10:43 KST +0900` |
+| Todo 18 foreign-faculty primary receipt preflight KST | `2026-08-11 10:52 KST +0900` |
 | Development sequence-70 verification KST | `2026-08-11 06:11 KST +0900` |
 | Development sequence-80 verification KST | `2026-08-11 07:38 KST +0900` |
 | verified receipt commit | `4711badbb13e236df8a1f00f4f87156d31960d98` |
@@ -53,6 +54,8 @@ Exact commit `c3678d8`의 Todo 18 통합 harness는 Replit에서 `npx tsc --noEm
 Exact commit `d6f1788`의 authenticated administrator CLI는 fixed Development admin receipt와 live ledger/admin state를 재검증한 뒤 HTTP POST와 동일한 application service·SERIALIZABLE transaction을 호출한다. Replit `tsc`와 138개 집중 테스트를 통과했고, 실제 Development에서 결함 없는 7개 source를 apply한 뒤 동일 operation replay의 receipt bytes와 identity-sequence digest 불변을 확인했다. 최종 상태는 해당 batch/set `7/7 applied/approved`, open period `CALENDAR_2022`–`CALENDAR_2025` 4개, operation receipt/entity/audit `7/18/18`, 나머지 business downstream 0이다. AGM36 v2는 활성 Notion v4에 존재하지 않는 boundary coordinate/content digest 때문에 reservation 전 `source_decision_period_boundary_mismatch`로 원자 rollback됐고 receipt 0이다. 외래교수회는 primary bank receipt가 미결합되어 계속 previewed다.
 
 Owner가 승인한 AGM36 v3는 기존 v2 release·preview를 보존하고 활성 Notion v4의 실제 22대 회장 경계 row에 새 mapping/release를 결합했다. Exact commit `9a2a89d`에서 Replit `tsc`와 135개 집중 테스트, Notion boundary 1행 read-only 검증, release·preview `created → verified_noop`을 통과했다. 관리자 CLI는 v2 set을 reject한 뒤 v3 set만 approve/apply해 `PRE_AGM36_2026`, `AGM36_TO_AGM37` 두 period를 생성했다. 최종 상태는 v2 set/batch `rejected/previewed`, v3 set/batch `approved/applied`, 전체 open period 6, reject operation `1/1/1`, approve operation `1/4/4`, member/financial downstream 0이다. Exact replay의 receipt bytes와 identity-sequence digest가 동일했고 모든 검증 transaction은 `ROLLBACK`으로 끝났다.
+
+Exact commit `1aff7e1`의 PII-minimized read-only preflight는 foreign-faculty roster 합계 KRW 1,300,000을 재현했지만, 같은 금액의 eligible credit row를 Toss·IBK v3와 finalized-ledger v3 모두에서 0개 확인했다. 이 source는 계속 batch/set `previewed/previewed`, row/item `26/52`이고 downstream은 0이다. Primary receipt가 없으므로 group allocation apply는 금지 상태다.
 
 2026 은행 source의 bounded reader는 계좌번호·CMS 열을 읽지 않은 채 Toss 200개 거래행과 IBK 174개 거래행을 구조 검증했다. IBK 2행은 날짜·출금·입금·잔액만 있고 비영 단일방향 금액과 표시 설명이 없는 opening-balance/anchor evidence이므로 경제 이벤트로 추정하지 않는다. 재현 불가능한 v2 header hash는 immutable v3 profile/map으로 교정했고 두 v3 release와 quarantine preview는 `created → verified_noop`을 통과했다. 실제 bank classification apply는 0건이다.
 

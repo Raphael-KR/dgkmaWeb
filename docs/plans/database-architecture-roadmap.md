@@ -28,7 +28,7 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 
 | 순서 | Todo/Phase | 다음 완료 조건 |
 |---:|---|---|
-| 1 | 18 | 외래교수회 후보 KRW 1,300,000과 결합할 exact primary bank receipt를 read-only로 식별·대조하고, include/reject/quarantine 및 합계 일치의 단일 source-decision 승인을 받은 뒤 primary+companion 원자 apply |
+| 1 | 18 | exact primary receipt가 현재 source에 없음을 전제로 외래교수회 52개 item을 quarantine-only apply할지 owner가 결정; 승인 시 downstream 0·replay no-op 검증으로 Todo 18 source coverage 종료 |
 | 2 | 19 | legacy `payments` cross-link/backfill, double-count 0, DB-resident cutover proof |
 | 3 | 20 ∥ 21 | 시간·금액·마감·동시성 불변식과 security/retention/workload 검증 |
 | 4 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
@@ -41,7 +41,8 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 - 관리자 CLI로 먼저 7개 source를 Development에 원자 apply했고, 이어 owner 승인 AGM36 v3를 실제 Notion v4 경계 row에 결합했다. 기존 v2 set은 `rejected`, v3 set/batch는 `approved/applied`이며 `PRE_AGM36_2026`, `AGM36_TO_AGM37` 두 period가 생성됐다. 모든 exact replay는 receipt bytes와 identity-sequence digest를 보존했다.
 - 전체 open period는 `CALENDAR_2022`–`CALENDAR_2025`, `PRE_AGM36_2026`, `AGM36_TO_AGM37` 6개다. 회원·직책·financial downstream은 0이고 Production·배포 작업도 0이다.
 - 외래교수회 26개 행 × 50,000원은 계속 후보일 뿐이며, exact primary bank receipt equality와 companion 결합 승인이 있기 전에는 direct apply하지 않는다.
-- 다음 운영 승인 전까지 Codex는 exact primary receipt 후보의 PII-minimized read-only 대조, 합계·중복 검증, synthetic/disposable 검증과 문서·Git/GitHub 작업을 계속한다.
+- PII-minimized read-only 대조 결과 동일한 KRW 1,300,000 credit row는 Toss·IBK v3에 0개이며 finalized-ledger v3에도 0개다. 따라서 primary+companion allocation apply는 현재 불가능하다.
+- 다음 단일 승인안은 기존 외래교수회 set의 26개 name-only match와 26개 unbound allocation을 모두 quarantine outcome 그대로 승인해 batch만 applied로 전환하고, 회원 match·receipt·group·allocation downstream은 0으로 유지하는 것이다. 향후 실제 bank evidence가 추가되면 새 source revision/release/preview와 별도 source-decision으로 처리한다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
 
 ## 문서 동기화 규칙

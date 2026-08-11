@@ -301,6 +301,8 @@ Exact commit `d6f1788`은 Replit에서 `npx tsc --noEmit`과 138개 accounting/r
 
 AGM36 v2 apply는 reservation/DML 전에 `source_decision_period_boundary_mismatch`로 실패했고 operation receipt 0과 전체 상태 불변을 확인했다. 동결 payload가 참조하는 `notion-role:22:president:2026-02-28` coordinate/content digest는 활성 Notion v4 source에 존재하지 않는다. 실제 유일한 22대 회장 경계 row는 coordinate `notion:page:3b72225d-9c4d-81b6-9fbb-f30287bfe90e`, content digest `2e0b0afea037bca10fd6ff405e629794367edd590031a409a8073d99eb2bfbc2`다. 기존 immutable v2 row를 수정하거나 service 검증을 완화하지 않고, provider-bound 승인을 받은 v3 mapping/release와 fresh preview로 교정해야 한다.
 
+2026-08-11 10:52 KST의 `scripts/preflight-foreign-faculty-primary-receipt-v1.ts` read-only 실행은 외래교수회 roster `26행/52 item`, 후보 합계 KRW 1,300,000, batch/set `previewed/previewed`를 재확인했다. 동일 금액의 credit row는 active Toss·IBK v3 source에 0개, finalized-ledger v3에도 0개였다. 원문 이름·계좌·설명 snapshot 출력은 0이고 transaction은 `ROLLBACK`했다. 따라서 primary+companion apply는 불가능하며, 현재 가능한 보수적 terminal decision은 52개 기존 quarantine outcome을 그대로 승인해 downstream 0으로 source batch만 apply하거나, 새 primary bank evidence가 들어올 때까지 previewed로 유지하는 두 경로뿐이다.
+
 ### Notion 조직·직책 이력 preflight
 
 `scripts/materialize-notion-role-history-preview-input-v2.ts`는 connected Notion에서 읽은 exact data-source 행을 mode-0600 임시 관측 파일 또는 stdin으로 받아 승인된 v2 adapter를 전 행에 적용한다. 원문·이름은 출력하지 않고 mapping reason별 건수만 출력한다. 한 행이라도 실패하면 일부 행을 누락한 preview를 만들지 않으며 output 파일도 생성하지 않는다. 모든 행이 통과할 때에만 이름은 관리자 가독 snapshot으로, integrity key는 secretless digest로 정규화하고 name-only member-match 제안은 `quarantine`으로 고정한 임시 preview 입력을 만든다.
