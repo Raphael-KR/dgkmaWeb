@@ -8,6 +8,7 @@ export type SecurityCatalogAggregate = Readonly<{
   rlsForced: number;
   policies: number;
   securityDefiner: number;
+  securityDefinerWithoutSafeSearchPath: number;
   relationOwnerMismatch: number;
   routineOwnerMismatch: number;
   roleMembershipCount: number;
@@ -33,6 +34,7 @@ export function assertClosedSecurityCatalog(value: SecurityCatalogAggregate): vo
     value.rlsForced !== 0 ||
     value.policies !== 0 ||
     value.securityDefiner !== 0 ||
+    value.securityDefinerWithoutSafeSearchPath !== 0 ||
     value.relationOwnerMismatch !== 0 ||
     value.routineOwnerMismatch !== 0 ||
     value.roleMembershipCount < 0 ||

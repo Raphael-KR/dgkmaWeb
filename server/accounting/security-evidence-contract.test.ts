@@ -12,6 +12,7 @@ const catalog = {
   rlsForced: 0,
   policies: 0,
   securityDefiner: 0,
+  securityDefinerWithoutSafeSearchPath: 0,
   relationOwnerMismatch: 0,
   routineOwnerMismatch: 0,
   roleMembershipCount: 3,
@@ -27,6 +28,7 @@ test("PUBLIC grant, RLS, owner and membership digest drift fail closed", () => {
     { publicRelationPrivileges: 1 },
     { publicSchemaCreate: true },
     { rlsEnabled: 1 },
+    { securityDefinerWithoutSafeSearchPath: 1 },
     { relationOwnerMismatch: 1 },
     { roleMembershipDigest: "bad" },
   ]) {
