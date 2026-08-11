@@ -2004,6 +2004,7 @@ function runTaskSixteen(): void {
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","90","--through-sequence","90"]);
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","100","--through-sequence","100"]);
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","110","--through-sequence","110"]);
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","120","--through-sequence","120"]);
     invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml"]);
     invoke("node", ["dist/index.js"], 0, { NODE_ENV:"production", SESSION_SECRET:"disposable-ledger-only-not-a-real-secret", DGKMA_STARTUP_LEDGER_ONLY:"1", DGKMA_DISPOSABLE_RUN_UID:runUid });
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","50","--through-sequence","60","--actor-receipt",receiptPath]);
@@ -2012,15 +2013,16 @@ function runTaskSixteen(): void {
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","90","--through-sequence","90"]);
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","100","--through-sequence","100"]);
     invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","110","--through-sequence","110"]);
+    invoke("npx", ["tsx","scripts/apply-schema.ts","--target","disposable-test","--run-uid",runUid,"--from-sequence","120","--through-sequence","120"]);
     invoke("npx", ["tsx","scripts/verify-schema-catalog.ts","--target","disposable-test","--run-uid",runUid,"--manifest","docs/database-manifest.yaml","--teardown"]);
-    summaries.push({ run_uid:runUid, requested_variant:variant, ledger_sequences:[1,10,15,20,30,40,50,60,70,80,90,100,110], reapply:"verified_noop", teardown_absent:true });
+    summaries.push({ run_uid:runUid, requested_variant:variant, ledger_sequences:[1,10,15,20,30,40,50,60,70,80,90,100,110,120], reapply:"verified_noop", teardown_absent:true });
   }
   const logPath = commandLogPath;
   writeFileSync(logPath, log.join("\n"));
   writeFileSync(evidencePath, `${canonicalJson({ schema_version:"dgkma-task-evidence-v1",task:16,case:caseName,
     task_commit_sha:process.env.TASK_COMMIT_SHA ?? execFileSync("git",["rev-parse","HEAD"],{encoding:"utf8"}).trim(),
     manifest_sha256:readManifest().sha256,db_target:"disposable-test",db_mode:"two-uuid-bound-disposable-runs",
-    assertions:{runs:summaries,artifact_descriptors:descriptors.length,startup_required_through:110,production_operations:0,development_schema_writes:0},
+    assertions:{runs:summaries,artifact_descriptors:descriptors.length,startup_required_through:120,production_operations:0,development_schema_writes:0},
     attachment_digests:[{path:logPath,sha256:sha256(readFileSync(logPath))}],result:"approved" } as never)}\n`);
 }
 

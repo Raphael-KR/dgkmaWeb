@@ -62,8 +62,8 @@ test("descriptor set rejects altered canonical manifest bytes with the same sche
 
 test("artifact descriptors close the fully materialized sequence registry", () => {
   const descriptors = readArtifactDescriptors();
-  assert.equal(descriptors.length, 15);
-  assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65,70,80,90,100,110]);
+  assert.equal(descriptors.length, 16);
+  assert.deepEqual([...new Set(descriptors.map((entry) => entry.sequence_no))], [1,10,15,20,30,40,50,60,65,70,80,90,100,110,120]);
   for (const descriptor of descriptors) {
     assert.equal(descriptor.materialization_state, "materialized");
     assert.match(descriptor.artifact_sha256!, /^[0-9a-f]{64}$/);
@@ -73,17 +73,18 @@ test("artifact descriptors close the fully materialized sequence registry", () =
   assert.equal(sequence65.required_for_startup, false);
   assert.equal(sequence65.required_for_production, true);
   const sequence70 = descriptors.find((entry) => entry.sequence_no === 70)!;
-  const manifest=readManifest();const parent=readManifest((manifest.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const grandparent=readManifest((parent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const greatGrandparent=readManifest((grandparent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const greatGreatGrandparent=readManifest((greatGrandparent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);assert.equal(sequence70.manifest_sha256,greatGreatGrandparent.sha256);
+  const manifest=readManifest();const parent=readManifest((manifest.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const grandparent=readManifest((parent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const greatGrandparent=readManifest((grandparent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const greatGreatGrandparent=readManifest((greatGrandparent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);const greatGreatGreatGrandparent=readManifest((greatGreatGrandparent.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);assert.equal(sequence70.manifest_sha256,greatGreatGreatGrandparent.sha256);
   assert.equal(sequence70.required_for_startup, true);
   assert.deepEqual(selectedArtifacts(70, 70, "preferred_btree_gist").map((entry) => entry.sequence_no), [70]);
   const sequence70Sql = readFileSync(sequence70.path, "utf8");
   assert.match(sequence70Sql, /DROP CONSTRAINT economic_event_claims__coordinate_id__key/);
   assert.match(sequence70Sql, /WHERE version=1/);
   assert.match(sequence70Sql, /requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70\)/);
-  const sequence80=descriptors.find((entry)=>entry.sequence_no===80)!;assert.equal(sequence80.manifest_sha256,greatGrandparent.sha256);assert.equal(sequence80.required_for_startup,true);assert.deepEqual(selectedArtifacts(80,80,"preferred_btree_gist").map((entry)=>entry.sequence_no),[80]);const sequence80Sql=readFileSync(sequence80.path,"utf8");assert.match(sequence80Sql,/DROP CONSTRAINT dues_group_members__group_id_source_row_version_id__key/);assert.match(sequence80Sql,/WHERE version=1/);assert.match(sequence80Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80\)/);
-  const sequence90=descriptors.find((entry)=>entry.sequence_no===90)!;assert.equal(sequence90.manifest_sha256,grandparent.sha256);assert.equal(sequence90.required_for_startup,true);assert.deepEqual(selectedArtifacts(90,90,"preferred_btree_gist").map((entry)=>entry.sequence_no),[90]);const sequence90Sql=readFileSync(sequence90.path,"utf8");assert.match(sequence90Sql,/DROP CONSTRAINT legacy_cutover_states__cutover_code__key/);assert.match(sequence90Sql,/WHERE version=1/);assert.match(sequence90Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90\)/);
-  const sequence100=descriptors.find((entry)=>entry.sequence_no===100)!;assert.equal(sequence100.manifest_sha256,(readManifest((manifest.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path)).sha256);assert.equal(sequence100.required_for_startup,true);assert.deepEqual(selectedArtifacts(100,100,"preferred_btree_gist").map((entry)=>entry.sequence_no),[100]);const sequence100Sql=readFileSync(sequence100.path,"utf8");assert.match(sequence100Sql,/CREATE FUNCTION public\.dgkma_guard_legacy_payments_write_v1/);assert.match(sequence100Sql,/BEFORE INSERT OR UPDATE OR DELETE ON public\.payments/);assert.match(sequence100Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90,100\)/);
-  const sequence110=descriptors.find((entry)=>entry.sequence_no===110)!;assert.equal(sequence110.manifest_sha256,manifest.sha256);assert.equal(sequence110.required_for_startup,true);assert.deepEqual(selectedArtifacts(110,110,"preferred_btree_gist").map((entry)=>entry.sequence_no),[110]);const sequence110Sql=readFileSync(sequence110.path,"utf8");assert.match(sequence110Sql,/dues_receipt_reversals__reason_code__check/);assert.match(sequence110Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90,100,110\)/);
+  const sequence80=descriptors.find((entry)=>entry.sequence_no===80)!;assert.equal(sequence80.manifest_sha256,greatGreatGrandparent.sha256);assert.equal(sequence80.required_for_startup,true);assert.deepEqual(selectedArtifacts(80,80,"preferred_btree_gist").map((entry)=>entry.sequence_no),[80]);const sequence80Sql=readFileSync(sequence80.path,"utf8");assert.match(sequence80Sql,/DROP CONSTRAINT dues_group_members__group_id_source_row_version_id__key/);assert.match(sequence80Sql,/WHERE version=1/);assert.match(sequence80Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80\)/);
+  const sequence90=descriptors.find((entry)=>entry.sequence_no===90)!;assert.equal(sequence90.manifest_sha256,greatGrandparent.sha256);assert.equal(sequence90.required_for_startup,true);assert.deepEqual(selectedArtifacts(90,90,"preferred_btree_gist").map((entry)=>entry.sequence_no),[90]);const sequence90Sql=readFileSync(sequence90.path,"utf8");assert.match(sequence90Sql,/DROP CONSTRAINT legacy_cutover_states__cutover_code__key/);assert.match(sequence90Sql,/WHERE version=1/);assert.match(sequence90Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90\)/);
+  const sequence100=descriptors.find((entry)=>entry.sequence_no===100)!;assert.equal(sequence100.manifest_sha256,grandparent.sha256);assert.equal(sequence100.required_for_startup,true);assert.deepEqual(selectedArtifacts(100,100,"preferred_btree_gist").map((entry)=>entry.sequence_no),[100]);const sequence100Sql=readFileSync(sequence100.path,"utf8");assert.match(sequence100Sql,/CREATE FUNCTION public\.dgkma_guard_legacy_payments_write_v1/);assert.match(sequence100Sql,/BEFORE INSERT OR UPDATE OR DELETE ON public\.payments/);assert.match(sequence100Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90,100\)/);
+  const sequence110=descriptors.find((entry)=>entry.sequence_no===110)!;assert.equal(sequence110.manifest_sha256,parent.sha256);assert.equal(sequence110.required_for_startup,true);assert.deepEqual(selectedArtifacts(110,110,"preferred_btree_gist").map((entry)=>entry.sequence_no),[110]);const sequence110Sql=readFileSync(sequence110.path,"utf8");assert.match(sequence110Sql,/dues_receipt_reversals__reason_code__check/);assert.match(sequence110Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90,100,110\)/);
+  const sequence120=descriptors.find((entry)=>entry.sequence_no===120)!;assert.equal(sequence120.manifest_sha256,manifest.sha256);assert.equal(sequence120.required_for_startup,true);assert.deepEqual(selectedArtifacts(120,120,"preferred_btree_gist").map((entry)=>entry.sequence_no),[120]);const sequence120Sql=readFileSync(sequence120.path,"utf8");assert.match(sequence120Sql,/CREATE FUNCTION public\.dgkma_validate_business_reason_transition_v1/);assert.match(sequence120Sql,/requested_through_sequence_no IN \(1,10,15,20,30,40,50,60,65,70,80,90,100,110,120\)/);
 });
 
 test("standalone manifest validator accepts the committed bytes", () => {
@@ -91,15 +92,16 @@ test("standalone manifest validator accepts the committed bytes", () => {
   assert.equal(result.status, 0, result.stderr);
   const output = JSON.parse(result.stdout.trim());
   assert.equal(output.result, "approved");
-  assert.equal(output.materialized_artifacts, 15);
+  assert.equal(output.materialized_artifacts, 16);
 });
 
 test("metadata-only catalog verifier requires the sequence 100 payments write fence", () => {
   const source = readFileSync("scripts/verify-schema-catalog.ts", "utf8");
-  assert.match(source, /\[1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110\]/);
+  assert.match(source, /\[1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120\]/);
   assert.match(source, /legacy_payments_write_fence_v1/);
   assert.match(source, /public\.dgkma_guard_legacy_payments_write_v1\(\)/);
   assert.match(source, /catalog_legacy_payments_write_fence_mismatch/);
+  assert.match(source, /catalog_business_reason_transition_mismatch/);
   assert.match(source, /--legacy-baseline/);
   assert.match(source, /--legacy-v3/);
   assert.match(source, /BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);

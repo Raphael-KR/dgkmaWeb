@@ -83,3 +83,38 @@ if (BUSINESS_REASON_KEYS.size !== BUSINESS_REASON_TUPLES.length) throw new Error
 export function assertBusinessReasonTuple(table: string, actionOrStatus: string, reasonCode: unknown): asserts reasonCode is string {
   if (typeof reasonCode !== "string" || !BUSINESS_REASON_KEYS.has(`${table}\u0000${actionOrStatus}\u0000${reasonCode}`)) throw new Error("business_reason_tuple_invalid");
 }
+
+function present(value: unknown): boolean { return value !== null && value !== undefined; }
+
+export function businessReasonAction(table: string, row: Readonly<Record<string, unknown>>): string {
+  switch (table) {
+    case "mutable_entity_action_history":
+      return row.action === "correct" ? `correct:${String(row.mutation_actor_scope)}` : String(row.action);
+    case "member_match_cases":
+      if (!present(row.supersedes_id)) return `create:${String(row.status)}`;
+      if (present(row.supersede_actor_correlation_uid)) return "supersede";
+      if (present(row.decision_actor_correlation_uid) && row.status === "approved") return "approve";
+      if (present(row.decision_actor_correlation_uid) && row.status === "rejected") return "reject";
+      throw new Error("business_reason_action_invalid");
+    case "member_identity_link_history":
+      return row.operation === "unlink_user" ? `unlink_user:${String(row.decision_actor_scope)}` : String(row.operation);
+    case "economic_event_authority_decisions":
+      if (row.decision_kind !== "quarantine") return String(row.decision_kind);
+      if (row.reason_code === "AUTHORITY_TIE_QUARANTINED") return "quarantine:tie";
+      if (row.reason_code === "AUTHORITY_INVALID_QUARANTINED") return "quarantine:invalid";
+      throw new Error("business_reason_action_invalid");
+    case "economic_event_canonicalizations": return "create";
+    case "economic_event_collisions":
+      if (!present(row.supersedes_id) && row.status === "open") return "create:open";
+      if (present(row.supersedes_id) && row.status === "open") return "supersede:open";
+      if (present(row.supersedes_id) && row.status === "resolved") return "resolve";
+      throw new Error("business_reason_action_invalid");
+    case "legacy_payment_decisions": return String(row.decision);
+    case "dues_receipt_reversals": return String(row.status);
+    default: throw new Error("business_reason_table_invalid");
+  }
+}
+
+export function assertBusinessReasonRow(table: string, row: Readonly<Record<string, unknown>>): void {
+  assertBusinessReasonTuple(table, businessReasonAction(table, row), row.reason_code);
+}

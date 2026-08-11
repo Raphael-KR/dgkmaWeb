@@ -125,6 +125,15 @@
       "materialization_state": "materialized",
       "required_for_startup": true,
       "sequence_no": 110
+    },
+    {
+      "artifact_id": "business-reason-transition-enforcement-v1",
+      "artifact_sha256": "b7e173337aeffd31249194723d8f3f404a106128e245f6f57f77a5b22e36ee6f",
+      "kind": "manual",
+      "manifest_sha256": "c39cd4530ac9098a8156a4d9a58f2dbf5fab8dcbb1d761914b690c45a00b8ba1",
+      "materialization_state": "materialized",
+      "required_for_startup": true,
+      "sequence_no": 120
     }
   ],
   "ledger_rows": [
@@ -269,6 +278,17 @@
       "manifest_sha256": "9dba0d10093ed9a070d4564d1bcc46e8ba3da47e4d39981d66792594737377ab",
       "release_state": "verified",
       "sequence_no": 110,
+      "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "artifact_id": "business-reason-transition-enforcement-v1",
+      "artifact_kind": "manual",
+      "artifact_sha256": "b7e173337aeffd31249194723d8f3f404a106128e245f6f57f77a5b22e36ee6f",
+      "capability_variant": "preferred_btree_gist",
+      "executor_version": "schema-ledger-v1",
+      "manifest_sha256": "c39cd4530ac9098a8156a4d9a58f2dbf5fab8dcbb1d761914b690c45a00b8ba1",
+      "release_state": "verified",
+      "sequence_no": 120,
       "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
     }
   ],

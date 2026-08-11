@@ -45,6 +45,21 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
         AND trigger_row.tgname='legacy_payments_write_fence_v1'
         AND NOT trigger_row.tgisinternal
     `);
+    const reasonTransitions = await pool.query<{ table_name:string; trigger_name:string; function_name:string; is_row:boolean; is_before:boolean; on_insert:boolean; on_delete:boolean; on_update:boolean; on_truncate:boolean }>(`
+      SELECT table_row.relname AS table_name, trigger_row.tgname AS trigger_name,
+             function_namespace.nspname || '.' || function_row.proname || '()' AS function_name,
+             (trigger_row.tgtype & 1) <> 0 AS is_row, (trigger_row.tgtype & 2) <> 0 AS is_before,
+             (trigger_row.tgtype & 4) <> 0 AS on_insert, (trigger_row.tgtype & 8) <> 0 AS on_delete,
+             (trigger_row.tgtype & 16) <> 0 AS on_update, (trigger_row.tgtype & 32) <> 0 AS on_truncate
+      FROM pg_catalog.pg_trigger AS trigger_row
+      JOIN pg_catalog.pg_class AS table_row ON table_row.oid=trigger_row.tgrelid
+      JOIN pg_catalog.pg_namespace AS table_namespace ON table_namespace.oid=table_row.relnamespace
+      JOIN pg_catalog.pg_proc AS function_row ON function_row.oid=trigger_row.tgfoid
+      JOIN pg_catalog.pg_namespace AS function_namespace ON function_namespace.oid=function_row.pronamespace
+      WHERE table_namespace.nspname='public' AND function_namespace.nspname='public'
+        AND function_row.proname='dgkma_validate_business_reason_transition_v1'
+        AND NOT trigger_row.tgisinternal ORDER BY table_row.relname
+    `);
     const referenceSeeds = await pool.query<{
       logical_sources: number; source_releases: number; seed_source_releases: number; historical_source_releases: number; bank_accounts: number;
       bank_source_mappings: number; draft_policies: number; approved_policies: number;
@@ -84,7 +99,7 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       .flatMap((table) => table.columns.map((column) => `${table.table}.${column.name}`))
       .filter((key) => !observed.has(key));
     if (missing.length) throw new Error(`catalog_manifest_column_missing:${missing[0]}`);
-    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110];
+    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
     if (ledger.rows.length !== required.length || ledger.rows.some((row, index) => row.sequence_no !== required[index])) {
       throw new Error("catalog_ledger_sequence_mismatch");
     }
@@ -97,6 +112,11 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       writeFence.rows[0]?.on_truncate
     ) {
       throw new Error("catalog_legacy_payments_write_fence_mismatch");
+    }
+    const expectedReasonTriggers={dues_receipt_reversals:"dues_receipt_reversals__business_reason_transition_v1",economic_event_authority_decisions:"economic_event_authority_decisions__business_reason__87a9478ac7",economic_event_canonicalizations:"economic_event_canonicalizations__business_reason_transition_v1",economic_event_collisions:"economic_event_collisions__business_reason_transition_v1",legacy_payment_decisions:"legacy_payment_decisions__business_reason_transition_v1",member_identity_link_history:"member_identity_link_history__business_reason_transition_v1",member_match_cases:"member_match_cases__business_reason_transition_v1",mutable_entity_action_history:"mutable_entity_action_history__business_reason_transition_v1"} as const;
+    const expectedReasonTables=Object.keys(expectedReasonTriggers);
+    if(reasonTransitions.rowCount!==8||JSON.stringify(reasonTransitions.rows.map((row)=>row.table_name))!==JSON.stringify(expectedReasonTables)||reasonTransitions.rows.some((row)=>row.trigger_name!==expectedReasonTriggers[row.table_name as keyof typeof expectedReasonTriggers]||row.function_name!=="public.dgkma_validate_business_reason_transition_v1()"||!row.is_row||!row.is_before||!row.on_insert||!row.on_update||row.on_delete||row.on_truncate)){
+      throw new Error("catalog_business_reason_transition_mismatch");
     }
     const seeds = referenceSeeds.rows[0];
     const expectedSeedCounts = {
@@ -147,6 +167,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       releaseCodes: expectedReleaseCodes,
       writeFenceTrigger: writeFence.rows[0].trigger_name,
       writeFenceFunction: writeFence.rows[0].function_name,
+      reasonTransitionFunction: reasonTransitions.rows[0].function_name,
+      reasonTransitionTables: expectedReasonTables,
     };
   } catch (error) {
     await pool.query("ROLLBACK").catch(() => undefined);
@@ -178,6 +200,8 @@ async function main(): Promise<void> {
         release_codes: result.releaseCodes,
         write_fence_trigger: result.writeFenceTrigger,
         write_fence_function: result.writeFenceFunction,
+        business_reason_transition_function: result.reasonTransitionFunction,
+        business_reason_transition_tables: result.reasonTransitionTables,
         catalog_sha256: result.catalogSha256,
         transaction_isolation: "repeatable read",
         transaction_terminal: "ROLLBACK",

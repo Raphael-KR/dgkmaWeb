@@ -72,7 +72,7 @@ app.use((req, res, next) => {
 (async () => {
   try {
     await verifyStartupSchema(pool);
-    log("database schema ledger verified through sequence 110");
+    log("database schema ledger verified through sequence 120");
     if (process.env.DGKMA_STARTUP_LEDGER_ONLY === "1") {
       await pool.end();
       log("ledger-only startup verification complete");
