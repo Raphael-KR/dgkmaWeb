@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildLegacyPaymentCommand, loadLegacyPaymentPlan, validateLegacyPaymentCommand } from "./legacy-payment-service";
+import { buildLegacyPaymentCommand, buildLegacyPaymentReadTransitionCommand, loadLegacyPaymentPlan, validateLegacyPaymentCommand, validateLegacyPaymentReadTransitionCommand } from "./legacy-payment-service";
+import { randomUUID } from "node:crypto";
 import { canonicalJson, sha256, type CanonicalValue } from "./source-contracts";
 
 test("legacy v3 mapping, delegated decision, release and plan are immutable and self-bound", () => {
@@ -44,4 +45,15 @@ test("legacy executor keeps Development exact-bound and exposes only a UUID-boun
   assert.match(developmentVerifier,/BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
   assert.match(developmentVerifier,/legacy_development_stored_receipt_mismatch/);
   assert.match(developmentVerifier,/identity_sequence_sha256/);
+});
+
+test("read rollback and recutover commands bind exact DB-resident comparison state", () => {
+  const digest = "a".repeat(64);
+  const rollback = buildLegacyPaymentReadTransitionCommand("read_rollback", randomUUID(), 5, digest);
+  assert.deepEqual(validateLegacyPaymentReadTransitionCommand(rollback), rollback);
+  assert.equal(rollback.expectedPhase, "new");
+  const recutover = buildLegacyPaymentReadTransitionCommand("recutover", randomUUID(), 5, digest);
+  assert.equal(recutover.expectedPhase, "read_rollback");
+  assert.throws(() => validateLegacyPaymentReadTransitionCommand({ ...rollback, expectedPhase: "legacy" }), /phase_mismatch/);
+  assert.throws(() => validateLegacyPaymentReadTransitionCommand({ ...rollback, expectedComparisonDigest: "bad" }), /digest_invalid/);
 });

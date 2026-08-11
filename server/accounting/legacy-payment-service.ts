@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
-import { buildLegacyCutoverComparison, type FrozenLegacyCutoverRow, type LegacyCutoverPhase, type NewLegacyCutoverRow } from "./legacy-cutover-contract";
+import { assertLegacyCutoverTransition, buildLegacyCutoverComparison, type FrozenLegacyCutoverRow, type LegacyCutoverPhase, type NewLegacyCutoverRow } from "./legacy-cutover-contract";
 import { discoverLegacyMaterializationRows, type ResolvedLegacyMaterializationRow } from "./legacy-payment-discovery";
 import { buildLegacyPaymentPreviewIdentity, readLockedLegacyPayments } from "./legacy-payment-preview";
 import { executeLegacyMaterialization, reserveLegacyMaterialization } from "./legacy-payment-write";
@@ -10,6 +10,8 @@ import type { SourceDecisionActor } from "./source-decision-service";
 
 type Json = Record<string, CanonicalValue>;
 type LegacyAction = "register_release" | "preview" | "initialize" | "fence" | "cutover";
+export type LegacyReadTransitionAction = "read_rollback" | "recutover";
+type LegacyOperationAction = LegacyAction | LegacyReadTransitionAction;
 
 export type LegacyPaymentCommand = {
   schemaVersion: "legacy-payment-command-v1";
@@ -23,7 +25,7 @@ export type LegacyPaymentCommand = {
 
 export type LegacyPaymentReceipt = {
   schema_version: "dgkma-legacy-payment-operation-v1";
-  action: LegacyAction;
+  action: LegacyOperationAction;
   operation_uid: string;
   plan_sha256: string;
   committed_outcome: "created";
@@ -40,6 +42,15 @@ export type LegacyPaymentReceipt = {
   recorded_at: string;
   command_sha256: string;
   receipt_sha256: string;
+};
+
+export type LegacyPaymentReadTransitionCommand = {
+  schemaVersion: "legacy-payment-read-transition-command-v1";
+  action: LegacyReadTransitionAction;
+  operationUid: string;
+  expectedPhase: "new" | "read_rollback";
+  expectedWatermarkPaymentId: number;
+  expectedComparisonDigest: string;
 };
 
 export type LegacyPaymentExecution = {
@@ -106,6 +117,35 @@ export function buildLegacyPaymentCommand(action: LegacyAction): LegacyPaymentCo
   };
 }
 
+export function validateLegacyPaymentReadTransitionCommand(command: Record<string, unknown>): LegacyPaymentReadTransitionCommand {
+  const keys = ["action", "expectedComparisonDigest", "expectedPhase", "expectedWatermarkPaymentId", "operationUid", "schemaVersion"];
+  if (JSON.stringify(Object.keys(command).sort()) !== JSON.stringify(keys)) fail("legacy_payment_read_transition_keys_mismatch");
+  if (command.schemaVersion !== "legacy-payment-read-transition-command-v1" || !["read_rollback", "recutover"].includes(String(command.action))) fail("legacy_payment_read_transition_action_invalid");
+  if (!UUID_V4.test(String(command.operationUid))) fail("legacy_payment_read_transition_operation_invalid");
+  const action = command.action as LegacyReadTransitionAction;
+  const expected = action === "read_rollback" ? "new" : "read_rollback";
+  if (command.expectedPhase !== expected) fail("legacy_payment_read_transition_phase_mismatch");
+  if (!Number.isSafeInteger(command.expectedWatermarkPaymentId) || Number(command.expectedWatermarkPaymentId) < 0) fail("legacy_payment_read_transition_watermark_invalid");
+  if (!SHA256.test(String(command.expectedComparisonDigest))) fail("legacy_payment_read_transition_digest_invalid");
+  return command as LegacyPaymentReadTransitionCommand;
+}
+
+export function buildLegacyPaymentReadTransitionCommand(
+  action: LegacyReadTransitionAction,
+  operationUid: string,
+  expectedWatermarkPaymentId: number,
+  expectedComparisonDigest: string,
+): LegacyPaymentReadTransitionCommand {
+  return validateLegacyPaymentReadTransitionCommand({
+    schemaVersion: "legacy-payment-read-transition-command-v1",
+    action,
+    operationUid,
+    expectedPhase: action === "read_rollback" ? "new" : "read_rollback",
+    expectedWatermarkPaymentId,
+    expectedComparisonDigest,
+  });
+}
+
 async function reserve(client: PoolClient, table: string): Promise<string> {
   return (await client.query<{ id: string }>("SELECT nextval(pg_get_serial_sequence($1,'id'))::text AS id", [`public.${table}`])).rows[0].id;
 }
@@ -118,7 +158,7 @@ function strictReceipt(value: unknown): LegacyPaymentReceipt {
   return receipt;
 }
 
-async function replay(client: PoolClient, command: LegacyPaymentCommand, actor: SourceDecisionActor): Promise<LegacyPaymentReceipt | undefined> {
+async function replay(client: PoolClient, command: LegacyPaymentCommand | LegacyPaymentReadTransitionCommand, actor: SourceDecisionActor): Promise<LegacyPaymentReceipt | undefined> {
   const found = await client.query<{ canonical_payload: Json; target_fingerprint: string }>("SELECT canonical_payload,target_fingerprint FROM public.business_operation_receipts WHERE operation_uid=$1::uuid FOR UPDATE", [command.operationUid]);
   if (found.rowCount === 0) return undefined;
   if (found.rowCount !== 1 || found.rows[0].canonical_payload?.inputs === undefined) fail("legacy_payment_operation_uid_reuse");
@@ -127,7 +167,7 @@ async function replay(client: PoolClient, command: LegacyPaymentCommand, actor: 
   return receipt;
 }
 
-async function insertOperation(client: PoolClient, input: { command: LegacyPaymentCommand; actor: SourceDecisionActor; receipt: LegacyPaymentReceipt; rootCorrelationUid: string; results: Json[]; slots: Json[]; receiptId: string }): Promise<void> {
+async function insertOperation(client: PoolClient, input: { command: LegacyPaymentCommand | LegacyPaymentReadTransitionCommand; actor: SourceDecisionActor; receipt: LegacyPaymentReceipt; rootCorrelationUid: string; results: Json[]; slots: Json[]; receiptId: string }): Promise<void> {
   const payload = { command: `legacy_payment:${input.command.action}`, expected_results: input.results, inputs: { command_sha256: input.receipt.command_sha256, operation_receipt: input.receipt as unknown as CanonicalValue }, reservation_slots: input.slots, schema_version: "business-operation-payload-v2" };
   await client.query(`INSERT INTO public.business_operation_receipts (id,action,actor_name_snapshot,actor_scope,actor_target_user_id,actor_target_user_id_snapshot,actor_uid_snapshot,actor_user_id,actor_user_id_snapshot,authorization_version,canonical_payload,entity_type,operation_uid,payload_sha256,recorded_at,result_entity_keys,root_correlation_uid,target_fingerprint) OVERRIDING SYSTEM VALUE VALUES ($1,$2,$3,'migration_admin',NULL,NULL,$4::uuid,$5,$5,$6,$7::jsonb,'legacy_payment',$8::uuid,$9,$10::timestamptz,$11::jsonb,$12::uuid,$13)`, [input.receiptId, input.command.action, input.actor.name, input.actor.userUid, input.actor.userId, input.actor.authorizationVersion, canonicalJson(payload as unknown as CanonicalValue), input.command.operationUid, sha256(canonicalJson(payload as unknown as CanonicalValue)), input.receipt.recorded_at, canonicalJson(input.results as unknown as CanonicalValue), input.rootCorrelationUid, input.actor.targetFingerprint]);
   for (const result of input.results) await client.query("INSERT INTO public.business_operation_entities (operation_uid,ordinal,entity_type,entity_key,entity_action,action_correlation_uid) VALUES ($1::uuid,$2,$3,$4,$5,$6::uuid)", [input.command.operationUid, result.ordinal, result.entity_type, result.entity_key, result.entity_action, result.action_correlation_uid]);
@@ -287,4 +327,80 @@ export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, r
     }
     await client.query("COMMIT"); return { execution_outcome: "created", receipt };
   } catch (error) { await client.query("ROLLBACK").catch(() => undefined); throw error; } finally { client.release(); }
+}
+
+export async function executeLegacyPaymentReadTransition(
+  pool: Pick<Pool, "connect">,
+  rawCommand: Record<string, unknown>,
+  actor: SourceDecisionActor,
+  scope: LegacyPaymentExecutionScope = { kind: "development" },
+): Promise<LegacyPaymentExecution> {
+  const { plan } = loadLegacyPaymentPlan();
+  const command = validateLegacyPaymentReadTransitionCommand(rawCommand);
+  if (scope.kind === "development") {
+    if (actor.targetFingerprint !== plan.target_fingerprint || actor.userId !== plan.actor_user_id || actor.userUid !== plan.actor_user_uid || actor.authorizationVersion !== plan.actor_authorization_version) fail("legacy_payment_actor_binding_mismatch");
+  } else if (!UUID_V4.test(scope.runUid) || scope.parentTargetFingerprint !== plan.target_fingerprint || actor.targetFingerprint === scope.parentTargetFingerprint || !SHA256.test(actor.targetFingerprint)) {
+    fail("legacy_payment_disposable_scope_mismatch");
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+    const live = await client.query<{ user_uid: string; is_admin: boolean; name: string }>("SELECT user_uid::text,is_admin,name FROM public.users WHERE id=$1 FOR UPDATE", [actor.userId]);
+    if (live.rowCount !== 1 || !live.rows[0].is_admin || live.rows[0].user_uid !== actor.userUid || live.rows[0].name !== actor.name) fail("legacy_payment_admin_required");
+    const existing = await replay(client, command, actor);
+    if (existing) {
+      await client.query("COMMIT");
+      return { execution_outcome: "verified_noop", receipt: existing };
+    }
+    const ledger = await client.query<{ count: number }>("SELECT count(*)::int count FROM public.schema_change_ledger WHERE sequence_no=100 AND manifest_sha256=$1", ["551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14"]);
+    if (ledger.rows[0]?.count !== 1) fail("legacy_payment_sequence_100_missing");
+    const tip = await client.query<{ id: string; cutover_uid: string; phase: LegacyCutoverPhase; version: number; watermark_payment_id: number; comparison_digest: string }>("SELECT id::text,cutover_uid::text,phase,version,watermark_payment_id,comparison_digest FROM public.legacy_cutover_states WHERE cutover_code='payments-v1' ORDER BY version DESC LIMIT 1 FOR UPDATE");
+    if (tip.rowCount !== 1 || tip.rows[0].phase !== command.expectedPhase || tip.rows[0].watermark_payment_id !== command.expectedWatermarkPaymentId || tip.rows[0].comparison_digest !== command.expectedComparisonDigest) fail("legacy_payment_read_transition_state_mismatch");
+    const nextPhase: LegacyCutoverPhase = command.action === "read_rollback" ? "read_rollback" : "new";
+    assertLegacyCutoverTransition(tip.rows[0].phase, nextPhase);
+    const batch = plan.batch as Json;
+    const release = plan.release as Json;
+    const storedBatch = await client.query<{ source_fingerprint: string }>("SELECT source_fingerprint FROM public.accounting_import_batches WHERE batch_uid=$1::uuid AND status='applied' FOR UPDATE", [batch.batch_uid]);
+    if (storedBatch.rowCount !== 1) fail("legacy_payment_batch_binding_mismatch");
+    const receiptId = await reserve(client, "business_operation_receipts");
+    const cutoverId = await reserve(client, "legacy_cutover_states");
+    const auditId = await reserve(client, "accounting_audit_events");
+    const at = new Date().toISOString();
+    const result = { ordinal: 1, entity_type: "legacy_cutover", entity_key: `cutover:payments-v1:${nextPhase}`, entity_action: nextPhase, action_correlation_uid: randomUUID() } as Json;
+    const slots = [
+      { local_ordinal: 1, phase: 0, qualified_table_name: "public.business_operation_receipts", reserved_id: receiptId, result_ordinal: 0, slot_kind: "operation_receipt", slot_kind_order: 0 },
+      { local_ordinal: 1, phase: 10, qualified_table_name: "public.legacy_cutover_states", reserved_id: cutoverId, result_ordinal: 1, slot_kind: "business_row", slot_kind_order: 10 },
+      { local_ordinal: 1, phase: 30, qualified_table_name: "public.accounting_audit_events", reserved_id: auditId, result_ordinal: 1, slot_kind: "audit_row", slot_kind_order: 30 },
+    ] as Json[];
+    const commandSha = sha256(canonicalJson(command as unknown as CanonicalValue));
+    const receipt = hashedReceipt({
+      schema_version: "dgkma-legacy-payment-operation-v1",
+      action: command.action,
+      operation_uid: command.operationUid,
+      plan_sha256: String(plan.plan_sha256),
+      committed_outcome: "created",
+      phase: nextPhase,
+      watermark_payment_id: tip.rows[0].watermark_payment_id,
+      comparison_digest: tip.rows[0].comparison_digest,
+      source_release_uid: String(release.release_uid),
+      batch_uid: String(batch.batch_uid),
+      source_fingerprint: storedBatch.rows[0].source_fingerprint,
+      actor_user_id: actor.userId,
+      actor_user_uid: actor.userUid,
+      authorization_version: actor.authorizationVersion,
+      target_fingerprint: actor.targetFingerprint,
+      recorded_at: at,
+      command_sha256: commandSha,
+    });
+    await insertOperation(client, { command, actor, receipt, rootCorrelationUid: randomUUID(), results: [result], slots, receiptId });
+    await client.query(`INSERT INTO public.legacy_cutover_states (id,cutover_uid,cutover_code,phase,watermark_payment_id,comparison_digest,effective_at,recorded_actor_at,recorded_actor_authorization_version,recorded_actor_correlation_uid,recorded_actor_name_snapshot,recorded_actor_scope,recorded_actor_uid_snapshot,recorded_actor_user_id,supersedes_id,version) OVERRIDING SYSTEM VALUE VALUES ($1,$2::uuid,'payments-v1',$3,$4,$5,$6::timestamptz,$6::timestamptz,$7,$8::uuid,$9,'migration_admin',$10::uuid,$11,$12,$13)`, [cutoverId, tip.rows[0].cutover_uid, nextPhase, tip.rows[0].watermark_payment_id, tip.rows[0].comparison_digest, at, actor.authorizationVersion, result.action_correlation_uid, actor.name, actor.userUid, actor.userId, tip.rows[0].id, tip.rows[0].version + 1]);
+    await audit(client, auditId, randomUUID(), result, actor, at, { phase: tip.rows[0].phase, version: tip.rows[0].version }, { comparison_digest: tip.rows[0].comparison_digest, phase: nextPhase, version: tip.rows[0].version + 1, watermark_payment_id: tip.rows[0].watermark_payment_id }, "TODO19_LEGACY_CUTOVER");
+    await client.query("COMMIT");
+    return { execution_outcome: "created", receipt };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
