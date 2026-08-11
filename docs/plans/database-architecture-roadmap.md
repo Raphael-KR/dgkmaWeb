@@ -18,7 +18,7 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | 완료 범위 | Todo 1–17, Todo 23 방향 전환, N1 |
 | manifest | sequence-90 great-grandchild SHA-256 `19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700` prepared |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80]`; sequence 80 `applied → verified_noop`; startup/catalog 승인 |
-| Todo 19 schema prerequisite | sequence 90 legacy cutover-code root correction implemented locally; disposable proof pending, Development apply not yet authorized |
+| Todo 19 schema prerequisite | sequence 90 legacy cutover-code root correction committed; disposable `applied → verified_noop`, catalog/startup contract, same-code v1/v2 insert+`ROLLBACK`, teardown `absent:true` 통과; Development apply 미승인 |
 | Todo 18 apply 구현 | synthetic group `1/28/28`, role `1/7/7`, individual dues `1/20/20` operation receipt/entity/audit; replay identity sequence 불변 및 exact KRW 50,000 합계 증명 |
 | Todo 18 통합 검증 | exact commit `c3678d8`; happy 6개와 failure 2개를 독립 disposable DB에서 통과, 모든 DB·actor receipt·임시 worktree/evidence 부재 확인 |
 | 관리자 CLI | exact commit `d6f1788`; fixed Development admin receipt와 live ledger/admin을 재검증하고 authenticated POST와 동일 service·transaction 실행; Replit `tsc`와 138개 테스트 통과 |
@@ -43,8 +43,9 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 - Owner 승인에 따라 외래교수회 set `811462f6-de04-428b-99ba-a587eac4b0d7`의 name-only match 26개와 unbound allocation 26개를 기존 `quarantine` outcome 그대로 Development에 approve/apply했다. batch만 `applied`로 전환됐고 회원 match·receipt·group·allocation downstream은 모두 0이다.
 - 동일 operation replay의 service receipt SHA-256 `2f8c6f1362f1a8b8cd038126bf9ffef878ae1198e15b651751b5c007446de6a8`, receipt file SHA-256 `d4b25889651bb1c71c1c4bae3517663985b987ff0778816cdffa57cdedd63477`, identity-sequence SHA-256 `c0b7dd1d1343026d74c4c897f57ce5a8df086c5482541e9a8f2bd8a9bba25778`이 전후 동일했다. 임시 receipt·worktree는 삭제 후 부재를 확인했다.
 - 외래교수회 26행 × 50,000원은 여전히 후보 evidence일 뿐이다. 향후 실제 bank evidence가 추가되면 기존 terminal evidence를 변경하지 않고 새 source revision/release/preview와 별도 source-decision으로 처리한다.
-- Todo 18 source coverage는 종료됐다. Todo 19의 legacy `payments` preflight와 v3 adapter는 완료됐고, cutover VCHAIN을 막는 all-version cutover-code UNIQUE를 보정하는 additive sequence 90의 disposable proof가 다음 실행 경로다. 그 proof까지는 추가 운영 승인이 필요하지 않다.
+- Todo 18 source coverage는 종료됐다. Todo 19의 legacy `payments` preflight와 v3 adapter, cutover VCHAIN을 여는 additive sequence 90의 repository/disposable proof까지 완료됐다. 다음 실행 경로는 sequence 90만 Development에 `applied → verified_noop`으로 반영하고 startup/catalog을 재검증하는 운영 경계다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
+- 현재 단일 승인안은 Development에 sequence 90 schema amendment만 적용·재적용하고 startup 및 metadata-only catalog `ROLLBACK`을 검증하는 것이다. legacy source release/batch, cutover state, `payments` row, business/audit row는 이 승인에 포함하지 않는다.
 
 ## 문서 동기화 규칙
 
