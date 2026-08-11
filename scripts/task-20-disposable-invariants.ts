@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import {
   createOrResumeDisposableTarget, createTargetPool, resolveDisposableControlTarget,
@@ -8,6 +9,7 @@ import type { CanonicalValue } from "../server/accounting/source-contracts";
 import { assertBusinessOperationPayloadHash, validateBusinessOperationPayloadV2 } from "../server/accounting/business-operation-payload";
 import { buildLegacyPaymentCommand, executeLegacyPaymentCommand } from "../server/accounting/legacy-payment-service";
 import { materializeAnnualPolicyActivation } from "../server/accounting/annual-policy-activation-write";
+import { executeAnnualPolicyActivationOperation } from "../server/accounting/annual-policy-activation-service";
 import { verifyActorReceipt } from "./admin-actor-receipt";
 
 const BUSINESS_REASON_TABLES = [
@@ -51,7 +53,11 @@ async function annualActivationCounts(pool: Pool): Promise<{ policies: number; m
   return { policies: result.rows[0].policies, mappings: result.rows[0].mappings, brokenBindings: result.rows[0].broken_bindings };
 }
 
-async function runAnnualActivationProbe(pool: Pool, actor: Awaited<ReturnType<typeof verifyActorReceipt>>): Promise<Record<string, unknown>> {
+async function runAnnualActivationProbe(
+  pool: Pool,
+  actor: Awaited<ReturnType<typeof verifyActorReceipt>>,
+  targetFingerprint: string,
+): Promise<Record<string, unknown>> {
   const before = await annualActivationCounts(pool);
   if (before.policies !== 0 || before.mappings !== 0 || before.brokenBindings !== 0) throw new Error("task_20_annual_activation_preexisting_successor");
   const input = { duesYear: 2026, effectiveAt: "2026-01-01T00:00:00+09:00", resolutionRef: "todo20-synthetic-annual-activation", actor };
@@ -70,17 +76,64 @@ async function runAnnualActivationProbe(pool: Pool, actor: Awaited<ReturnType<ty
   const afterFailure = await annualActivationCounts(pool);
   if (canonicalJson(afterFailure as never) !== canonicalJson(before as never)) throw new Error("task_20_annual_activation_failure_residue");
 
-  const happyClient = await pool.connect();
-  let result!: Awaited<ReturnType<typeof materializeAnnualPolicyActivation>>;
-  try {
-    await happyClient.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
-    result = await materializeAnnualPolicyActivation(happyClient, input);
-    await happyClient.query("COMMIT");
-  } catch (error) { await happyClient.query("ROLLBACK").catch(() => undefined); throw error; }
-  finally { happyClient.release(); }
+  const operationUid = randomUUID();
+  const command = {
+    schemaVersion: "annual-policy-activation-command-v1" as const,
+    operationUid,
+    duesYear: input.duesYear,
+    effectiveAt: input.effectiveAt,
+    resolutionRef: input.resolutionRef,
+  };
+  const boundActor = { ...actor, targetFingerprint };
+  const created = await executeAnnualPolicyActivationOperation(pool, command, boundActor);
+  if (created.executionOutcome !== "created" || created.resultCount !== 30) throw new Error("task_20_annual_activation_first_apply_mismatch");
   const after = await annualActivationCounts(pool);
-  if (after.policies !== 6 || after.mappings !== result.mappingIds.length || after.brokenBindings !== 0 || result.executionOrder.slice(0, 6).some((entry) => !entry.startsWith("policy:")) || result.executionOrder.slice(6).some((entry) => !entry.startsWith("mapping:"))) throw new Error("task_20_annual_activation_result_mismatch");
-  return { failure_code: "task20_synthetic_mapping_failure", failure_zero_residue: true, policies_created: after.policies, mappings_created: after.mappings, broken_policy_bindings: after.brokenBindings, policy_before_mapping: true };
+  if (after.policies !== 6 || after.mappings !== 24 || after.brokenBindings !== 0) throw new Error("task_20_annual_activation_result_mismatch");
+
+  const stored = await pool.query<{ canonical_payload: CanonicalValue; payload_sha256: string; result_entity_keys: CanonicalValue; entities: number; audits: number }>(`SELECT
+    receipt.canonical_payload,receipt.payload_sha256,receipt.result_entity_keys,
+    (SELECT count(*)::int FROM public.business_operation_entities entity WHERE entity.operation_uid=receipt.operation_uid) entities,
+    (SELECT count(*)::int FROM public.accounting_audit_events audit JOIN public.business_operation_entities entity
+      ON entity.action_correlation_uid=audit.correlation_uid WHERE entity.operation_uid=receipt.operation_uid) audits
+    FROM public.business_operation_receipts receipt
+    WHERE receipt.operation_uid=$1::uuid AND receipt.entity_type='annual_policy_activation'`, [operationUid]);
+  if (stored.rowCount !== 1 || stored.rows[0].entities !== 30 || stored.rows[0].audits !== 30) throw new Error("task_20_annual_activation_tail_count_mismatch");
+  const validated = validateBusinessOperationPayloadV2(stored.rows[0].canonical_payload);
+  assertBusinessOperationPayloadHash(stored.rows[0].canonical_payload, stored.rows[0].payload_sha256);
+  const payload = stored.rows[0].canonical_payload as Record<string, CanonicalValue>;
+  if (validated.sha256 !== created.payloadSha256 || canonicalJson(payload.expected_results!) !== canonicalJson(stored.rows[0].result_entity_keys)) throw new Error("task_20_annual_activation_receipt_mismatch");
+  const entities = await pool.query<{ ordinal: number; entity_type: string; entity_key: string; entity_action: string; action_correlation_uid: string }>(
+    "SELECT ordinal,entity_type,entity_key,entity_action,action_correlation_uid::text FROM public.business_operation_entities WHERE operation_uid=$1::uuid ORDER BY ordinal",
+    [operationUid],
+  );
+  if (
+    canonicalJson(entities.rows as unknown as CanonicalValue) !== canonicalJson(payload.expected_results!) ||
+    entities.rows.slice(0, 6).some((entry) => entry.entity_type !== "dues_policy") ||
+    entities.rows.slice(6).some((entry) => entry.entity_type !== "dues_position_tier_mapping")
+  ) throw new Error("task_20_annual_activation_result_order_mismatch");
+
+  const beforeReplay = await identitySequenceDigest(pool);
+  const replay = await executeAnnualPolicyActivationOperation(pool, command, boundActor);
+  const afterReplay = await identitySequenceDigest(pool);
+  if (replay.executionOutcome !== "verified_noop" || replay.payloadSha256 !== created.payloadSha256 || replay.resultCount !== 30 || beforeReplay !== afterReplay) throw new Error("task_20_annual_activation_replay_mismatch");
+  const afterReplayCounts = await annualActivationCounts(pool);
+  if (canonicalJson(afterReplayCounts as never) !== canonicalJson(after as never)) throw new Error("task_20_annual_activation_replay_residue");
+  return {
+    failure_code: "task20_synthetic_mapping_failure",
+    failure_zero_residue: true,
+    first_apply: created.executionOutcome,
+    replay: replay.executionOutcome,
+    operation_receipts: stored.rowCount,
+    result_entities: stored.rows[0].entities,
+    audits: stored.rows[0].audits,
+    policies_created: after.policies,
+    mappings_created: after.mappings,
+    broken_policy_bindings: after.brokenBindings,
+    policy_before_mapping: true,
+    replay_identity_sequence_sha256: afterReplay,
+    replay_sequence_unchanged: true,
+    payload_hash_verified: true,
+  };
 }
 
 async function identitySequenceDigest(pool: Pool): Promise<string> {
@@ -175,7 +228,7 @@ async function main(): Promise<void> {
     const client = await disposable.pool.connect(); let assertions: Record<string, unknown>;
     try { assertions = await runProbe(client); } finally { client.release(); }
     assertions.legacy_receipt_replay = await runLegacyReceiptProbe(disposable.pool, actor, runUid, disposable.targetFingerprint, disposable.parentTargetFingerprint);
-    assertions.annual_activation = await runAnnualActivationProbe(disposable.pool, actor);
+    assertions.annual_activation = await runAnnualActivationProbe(disposable.pool, actor, disposable.targetFingerprint);
     const teardown = await teardownDisposableTarget(controlPool, disposable); disposable = undefined;
     const developmentAfter = await aggregateDigest(controlPool);
     if (!teardown.absent || developmentBefore !== developmentAfter) throw new Error("task_20_teardown_or_development_digest_mismatch");
