@@ -10,6 +10,7 @@ import {
 } from "./database-architecture-verifier-contracts";
 import { runTaskEight } from "./verify-database-index-workload";
 import { runTaskTwentyOne } from "./verify-task-21";
+import { computeProtectedTreeDigest } from "./protected-tree-digest";
 import { validateMemberActorManifest } from "../server/accounting/member-actor-contract";
 import { POLICY_SEEDS, SECONDARY_POSITION_CODES, validateDuesPolicyManifest } from "../server/accounting/dues-policy-contract";
 import { validateFinancialManifest } from "../server/accounting/financial-topology-contract";
@@ -3058,6 +3059,108 @@ function runTaskTwenty(): void {
   if (caseName === "failure") process.exitCode = 1;
 }
 
+const TASK_22_FAILURE_IDS = [
+  "lost-exporter-transaction",
+  "wrong-or-omitted-snapshot",
+  "source-digest-from-another-snapshot",
+  "source-database-mismatch",
+  "restore-receipt-field-mismatch",
+  "manifest-drift",
+  "restored-copy-startup-or-reapply",
+  "pre-f3-browser-artifact",
+] as const;
+
+function validateVerifierInventory(): string {
+  const inventory = parseJson("docs/verifier-inventory.json");
+  exactKeys(inventory, ["schema_version", "files", "inventory_sha256"], "task 22 verifier inventory");
+  if (inventory.schema_version !== "dgkma-verifier-inventory-v1") fail("task22_verifier_inventory_version_mismatch");
+  const files = objectValue(inventory.files, "task 22 verifier inventory files");
+  if (Object.keys(files).length !== 12 || canonicalJson(Object.keys(files).sort() as never) !== canonicalJson([...verifierInventoryPaths].sort() as never)) fail("task22_verifier_inventory_path_mismatch");
+  for (const [filePath, expected] of Object.entries(files)) if (typeof expected !== "string" || sha256(readFileSync(filePath)) !== expected) fail(`task22_verifier_inventory_digest_mismatch:${filePath}`);
+  const unsigned = { ...inventory };
+  delete unsigned.inventory_sha256;
+  if (inventory.inventory_sha256 !== sha256(canonicalJson(unsigned as never))) fail("task22_verifier_inventory_self_hash_mismatch");
+  return String(inventory.inventory_sha256);
+}
+
+function runTaskTwentyTwo(): void {
+  const caseName = value("--case");
+  if (caseName !== "happy" && caseName !== "failure") fail("case must be happy or failure");
+  const evidencePath = value("--evidence") ?? fail("--evidence is required");
+  const receiptPath = value("--restore-receipt") ?? fail("--restore-receipt is required");
+  const fixturePath = value("--fixtures");
+  if (caseName === "failure" && fixturePath !== "server/fixtures/database-architecture/task-22") fail("task22_fixture_path_mismatch");
+  mkdirSync(path.dirname(evidencePath), { recursive: true });
+  const commandLogPath = evidencePath.replace(/\.json$/, "-commands.log");
+  const env = { ...process.env };
+  delete env.DATABASE_URL;
+  delete env.PROD_DATABASE_URL;
+  const commandLog: string[] = [];
+  const invoke = (command: string, args: string[], expected = 0): string => {
+    const result = spawnSync(command, args, { cwd: process.cwd(), env, encoding: "utf8" });
+    commandLog.push(`$ ${command} ${args.join(" ")}`, String(result.stdout ?? ""), String(result.stderr ?? ""));
+    if ((result.status ?? 1) !== expected) {
+      writeFileSync(commandLogPath, commandLog.join("\n"));
+      fail(`task22_command_status:${command}:${result.status}`);
+    }
+    return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  };
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  if (process.env.TASK_COMMIT_SHA && process.env.TASK_COMMIT_SHA !== head) fail("task22_commit_head_mismatch");
+  const tracked = execFileSync("git", ["ls-files"], { encoding: "utf8" }).split("\n").filter(Boolean);
+  if (tracked.some((filePath) => filePath.endsWith("final-F3-browser.json") || /final-F3.*\.(?:png|jpg|jpeg|webp)$/i.test(filePath))) fail("task22_pre_f3_browser_artifact_forbidden");
+  const inventorySha = validateVerifierInventory();
+  const protectedTreeDigest = computeProtectedTreeDigest(head);
+  const manifest = readManifest();
+  const developmentReceipt = parseJson("docs/database-targets/development-approved.json");
+
+  if (caseName === "failure") {
+    const fixtures = parseJson(path.join(fixturePath!, "failure-cases.json"));
+    exactKeys(fixtures, ["schema_version", "cases"], "task 22 failure fixtures");
+    const cases = arrayValue(fixtures.cases, "task 22 failure cases").map((entry) => objectValue(entry, "task 22 failure case"));
+    const ids = cases.map((entry) => String(entry.id));
+    if (fixtures.schema_version !== "dgkma-task22-failure-cases-v1" || canonicalJson(ids as never) !== canonicalJson(TASK_22_FAILURE_IDS as never) || cases.some((entry) => entry.database_calls !== 0 || typeof entry.expected_error !== "string" || typeof entry.gate !== "string")) fail("task22_failure_fixture_mismatch");
+    invoke("node", ["--import", "tsx", "--test", "server/database-restore-contract.test.ts"]);
+    const rejected = parseJson("server/fixtures/database-architecture/task-5/synthetic-restore-receipt.json");
+    rejected.result = "rejected";
+    delete rejected.receipt_sha256;
+    rejected.receipt_sha256 = sha256(canonicalJson(rejected as never));
+    writeFileSync(receiptPath, `${canonicalJson(rejected as never)}\n`, { flag: "wx" });
+    readRestoreReceipt(receiptPath);
+    writeFileSync(commandLogPath, commandLog.join("\n"));
+    writeFileSync(evidencePath, `${canonicalJson({ schema_version: "dgkma-task-evidence-v1", task: 22, task_commit_sha: head, manifest_sha256: manifest.sha256, db_target: "static-refusal", db_mode: "restore-failure-contracts-zero-db-calls", assertions: { failure_case_count: cases.length, database_calls: 0, production_operations: 0, pre_f3_browser_artifacts: 0, inventory_sha256: inventorySha, protected_tree_digest_v1: protectedTreeDigest }, attachment_digests: [commandLogPath, path.join(fixturePath!, "failure-cases.json"), receiptPath].sort().map((filePath) => ({ path: filePath, sha256: sha256(readFileSync(filePath)) })), result: "rejected" } as never)}\n`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (existsSync(receiptPath)) fail("task22_restore_receipt_exists");
+  invoke("npm", ["test"]);
+  invoke("npm", ["run", "check"]);
+  invoke("npm", ["run", "build"]);
+  invoke("npx", ["tsx", "scripts/validate-database-manifest.ts"]);
+  invoke("npx", ["tsx", "scripts/verify-schema-catalog.ts", "--target", "development", "--manifest", "docs/database-manifest.yaml"]);
+  const drillOutput = invoke("npx", ["tsx", "scripts/task-22-restore-drill.ts", "--target", "disposable-test", "--receipt", receiptPath]);
+  if (!drillOutput.includes('"result":"approved"') || !drillOutput.includes('"disposable_absent":true') || !drillOutput.includes('"dump_absent":true') || !drillOutput.includes('"raw_snapshot_id_exposed":false')) fail("task22_restore_drill_output_mismatch");
+  const receipt = readRestoreReceipt(receiptPath);
+  if (receipt.result !== "verified" || receipt.source_target_fingerprint !== developmentReceipt.target_fingerprint || receipt.source_target_fingerprint === receipt.disposable_target_fingerprint || receipt.source_manifest_sha256 !== manifest.sha256) fail("task22_restore_receipt_binding_mismatch");
+
+  let productionReadonly: string = "unverified";
+  let productionReason = "PROD_DATABASE_READONLY_URL unavailable; zero Production calls";
+  let productionOperations = 0;
+  const productionDossierPath = evidencePath.replace(/\.json$/, "-production-readonly.json");
+  if (typeof env.PROD_DATABASE_READONLY_URL === "string" && env.PROD_DATABASE_READONLY_URL.length > 0) {
+    const dossierOutput = invoke("npx", ["tsx", "scripts/task-22-production-readonly-dossier.ts", "--output", productionDossierPath]);
+    const dossier = parseJson(productionDossierPath);
+    if (!dossierOutput.includes('"result":"verified-read-only"') || dossier.schema_writes !== 0 || dossier.business_writes !== 0 || typeof dossier.target_fingerprint !== "string") fail("task22_production_readonly_dossier_mismatch");
+    productionReadonly = String(dossier.target_fingerprint);
+    productionReason = "verified read-only";
+    productionOperations = 1;
+  }
+  writeFileSync(commandLogPath, commandLog.join("\n"));
+  const attachments = [commandLogPath, receiptPath, "docs/verifier-inventory.json", "docs/database-schema.md", "docs/database-operations.md", ...(existsSync(productionDossierPath) ? [productionDossierPath] : [])].sort();
+  writeFileSync(evidencePath, `${canonicalJson({ schema_version: "dgkma-task-evidence-v1", task: 22, task_commit_sha: head, implementation_sha: head, manifest_sha256: manifest.sha256, protected_tree_digest_v1: protectedTreeDigest, db_target: "development-readonly-plus-uuid-disposable-restore", db_mode: "full-repository-catalog-and-measured-restore", target_fingerprints: { development: receipt.source_target_fingerprint, disposable_runs: [receipt.disposable_target_fingerprint], production_readonly: productionReadonly }, assertions: { repository_test_check_build: "approved", manifest_catalog_ledger: "approved", measured_restore: "approved", restore_run_uid: receipt.restore_run_uid, dump_duration_ms: receipt.dump_duration_ms, restore_duration_ms: receipt.restore_duration_ms, schema_catalog_sha256: receipt.schema_catalog_sha256, data_catalog_sha256: receipt.data_catalog_sha256, post_security_catalog_sha256: receipt.post_security_catalog_sha256, disposable_absent: true, dump_absent: true, raw_snapshot_id_exposed: false, pre_f3_browser_artifacts: 0, verifier_inventory_count: 12, verifier_inventory_sha256: inventorySha, production_readonly_reason: productionReason, production_operations: productionOperations, production_writes: 0, deployments: 0 }, attachment_digests: attachments.map((filePath) => ({ path: filePath, sha256: sha256(readFileSync(filePath)) })), result: "approved" } as never)}\n`);
+}
+
 if (process.argv[2] === "materialize-verifier-contracts") {
   materializeVerifierContracts(process.cwd());
 } else if (process.argv[2] === "task" && process.argv[3] === "1") {
@@ -3100,6 +3203,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskTwenty();
 } else if (process.argv[2] === "task" && process.argv[3] === "21") {
   runTaskTwentyOne();
+} else if (process.argv[2] === "task" && process.argv[3] === "22") {
+  runTaskTwentyTwo();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }
