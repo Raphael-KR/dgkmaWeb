@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { expectedCurrentIndexNames } from "../scripts/verify-database-index-workload";
 
 const corpus = JSON.parse(
   readFileSync("server/fixtures/database-architecture/task-8/workload-corpus.json", "utf8"),
@@ -64,6 +65,7 @@ test("workload corpus is a closed read-only measurement contract", () => {
   assert.equal(new Set(corpus.existing_indexes).size, 20);
   assert.equal(corpus.workloads.length, 15);
   assert.equal(new Set(corpus.workloads.map(({ id }) => id)).size, 15);
+  assert.equal(expectedCurrentIndexNames(corpus as never).length, 435);
   for (const workload of corpus.workloads) {
     assert.match(workload.query, /^SELECT /);
     assert.doesNotMatch(workload.query, /^(?:INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b/i);

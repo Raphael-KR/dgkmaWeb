@@ -283,6 +283,22 @@ function protectedSourceDigests(): JsonObject {
   return values;
 }
 
+export function expectedCurrentIndexNames(corpus: Corpus): string[] {
+  const manifest = parseObject("docs/database-manifest.yaml") as unknown as {
+    indexes?: Array<{ name?: unknown }>;
+    unique_constraints?: Array<{ name?: unknown }>;
+    primary_keys?: Array<{ name?: unknown }>;
+  };
+  const manifestNames = [manifest.indexes, manifest.unique_constraints, manifest.primary_keys]
+    .flatMap((entries) => entries ?? [])
+    .map((entry) => entry.name)
+    .filter((name): name is string => typeof name === "string" && name.length > 0);
+  const unapplied = new Set(corpus.manifest_owned_indexes.filter((entry) => entry.state === "fixed_not_yet_applied").map((entry) => entry.name));
+  const names = new Set([...corpus.existing_indexes, ...manifestNames]);
+  for (const name of unapplied) names.delete(name);
+  return [...names].sort();
+}
+
 function analyzeSql(corpus: Corpus): string {
   for (const table of corpus.cardinality_tables) {
     if (!/^[a-z_]+$/.test(table)) fail("unsafe table identifier");
@@ -446,11 +462,13 @@ export function runTaskEight(): void {
   const protectedBefore = protectedSourceDigests();
   const indexBefore = JSON.parse(runPsql(indexCatalogSql)) as JsonObject[];
   const currentIndexNames = indexBefore.map((row) => String(row.index_name)).sort();
+  const expectedIndexNames = expectedCurrentIndexNames(corpus);
   if (
-    currentIndexNames.length !== corpus.existing_indexes.length ||
-    currentIndexNames.some((name, index) => name !== corpus.existing_indexes[index])
+    currentIndexNames.length !== expectedIndexNames.length ||
+    currentIndexNames.some((name, index) => name !== expectedIndexNames[index])
   ) {
-    fail("Development existing index set mismatch");
+    const current = new Set(currentIndexNames); const expected = new Set(expectedIndexNames);
+    fail("Development existing index set mismatch:" + canonicalJson({ missing: expectedIndexNames.filter((name) => !current.has(name)), extra: currentIndexNames.filter((name) => !expected.has(name)) } as never));
   }
   const cardinalitiesBefore = JSON.parse(runPsql(cardinalitySql(corpus))) as JsonObject[];
 
