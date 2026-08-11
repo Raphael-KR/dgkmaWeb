@@ -206,9 +206,18 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
   --through-sequence 100
 ```
 
+Sequence 110은 sequence 100의 immutable manifest/ledger를 보존한 additive business-reason domain 보정이다. 적용 전 8개 표의 비허용 `reason_code` 집계와 동일 constraint 이름 부재를 `REPEATABLE READ READ ONLY`에서 확인한다. disposable `applied → verified_noop`과 catalog 일치 및 teardown `absent:true` 후에만 Development에 적용한다. Development 재실행도 `verified_noop`이어야 한다. Receipt는 `docs/database-targets/development-sequence-110-applied.json`이다.
+
+```bash
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/preflight-business-reason-development.ts --target development
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/apply-schema.ts --target development --from-sequence 110 --through-sequence 110
+```
+
 Category 명령은 정확히 여섯 version-1 draft root에 version-2 approved successor만 append한다. Dues policy 16개와 position mapping 46개는 모두 draft여야 하며 승인 행이 하나라도 생기면 transaction을 rollback한다. Catalog는 `REPEATABLE READ READ ONLY`에서 실행하고 항상 `ROLLBACK`으로 끝낸다. Development 완료 선언은 migrated startup, 전체 schema reapply 8개 `verified_noop`, category reapply `verified_noop`, 갱신된 `docs/database-schema.md`까지 확인한 뒤에만 가능하다. Production target과 Production apply는 이 경로에서 지원하지 않는다.
 
-2026-08-11 마지막 Development 검증 상태는 ledger `1,10,15,20,30,40,50,60,70,80,90,100`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Sequence 100과 legacy v3 zero-row cutover를 완료했다. 관리자 CLI의 다섯 service 작업은 `created → verified_noop`, identity sequence SHA-256 `4b57e8ff…`, receipt collection SHA-256 `c0e35350…`로 불변이었다. 최종 phase는 `new`, watermark 0, legacy release/batch/cutover `3/1/3`, operation receipt/entity/audit `5/6/6`, payment/decision/batch-row/source-decision/classification은 모두 0이다. 실행 receipts는 `docs/database-targets/development-sequence-100-applied.json`과 `docs/database-targets/development-legacy-payment-zero-row-cutover-v1.json`이다. 이후 기존 `payments` write는 DB fence가 거부한다.
+2026-08-11 마지막 Development 검증 상태는 ledger `1,10,15,20,30,40,50,60,70,80,90,100,110`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Sequence 110의 exact reason CHECK 8개와 legacy v3 zero-row cutover를 완료했다. 관리자 CLI의 다섯 service 작업은 `created → verified_noop`, identity sequence SHA-256 `4b57e8ff…`, receipt collection SHA-256 `c0e35350…`로 불변이었다. 최종 phase는 `new`, watermark 0, legacy release/batch/cutover `3/1/3`, operation receipt/entity/audit `5/6/6`, payment/decision/batch-row/source-decision/classification은 모두 0이다. 실행 receipts는 `docs/database-targets/development-sequence-110-applied.json`, `docs/database-targets/development-sequence-100-applied.json`과 `docs/database-targets/development-legacy-payment-zero-row-cutover-v1.json`이다. 이후 기존 `payments` write는 DB fence가 거부한다.
 
 Todo 19 nonzero 검증은 Development business row를 추가하지 않고 UUID-bound disposable DB에서만 실행한다. Fence와 cutover의 `SERIALIZABLE` transaction은 어떤 actor/source 조회보다 먼저 `LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE`를 획득해야 한다. 이 순서가 바뀌면 대기 중인 writer가 commit한 행을 이미 고정된 snapshot이 놓쳐 watermark 밖에 남길 수 있다. Fresh concurrency fixture는 writer가 lock 앞에서 실제 대기한 뒤 commit되면 batch fingerprint mismatch로 전체 fence를 rollback하고 phase `legacy`, decision/event/fence-receipt 0을 유지해야 한다.
 

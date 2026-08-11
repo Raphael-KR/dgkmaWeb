@@ -29,18 +29,20 @@
 | Development sequence-80 verification KST | `2026-08-11 07:38 KST +0900` |
 | Development sequence-90 verification KST | `2026-08-11 12:40 KST +0900` |
 | Development sequence-100 verification KST | `2026-08-11 13:31 KST +0900` |
+| Development sequence-110 verification KST | `2026-08-11 17:07 KST +0900` |
 | Todo 19 zero-row cutover verification KST | `2026-08-11 15:03 KST +0900` |
 | verified receipt commit | `0a6ea9e79b938301dfdfe917f0cbbd0a4ac3cf0c` |
 | code status | verified |
 | Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
 | Production catalog | unverified |
 | Production drift | unknown |
-| 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence/trigger/routine) | `68/1403/68/257/80/287/432/63/1/189` |
-| manifest SHA-256 | `551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14` sequence-100 descendant (sequence-90 parent `19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700`; sequence-80 ancestor `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b`; sequence-70 ancestor `31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6`; root `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
+| 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence/trigger/routine) | `68/1403/68/257/80/295/432/63/1/189` |
+| manifest SHA-256 | `9dba0d10093ed9a070d4564d1bcc46e8ba3da47e4d39981d66792594737377ab` sequence-110 descendant (sequence-100 parent `551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14`; sequence-90 ancestor `19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700`; sequence-80 ancestor `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b`; sequence-70 ancestor `31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6`; root `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
 | catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
-| Development evidence | verified ledger `[1,10,15,20,30,40,50,60,70,80,90,100]`; sequence 100 `applied → verified_noop`; legacy v3 release·zero-row preview·`legacy→fenced→new` five-service operation `created → verified_noop`; identity/receipt collection SHA 불변; legacy payment/decision `0/0`, cutover state 3, phase `new`, watermark 0 |
+| Development evidence | verified ledger `[1,10,15,20,30,40,50,60,70,80,90,100,110]`; sequence 110 `applied → verified_noop`, business-reason invalid rows 0, exact reason CHECK 8; legacy v3 release·zero-row preview·`legacy→fenced→new` five-service operation `created → verified_noop`; identity/receipt collection SHA 불변; legacy payment/decision `0/0`, cutover state 3, phase `new`, watermark 0 |
 | Sequence-90 correction | all-version `legacy_cutover_states(cutover_code)` UNIQUE was replaced by the same-name `WHERE version=1` partial unique index; disposable and Development `applied → verified_noop`, same-code v1/v2 disposable insertion+`ROLLBACK`, startup/catalog approval, and zero cutover/payment/legacy-decision rows verified |
 | Sequence-100 evidence | `payments`의 `legacy_payments_write_fence_v1` BEFORE INSERT/UPDATE/DELETE trigger와 `dgkma_guard_legacy_payments_write_v1()` routine을 Development에 적용했다. disposable에서 `legacy` write 허용+rollback, `fenced|new` SQLSTATE `55000` 거부, service 5작업 `created → verified_noop`, identity sequence 불변과 teardown `absent:true`를 증명했다. Development도 zero-row cutover를 완료해 기존 `payments` write authority는 차단되고 phase `new`가 운영 읽기 경계가 됐다. |
+| Sequence-110 evidence | 승인된 physical business-reason registry의 8개 `reason_code NOT NULL` 열에 exact literal CHECK를 additive 적용했다. Development preflight의 비허용 행과 constraint 충돌은 모두 0이었고, disposable 및 Development가 각각 `applied → verified_noop`; metadata catalog는 `REPEATABLE READ READ ONLY → ROLLBACK`, disposable teardown은 `absent:true`였다. 이 sequence는 domain 폐쇄만 담당하며 action/status별 전이 검증은 Todo 20의 다음 단위다. |
 | Development source/import state | verified read-only at `2026-08-11 15:03 KST`: logical source 10, active release 29 (`v1=10`, `v2=10`, `v3=8`, `v4=1`); import batch/decision set/item `11/10/6996`; batch `10 applied/1 previewed`, set `9 approved/1 rejected/0 previewed`; legacy batch row/source-decision/classification `0/0/0`; legacy operation receipt/entity/audit `5/6/6`; open period 6; legacy payments/decisions `0/0`; transaction terminal `ROLLBACK` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
@@ -318,10 +320,10 @@ registration/approval, account deletion, alumni claim/sync는 여러 owner의 �
 
 ## 13. migration drift
 
-Development의 정본 경로는 checksum-bound ledger sequence `1,10,15,20,30,40,50,60,70,80`이다. Sequence 40은 `preferred_btree_gist`, sequence 65는 미적용이다. Sequence 80 동일 재실행은 `verified_noop`이었고 migrated startup은 DDL을 방출하지 않았다. `migrations/0000_cheerful_nick_fury.sql`은 sequence 10 생성 입력으로만 유지한다. Production 미검증 상태를 migration drift로 감추지 않는다.
+Development의 정본 경로는 checksum-bound ledger sequence `1,10,15,20,30,40,50,60,70,80,90,100,110`이다. Sequence 40은 `preferred_btree_gist`, sequence 65는 미적용이다. Sequence 110 동일 재실행은 `verified_noop`이었고 migrated startup은 DDL을 방출하지 않는다. `migrations/0000_cheerful_nick_fury.sql`은 sequence 10 생성 입력으로만 유지한다. Production 미검증 상태를 migration drift로 감추지 않는다.
 
 ## 14. revalidation link/checklist
 
 Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행하며 `ROLLBACK`과 completion marker를 확인한다. Production은 명시적으로 `expected_database=neondb`를 선택하고 성공 catalog가 생기기 전까지 unverified/unknown을 유지한다.
 
-체크리스트: ledger `1,10,15,20,30,40,50,60,70,80,90,100`, 68 tables, 1403 columns, 68 PK/257 FK/80 UNIQUE/287 CHECK/432 indexes/63 sequences, routines 189, triggers 1, views/policies/enums/domains 0, RLS enabled 0, approved category tips 6, approved dues policy/mapping 0, Production unverified를 재확인한다. 재검증은 metadata-only이고 `REPEATABLE READ READ ONLY` 후 `ROLLBACK`하며 행·PII·Secret을 저장하지 않는다.
+체크리스트: ledger `1,10,15,20,30,40,50,60,70,80,90,100,110`, 68 tables, 1403 columns, 68 PK/257 FK/80 UNIQUE/295 CHECK/432 indexes/63 sequences, routines 189, triggers 1, views/policies/enums/domains 0, RLS enabled 0, approved category tips 6, approved dues policy/mapping 0, Production unverified를 재확인한다. 재검증은 metadata-only이고 `REPEATABLE READ READ ONLY` 후 `ROLLBACK`하며 행·PII·Secret을 저장하지 않는다.
