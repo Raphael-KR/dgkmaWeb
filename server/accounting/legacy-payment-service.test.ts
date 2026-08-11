@@ -40,4 +40,8 @@ test("legacy executor keeps Development exact-bound and exposes only a UUID-boun
   assert.match(source, /actor\.targetFingerprint === scope\.parentTargetFingerprint/);
   assert.match(source, /legacy_payment_disposable_scope_mismatch/);
   assert.match(readFileSync("scripts/verify-legacy-payment-disposable.ts", "utf8"), /legacy_payments_write_fenced/);
+  const developmentVerifier=readFileSync("scripts/verify-legacy-payment-development.ts","utf8");
+  assert.match(developmentVerifier,/BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+  assert.match(developmentVerifier,/legacy_development_stored_receipt_mismatch/);
+  assert.match(developmentVerifier,/identity_sequence_sha256/);
 });
