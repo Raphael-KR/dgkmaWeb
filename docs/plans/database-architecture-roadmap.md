@@ -19,11 +19,11 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | manifest | sequence-100 descendant SHA-256 `551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14` verified |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80,90,100]`; sequence 100 `applied → verified_noop`; trigger/routine `1/189`; startup/catalog 승인 |
 | Todo 19 schema prerequisite | sequence 90 legacy cutover-code root correction committed; disposable와 Development 모두 `applied → verified_noop`, startup/catalog 승인; cutover/payment/legacy-decision row 0 유지 |
-| Todo 19 DB write fence | sequence 100 repository·disposable·Development 완료; disposable service cutover와 DB write rejection, replay, teardown 승인; Development cutover/business row는 0 유지 |
+| Todo 19 zero-row cutover | sequence 100과 Development legacy v3 release·preview·`legacy→fenced→new` 완료; five-service operation `created → verified_noop`; phase `new`, watermark 0, payment/decision 0, receipt/entity/audit `5/6/6` |
 | Todo 18 apply 구현 | synthetic group `1/28/28`, role `1/7/7`, individual dues `1/20/20` operation receipt/entity/audit; replay identity sequence 불변 및 exact KRW 50,000 합계 증명 |
 | Todo 18 통합 검증 | exact commit `c3678d8`; happy 6개와 failure 2개를 독립 disposable DB에서 통과, 모든 DB·actor receipt·임시 worktree/evidence 부재 확인 |
 | 관리자 CLI | exact commit `d6f1788`; fixed Development admin receipt와 live ledger/admin을 재검증하고 authenticated POST와 동일 service·transaction 실행; Replit `tsc`와 138개 테스트 통과 |
-| 실제 source data | active release 28, batch/set/item `10/10/6996`; batch `9 applied/1 previewed`, set `9 approved/1 rejected/0 previewed`; open period 6, 회원·match·직책·분류·event·receipt·allocation downstream 전부 0; source-decision receipt/entity/audit `10/25/25` |
+| 실제 source data | active release 29, batch/set/item `11/10/6996`; batch `10 applied/1 previewed`, set `9 approved/1 rejected/0 previewed`; legacy cutover `legacy→fenced→new`, payment/decision 0; open period 6, 기존 회원·financial downstream 0 |
 | Production/deploy | 작업 0건; 미승인·미검증 |
 
 ## 남은 실행 순서
@@ -44,10 +44,10 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 - Owner 승인에 따라 외래교수회 set `811462f6-de04-428b-99ba-a587eac4b0d7`의 name-only match 26개와 unbound allocation 26개를 기존 `quarantine` outcome 그대로 Development에 approve/apply했다. batch만 `applied`로 전환됐고 회원 match·receipt·group·allocation downstream은 모두 0이다.
 - 동일 operation replay의 service receipt SHA-256 `2f8c6f1362f1a8b8cd038126bf9ffef878ae1198e15b651751b5c007446de6a8`, receipt file SHA-256 `d4b25889651bb1c71c1c4bae3517663985b987ff0778816cdffa57cdedd63477`, identity-sequence SHA-256 `c0b7dd1d1343026d74c4c897f57ce5a8df086c5482541e9a8f2bd8a9bba25778`이 전후 동일했다. 임시 receipt·worktree는 삭제 후 부재를 확인했다.
 - 외래교수회 26행 × 50,000원은 여전히 후보 evidence일 뿐이다. 향후 실제 bank evidence가 추가되면 기존 terminal evidence를 변경하지 않고 새 source revision/release/preview와 별도 source-decision으로 처리한다.
-- Todo 18 source coverage는 종료됐다. Todo 19의 legacy v3 계약과 sequence 90/100, UUID-bound disposable zero-row `legacy→fenced→new`, DB write rejection, replay와 teardown까지 완료했다. Development에는 sequence 100만 `applied → verified_noop`으로 반영했고 legacy release·batch·cutover·payment·decision은 변경 전 상태를 유지한다.
-- 다음 Development write는 v3 release 등록, zero-row preview, `legacy→fenced→new` 다섯 관리자 CLI 작업이다. 실행 도구의 고위험 심사가 구체적 영구 상태 전환의 별도 승인을 요구해 명령 시작 전에 차단했으며 우회하지 않았다. 이 한 묶음이 현재 유일한 사용자 운영 승인 경계다.
+- Todo 18 source coverage와 Todo 19의 zero-row Development cutover는 완료됐다. 관리자 CLI의 다섯 service operation은 `created → verified_noop`, identity sequence와 receipt collection digest 불변을 증명했다. 임시 receipt 10개와 exact Replit worktree는 삭제 후 부재를 확인했고 원래 Replit dirty 상태는 보존했다.
+- Todo 19 전체 완료에는 현재 zero-row 전용 stop을 확장해 positive eligible cross-link/new, zero·negative·invalid excluded, ambiguity quarantine, concurrent-write failure와 read rollback을 UUID-bound disposable fixture로 증명해야 한다. 이 구현·검증은 Development business row를 추가하지 않는 다음 안전 범위다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
-- Sequence 90 적용 시 legacy source release/batch, cutover state, `payments` row, business/audit row는 모두 변경하지 않았다. Todo 19의 다음 Development write는 repository/disposable application-service 검증을 먼저 통과한 뒤 현행 책임 모델에 따라 Codex가 수행한다.
+- Production DB write, Republish, 실제 결제 연동, C1 SSOT 전환만 현재 사용자 운영 승인 경계다. Todo 19 남은 synthetic/disposable 구현은 Codex 책임 범위에서 계속한다.
 
 ## 문서 동기화 규칙
 
