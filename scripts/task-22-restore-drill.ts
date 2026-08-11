@@ -249,7 +249,7 @@ async function main(): Promise<void> {
         fail(`task22_restore_schema_digest_mismatch:${sections.join(",")}:${columns.join(",")}`);
       }
       if (digest(targetData) !== receipt.data_catalog_sha256) fail("task22_restore_data_digest_mismatch");
-      if (digest(targetSecurity) !== receipt.post_security_catalog_sha256) fail("task22_restore_security_digest_mismatch");
+      if (digest(targetSecurity) !== receipt.post_security_catalog_sha256) fail(`task22_restore_security_digest_mismatch:${mismatchedSections(sourceSecurity, targetSecurity).join(",")}`);
       const ledger = await verifyClient.query<{ count: number }>("SELECT count(*)::int count FROM public.schema_change_ledger");
       if ((ledger.rows[0]?.count ?? 0) === 0) fail("task22_restore_ledger_missing");
     } finally {
