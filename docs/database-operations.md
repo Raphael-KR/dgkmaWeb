@@ -210,6 +210,10 @@ Category 명령은 정확히 여섯 version-1 draft root에 version-2 approved s
 
 2026-08-11 마지막 Development 검증 상태는 ledger `1,10,15,20,30,40,50,60,70,80,90,100`, approved category tips 6, draft policy/mapping 16/46, approved policy/mapping 0이다. Sequence 100과 legacy v3 zero-row cutover를 완료했다. 관리자 CLI의 다섯 service 작업은 `created → verified_noop`, identity sequence SHA-256 `4b57e8ff…`, receipt collection SHA-256 `c0e35350…`로 불변이었다. 최종 phase는 `new`, watermark 0, legacy release/batch/cutover `3/1/3`, operation receipt/entity/audit `5/6/6`, payment/decision/batch-row/source-decision/classification은 모두 0이다. 실행 receipts는 `docs/database-targets/development-sequence-100-applied.json`과 `docs/database-targets/development-legacy-payment-zero-row-cutover-v1.json`이다. 이후 기존 `payments` write는 DB fence가 거부한다.
 
+Todo 19 nonzero 검증은 Development business row를 추가하지 않고 UUID-bound disposable DB에서만 실행한다. Fence와 cutover의 `SERIALIZABLE` transaction은 어떤 actor/source 조회보다 먼저 `LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE`를 획득해야 한다. 이 순서가 바뀌면 대기 중인 writer가 commit한 행을 이미 고정된 snapshot이 놓쳐 watermark 밖에 남길 수 있다. Fresh concurrency fixture는 writer가 lock 앞에서 실제 대기한 뒤 commit되면 batch fingerprint mismatch로 전체 fence를 rollback하고 phase `legacy`, decision/event/fence-receipt 0을 유지해야 한다.
+
+`read_rollback`은 audited service command로 `new→read_rollback` successor만 추가하고 legacy writes를 다시 열지 않는다. read selector는 `new`에서만 new projection을, `legacy|fenced|read_rollback|state 없음`에서는 legacy projection을 고른다. `recutover`는 동일 watermark/comparison digest를 byte-equal 검증한 뒤 `read_rollback→new`를 추가한다. 두 command는 caller-generated UUIDv4 operation identity, exact phase/watermark/digest, actor/target binding을 요구하며 identical replay는 `verified_noop`이어야 한다. Development에서 실제 read rollback/recutover를 실행하는 것은 별도 운영 판단이며, Todo 19 증거는 disposable 실행만 포함한다.
+
 ## Todo 18 deferred source release
 
 승인된 8개 historical source profile·mapping은 checked-in descriptor와 사전 고정 Development plan을 거쳐서만 release로 등록한다. Replit에서는 URL credential 변수를 명령 범위에서 제거하고 `PG*` Development route를 유지한다.
