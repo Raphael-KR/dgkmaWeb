@@ -73,3 +73,14 @@ test("admin CLI delegates once to the same application service and verifies its 
   assert.deepEqual(await executeSourceDecisionAdminCommand(review, input, actor, executor), receipt);
   assert.equal(calls, 1);
 });
+
+test("admin CLI permits exact terminal-state replay for the application service receipt check", () => {
+  assert.equal(
+    buildSourceDecisionAdminCommand({ ...review, status: "approved" }, input).operationUid,
+    input.operationUid,
+  );
+  assert.throws(
+    () => buildSourceDecisionAdminCommand({ ...review, status: "rejected" }, input),
+    /review_state_mismatch/,
+  );
+});

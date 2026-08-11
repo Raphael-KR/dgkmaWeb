@@ -32,7 +32,8 @@ export function buildSourceDecisionAdminCommand(
   if (!SHA256.test(input.expectedManifestSha256) || !SHA256.test(input.expectedSourceFingerprint)) {
     fail("source_decision_admin_cli_digest_invalid");
   }
-  if (review.status !== "previewed" || review.decisionSetUid !== input.decisionSetUid) {
+  const replayStatus = input.decision === "approve" ? "approved" : "rejected";
+  if (!["previewed", replayStatus].includes(review.status) || review.decisionSetUid !== input.decisionSetUid) {
     fail("source_decision_admin_cli_review_state_mismatch");
   }
   if (
