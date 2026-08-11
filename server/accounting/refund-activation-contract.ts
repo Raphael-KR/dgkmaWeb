@@ -63,7 +63,7 @@ export class AtomicActivationFixture {
   committed: readonly Readonly<{ kind: "policy_successor" | "mapping_successor"; uid: string; tierCode: string }>[] = [];
 
   apply(plan: ReturnType<typeof planAnnualPolicyActivation>, failAtOrdinal: number | null): void {
-    const pending: typeof this.committed = [];
+    const pending: Array<Readonly<{ kind: "policy_successor" | "mapping_successor"; uid: string; tierCode: string }>> = [];
     try {
       for (let index = 0; index < plan.steps.length; index += 1) {
         if (failAtOrdinal === index + 1) fail("annual_activation_synthetic_failure");
