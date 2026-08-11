@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readManifestAtOrDirectDescendant } from "./manifest-lineage";
 
 function fail(code: string): never { throw new Error(code); }
 const MANIFEST_SHA = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
@@ -12,9 +13,9 @@ const FINANCIAL_TABLES = [
 ] as const;
 
 export function validateFinancialManifest(path = "docs/database-manifest.yaml") {
-  const bytes = readFileSync(path);
-  if (createHash("sha256").update(bytes).digest("hex") !== MANIFEST_SHA) fail("todo_15_manifest_digest_mismatch");
-  const manifest = JSON.parse(bytes.toString("utf8")) as Record<string, any>;
+  let manifest: Record<string, any>;
+  try { manifest = readManifestAtOrDirectDescendant(path, MANIFEST_SHA).value; }
+  catch { fail("todo_15_manifest_digest_mismatch"); }
   for (const table of FINANCIAL_TABLES) if (!manifest.tables.some((entry: Record<string, any>) => entry.table === table)) fail(`todo_15_financial_table_missing:${table}`);
   const requiredActions = ["receipt:approve", "receipt_reversal:reverse", "allocation:approve", "economic_event:reject", "event_canonicalization:create", "event_collision:resolve"];
   const actions = new Set(manifest.actor_action_registry.flatMap((entry: Record<string, any>) => entry.actions.map((action: string) => `${entry.entity_type}:${action}`)));

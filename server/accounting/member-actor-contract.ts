@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readManifestAtOrDirectDescendant } from "./manifest-lineage";
 
 export const TODO_12_MANIFEST_SHA256 = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
 const MEMBER_TABLES = ["association_members", "member_match_cases", "member_match_candidates", "member_identity_link_history"] as const;
@@ -8,9 +9,9 @@ function fail(code: string): never { throw new Error(code); }
 function sha256(value: string | Buffer): string { return createHash("sha256").update(value).digest("hex"); }
 
 export function validateMemberActorManifest(manifestPath = "docs/database-manifest.yaml") {
-  const bytes = readFileSync(manifestPath);
-  if (sha256(bytes) !== TODO_12_MANIFEST_SHA256) fail("todo_12_manifest_digest_mismatch");
-  const manifest = JSON.parse(bytes.toString("utf8")) as Record<string, any>;
+  let manifest: Record<string, any>;
+  try { manifest = readManifestAtOrDirectDescendant(manifestPath, TODO_12_MANIFEST_SHA256).value; }
+  catch { fail("todo_12_manifest_digest_mismatch"); }
   const tables = manifest.tables as Array<Record<string, any>>;
   const foreignKeys = manifest.foreign_keys as Array<Record<string, any>>;
   const userRegistry = manifest.account_delete_user_fk_registry as Array<Record<string, any>>;

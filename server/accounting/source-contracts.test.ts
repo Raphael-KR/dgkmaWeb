@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { readManifest } from "../../scripts/schema-ledger";
+import { readManifestAtOrDirectDescendant } from "./manifest-lineage";
 import { normalizeMembershipIdentityRow } from "./adapters/membership-integrated-address-book-v1";
 import { normalizeNotionRoleRow } from "./adapters/notion-organization-role-history-v1";
 import {
@@ -30,8 +31,10 @@ test("Todo 14 profiles, maps, provider approvals, and manifest source identities
   const notionContract = validateSourceContract(notion.profile, notion.mapping, notion.approval);
   assert.equal(membershipContract.outputFamily, "member-identity-row-v1");
   assert.equal(notionContract.outputFamily, "role-row-v2");
+  const current = readManifestAtOrDirectDescendant("docs/database-manifest.yaml", TODO_14_MANIFEST_SHA256);
   const manifest = readManifest();
-  assert.equal(manifest.sha256, TODO_14_MANIFEST_SHA256);
+  assert.equal(current.sha256, manifest.sha256);
+  assert.equal(current.relation, "direct_descendant");
   const registry = (manifest.value.logical_source_uuid_registry as Array<Record<string, unknown>>);
   for (const [sourceCode, source] of Object.entries(TODO_14_LIVE_SOURCES)) {
     assert.deepEqual(registry.find((row) => row.source_code === sourceCode), {

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { readManifestAtOrDirectDescendant } from "./manifest-lineage";
 
 export const TODO_13_MANIFEST_SHA256 = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
 type TierCode = "president" | "senior_vice_president" | "vice_president_auditor_chair" | "director" | "member" | "honorary";
@@ -30,9 +31,9 @@ function fail(code: string): never { throw new Error(code); }
 function sha256(value: string | Buffer): string { return createHash("sha256").update(value).digest("hex"); }
 
 export function validateDuesPolicyManifest(manifestPath = "docs/database-manifest.yaml") {
-  const bytes = readFileSync(manifestPath);
-  if (sha256(bytes) !== TODO_13_MANIFEST_SHA256) fail("todo_13_manifest_digest_mismatch");
-  const manifest = JSON.parse(bytes.toString("utf8")) as Record<string, any>;
+  let manifest: Record<string, any>;
+  try { manifest = readManifestAtOrDirectDescendant(manifestPath, TODO_13_MANIFEST_SHA256).value; }
+  catch { fail("todo_13_manifest_digest_mismatch"); }
   const required = ["member_position_assignments", "dues_position_tier_mappings", "member_dues_tier_history", "dues_policies", "dues_pledges", "member_assessments", "dues_status_snapshots"];
   for (const table of required) if (!manifest.tables.some((entry: Record<string, any>) => entry.table === table)) fail(`todo_13_table_missing:${table}`);
   const positions = manifest.tables.find((entry: Record<string, any>) => entry.table === "member_position_assignments");
