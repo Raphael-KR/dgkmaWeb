@@ -92,3 +92,12 @@ test("standalone manifest validator accepts the committed bytes", () => {
   assert.equal(output.result, "approved");
   assert.equal(output.materialized_artifacts, 14);
 });
+
+test("metadata-only catalog verifier requires the sequence 100 payments write fence", () => {
+  const source = readFileSync("scripts/verify-schema-catalog.ts", "utf8");
+  assert.match(source, /\[1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100\]/);
+  assert.match(source, /legacy_payments_write_fence_v1/);
+  assert.match(source, /public\.dgkma_guard_legacy_payments_write_v1\(\)/);
+  assert.match(source, /catalog_legacy_payments_write_fence_mismatch/);
+  assert.match(source, /BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
+});

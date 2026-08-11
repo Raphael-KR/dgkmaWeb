@@ -28,6 +28,23 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
     const ledger = await pool.query<{ sequence_no: number; artifact_id: string; artifact_sha256: string }>(`
       SELECT sequence_no,artifact_id,artifact_sha256 FROM public.schema_change_ledger ORDER BY sequence_no
     `);
+    const writeFence = await pool.query<{ trigger_name: string; trigger_definition: string; function_name: string; is_row: boolean; is_before: boolean; on_insert: boolean; on_delete: boolean; on_update: boolean; on_truncate: boolean }>(`
+      SELECT trigger_row.tgname AS trigger_name,
+             pg_catalog.pg_get_triggerdef(trigger_row.oid, true) AS trigger_definition,
+             function_namespace.nspname || '.' || function_row.proname || '()' AS function_name,
+             (trigger_row.tgtype & 1) <> 0 AS is_row,
+             (trigger_row.tgtype & 2) <> 0 AS is_before,
+             (trigger_row.tgtype & 4) <> 0 AS on_insert,
+             (trigger_row.tgtype & 8) <> 0 AS on_delete,
+             (trigger_row.tgtype & 16) <> 0 AS on_update,
+             (trigger_row.tgtype & 32) <> 0 AS on_truncate
+      FROM pg_catalog.pg_trigger AS trigger_row
+      JOIN pg_catalog.pg_proc AS function_row ON function_row.oid=trigger_row.tgfoid
+      JOIN pg_catalog.pg_namespace AS function_namespace ON function_namespace.oid=function_row.pronamespace
+      WHERE trigger_row.tgrelid='public.payments'::regclass
+        AND trigger_row.tgname='legacy_payments_write_fence_v1'
+        AND NOT trigger_row.tgisinternal
+    `);
     const referenceSeeds = await pool.query<{
       logical_sources: number; source_releases: number; seed_source_releases: number; historical_source_releases: number; bank_accounts: number;
       bank_source_mappings: number; draft_policies: number; approved_policies: number;
@@ -67,9 +84,19 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       .flatMap((table) => table.columns.map((column) => `${table.table}.${column.name}`))
       .filter((key) => !observed.has(key));
     if (missing.length) throw new Error(`catalog_manifest_column_missing:${missing[0]}`);
-    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90];
+    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100];
     if (ledger.rows.length !== required.length || ledger.rows.some((row, index) => row.sequence_no !== required[index])) {
       throw new Error("catalog_ledger_sequence_mismatch");
+    }
+    if (
+      writeFence.rowCount !== 1 ||
+      writeFence.rows[0]?.trigger_name !== "legacy_payments_write_fence_v1" ||
+      writeFence.rows[0]?.function_name !== "public.dgkma_guard_legacy_payments_write_v1()" ||
+      !writeFence.rows[0]?.is_row || !writeFence.rows[0]?.is_before ||
+      !writeFence.rows[0]?.on_insert || !writeFence.rows[0]?.on_delete || !writeFence.rows[0]?.on_update ||
+      writeFence.rows[0]?.on_truncate
+    ) {
+      throw new Error("catalog_legacy_payments_write_fence_mismatch");
     }
     const seeds = referenceSeeds.rows[0];
     const expectedSeedCounts = {
@@ -111,6 +138,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       catalogSha256: sha256(JSON.stringify(tables.rows)),
       approvedCategoryTips: expectedApprovedCategoryTips,
       releaseCodes: expectedReleaseCodes,
+      writeFenceTrigger: writeFence.rows[0].trigger_name,
+      writeFenceFunction: writeFence.rows[0].function_name,
     };
   } catch (error) {
     await pool.query("ROLLBACK").catch(() => undefined);
@@ -140,6 +169,8 @@ async function main(): Promise<void> {
         draft_position_mapping_roots: 46,
         approved_position_mappings: 0,
         release_codes: result.releaseCodes,
+        write_fence_trigger: result.writeFenceTrigger,
+        write_fence_function: result.writeFenceFunction,
         catalog_sha256: result.catalogSha256,
         transaction_isolation: "repeatable read",
         transaction_terminal: "ROLLBACK",
@@ -179,6 +210,8 @@ async function main(): Promise<void> {
       draft_position_mapping_roots: 46,
       approved_position_mappings: 0,
       release_codes: result.releaseCodes,
+      write_fence_trigger: result.writeFenceTrigger,
+      write_fence_function: result.writeFenceFunction,
       catalog_sha256: result.catalogSha256,
       transaction_isolation: "repeatable read",
       transaction_terminal: "ROLLBACK",
