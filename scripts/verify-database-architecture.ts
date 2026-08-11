@@ -2878,6 +2878,12 @@ const TASK_20_FOCUSED_TESTS = [
   "server/accounting/accounting-close-contract.test.ts",
   "server/accounting/global-lock-contract.test.ts",
   "server/accounting/source-preview-contract-v2.test.ts",
+  "server/accounting/source-decision-group-plan.test.ts",
+  "server/accounting/source-decision-group-materialization.test.ts",
+  "server/accounting/source-decision-group-source-spine.test.ts",
+  "server/accounting/source-decision-individual-plan.test.ts",
+  "server/accounting/source-decision-role-plan.test.ts",
+  "server/accounting/source-decision-service.test.ts",
   "server/accounting/operation-tail-contract.test.ts",
   "server/accounting/annual-policy-activation-write.test.ts",
   "server/accounting/annual-policy-activation-service.test.ts",
@@ -2980,6 +2986,7 @@ function runTaskTwenty(): void {
   }
 
   const raceRuns: JsonObject[] = [];
+  const sourceWorkflowRuns: JsonObject[] = [];
   if (caseName === "happy") {
     for (let index = 0; index < runs; index += 1) {
       const runUid = randomUUID();
@@ -3002,6 +3009,27 @@ function runTaskTwenty(): void {
         if (existsSync(actorReceiptPath)) fail(`task_20_race_actor_receipt_cleanup_failed:${runUid}`);
       }
     }
+    for (let index = 0; index < runs; index += 1) {
+      const runUid = randomUUID();
+      const actorReceiptPath = path.join(path.dirname(evidencePath), `${runUid}-source-admin.json`);
+      let teardownProved = false;
+      try {
+        invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--through-sequence", "40"]);
+        invoke("npx", ["tsx", "scripts/create-disposable-admin.ts", "--target", "disposable-test", "--run-uid", runUid, "--receipt", actorReceiptPath]);
+        invoke("npx", ["tsx", "scripts/apply-schema.ts", "--target", "disposable-test", "--run-uid", runUid, "--from-sequence", "50", "--through-sequence", "80", "--actor-receipt", actorReceiptPath]);
+        const output = invoke("npx", ["tsx", "scripts/task-18-disposable-repreview.ts", "--target", "disposable-test", "--action", "group-preflight", "--run-uid", runUid, "--actor-receipt", actorReceiptPath]);
+        if (!output.includes('"operation_receipts":1') || !output.includes('"operation_entities":28') || !output.includes('"operation_audits":28') || !output.includes('"identity_sequences_unchanged_on_replay":true') || !output.includes('"absent":true')) fail(`task_20_source_workflow_output_mismatch:${runUid}`);
+        teardownProved = true;
+        sourceWorkflowRuns.push({ run_uid: runUid, operation_receipts: 1, operation_entities: 28, operation_audits: 28, replay_sequence_unchanged: true, teardown_absent: true, actor_receipt_absent: true });
+      } finally {
+        if (!teardownProved) {
+          const cleanup = invoke("npx", ["tsx", "scripts/teardown-disposable-target.ts", "--target", "disposable-test", "--run-uid", runUid]);
+          if (!cleanup.includes('"absent":true')) fail(`task_20_source_workflow_cleanup_failed:${runUid}`);
+        }
+        if (existsSync(actorReceiptPath)) unlinkSync(actorReceiptPath);
+        if (existsSync(actorReceiptPath)) fail(`task_20_source_workflow_actor_receipt_cleanup_failed:${runUid}`);
+      }
+    }
   }
 
   writeFileSync(commandLogPath, log.join("\n"));
@@ -3018,6 +3046,7 @@ function runTaskTwenty(): void {
       failure_case_count: caseName === "failure" ? TASK_20_FAILURE_CASES.length : 0,
       core_runs: coreRuns,
       stable_key_race_runs: raceRuns,
+      source_workflow_runs: sourceWorkflowRuns,
       all_teardowns_absent: true,
       all_actor_receipts_absent: true,
       development_digests_unchanged: true,
