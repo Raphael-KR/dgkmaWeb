@@ -9,6 +9,7 @@ import {
   verifierInventoryPaths,
 } from "./database-architecture-verifier-contracts";
 import { runTaskEight } from "./verify-database-index-workload";
+import { runTaskTwentyOne } from "./verify-task-21";
 import { validateMemberActorManifest } from "../server/accounting/member-actor-contract";
 import { POLICY_SEEDS, SECONDARY_POSITION_CODES, validateDuesPolicyManifest } from "../server/accounting/dues-policy-contract";
 import { validateFinancialManifest } from "../server/accounting/financial-topology-contract";
@@ -2905,6 +2906,8 @@ if (process.argv[2] === "materialize-verifier-contracts") {
   runTaskSeventeen();
 } else if (process.argv[2] === "task" && process.argv[3] === "18") {
   runTaskEighteen();
+} else if (process.argv[2] === "task" && process.argv[3] === "21") {
+  runTaskTwentyOne();
 } else {
   fail("unsupported verifier command; Todo owner must implement its lane before use");
 }

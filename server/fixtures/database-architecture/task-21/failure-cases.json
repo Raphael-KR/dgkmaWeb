@@ -1,0 +1,14 @@
+{
+  "schema_version": "dgkma-task21-failure-cases-v1",
+  "cases": [
+    {
+      "kind": "public_routine_grant",
+      "expected_error": "security_catalog_drift"
+    },
+    {
+      "kind": "credential_log",
+      "chunks": ["safe aggregate", "client_secret: synthetic-task21-fixture"],
+      "expected_error": "sensitive_evidence_detected"
+    }
+  ]
+}

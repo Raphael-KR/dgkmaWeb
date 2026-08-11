@@ -110,6 +110,16 @@ function runPsql(sql: string): string {
 
 function parseCorpus(filePath: string): Corpus {
   const value = parseObject(filePath);
+  if (value.schema_version === "dgkma-task21-workload-corpus-alias-v1") {
+    exactKeys(value, ["schema_version", "canonical_path", "canonical_sha256"], "workload corpus alias");
+    if (
+      value.canonical_path !== "server/fixtures/database-architecture/task-8/workload-corpus.json" ||
+      value.canonical_sha256 !== sha256(readFileSync(String(value.canonical_path)))
+    ) {
+      fail("workload corpus alias mismatch");
+    }
+    return parseCorpus(String(value.canonical_path));
+  }
   exactKeys(
     value,
     [

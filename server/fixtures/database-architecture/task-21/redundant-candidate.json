@@ -1,0 +1,13 @@
+{
+  "schema_version": "dgkma-task-8-negative-fixture-v1",
+  "candidate": {
+    "name": "comments__post_id__idx",
+    "table": "comments",
+    "columns": ["post_id"],
+    "kind": "index",
+    "definition": "CREATE INDEX ON public.comments (post_id)",
+    "workload_id": "comments_post_list"
+  },
+  "expected_error": "candidate duplicates manifest-owned left prefix",
+  "expected_schema_writes": 0
+}
