@@ -43,6 +43,10 @@ export type LegacyPaymentExecution = {
   receipt: LegacyPaymentReceipt;
 };
 
+export type LegacyPaymentExecutionScope =
+  | { kind: "development" }
+  | { kind: "disposable-test"; runUid: string; parentTargetFingerprint: string };
+
 const PLAN_PATH = "docs/source-contracts/releases/legacy-payments-development-plan-v3.json";
 const DESCRIPTOR_PATH = "docs/source-contracts/releases/legacy-payments-v3.json";
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -129,9 +133,13 @@ async function audit(client: PoolClient, id: string, eventUid: string, result: J
   await client.query(`INSERT INTO public.accounting_audit_events (id,event_uid,entity_type,entity_key,action,before_json,after_json,effective_at,recorded_at,reason_code,actor_user_id,actor_uid_snapshot,actor_name_snapshot,actor_scope,actor_at,correlation_uid,actor_authorization_version) OVERRIDING SYSTEM VALUE VALUES ($1,$2::uuid,$3,$4,$5,$6::jsonb,$7::jsonb,$8::timestamptz,$8::timestamptz,$9,$10,$11::uuid,$12,'migration_admin',$8::timestamptz,$13::uuid,$14)`, [id, eventUid, result.entity_type, result.entity_key, result.entity_action, before === null ? null : canonicalJson(before), canonicalJson(after), at, reason, actor.userId, actor.userUid, actor.name, result.action_correlation_uid, actor.authorizationVersion]);
 }
 
-export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, rawCommand: Record<string, unknown>, actor: SourceDecisionActor): Promise<LegacyPaymentExecution> {
+export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, rawCommand: Record<string, unknown>, actor: SourceDecisionActor, scope: LegacyPaymentExecutionScope = { kind: "development" }): Promise<LegacyPaymentExecution> {
   const { plan, descriptor } = loadLegacyPaymentPlan(); const command = validateLegacyPaymentCommand(rawCommand, plan);
-  if (actor.targetFingerprint !== plan.target_fingerprint || actor.userId !== plan.actor_user_id || actor.userUid !== plan.actor_user_uid || actor.authorizationVersion !== plan.actor_authorization_version) fail("legacy_payment_actor_binding_mismatch");
+  if (scope.kind === "development") {
+    if (actor.targetFingerprint !== plan.target_fingerprint || actor.userId !== plan.actor_user_id || actor.userUid !== plan.actor_user_uid || actor.authorizationVersion !== plan.actor_authorization_version) fail("legacy_payment_actor_binding_mismatch");
+  } else if (!UUID_V4.test(scope.runUid) || scope.parentTargetFingerprint !== plan.target_fingerprint || actor.targetFingerprint === scope.parentTargetFingerprint || !SHA256.test(actor.targetFingerprint)) {
+    fail("legacy_payment_disposable_scope_mismatch");
+  }
   const selected = operation(command.action, plan); const release = plan.release as Json; const batch = plan.batch as Json; const cutover = plan.cutover as Json;
   const client = await pool.connect();
   try {

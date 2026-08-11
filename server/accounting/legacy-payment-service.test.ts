@@ -32,3 +32,12 @@ test("legacy commands are closed, plan-bound and carry the empty comparison", ()
   assert.throws(() => validateLegacyPaymentCommand({ ...buildLegacyPaymentCommand("fence"), expectedWatermarkPaymentId: 1 }, plan), /comparison_mismatch/);
   assert.throws(() => validateLegacyPaymentCommand({ ...buildLegacyPaymentCommand("cutover"), operationUid: "11111111-1111-4111-8111-111111111111" }, plan), /operation_mismatch/);
 });
+
+test("legacy executor keeps Development exact-bound and exposes only a UUID-bound disposable projection", () => {
+  const source = readFileSync("server/accounting/legacy-payment-service.ts", "utf8");
+  assert.match(source, /scope: LegacyPaymentExecutionScope = \{ kind: "development" \}/);
+  assert.match(source, /scope\.parentTargetFingerprint !== plan\.target_fingerprint/);
+  assert.match(source, /actor\.targetFingerprint === scope\.parentTargetFingerprint/);
+  assert.match(source, /legacy_payment_disposable_scope_mismatch/);
+  assert.match(readFileSync("scripts/verify-legacy-payment-disposable.ts", "utf8"), /legacy_payments_write_fenced/);
+});
