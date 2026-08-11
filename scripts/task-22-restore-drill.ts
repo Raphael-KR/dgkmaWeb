@@ -241,7 +241,10 @@ async function main(): Promise<void> {
       exporter.release();
     }
     if (disposable) await teardownDisposableTarget(controlPool, disposable).catch(() => undefined);
-    if (existsSync(dumpPath)) unlinkSync(dumpPath);
+    if (existsSync(dumpPath)) {
+      spawnSync("shred", ["--remove=unlink", "--zero", dumpPath], { encoding: "utf8" });
+      if (existsSync(dumpPath)) unlinkSync(dumpPath);
+    }
     if (existsSync(workDir)) rmdirSync(workDir);
     throw error;
   } finally {
