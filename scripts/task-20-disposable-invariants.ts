@@ -4,6 +4,9 @@ import {
   shutdownPool, teardownDisposableTarget, verifyDevelopmentTarget,
 } from "../server/db-target";
 import { canonicalJson, sha256 } from "../server/accounting/source-contracts";
+import type { CanonicalValue } from "../server/accounting/source-contracts";
+import { assertBusinessOperationPayloadHash, validateBusinessOperationPayloadV2 } from "../server/accounting/business-operation-payload";
+import { buildLegacyPaymentCommand, executeLegacyPaymentCommand } from "../server/accounting/legacy-payment-service";
 import { verifyActorReceipt } from "./admin-actor-receipt";
 
 const BUSINESS_REASON_TABLES = [
@@ -16,6 +19,7 @@ const SCHEMA_CONSTRAINTS = [
   "schema_data_exceptions__resolution_duplicate__check", "schema_data_exceptions__rule_class_registry__check",
   "schema_data_exceptions__rule_code_registry__check", "schema_data_exceptions__status_resolution__check",
 ] as const;
+const LEGACY_ACTIONS = ["register_release", "preview", "initialize", "fence", "cutover"] as const;
 
 function arg(name: string): string { const index = process.argv.indexOf(name); if (index < 0 || !process.argv[index + 1]) throw new Error(`missing_argument:${name}`); return process.argv[index + 1]; }
 function errorCode(error: unknown): string { return typeof error === "object" && error !== null && "code" in error ? String((error as { code: unknown }).code) : "unknown"; }
@@ -30,6 +34,44 @@ async function aggregateDigest(pool: Pool): Promise<string> {
     (SELECT count(*)::int FROM public.economic_events) economic_events,
     (SELECT count(*)::int FROM public.bank_reconciliations) reconciliations`);
   return sha256(canonicalJson(result.rows[0] as never));
+}
+
+async function identitySequenceDigest(pool: Pool): Promise<string> {
+  const rows = await pool.query<{ sequence_name: string; last_value: string }>("SELECT sequencename sequence_name,last_value::text FROM pg_catalog.pg_sequences WHERE schemaname='public' ORDER BY sequencename");
+  return sha256(canonicalJson(rows.rows as unknown as CanonicalValue));
+}
+
+async function runLegacyReceiptProbe(pool: Pool, actor: Awaited<ReturnType<typeof verifyActorReceipt>>, runUid: string, targetFingerprint: string, parentTargetFingerprint: string): Promise<Record<string, unknown>> {
+  const boundActor = { ...actor, targetFingerprint };
+  const scope = { kind: "disposable-test" as const, runUid, parentTargetFingerprint };
+  const created = [];
+  for (const action of LEGACY_ACTIONS) {
+    const execution = await executeLegacyPaymentCommand(pool, buildLegacyPaymentCommand(action), boundActor, scope);
+    if (execution.execution_outcome !== "created") throw new Error(`task_20_legacy_first_apply_mismatch:${action}`);
+    created.push(execution.receipt);
+  }
+  const beforeReplay = await identitySequenceDigest(pool);
+  for (let index = 0; index < LEGACY_ACTIONS.length; index += 1) {
+    const replay = await executeLegacyPaymentCommand(pool, buildLegacyPaymentCommand(LEGACY_ACTIONS[index]), boundActor, scope);
+    if (replay.execution_outcome !== "verified_noop" || canonicalJson(replay.receipt as unknown as CanonicalValue) !== canonicalJson(created[index] as unknown as CanonicalValue)) throw new Error(`task_20_legacy_replay_mismatch:${LEGACY_ACTIONS[index]}`);
+  }
+  const afterReplay = await identitySequenceDigest(pool);
+  if (beforeReplay !== afterReplay) throw new Error("task_20_legacy_replay_sequence_changed");
+  const receipts = await pool.query<{ operation_uid: string; canonical_payload: CanonicalValue; payload_sha256: string; result_entity_keys: CanonicalValue }>("SELECT operation_uid::text,canonical_payload,payload_sha256,result_entity_keys FROM public.business_operation_receipts WHERE entity_type='legacy_payment' ORDER BY id");
+  if (receipts.rowCount !== LEGACY_ACTIONS.length) throw new Error("task_20_legacy_receipt_count_mismatch");
+  let slots = 0; let results = 0;
+  for (const receipt of receipts.rows) {
+    const validated = validateBusinessOperationPayloadV2(receipt.canonical_payload);
+    assertBusinessOperationPayloadHash(receipt.canonical_payload, receipt.payload_sha256);
+    const payload = receipt.canonical_payload as Record<string, CanonicalValue>;
+    if (canonicalJson(payload.expected_results!) !== canonicalJson(receipt.result_entity_keys)) throw new Error("task_20_receipt_result_projection_mismatch");
+    const entities = await pool.query<{ ordinal: number; entity_type: string; entity_key: string; entity_action: string; action_correlation_uid: string }>("SELECT ordinal,entity_type,entity_key,entity_action,action_correlation_uid::text FROM public.business_operation_entities WHERE operation_uid=$1::uuid ORDER BY ordinal", [receipt.operation_uid]);
+    if (canonicalJson(entities.rows as unknown as CanonicalValue) !== canonicalJson(payload.expected_results!)) throw new Error("task_20_receipt_entity_projection_mismatch");
+    const reservationSlots = payload.reservation_slots as CanonicalValue[];
+    slots += reservationSlots.length; results += entities.rowCount;
+    if (validated.canonical !== canonicalJson(receipt.canonical_payload) || reservationSlots.some((slot) => typeof (slot as Record<string, CanonicalValue>).reserved_id !== "string")) throw new Error("task_20_receipt_payload_storage_mismatch");
+  }
+  return { operation_receipts: receipts.rowCount, result_entities: results, reservation_slots: slots, replay_identity_sequence_sha256: afterReplay, replay_sequence_unchanged: true, payload_hashes_verified: receipts.rowCount, result_projections_verified: receipts.rowCount };
 }
 
 async function expectDefaultInsertRejected(client: PoolClient, table: string, ordinal: number): Promise<string> {
@@ -82,9 +124,10 @@ async function main(): Promise<void> {
     const development = await verifyDevelopmentTarget(controlPool, { ...controlResolved, kind: "development" });
     const developmentBefore = await aggregateDigest(controlPool);
     disposable = await createOrResumeDisposableTarget(controlPool, development, runUid);
-    await verifyActorReceipt(disposable.pool, actorReceipt, { kind: "disposable-test", targetFingerprint: disposable.targetFingerprint, disposableRunUid: runUid, parentTargetFingerprint: disposable.parentTargetFingerprint });
+    const actor = await verifyActorReceipt(disposable.pool, actorReceipt, { kind: "disposable-test", targetFingerprint: disposable.targetFingerprint, disposableRunUid: runUid, parentTargetFingerprint: disposable.parentTargetFingerprint });
     const client = await disposable.pool.connect(); let assertions: Record<string, unknown>;
     try { assertions = await runProbe(client); } finally { client.release(); }
+    assertions.legacy_receipt_replay = await runLegacyReceiptProbe(disposable.pool, actor, runUid, disposable.targetFingerprint, disposable.parentTargetFingerprint);
     const teardown = await teardownDisposableTarget(controlPool, disposable); disposable = undefined;
     const developmentAfter = await aggregateDigest(controlPool);
     if (!teardown.absent || developmentBefore !== developmentAfter) throw new Error("task_20_teardown_or_development_digest_mismatch");
