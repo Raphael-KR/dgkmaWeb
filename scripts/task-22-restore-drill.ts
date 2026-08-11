@@ -106,6 +106,11 @@ function digest(value: Json): string {
   return sha256(canonicalJson(value));
 }
 
+function mismatchedSections(expected: Json, actual: Json): string[] {
+  if (expected === null || actual === null || Array.isArray(expected) || Array.isArray(actual) || typeof expected !== "object" || typeof actual !== "object") return digest(expected) === digest(actual) ? [] : ["root"];
+  return [...new Set([...Object.keys(expected), ...Object.keys(actual)])].sort().filter((key) => digest(expected[key] ?? null) !== digest(actual[key] ?? null));
+}
+
 function readRestoreSidecar() {
   const bytes = readFileSync(RESTORE_SIDECAR, "utf8");
   const sidecar = JSON.parse(bytes) as Record<string, unknown>;
@@ -220,7 +225,7 @@ async function main(): Promise<void> {
     const verifyClient = await disposable.pool.connect();
     try {
       const [targetSchema, targetData, targetSecurity] = await Promise.all([schemaCatalog(verifyClient), dataCatalog(verifyClient), securityCatalog(verifyClient)]);
-      if (digest(targetSchema) !== receipt.schema_catalog_sha256) fail("task22_restore_schema_digest_mismatch");
+      if (digest(targetSchema) !== receipt.schema_catalog_sha256) fail(`task22_restore_schema_digest_mismatch:${mismatchedSections(sourceSchema, targetSchema).join(",")}`);
       if (digest(targetData) !== receipt.data_catalog_sha256) fail("task22_restore_data_digest_mismatch");
       if (digest(targetSecurity) !== receipt.post_security_catalog_sha256) fail("task22_restore_security_digest_mismatch");
       const ledger = await verifyClient.query<{ count: number }>("SELECT count(*)::int count FROM public.schema_change_ledger");
