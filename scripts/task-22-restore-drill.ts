@@ -111,6 +111,22 @@ function mismatchedSections(expected: Json, actual: Json): string[] {
   return [...new Set([...Object.keys(expected), ...Object.keys(actual)])].sort().filter((key) => digest(expected[key] ?? null) !== digest(actual[key] ?? null));
 }
 
+function columnMismatchSummary(expected: Json, actual: Json): string[] {
+  if (!Array.isArray(expected) || !Array.isArray(actual)) return ["shape"];
+  const expectedRows = expected as Array<Record<string, Json>>;
+  const actualRows = actual as Array<Record<string, Json>>;
+  if (expectedRows.length !== actualRows.length) return [`count:${expectedRows.length}:${actualRows.length}`];
+  const differences: string[] = [];
+  for (let index = 0; index < expectedRows.length; index += 1) {
+    const left = expectedRows[index];
+    const right = actualRows[index];
+    if (digest(left) === digest(right)) continue;
+    const identity = `${String(left.table_name)}.${String(left.attname)}`;
+    for (const key of [...new Set([...Object.keys(left), ...Object.keys(right)])].sort()) if (digest(left[key] ?? null) !== digest(right[key] ?? null)) differences.push(`${identity}:${key}`);
+  }
+  return differences.slice(0, 20);
+}
+
 function readRestoreSidecar() {
   const bytes = readFileSync(RESTORE_SIDECAR, "utf8");
   const sidecar = JSON.parse(bytes) as Record<string, unknown>;
@@ -225,7 +241,13 @@ async function main(): Promise<void> {
     const verifyClient = await disposable.pool.connect();
     try {
       const [targetSchema, targetData, targetSecurity] = await Promise.all([schemaCatalog(verifyClient), dataCatalog(verifyClient), securityCatalog(verifyClient)]);
-      if (digest(targetSchema) !== receipt.schema_catalog_sha256) fail(`task22_restore_schema_digest_mismatch:${mismatchedSections(sourceSchema, targetSchema).join(",")}`);
+      if (digest(targetSchema) !== receipt.schema_catalog_sha256) {
+        const sections = mismatchedSections(sourceSchema, targetSchema);
+        const columns = sourceSchema !== null && targetSchema !== null && !Array.isArray(sourceSchema) && !Array.isArray(targetSchema) && typeof sourceSchema === "object" && typeof targetSchema === "object" && sections.includes("columns")
+          ? columnMismatchSummary(sourceSchema.columns, targetSchema.columns)
+          : [];
+        fail(`task22_restore_schema_digest_mismatch:${sections.join(",")}:${columns.join(",")}`);
+      }
       if (digest(targetData) !== receipt.data_catalog_sha256) fail("task22_restore_data_digest_mismatch");
       if (digest(targetSecurity) !== receipt.post_security_catalog_sha256) fail("task22_restore_security_digest_mismatch");
       const ledger = await verifyClient.query<{ count: number }>("SELECT count(*)::int count FROM public.schema_change_ledger");
