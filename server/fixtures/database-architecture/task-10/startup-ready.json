@@ -134,6 +134,15 @@
       "materialization_state": "materialized",
       "required_for_startup": true,
       "sequence_no": 120
+    },
+    {
+      "artifact_id": "schema-exception-registry-enforcement-v1",
+      "artifact_sha256": "d270a8f01d7f04f9c0f487d37a43ad16101bdb501a5dbf03797fbd0fc41f4dee",
+      "kind": "manual",
+      "manifest_sha256": "ec18e2c2a60ee9fed75ac97bd77f56b281804313de624cf7d18bce0f43a86b1e",
+      "materialization_state": "materialized",
+      "required_for_startup": true,
+      "sequence_no": 130
     }
   ],
   "ledger_rows": [
@@ -146,6 +155,17 @@
       "manifest_sha256": "986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8",
       "release_state": "verified",
       "sequence_no": 1,
+      "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "artifact_id": "schema-exception-registry-enforcement-v1",
+      "artifact_kind": "manual",
+      "artifact_sha256": "d270a8f01d7f04f9c0f487d37a43ad16101bdb501a5dbf03797fbd0fc41f4dee",
+      "capability_variant": "preferred_btree_gist",
+      "executor_version": "schema-ledger-v1",
+      "manifest_sha256": "ec18e2c2a60ee9fed75ac97bd77f56b281804313de624cf7d18bce0f43a86b1e",
+      "release_state": "verified",
+      "sequence_no": 130,
       "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
     },
     {

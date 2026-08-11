@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { BUSINESS_REASON_TUPLES } from "../server/accounting/business-reason-contract";
+import { SCHEMA_EXCEPTION_RULES } from "../server/accounting/schema-exception-contract";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Column = {
@@ -14,7 +15,7 @@ type Column = {
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
 const EXPECTED_PLAN_SHA = "94a26ae7b441a541ff47a74cd69a0dea1f17b69939b551e5d751d522f1077cb2";
-const PARENT_MANIFEST_SHA = "9dba0d10093ed9a070d4564d1bcc46e8ba3da47e4d39981d66792594737377ab";
+const PARENT_MANIFEST_SHA = "c39cd4530ac9098a8156a4d9a58f2dbf5fab8dcbb1d761914b690c45a00b8ba1";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -622,7 +623,7 @@ function main(): void {
     manifest_lineage: {
       parent_manifest_sha256: PARENT_MANIFEST_SHA,
       parent_manifest_path: `docs/database-manifests/${PARENT_MANIFEST_SHA}.yaml`,
-      amendment_code: "business_reason_transition_enforcement_v1",
+      amendment_code: "schema_exception_registry_enforcement_v1",
     },
     manifest_contract: {
       deterministic_serialization: "RFC8785_JSON_AS_YAML_1_2_PLUS_LF",
@@ -643,6 +644,22 @@ function main(): void {
       tables: businessReasonRegistry.map((entry) => entry.table).sort(),
       triggers: businessReasonRegistry.map((entry) => ({table:entry.table,name:canonicalObjectName(`${entry.table}__business_reason_transition_v1`)})).sort((a,b)=>a.table.localeCompare(b.table)),
       operations: ["INSERT","UPDATE"],
+    },
+    schema_exception_registry: {
+      rules: SCHEMA_EXCEPTION_RULES.map((rule) => ({
+        rule_code: rule.ruleCode,
+        exception_class: rule.exceptionClass,
+        table: rule.table,
+        predicate_sql: rule.predicateSql,
+        duplicate_class: rule.duplicateClass,
+      })),
+      statuses: ["open", "resolved", "waived"],
+      resolutions: ["SOURCE_FIXED", "DUPLICATE_RESOLVED", "OWNER_WAIVER"],
+      open_resolution: null,
+      duplicate_resolution_requires_duplicate_class: true,
+      post_capture_root_insert: "rejected",
+      transition_function: "public.dgkma_validate_schema_exception_transition_v1()",
+      rejection_sqlstate: "23514",
     },
     digest_test_vectors: [
       digestVector("bank_transactions.row_fingerprint", {
@@ -777,7 +794,7 @@ function main(): void {
   const archiveDir="docs/database-manifests";const archivePath=`${archiveDir}/${PARENT_MANIFEST_SHA}.yaml`;mkdirSync(archiveDir,{recursive:true});
   const parentBytes=currentSha===PARENT_MANIFEST_SHA?currentBytes:existsSync(archivePath)?readFileSync(archivePath):Buffer.alloc(0);
   const currentLineage=currentSha===PARENT_MANIFEST_SHA?null:(JSON.parse(currentBytes.toString("utf8")) as {manifest_lineage?:{parent_manifest_sha256?:unknown;amendment_code?:unknown}}).manifest_lineage;
-  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="business_reason_transition_enforcement_v1";
+  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="schema_exception_registry_enforcement_v1";
   if((currentSha!==PARENT_MANIFEST_SHA&&currentSha!==nextSha&&!currentIsSameAmendment)||sha256(parentBytes)!==PARENT_MANIFEST_SHA)throw new Error("manifest_amendment_parent_mismatch");
   if(existsSync(archivePath)){if(!readFileSync(archivePath).equals(parentBytes))throw new Error("manifest_amendment_archive_drift");}else writeFileSync(archivePath,parentBytes);
   writeFileSync(MANIFEST_PATH, bytes);

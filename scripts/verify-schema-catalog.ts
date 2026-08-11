@@ -60,6 +60,23 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
         AND function_row.proname='dgkma_validate_business_reason_transition_v1'
         AND NOT trigger_row.tgisinternal ORDER BY table_row.relname
     `);
+    const exceptionRegistry = await pool.query<{ trigger_name:string; function_name:string; is_row:boolean; is_before:boolean; on_insert:boolean; on_delete:boolean; on_update:boolean; on_truncate:boolean; constraint_count:number; exception_count:number }>(`
+      SELECT trigger_row.tgname AS trigger_name,
+             function_namespace.nspname || '.' || function_row.proname || '()' AS function_name,
+             (trigger_row.tgtype & 1) <> 0 AS is_row, (trigger_row.tgtype & 2) <> 0 AS is_before,
+             (trigger_row.tgtype & 4) <> 0 AS on_insert, (trigger_row.tgtype & 8) <> 0 AS on_delete,
+             (trigger_row.tgtype & 16) <> 0 AS on_update, (trigger_row.tgtype & 32) <> 0 AS on_truncate,
+             (SELECT count(*)::int FROM pg_catalog.pg_constraint
+               WHERE conrelid='public.schema_data_exceptions'::regclass
+                 AND conname=ANY(ARRAY['schema_data_exceptions__rule_code_registry__check','schema_data_exceptions__rule_class_registry__check','schema_data_exceptions__status_resolution__check','schema_data_exceptions__resolution_duplicate__check','schema_data_exceptions__lifecycle_actor__check','schema_data_exceptions__capture_chain__check'])) AS constraint_count,
+             (SELECT count(*)::int FROM public.schema_data_exceptions) AS exception_count
+      FROM pg_catalog.pg_trigger AS trigger_row
+      JOIN pg_catalog.pg_proc AS function_row ON function_row.oid=trigger_row.tgfoid
+      JOIN pg_catalog.pg_namespace AS function_namespace ON function_namespace.oid=function_row.pronamespace
+      WHERE trigger_row.tgrelid='public.schema_data_exceptions'::regclass
+        AND trigger_row.tgname='schema_data_exceptions__registry_transition_v1'
+        AND NOT trigger_row.tgisinternal
+    `);
     const referenceSeeds = await pool.query<{
       logical_sources: number; source_releases: number; seed_source_releases: number; historical_source_releases: number; bank_accounts: number;
       bank_source_mappings: number; draft_policies: number; approved_policies: number;
@@ -99,7 +116,7 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       .flatMap((table) => table.columns.map((column) => `${table.table}.${column.name}`))
       .filter((key) => !observed.has(key));
     if (missing.length) throw new Error(`catalog_manifest_column_missing:${missing[0]}`);
-    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120];
+    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130];
     if (ledger.rows.length !== required.length || ledger.rows.some((row, index) => row.sequence_no !== required[index])) {
       throw new Error("catalog_ledger_sequence_mismatch");
     }
@@ -117,6 +134,10 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
     const expectedReasonTables=Object.keys(expectedReasonTriggers);
     if(reasonTransitions.rowCount!==8||JSON.stringify(reasonTransitions.rows.map((row)=>row.table_name))!==JSON.stringify(expectedReasonTables)||reasonTransitions.rows.some((row)=>row.trigger_name!==expectedReasonTriggers[row.table_name as keyof typeof expectedReasonTriggers]||row.function_name!=="public.dgkma_validate_business_reason_transition_v1()"||!row.is_row||!row.is_before||!row.on_insert||!row.on_update||row.on_delete||row.on_truncate)){
       throw new Error("catalog_business_reason_transition_mismatch");
+    }
+    const exceptionObject=exceptionRegistry.rows[0];
+    if(exceptionRegistry.rowCount!==1||exceptionObject.trigger_name!=="schema_data_exceptions__registry_transition_v1"||exceptionObject.function_name!=="public.dgkma_validate_schema_exception_transition_v1()"||!exceptionObject.is_row||!exceptionObject.is_before||!exceptionObject.on_insert||!exceptionObject.on_update||!exceptionObject.on_delete||exceptionObject.on_truncate||exceptionObject.constraint_count!==6||exceptionObject.exception_count!==0){
+      throw new Error("catalog_schema_exception_registry_mismatch");
     }
     const seeds = referenceSeeds.rows[0];
     const expectedSeedCounts = {
@@ -169,6 +190,8 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       writeFenceFunction: writeFence.rows[0].function_name,
       reasonTransitionFunction: reasonTransitions.rows[0].function_name,
       reasonTransitionTables: expectedReasonTables,
+      schemaExceptionFunction: exceptionObject.function_name,
+      schemaExceptionConstraintCount: exceptionObject.constraint_count,
     };
   } catch (error) {
     await pool.query("ROLLBACK").catch(() => undefined);
@@ -202,6 +225,8 @@ async function main(): Promise<void> {
         write_fence_function: result.writeFenceFunction,
         business_reason_transition_function: result.reasonTransitionFunction,
         business_reason_transition_tables: result.reasonTransitionTables,
+        schema_exception_transition_function: result.schemaExceptionFunction,
+        schema_exception_constraint_count: result.schemaExceptionConstraintCount,
         catalog_sha256: result.catalogSha256,
         transaction_isolation: "repeatable read",
         transaction_terminal: "ROLLBACK",
@@ -243,6 +268,8 @@ async function main(): Promise<void> {
       release_codes: result.releaseCodes,
       write_fence_trigger: result.writeFenceTrigger,
       write_fence_function: result.writeFenceFunction,
+      schema_exception_transition_function: result.schemaExceptionFunction,
+      schema_exception_constraint_count: result.schemaExceptionConstraintCount,
       catalog_sha256: result.catalogSha256,
       transaction_isolation: "repeatable read",
       transaction_terminal: "ROLLBACK",

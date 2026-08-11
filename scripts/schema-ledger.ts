@@ -72,9 +72,9 @@ const DESCRIPTOR_KEYS = [
   "artifact_id","artifact_sha256","capability_predicate","dependency_mode","depends_on","kind","manifest_sha256",
   "materialization_state","owner","path","required_for_production","required_for_startup","sequence_no",
 ].sort();
-const SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60, 65, 70, 80, 90, 100, 110, 120];
+const SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60, 65, 70, 80, 90, 100, 110, 120, 130];
 const EXPECTED_KINDS = new Map<number, ArtifactDescriptor["kind"]>([
-  [1,"manual"],[10,"baseline"],[15,"ordinary"],[20,"ordinary"],[30,"ordinary"],[40,"manual"],[50,"ordinary"],[60,"manual"],[65,"ordinary"],[70,"manual"],[80,"manual"],[90,"manual"],[100,"manual"],[110,"manual"],[120,"manual"],
+  [1,"manual"],[10,"baseline"],[15,"ordinary"],[20,"ordinary"],[30,"ordinary"],[40,"manual"],[50,"ordinary"],[60,"manual"],[65,"ordinary"],[70,"manual"],[80,"manual"],[90,"manual"],[100,"manual"],[110,"manual"],[120,"manual"],[130,"manual"],
 ]);
 const BASELINE_TABLES = [
   "alumni_database", "categories", "comments", "community_events", "event_parse_rate_limits",
@@ -124,24 +124,27 @@ export function readManifest(filePath = "docs/database-manifest.yaml"): { bytes:
 export function readArtifactDescriptors(directory = "migrations/artifacts", manifestPath = "docs/database-manifest.yaml"): ArtifactDescriptor[] {
   const manifest = readManifest(manifestPath);
   const lineage = manifest.value.manifest_lineage as { parent_manifest_sha256?: unknown; parent_manifest_path?: unknown; amendment_code?: unknown } | undefined;
-  if (!lineage || typeof lineage.parent_manifest_sha256 !== "string" || !SHA.test(lineage.parent_manifest_sha256) || typeof lineage.parent_manifest_path !== "string" || lineage.amendment_code !== "business_reason_transition_enforcement_v1") fail("manifest_lineage_invalid");
+  if (!lineage || typeof lineage.parent_manifest_sha256 !== "string" || !SHA.test(lineage.parent_manifest_sha256) || typeof lineage.parent_manifest_path !== "string" || lineage.amendment_code !== "schema_exception_registry_enforcement_v1") fail("manifest_lineage_invalid");
   const parentManifest = readManifest(lineage.parent_manifest_path);
   if (parentManifest.sha256 !== lineage.parent_manifest_sha256) fail("manifest_parent_checksum_mismatch");
   const parentLineage=parentManifest.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown;amendment_code?:unknown}|undefined;
-  if(!parentLineage||typeof parentLineage.parent_manifest_sha256!=="string"||!SHA.test(parentLineage.parent_manifest_sha256)||typeof parentLineage.parent_manifest_path!=="string"||parentLineage.amendment_code!=="business_reason_registry_v1")fail("manifest_parent_lineage_invalid");
+  if(!parentLineage||typeof parentLineage.parent_manifest_sha256!=="string"||!SHA.test(parentLineage.parent_manifest_sha256)||typeof parentLineage.parent_manifest_path!=="string"||parentLineage.amendment_code!=="business_reason_transition_enforcement_v1")fail("manifest_parent_lineage_invalid");
   const grandparentManifest=readManifest(parentLineage.parent_manifest_path);if(grandparentManifest.sha256!==parentLineage.parent_manifest_sha256)fail("manifest_grandparent_checksum_mismatch");
   const grandparentLineage=grandparentManifest.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown;amendment_code?:unknown}|undefined;
-  if(!grandparentLineage||typeof grandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(grandparentLineage.parent_manifest_sha256)||typeof grandparentLineage.parent_manifest_path!=="string"||grandparentLineage.amendment_code!=="legacy_payments_write_fence_v1")fail("manifest_grandparent_lineage_invalid");
+  if(!grandparentLineage||typeof grandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(grandparentLineage.parent_manifest_sha256)||typeof grandparentLineage.parent_manifest_path!=="string"||grandparentLineage.amendment_code!=="business_reason_registry_v1")fail("manifest_grandparent_lineage_invalid");
   const greatGrandparentManifest=readManifest(grandparentLineage.parent_manifest_path);if(greatGrandparentManifest.sha256!==grandparentLineage.parent_manifest_sha256)fail("manifest_great_grandparent_checksum_mismatch");
   const greatGrandparentLineage=greatGrandparentManifest.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown;amendment_code?:unknown}|undefined;
-  if(!greatGrandparentLineage||typeof greatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGrandparentLineage.parent_manifest_sha256)||typeof greatGrandparentLineage.parent_manifest_path!=="string"||greatGrandparentLineage.amendment_code!=="legacy_cutover_code_root_v1")fail("manifest_great_grandparent_lineage_invalid");
+  if(!greatGrandparentLineage||typeof greatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGrandparentLineage.parent_manifest_sha256)||typeof greatGrandparentLineage.parent_manifest_path!=="string"||greatGrandparentLineage.amendment_code!=="legacy_payments_write_fence_v1")fail("manifest_great_grandparent_lineage_invalid");
   const greatGreatGrandparentManifest=readManifest(greatGrandparentLineage.parent_manifest_path);if(greatGreatGrandparentManifest.sha256!==greatGrandparentLineage.parent_manifest_sha256)fail("manifest_great_great_grandparent_checksum_mismatch");
   const greatGreatGrandparentLineage=greatGreatGrandparentManifest.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown;amendment_code?:unknown}|undefined;
-  if(!greatGreatGrandparentLineage||typeof greatGreatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGreatGrandparentLineage.parent_manifest_sha256)||typeof greatGreatGrandparentLineage.parent_manifest_path!=="string"||greatGreatGrandparentLineage.amendment_code!=="group_member_source_root_v1")fail("manifest_great_great_grandparent_lineage_invalid");
+  if(!greatGreatGrandparentLineage||typeof greatGreatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGreatGrandparentLineage.parent_manifest_sha256)||typeof greatGreatGrandparentLineage.parent_manifest_path!=="string"||greatGreatGrandparentLineage.amendment_code!=="legacy_cutover_code_root_v1")fail("manifest_great_great_grandparent_lineage_invalid");
   const greatGreatGreatGrandparentManifest=readManifest(greatGreatGrandparentLineage.parent_manifest_path);if(greatGreatGreatGrandparentManifest.sha256!==greatGreatGrandparentLineage.parent_manifest_sha256)fail("manifest_great_great_great_grandparent_checksum_mismatch");
   const greatGreatGreatGrandparentLineage=greatGreatGreatGrandparentManifest.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown;amendment_code?:unknown}|undefined;
-  if(!greatGreatGreatGrandparentLineage||typeof greatGreatGreatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGreatGreatGrandparentLineage.parent_manifest_sha256)||typeof greatGreatGreatGrandparentLineage.parent_manifest_path!=="string"||greatGreatGreatGrandparentLineage.amendment_code!=="event_claim_coordinate_root_v1")fail("manifest_great_great_great_grandparent_lineage_invalid");
-  const rootManifest=readManifest(greatGreatGreatGrandparentLineage.parent_manifest_path);if(rootManifest.sha256!==greatGreatGreatGrandparentLineage.parent_manifest_sha256)fail("manifest_root_checksum_mismatch");
+  if(!greatGreatGreatGrandparentLineage||typeof greatGreatGreatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGreatGreatGrandparentLineage.parent_manifest_sha256)||typeof greatGreatGreatGrandparentLineage.parent_manifest_path!=="string"||greatGreatGreatGrandparentLineage.amendment_code!=="group_member_source_root_v1")fail("manifest_great_great_great_grandparent_lineage_invalid");
+  const greatGreatGreatGreatGrandparentManifest=readManifest(greatGreatGreatGrandparentLineage.parent_manifest_path);if(greatGreatGreatGreatGrandparentManifest.sha256!==greatGreatGreatGrandparentLineage.parent_manifest_sha256)fail("manifest_great_great_great_great_grandparent_checksum_mismatch");
+  const greatGreatGreatGreatGrandparentLineage=greatGreatGreatGreatGrandparentManifest.value.manifest_lineage as {parent_manifest_sha256?:unknown;parent_manifest_path?:unknown;amendment_code?:unknown}|undefined;
+  if(!greatGreatGreatGreatGrandparentLineage||typeof greatGreatGreatGreatGrandparentLineage.parent_manifest_sha256!=="string"||!SHA.test(greatGreatGreatGreatGrandparentLineage.parent_manifest_sha256)||typeof greatGreatGreatGreatGrandparentLineage.parent_manifest_path!=="string"||greatGreatGreatGreatGrandparentLineage.amendment_code!=="event_claim_coordinate_root_v1")fail("manifest_great_great_great_great_grandparent_lineage_invalid");
+  const rootManifest=readManifest(greatGreatGreatGreatGrandparentLineage.parent_manifest_path);if(rootManifest.sha256!==greatGreatGreatGreatGrandparentLineage.parent_manifest_sha256)fail("manifest_root_checksum_mismatch");
   const descriptors = readdirSync(directory)
     .filter((name) => /^\d{4}_.+\.json$/.test(name) && !name.endsWith(".restore.json"))
     .sort()
@@ -153,13 +156,13 @@ export function readArtifactDescriptors(directory = "migrations/artifacts", mani
       exactKeys(value, DESCRIPTOR_KEYS, "artifact_descriptor_key_mismatch");
       return value as unknown as ArtifactDescriptor;
     });
-  if (descriptors.length !== 16) fail("artifact_descriptor_count_mismatch");
+  if (descriptors.length !== 17) fail("artifact_descriptor_count_mismatch");
   if (new Set(descriptors.map((descriptor) => descriptor.artifact_id)).size !== descriptors.length) fail("artifact_descriptor_id_duplicate");
   const grouped = new Map<number, ArtifactDescriptor[]>();
   for (const descriptor of descriptors) {
     if (!SEQUENCES.includes(descriptor.sequence_no)) fail("artifact_sequence_unknown");
     grouped.set(descriptor.sequence_no, [...(grouped.get(descriptor.sequence_no) ?? []), descriptor]);
-    const expectedManifestSha = descriptor.sequence_no === 120 ? manifest.sha256 : descriptor.sequence_no === 110 ? parentManifest.sha256 : descriptor.sequence_no === 100 ? grandparentManifest.sha256 : descriptor.sequence_no === 90 ? greatGrandparentManifest.sha256 : descriptor.sequence_no === 80 ? greatGreatGrandparentManifest.sha256 : descriptor.sequence_no === 70 ? greatGreatGreatGrandparentManifest.sha256 : rootManifest.sha256;
+    const expectedManifestSha = descriptor.sequence_no === 130 ? manifest.sha256 : descriptor.sequence_no === 120 ? parentManifest.sha256 : descriptor.sequence_no === 110 ? grandparentManifest.sha256 : descriptor.sequence_no === 100 ? greatGrandparentManifest.sha256 : descriptor.sequence_no === 90 ? greatGreatGrandparentManifest.sha256 : descriptor.sequence_no === 80 ? greatGreatGreatGrandparentManifest.sha256 : descriptor.sequence_no === 70 ? greatGreatGreatGreatGrandparentManifest.sha256 : rootManifest.sha256;
     if (descriptor.manifest_sha256 !== expectedManifestSha) fail("artifact_manifest_checksum_mismatch");
     if (descriptor.kind !== EXPECTED_KINDS.get(descriptor.sequence_no)) fail("artifact_kind_mismatch");
     if (!Array.isArray(descriptor.depends_on) || !["all","exactly_one"].includes(descriptor.dependency_mode)) fail("artifact_dependency_contract_invalid");
@@ -456,7 +459,8 @@ export async function applyArtifact(
     : descriptor.sequence_no === 90 ? 80
     : descriptor.sequence_no === 100 ? 90
     : descriptor.sequence_no === 110 ? 100
-    : descriptor.sequence_no === 120 ? 110 : 60;
+    : descriptor.sequence_no === 120 ? 110
+    : descriptor.sequence_no === 130 ? 120 : 60;
   if (!(await existingLedgerRow(pool, requiredPrevious))) fail("ledger_dependency_missing");
   const releaseUid = randomUUID();
   await pool.query("BEGIN");
@@ -484,7 +488,7 @@ export async function applyArtifact(
     } else if (actor) {
       fail("ledger_actor_only_valid_for_sequence_50");
     }
-    if (descriptor.sequence_no === 70 || descriptor.sequence_no === 80 || descriptor.sequence_no === 90 || descriptor.sequence_no === 100 || descriptor.sequence_no === 110 || descriptor.sequence_no === 120) await pool.query(readFileSync(descriptor.path, "utf8"));
+    if (descriptor.sequence_no === 70 || descriptor.sequence_no === 80 || descriptor.sequence_no === 90 || descriptor.sequence_no === 100 || descriptor.sequence_no === 110 || descriptor.sequence_no === 120 || descriptor.sequence_no === 130) await pool.query(readFileSync(descriptor.path, "utf8"));
     const release = await pool.query<{ id: string }>(`
       INSERT INTO public.schema_release_runs
         (release_uid,manifest_sha256,target_fingerprint,requested_through_sequence_no,state,started_at,legacy_feature_state,executor_identity,executor_version)
@@ -495,7 +499,7 @@ export async function applyArtifact(
       WHERE target_fingerprint=$1 ORDER BY id DESC LIMIT 1
     `, [target.targetFingerprint]);
     if (!receipt.rows[0]) fail("ledger_capability_receipt_missing");
-    if (descriptor.sequence_no !== 70 && descriptor.sequence_no !== 80 && descriptor.sequence_no !== 90 && descriptor.sequence_no !== 100 && descriptor.sequence_no !== 110 && descriptor.sequence_no !== 120) await pool.query(readFileSync(descriptor.path, "utf8"));
+    if (descriptor.sequence_no !== 70 && descriptor.sequence_no !== 80 && descriptor.sequence_no !== 90 && descriptor.sequence_no !== 100 && descriptor.sequence_no !== 110 && descriptor.sequence_no !== 120 && descriptor.sequence_no !== 130) await pool.query(readFileSync(descriptor.path, "utf8"));
     if (descriptor.sequence_no === 10) await verifyBaselineObjectCatalog(pool);
     await pool.query(`
       INSERT INTO public.schema_change_ledger
