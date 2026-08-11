@@ -6,7 +6,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| code intent | `docs/database-manifest.yaml` + root-bound sequence `1,10,15,20,30,40,50,60` + child-bound sequence `70` + grandchild-bound sequence `80` |
+| code intent | `docs/database-manifest.yaml` + root-bound sequence `1,10,15,20,30,40,50,60` + child-bound sequence `70` + grandchild-bound sequence `80` + great-grandchild-bound sequence `90` + sequence-100 write fence |
 | source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
 | source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
 | Development migrated verification KST | `2026-08-10 13:25 KST +0900` |
@@ -34,10 +34,11 @@
 | Production catalog | unverified |
 | Production drift | unknown |
 | 기준 count (tables/columns/PK/FK/UNIQUE/CHECK/index/sequence) | `68/1403/68/257/80/287/432/63` |
-| manifest SHA-256 | `19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700` sequence-90 great-grandchild (sequence-80 parent `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b`; sequence-70 ancestor `31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6`; root `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
+| manifest SHA-256 | `551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14` sequence-100 descendant (sequence-90 parent `19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700`; sequence-80 ancestor `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b`; sequence-70 ancestor `31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6`; root `986e515be4055393f13950844bb93dadd1ec1aa2b6484220506ded4f4ce6cef8`) |
 | catalog SQL SHA-256 | `bd8a68cb4f200d78f1b8128c71132fd1e13fa1f863aa59529d767e8ec68594ec` |
 | Development evidence | verified ledger `[1,10,15,20,30,40,50,60,70,80,90]`, with sequences 1–60 on root manifest `986e515b…`, sequence 70 on child `31671836…`, sequence 80 on grandchild `bf7216af…`, and sequence 90 on great-grandchild `19ac53ce…`; first sequence-90 apply was `applied`, identical reapply was `verified_noop`, startup verification approved, and the metadata-only catalog ended in `ROLLBACK` |
 | Sequence-90 correction | all-version `legacy_cutover_states(cutover_code)` UNIQUE was replaced by the same-name `WHERE version=1` partial unique index; disposable and Development `applied → verified_noop`, same-code v1/v2 disposable insertion+`ROLLBACK`, startup/catalog approval, and zero cutover/payment/legacy-decision rows verified |
+| Sequence-100 intent | `payments`에 `legacy_payments_write_fence_v1` BEFORE INSERT/UPDATE/DELETE trigger와 `dgkma_guard_legacy_payments_write_v1()` routine을 추가한다. latest `payments-v1` cutover phase가 없거나 `legacy`일 때만 write를 허용하고 `fenced|new`에서는 SQLSTATE `55000` / `legacy_payments_write_fenced`로 fail closed한다. Development 적용·catalog 수량은 아직 검증 전이다. |
 | Development source/import state | verified read-only at `2026-08-11 11:24 KST`: logical source 10, active release 28 (`v1=10`, `v2=10`, `v3=7`, `v4=1`); import batch/decision set/item `10/10/6996`; batch `9 applied/1 previewed`, set `9 approved/1 rejected/0 previewed`; coordinate/version/link `6984/6986/6986`; preview operation receipt/entity/audit `10/27972/27972`; source-decision operation receipt/entity/audit `10/25/25`; open period 6; association member/match candidate/position/classification/event/receipt/allocation rows all 0; transaction terminal `ROLLBACK` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
@@ -68,7 +69,7 @@ Owner가 승인한 보수적 terminal decision으로 foreign-faculty set `811462
 
 시스템은 Express/Drizzle 애플리케이션과 하나의 PostgreSQL `public` 스키마로 구성된 modular monolith이다. Google Sheets는 동문 명부 원본이고 `alumni_database`는 로그인·가입 심사용 runtime copy이며, Kakao는 OAuth/연결 해제 경계, Object Storage는 게시글·행사 첨부 경계다. 이 외부 시스템들은 물리 테이블을 소유하지 않는다.
 
-`session`을 포함한 required schema는 migration ledger가 소유한다. 현재 Development ledger는 root-bound 1→60, child-bound 70, grandchild-bound 80의 exact lineage를 보유하며, 시작 경로는 이를 검증할 뿐 DDL을 방출하지 않는다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
+`session`을 포함한 required schema는 migration ledger가 소유한다. 현재 저장소 의도는 root-bound 1→60, child-bound 70, grandchild-bound 80, great-grandchild-bound 90, sequence-100 descendant의 exact lineage이며, 시작 경로는 이를 검증할 뿐 DDL을 방출하지 않는다. Development ledger의 sequence 100 적용 여부는 아직 검증 전이다. catalog SQL은 `public` 메타데이터만 읽고 행·PII·Secret을 읽지 않는다.
 
 ## 3. environment drift matrix
 
@@ -79,7 +80,7 @@ Owner가 승인한 보수적 terminal decision으로 foreign-faculty set `811462
 | constraints/indexes/sequences | public | PK 68/FK 257/UNIQUE 80/CHECK 287/index 432/sequence 63 | verified | verified | unverified | Production 비교 불가 | Todo 17 |
 | views | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
 | materialized views | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| triggers | public | ABSENT (catalog count=0) | verified | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 17 |
+| triggers | public | `legacy_payments_write_fence_v1` prepared | prepared | pre-sequence-100 ABSENT (catalog count=0) | unverified | Development sequence 100 적용 후 재검증 필요; Production 부재 추정 금지 | Todo 19 |
 | policies | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
 | routines | public | manifest-owned functions 188 | verified | verified (188) | unverified | Production 비교 불가 | Todo 17 |
 | enums | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
@@ -137,7 +138,7 @@ flowchart LR
 | `alumni_database` | generated canonical mobile, non-null matched-user uniqueness/index |
 | `pending_registrations` | generated canonical email, status/domain and pending identity partial uniqueness |
 | `categories` | badge-variant and nonnegative sort-order CHECK |
-| `payments` | amount/year/type/status CHECK; legacy validation state는 ledger/catalog로 판정 |
+| `payments` | amount/year/type/status CHECK; sequence 100 이후 latest `payments-v1` cutover phase가 `legacy`일 때만 write 가능 |
 | `community_events` | event type/status CHECK와 nullable obituary FK `ON DELETE SET NULL ON UPDATE RESTRICT` |
 | `event_parse_rate_limits` | nonnegative count 및 timestamp ordering CHECK |
 | `kakao_oauth_states` | expiry-after-start CHECK |

@@ -13,7 +13,7 @@ type Column = {
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
 const EXPECTED_PLAN_SHA = "ed09074f568d1891a188cadf4c10c8a4ad773b7293ac065e1694ecd92f6e2199";
-const PARENT_MANIFEST_SHA = "bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b";
+const PARENT_MANIFEST_SHA = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -609,7 +609,7 @@ function main(): void {
     manifest_lineage: {
       parent_manifest_sha256: PARENT_MANIFEST_SHA,
       parent_manifest_path: `docs/database-manifests/${PARENT_MANIFEST_SHA}.yaml`,
-      amendment_code: "legacy_cutover_code_root_v1",
+      amendment_code: "legacy_payments_write_fence_v1",
     },
     manifest_contract: {
       deterministic_serialization: "RFC8785_JSON_AS_YAML_1_2_PLUS_LF",
@@ -733,7 +733,18 @@ function main(): void {
       classification_statuses: ["approved","quarantined"],
       collision_open_successor: { parent_status: "open", new_status: "open", action: "supersede", reason_code: "COLLISION_REVIEW_REQUIRED" },
     },
-    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80,90],
+    legacy_payments_write_fence: {
+      table: "payments",
+      cutover_code: "payments-v1",
+      phase_authority: "latest legacy_cutover_states version",
+      writable_phases: ["legacy"],
+      rejected_operations: ["INSERT", "UPDATE", "DELETE"],
+      trigger: "legacy_payments_write_fence_v1",
+      trigger_function: "dgkma_guard_legacy_payments_write_v1()",
+      rejection_sqlstate: "55000",
+      rejection_code: "legacy_payments_write_fenced",
+    },
+    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80,90,100],
   };
   const bytes = `${canonicalJson(manifest)}\n`;
   const unresolved = bytes.match(/\b(?:ACTOR|AUDIT_ACTOR|OPTIONAL_ACTOR|VCHAIN|CANONICAL_PHONE|DEFAULT_ACTOR)\b|<[a-z][a-z0-9_-]*>/);
@@ -745,7 +756,7 @@ function main(): void {
   const archiveDir="docs/database-manifests";const archivePath=`${archiveDir}/${PARENT_MANIFEST_SHA}.yaml`;mkdirSync(archiveDir,{recursive:true});
   const parentBytes=currentSha===PARENT_MANIFEST_SHA?currentBytes:existsSync(archivePath)?readFileSync(archivePath):Buffer.alloc(0);
   const currentLineage=currentSha===PARENT_MANIFEST_SHA?null:(JSON.parse(currentBytes.toString("utf8")) as {manifest_lineage?:{parent_manifest_sha256?:unknown;amendment_code?:unknown}}).manifest_lineage;
-  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="legacy_cutover_code_root_v1";
+  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="legacy_payments_write_fence_v1";
   if((currentSha!==PARENT_MANIFEST_SHA&&currentSha!==nextSha&&!currentIsSameAmendment)||sha256(parentBytes)!==PARENT_MANIFEST_SHA)throw new Error("manifest_amendment_parent_mismatch");
   if(existsSync(archivePath)){if(!readFileSync(archivePath).equals(parentBytes))throw new Error("manifest_amendment_archive_drift");}else writeFileSync(archivePath,parentBytes);
   writeFileSync(MANIFEST_PATH, bytes);

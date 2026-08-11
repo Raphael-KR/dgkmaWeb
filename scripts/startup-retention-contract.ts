@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-export const STARTUP_MANIFEST_SHA256 = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
+export const STARTUP_MANIFEST_SHA256 = "551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14";
 export const STARTUP_EXECUTOR_VERSION = "schema-ledger-v1";
-export const STARTUP_REQUIRED_SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90] as const;
-export const STARTUP_LATEST_REQUIRED = { sequence_no: 90, artifact_id: "legacy-cutover-code-root-v1" } as const;
+export const STARTUP_REQUIRED_SEQUENCES = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100] as const;
+export const STARTUP_LATEST_REQUIRED = { sequence_no: 100, artifact_id: "legacy-payments-write-fence-v1" } as const;
 
 export const STARTUP_ARTIFACTS = [
   { sequence_no: 1, artifact_id: "schema-ledger-bootstrap-v1", kind: "manual" },
@@ -19,6 +19,7 @@ export const STARTUP_ARTIFACTS = [
   { sequence_no: 70, artifact_id: "event-claim-coordinate-root-v1", kind: "manual" },
   { sequence_no: 80, artifact_id: "group-member-source-root-v1", kind: "manual" },
   { sequence_no: 90, artifact_id: "legacy-cutover-code-root-v1", kind: "manual" },
+  { sequence_no: 100, artifact_id: "legacy-payments-write-fence-v1", kind: "manual" },
 ] as const;
 
 export type StartupDescriptor = {
@@ -72,7 +73,7 @@ export function verifyStartupLedger(rows: readonly StartupLedgerRow[], descripto
   if (latestDescriptor?.manifest_sha256 !== STARTUP_MANIFEST_SHA256) return failure("startup_manifest_lineage_mismatch", observedLatest);
   if (expected.length !== STARTUP_REQUIRED_SEQUENCES.length) return failure("startup_descriptor_contract_mismatch", observedLatest);
   if (new Set(rows.map((row) => row.sequence_no)).size !== rows.length) return failure("startup_ledger_sequence_duplicate", observedLatest);
-  if (rows.some((row) => row.sequence_no <= 90 && !STARTUP_REQUIRED_SEQUENCES.includes(row.sequence_no as never))) {
+  if (rows.some((row) => row.sequence_no <= 100 && !STARTUP_REQUIRED_SEQUENCES.includes(row.sequence_no as never))) {
     return failure("startup_ledger_unknown_required_range_sequence", observedLatest);
   }
   const targetFingerprints = new Set(rows.map((row) => row.target_fingerprint));
@@ -119,7 +120,7 @@ export function startupLedgerInventorySql(): string {
     "       l.target_fingerprint, l.capability_variant, l.executor_version, r.state AS release_state",
     "FROM public.schema_change_ledger AS l",
     "JOIN public.schema_release_runs AS r ON r.id = l.release_run_id",
-    "WHERE l.sequence_no <= 90 ORDER BY l.sequence_no, l.artifact_id;",
+    "WHERE l.sequence_no <= 100 ORDER BY l.sequence_no, l.artifact_id;",
     "ROLLBACK;",
     "",
   ].join("\n");
