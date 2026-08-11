@@ -221,6 +221,13 @@ export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, r
   const client = await pool.connect();
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+    // SERIALIZABLE fixes its snapshot on the first ordinary query. Fence/cutover must
+    // therefore wait for every earlier payments writer before reading the actor or
+    // any source state, otherwise a writer that commits during the lock wait can be
+    // invisible to the frozen watermark.
+    if (command.action === "fence" || command.action === "cutover") {
+      await client.query("LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE");
+    }
     const live = await client.query<{ id: number; user_uid: string; is_admin: boolean; name: string }>("SELECT id,user_uid::text,is_admin,name FROM public.users WHERE id=$1 FOR UPDATE", [actor.userId]);
     if (live.rowCount !== 1 || !live.rows[0].is_admin || live.rows[0].user_uid !== actor.userUid || live.rows[0].name !== actor.name) fail("legacy_payment_admin_required");
     const existing = await replay(client, command, actor); if (existing) { await client.query("COMMIT"); return { execution_outcome: "verified_noop", receipt: existing }; }
@@ -284,7 +291,8 @@ export async function executeLegacyPaymentCommand(pool: Pick<Pool, "connect">, r
     const batchRow = await client.query<{ id: string; status: string; row_count: number; preview_manifest_sha256: string; source_fingerprint: string }>("SELECT id::text,status,row_count,preview_manifest_sha256,source_fingerprint FROM public.accounting_import_batches WHERE batch_uid=$1::uuid AND source_release_id=$2 FOR UPDATE", [batch.batch_uid, releaseRow.rows[0].id]);
     if (batchRow.rowCount !== 1) fail("legacy_payment_batch_binding_mismatch");
     if ((await client.query("SELECT 1 FROM public.source_decision_sets WHERE batch_id=$1", [batchRow.rows[0].id])).rowCount !== 0) fail("legacy_payment_decision_only_violation");
-    await client.query("LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE"); const previewRows = await readLockedLegacyPayments(client); const paymentStats = { count: previewRows.length, watermark: previewRows.at(-1)?.paymentId ?? 0 };
+    if (command.action === "initialize") await client.query("LOCK TABLE public.payments IN ACCESS EXCLUSIVE MODE");
+    const previewRows = await readLockedLegacyPayments(client); const paymentStats = { count: previewRows.length, watermark: previewRows.at(-1)?.paymentId ?? 0 };
     const identity = previewRows.length === 0 ? { sourceFingerprint:String(batch.source_fingerprint),previewManifestSha256:String(batch.preview_manifest_sha256) } : buildLegacyPaymentPreviewIdentity({sourceUid:source.rows[0].source_uid,releaseUid:String(release.release_uid),sourceRevision:`disposable:${scope.kind === "disposable-test" ? scope.runUid : "forbidden"};rows:${previewRows.length}`,coverageFrom:String(batch.coverage_from),coverageThrough:String(batch.coverage_through),rows:previewRows});
     if (batchRow.rows[0].row_count !== previewRows.length || batchRow.rows[0].preview_manifest_sha256 !== identity.previewManifestSha256 || batchRow.rows[0].source_fingerprint !== identity.sourceFingerprint || scope.kind === "development" && previewRows.length !== 0) fail("legacy_payment_batch_binding_mismatch");
     if ((await client.query<{count:number}>("SELECT count(*)::int count FROM public.accounting_import_batch_rows WHERE batch_id=$1", [batchRow.rows[0].id])).rows[0].count !== previewRows.length) fail("legacy_payment_batch_row_coverage_mismatch");

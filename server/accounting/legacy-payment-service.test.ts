@@ -45,6 +45,10 @@ test("legacy executor keeps Development exact-bound and exposes only a UUID-boun
   assert.match(developmentVerifier,/BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY/);
   assert.match(developmentVerifier,/legacy_development_stored_receipt_mismatch/);
   assert.match(developmentVerifier,/identity_sequence_sha256/);
+  const transactionStart = source.indexOf('await client.query("BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE")');
+  const earlyFenceLock = source.indexOf('if (command.action === "fence" || command.action === "cutover")', transactionStart);
+  const actorLock = source.indexOf('SELECT id,user_uid::text,is_admin,name FROM public.users', transactionStart);
+  assert.ok(transactionStart >= 0 && earlyFenceLock > transactionStart && actorLock > earlyFenceLock);
 });
 
 test("read rollback and recutover commands bind exact DB-resident comparison state", () => {
