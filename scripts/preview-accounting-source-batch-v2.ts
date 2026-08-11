@@ -66,7 +66,8 @@ function descriptorFor(input: SourcePreviewInput): JsonObject {
   const ledgerVersion = input.source_code === "LEDGER_FINAL_2022_2025" && input.rows.every((row) => row.normalization_version === "final-ledger-v3@3.0.0+reproducible-profile-v1") ? "v3" : null;
   const bankVersion = input.source_code === "BANK_TOSS_2026" && input.rows.every((row) => row.normalization_version === "toss-bank-sheet-v3@3.0.0+reproducible-profile-v1") ? "v3" : input.source_code === "BANK_IBK_2026" && input.rows.every((row) => row.normalization_version === "ibk-bank-sheet-v3@3.0.0+reproducible-profile-v1") ? "v3" : null;
   const groupVersion = input.source_code === "GROUP_FOREIGN_FACULTY_2025" && input.rows.every((row) => row.normalization_version === "group-roster-v3@3.0.0+reproducible-profile-v1") ? "v3" : null;
-  const version = roleVersion ?? membershipVersion ?? ledgerVersion ?? bankVersion ?? groupVersion ?? "v2";
+  const agmVersion = input.source_code === "AGM36_PERIOD_BOUNDARY" && input.rows.every((row) => row.normalization_version === "agm-period-boundary-v3@3.0.0+notion-role-v4-boundary-v1") ? "v3" : null;
+  const version = roleVersion ?? membershipVersion ?? ledgerVersion ?? bankVersion ?? groupVersion ?? agmVersion ?? "v2";
   const path = `docs/source-contracts/releases/${slug}-${version}.json`; const descriptor = readJson(path) as JsonObject;
   const expectedAdapterVersion = version === "v4" ? "4.0.0" : version === "v3" ? "3.0.0" : "2.0.0";
   if (descriptor.source_code !== input.source_code || descriptor.adapter_version !== expectedAdapterVersion || typeof descriptor.mapping_table_sha256 !== "string") fail("source_preview_descriptor_invalid");
