@@ -84,7 +84,7 @@ async function verifyCatalog(pool: Pool, target: "development" | "disposable-tes
       .flatMap((table) => table.columns.map((column) => `${table.table}.${column.name}`))
       .filter((key) => !observed.has(key));
     if (missing.length) throw new Error(`catalog_manifest_column_missing:${missing[0]}`);
-    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    const required = [1, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110];
     if (ledger.rows.length !== required.length || ledger.rows.some((row, index) => row.sequence_no !== required[index])) {
       throw new Error("catalog_ledger_sequence_mismatch");
     }

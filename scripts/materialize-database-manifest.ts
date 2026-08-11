@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { BUSINESS_REASON_TUPLES } from "../server/accounting/business-reason-contract";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Column = {
@@ -12,8 +13,8 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "ed09074f568d1891a188cadf4c10c8a4ad773b7293ac065e1694ecd92f6e2199";
-const PARENT_MANIFEST_SHA = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
+const EXPECTED_PLAN_SHA = "94a26ae7b441a541ff47a74cd69a0dea1f17b69939b551e5d751d522f1077cb2";
+const PARENT_MANIFEST_SHA = "551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -535,6 +536,18 @@ function main(): void {
     { name: objectName("member_position_assignments", "override_reason", "check"), table: "member_position_assignments", rule: "override_reason", expression_sql: "override_reason IS NULL OR override_reason = 'OWNER_APPROVED_21ST_TERM_TO_AGM36_CLOSE'" },
     { name: objectName("dues_allocations", "correction_reason_code", "check"), table: "dues_allocations", rule: "correction_reason_code", expression_sql: "(correction_reason_code IS NULL AND rights_effect_mode IN ('immediate_positive','next_month_negative')) OR (correction_reason_code IN ('source_error','false_transaction') AND rights_effect_mode = 'retroactive_error')" },
   );
+  const businessReasonRegistry = [...new Set(BUSINESS_REASON_TUPLES.map((tuple) => tuple.table))].sort().map((table) => {
+    const tableTuples = BUSINESS_REASON_TUPLES.filter((tuple) => tuple.table === table);
+    const reasonCodes = [...new Set(tableTuples.map((tuple) => tuple.reasonCode))].sort();
+    checks.push({
+      name: objectName(table, "reason_code", "check"),
+      table,
+      rule: "reason_code",
+      expression_sql: `reason_code IN (${reasonCodes.map((reasonCode) => `'${reasonCode}'`).join(",")})`,
+      validation_state: "validated_at_sequence_110",
+    });
+    return { table, column: "reason_code", nullable: false, reason_codes: reasonCodes, tuples: tableTuples };
+  });
   const ranges: Json[] = [];
   for (const table of tableRows) {
     const columnNames = new Set(table.columns.map((column) => column.name));
@@ -609,7 +622,7 @@ function main(): void {
     manifest_lineage: {
       parent_manifest_sha256: PARENT_MANIFEST_SHA,
       parent_manifest_path: `docs/database-manifests/${PARENT_MANIFEST_SHA}.yaml`,
-      amendment_code: "legacy_payments_write_fence_v1",
+      amendment_code: "business_reason_registry_v1",
     },
     manifest_contract: {
       deterministic_serialization: "RFC8785_JSON_AS_YAML_1_2_PLUS_LF",
@@ -623,6 +636,7 @@ function main(): void {
     foreign_keys: foreignKeys,
     indexes: [...indexes.values()].sort((a: any, b: any) => `${a.table}.${a.name}`.localeCompare(`${b.table}.${b.name}`)),
     checks: checks.sort((a: any, b: any) => `${a.table}.${a.name}`.localeCompare(`${b.table}.${b.name}`)),
+    business_reason_registry: businessReasonRegistry,
     digest_test_vectors: [
       digestVector("bank_transactions.row_fingerprint", {
         digest_version: "bank-row-v1", account_code: "TOSS_OFFICER_2026", provider_row_id: "row-0001",
@@ -744,7 +758,7 @@ function main(): void {
       rejection_sqlstate: "55000",
       rejection_code: "legacy_payments_write_fenced",
     },
-    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80,90,100],
+    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80,90,100,110],
   };
   const bytes = `${canonicalJson(manifest)}\n`;
   const unresolved = bytes.match(/\b(?:ACTOR|AUDIT_ACTOR|OPTIONAL_ACTOR|VCHAIN|CANONICAL_PHONE|DEFAULT_ACTOR)\b|<[a-z][a-z0-9_-]*>/);
@@ -756,7 +770,7 @@ function main(): void {
   const archiveDir="docs/database-manifests";const archivePath=`${archiveDir}/${PARENT_MANIFEST_SHA}.yaml`;mkdirSync(archiveDir,{recursive:true});
   const parentBytes=currentSha===PARENT_MANIFEST_SHA?currentBytes:existsSync(archivePath)?readFileSync(archivePath):Buffer.alloc(0);
   const currentLineage=currentSha===PARENT_MANIFEST_SHA?null:(JSON.parse(currentBytes.toString("utf8")) as {manifest_lineage?:{parent_manifest_sha256?:unknown;amendment_code?:unknown}}).manifest_lineage;
-  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="legacy_payments_write_fence_v1";
+  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="business_reason_registry_v1";
   if((currentSha!==PARENT_MANIFEST_SHA&&currentSha!==nextSha&&!currentIsSameAmendment)||sha256(parentBytes)!==PARENT_MANIFEST_SHA)throw new Error("manifest_amendment_parent_mismatch");
   if(existsSync(archivePath)){if(!readFileSync(archivePath).equals(parentBytes))throw new Error("manifest_amendment_archive_drift");}else writeFileSync(archivePath,parentBytes);
   writeFileSync(MANIFEST_PATH, bytes);

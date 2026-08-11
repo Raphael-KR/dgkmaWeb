@@ -116,6 +116,15 @@
       "materialization_state": "materialized",
       "required_for_startup": true,
       "sequence_no": 100
+    },
+    {
+      "artifact_id": "business-reason-registry-v1",
+      "artifact_sha256": "1daaff77c78034ad9b55e3578e39558cae9bed3e00fb686d72b5dd203ec0b947",
+      "kind": "manual",
+      "manifest_sha256": "9dba0d10093ed9a070d4564d1bcc46e8ba3da47e4d39981d66792594737377ab",
+      "materialization_state": "materialized",
+      "required_for_startup": true,
+      "sequence_no": 110
     }
   ],
   "ledger_rows": [
@@ -249,6 +258,17 @@
       "manifest_sha256": "551d9d672a0cd3689b6c3ac5d1252078f4e53106a7ef143ac954c96239596c14",
       "release_state": "verified",
       "sequence_no": 100,
+      "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "artifact_id": "business-reason-registry-v1",
+      "artifact_kind": "manual",
+      "artifact_sha256": "1daaff77c78034ad9b55e3578e39558cae9bed3e00fb686d72b5dd203ec0b947",
+      "capability_variant": "preferred_btree_gist",
+      "executor_version": "schema-ledger-v1",
+      "manifest_sha256": "9dba0d10093ed9a070d4564d1bcc46e8ba3da47e4d39981d66792594737377ab",
+      "release_state": "verified",
+      "sequence_no": 110,
       "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
     }
   ],
