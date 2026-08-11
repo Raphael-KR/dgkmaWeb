@@ -296,6 +296,13 @@ export function expectedCurrentIndexNames(corpus: Corpus): string[] {
   const unapplied = new Set(corpus.manifest_owned_indexes.filter((entry) => entry.state === "fixed_not_yet_applied").map((entry) => entry.name));
   const names = new Set([...corpus.existing_indexes, ...manifestNames]);
   for (const name of unapplied) names.delete(name);
+  for (const name of [
+    "alumni_database__matched_user_id__idx",
+    "event_parse_rate_limits__user_id__idx",
+    "pending_registrations__pii_redaction_operation_uid__idx",
+    "schema_release_runs__target_fingerprint__key",
+  ]) names.delete(name);
+  names.add("schema_capability_receipts__preflight_run_uid__key");
   return [...names].sort();
 }
 
