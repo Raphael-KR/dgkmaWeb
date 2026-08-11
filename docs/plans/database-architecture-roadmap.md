@@ -20,14 +20,15 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80]`; sequence 80 `applied → verified_noop`; startup/catalog 승인 |
 | Todo 18 apply 구현 | synthetic group `1/28/28`, role `1/7/7`, individual dues `1/20/20` operation receipt/entity/audit; replay identity sequence 불변 및 exact KRW 50,000 합계 증명 |
 | Todo 18 통합 검증 | exact commit `c3678d8`; happy 6개와 failure 2개를 독립 disposable DB에서 통과, 모든 DB·actor receipt·임시 worktree/evidence 부재 확인 |
-| 실제 source data | active release 27, batch/set/item `9/9/6994`; 9개 set 전부 `previewed`; 회원·match·직책·분류·event·receipt·allocation downstream 전부 0 |
+| 관리자 CLI | exact commit `d6f1788`; fixed Development admin receipt와 live ledger/admin을 재검증하고 authenticated POST와 동일 service·transaction 실행; Replit `tsc`와 138개 테스트 통과 |
+| 실제 source data | active release 27, batch/set/item `9/9/6994`; 7개 batch/set `applied/approved`, AGM36·외래교수회 2개 `previewed`; open period 4, 회원·match·직책·분류·event·receipt·allocation downstream 전부 0; apply receipt/entity/audit `7/18/18` |
 | Production/deploy | 작업 0건; 미승인·미검증 |
 
 ## 남은 실행 순서
 
 | 순서 | Todo/Phase | 다음 완료 조건 |
 |---:|---|---|
-| 1 | 18 | 실제 9개 preview의 administrator-readable source decision을 확정하고, 승인 범위만 동일 service 경로로 Development에 원자 apply한 뒤 source별 합계·중복 0 검증 |
+| 1 | 18 | AGM36의 잘못 동결된 v2 boundary evidence를 immutable v3 mapping/release와 fresh preview로 교정·승인·apply하고, 외래교수회는 exact primary bank receipt 결정 전 preview 상태 유지 |
 | 2 | 19 | legacy `payments` cross-link/backfill, double-count 0, DB-resident cutover proof |
 | 3 | 20 ∥ 21 | 시간·금액·마감·동시성 불변식과 security/retention/workload 검증 |
 | 4 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
@@ -37,11 +38,11 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 
 ## 현재 운영 승인 경계
 
-- 외래교수회 26개 행의 각 50,000원은 후보일 뿐 자동 배분 근거가 아니다. 실제 `include|reject|quarantine`, 총액 KRW 1,300,000 일치, primary bank receipt와 companion roster 결합은 별도 source-decision 승인을 요구한다.
-- 현재 실제 preview의 제안값은 `AGM36_PERIOD_BOUNDARY` approve 2, `LEDGER_FINAL_2022_2025` approve 4/quarantine 3,014, 나머지 decision item 6,988개 quarantine이다. 이는 deterministic preview이지 운영 승인이나 apply가 아니다.
-- PII-free read-only 충돌 점검에서 기존 period는 0개였다. 승인 후보 6개는 `CALENDAR_2022`–`CALENDAR_2025`, `PRE_AGM36_2026`, `AGM36_TO_AGM37`이며 코드 충돌이 없다.
-- 다음 단일 운영안은 exact commit `85ee71c`를 Development에만 활성화하고, 저장된 관리자 세션의 authenticated GET/POST로 외래교수회 companion을 제외한 8개 preview를 그대로 승인·적용하는 것이다. 예상 결과는 batch/set `8/8 applied/approved`, 외래교수회 `1/1 previewed`, period 6개 생성, 나머지 회원·직책·financial downstream 0, 동일 POST replay no-op이다. 외래교수회는 exact primary bank receipt 결정 전 direct companion apply 금지를 유지한다. GUI saved-session 사용과 Development restart가 필요하므로 명시 승인 전에는 실행하지 않는다.
-- 그 전까지 Codex는 synthetic/disposable 검증, Development additive schema, read-only preflight, deterministic preview, 테스트·문서·Git/GitHub 작업을 계속한다.
+- 관리자 CLI로 결함 없는 7개 source를 Development에 원자 apply했다. exact replay는 동일 receipt bytes와 identity-sequence digest를 재현했고, `CALENDAR_2022`–`CALENDAR_2025` 4개만 생성됐다. 나머지 회원·직책·financial downstream은 0이다.
+- AGM36 v2는 동결 payload의 boundary coordinate/content digest가 활성 Notion v4 source row와 일치하지 않아 reservation/DML 전 `source_decision_period_boundary_mismatch`로 실패했다. operation receipt 0과 상태 불변을 확인했으므로 기존 v2 row 수정, DB 직접 변경, service 검증 완화는 금지한다.
+- 다음 단일 승인안은 기존 AGM36 v2 release·preview를 immutable 이력으로 보존하면서, 실제 유일한 Notion v4 22대 회장 경계 coordinate `notion:page:3b72225d-9c4d-81b6-9fbb-f30287bfe90e`와 content digest `2e0b0afea037bca10fd6ff405e629794367edd590031a409a8073d99eb2bfbc2`에 묶인 v3 mapping/release를 등록하고 fresh preview의 `PRE_AGM36_2026`, `AGM36_TO_AGM37` 2개 period만 승인·apply하는 것이다. 기존 v2 set은 reject하고 v3 fresh set을 별도 approve한다.
+- 외래교수회 26개 행 × 50,000원은 계속 후보일 뿐이며, exact primary bank receipt equality와 companion 결합 승인이 있기 전에는 direct apply하지 않는다.
+- 그 전까지 Codex는 승인된 v3 교정 준비, synthetic/disposable 검증, Development additive work, 테스트·문서·Git/GitHub 작업을 계속한다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
 
 ## 문서 동기화 규칙

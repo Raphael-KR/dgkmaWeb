@@ -274,6 +274,33 @@ env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
 
 2026-08-10에는 두 policy decision set을 commit `b48a7fa75d5a02fd3e6041040d5232c3ce6290b7`에서 실제 Development DB에 대해 검증했다. 두 set 모두 `previewed`, item 0, 기존 decision manifest와 source fingerprint 일치, terminal `ROLLBACK`이었다. 정적 검사 1/1과 TypeScript 검사도 통과했으며 exact-commit Replit worktree를 삭제하고 부재를 확인했다. 이는 DB reader 검증이지 개발 홈페이지 runtime route 활성화·배포 증거가 아니다.
 
+### source decision 관리자 CLI
+
+브라우저가 없어도 `scripts/source-decision-admin.ts`로 동일한 source-decision application service와 `SERIALIZABLE` transaction 경로를 실행할 수 있다. 이 CLI는 DB business row를 직접 쓰지 않고 테스트 actor도 만들지 않는다. Development 전용으로 고정되며, checked-in 관리자 승인 receipt의 canonical path·self-hash·target fingerprint·sequence 40 ledger와 live user ID/UID/admin 상태를 매 실행마다 다시 검증한다. persisted review bytes와 manifest도 다시 해시하고, exact manifest·source fingerprint·item/outcome count를 명령 인자로 요구한다. HTTP의 세션·same-origin·CSRF는 브라우저 transport 경계이고, CLI는 로컬 실행권한과 고정 actor receipt를 별도 인증 경계로 사용한다. 두 경로가 합류한 뒤의 command validation, authorization recheck, reservation, business DML, audit, receipt와 replay 처리는 동일하다.
+
+```bash
+env -u DATABASE_URL -u PROD_DATABASE_URL -u PROD_DATABASE_READONLY_URL \
+  npx tsx scripts/source-decision-admin.ts \
+  --target development \
+  --actor-receipt docs/database-targets/development-admin-approved.json \
+  --decision approve \
+  --decision-set-uid <exact-preview-uuid> \
+  --expected-manifest-sha256 <exact-manifest-sha256> \
+  --expected-source-fingerprint <exact-source-fingerprint> \
+  --expected-items <exact-item-count> \
+  --expected-approve-items <exact-approve-count> \
+  --expected-reject-items <exact-reject-count> \
+  --expected-quarantine-items <exact-quarantine-count> \
+  --operation-uid <uuid-v4> \
+  --receipt /tmp/dgkma-source-decision-admin-<same-uuid-v4>.json
+```
+
+Receipt는 `/tmp`의 새 mode-0600 파일로만 생성하고 저장소에 commit하지 않는다. 같은 operation UID와 exact command를 재실행하면 service가 기존 operation receipt를 검증해 같은 receipt bytes를 돌려줘야 한다. 다른 operation UID로 terminal set을 다시 승인하는 것은 허용되지 않는다.
+
+Exact commit `d6f1788`은 Replit에서 `npx tsc --noEmit`과 138개 accounting/route/security 테스트를 통과했다. 실제 Development에서는 외래교수회 companion과 결함이 발견된 AGM36 set을 제외한 7개 source를 CLI로 승인·적용했고, 각 exact replay의 receipt bytes와 identity-sequence digest가 동일했다. 최종 read-only 검증은 해당 batch/set `7/7 applied/approved`, open period `CALENDAR_2022`–`CALENDAR_2025` 4개, operation receipt/entity/audit `7/18/18`, 회원·match·직책·분류·event·receipt·allocation 0, terminal `ROLLBACK`, Production operation 0을 확인했다.
+
+AGM36 v2 apply는 reservation/DML 전에 `source_decision_period_boundary_mismatch`로 실패했고 operation receipt 0과 전체 상태 불변을 확인했다. 동결 payload가 참조하는 `notion-role:22:president:2026-02-28` coordinate/content digest는 활성 Notion v4 source에 존재하지 않는다. 실제 유일한 22대 회장 경계 row는 coordinate `notion:page:3b72225d-9c4d-81b6-9fbb-f30287bfe90e`, content digest `2e0b0afea037bca10fd6ff405e629794367edd590031a409a8073d99eb2bfbc2`다. 기존 immutable v2 row를 수정하거나 service 검증을 완화하지 않고, provider-bound 승인을 받은 v3 mapping/release와 fresh preview로 교정해야 한다.
+
 ### Notion 조직·직책 이력 preflight
 
 `scripts/materialize-notion-role-history-preview-input-v2.ts`는 connected Notion에서 읽은 exact data-source 행을 mode-0600 임시 관측 파일 또는 stdin으로 받아 승인된 v2 adapter를 전 행에 적용한다. 원문·이름은 출력하지 않고 mapping reason별 건수만 출력한다. 한 행이라도 실패하면 일부 행을 누락한 preview를 만들지 않으며 output 파일도 생성하지 않는다. 모든 행이 통과할 때에만 이름은 관리자 가독 snapshot으로, integrity key는 secretless digest로 정규화하고 name-only member-match 제안은 `quarantine`으로 고정한 임시 preview 입력을 만든다.
