@@ -14,35 +14,35 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | 항목 | 확인된 상태 |
 |---|---|
 | 구현 브랜치 | `codex/database-architecture-todo16` |
-| 현재 단계 | Todo 18 진행 중 |
+| 현재 단계 | Todo 18 완료 → Todo 19 진행 중 |
 | 완료 범위 | Todo 1–17, Todo 23 방향 전환, N1 |
 | manifest | grandchild SHA-256 `bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b` |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80]`; sequence 80 `applied → verified_noop`; startup/catalog 승인 |
 | Todo 18 apply 구현 | synthetic group `1/28/28`, role `1/7/7`, individual dues `1/20/20` operation receipt/entity/audit; replay identity sequence 불변 및 exact KRW 50,000 합계 증명 |
 | Todo 18 통합 검증 | exact commit `c3678d8`; happy 6개와 failure 2개를 독립 disposable DB에서 통과, 모든 DB·actor receipt·임시 worktree/evidence 부재 확인 |
 | 관리자 CLI | exact commit `d6f1788`; fixed Development admin receipt와 live ledger/admin을 재검증하고 authenticated POST와 동일 service·transaction 실행; Replit `tsc`와 138개 테스트 통과 |
-| 실제 source data | active release 28, batch/set/item `10/10/6996`; batch `8 applied/2 previewed`, set `8 approved/1 rejected/1 previewed`; open period 6, 회원·match·직책·분류·event·receipt·allocation downstream 전부 0; source-decision receipt/entity/audit `9/23/23` |
+| 실제 source data | active release 28, batch/set/item `10/10/6996`; batch `9 applied/1 previewed`, set `9 approved/1 rejected/0 previewed`; open period 6, 회원·match·직책·분류·event·receipt·allocation downstream 전부 0; source-decision receipt/entity/audit `10/25/25` |
 | Production/deploy | 작업 0건; 미승인·미검증 |
 
 ## 남은 실행 순서
 
 | 순서 | Todo/Phase | 다음 완료 조건 |
 |---:|---|---|
-| 1 | 18 | exact primary receipt가 현재 source에 없음을 전제로 외래교수회 52개 item을 quarantine-only apply할지 owner가 결정; 승인 시 downstream 0·replay no-op 검증으로 Todo 18 source coverage 종료 |
-| 2 | 19 | legacy `payments` cross-link/backfill, double-count 0, DB-resident cutover proof |
-| 3 | 20 ∥ 21 | 시간·금액·마감·동시성 불변식과 security/retention/workload 검증 |
-| 4 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
-| 5 | F1–F4 | 동일 frozen SHA를 독립 검증한 provider-bound receipts |
-| 6 | A1 | 최종 architecture attestation |
-| 7 | C1 | 정식 오픈 직전 최종 source freeze·Production backup/restore·reconciliation 후 사용자 선언 시각부터 PostgreSQL을 회원·조직 SSOT로 전환 |
+| 1 | 19 | legacy `payments` cross-link/backfill, double-count 0, DB-resident cutover proof |
+| 2 | 20 ∥ 21 | 시간·금액·마감·동시성 불변식과 security/retention/workload 검증 |
+| 3 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
+| 4 | F1–F4 | 동일 frozen SHA를 독립 검증한 provider-bound receipts |
+| 5 | A1 | 최종 architecture attestation |
+| 6 | C1 | 정식 오픈 직전 최종 source freeze·Production backup/restore·reconciliation 후 사용자 선언 시각부터 PostgreSQL을 회원·조직 SSOT로 전환 |
 
 ## 현재 운영 승인 경계
 
 - 관리자 CLI로 먼저 7개 source를 Development에 원자 apply했고, 이어 owner 승인 AGM36 v3를 실제 Notion v4 경계 row에 결합했다. 기존 v2 set은 `rejected`, v3 set/batch는 `approved/applied`이며 `PRE_AGM36_2026`, `AGM36_TO_AGM37` 두 period가 생성됐다. 모든 exact replay는 receipt bytes와 identity-sequence digest를 보존했다.
 - 전체 open period는 `CALENDAR_2022`–`CALENDAR_2025`, `PRE_AGM36_2026`, `AGM36_TO_AGM37` 6개다. 회원·직책·financial downstream은 0이고 Production·배포 작업도 0이다.
-- 외래교수회 26개 행 × 50,000원은 계속 후보일 뿐이며, exact primary bank receipt equality와 companion 결합 승인이 있기 전에는 direct apply하지 않는다.
-- PII-minimized read-only 대조 결과 동일한 KRW 1,300,000 credit row는 Toss·IBK v3에 0개이며 finalized-ledger v3에도 0개다. 따라서 primary+companion allocation apply는 현재 불가능하다.
-- 다음 단일 승인안은 기존 외래교수회 set의 26개 name-only match와 26개 unbound allocation을 모두 quarantine outcome 그대로 승인해 batch만 applied로 전환하고, 회원 match·receipt·group·allocation downstream은 0으로 유지하는 것이다. 향후 실제 bank evidence가 추가되면 새 source revision/release/preview와 별도 source-decision으로 처리한다.
+- Owner 승인에 따라 외래교수회 set `811462f6-de04-428b-99ba-a587eac4b0d7`의 name-only match 26개와 unbound allocation 26개를 기존 `quarantine` outcome 그대로 Development에 approve/apply했다. batch만 `applied`로 전환됐고 회원 match·receipt·group·allocation downstream은 모두 0이다.
+- 동일 operation replay의 service receipt SHA-256 `2f8c6f1362f1a8b8cd038126bf9ffef878ae1198e15b651751b5c007446de6a8`, receipt file SHA-256 `d4b25889651bb1c71c1c4bae3517663985b987ff0778816cdffa57cdedd63477`, identity-sequence SHA-256 `c0b7dd1d1343026d74c4c897f57ce5a8df086c5482541e9a8f2bd8a9bba25778`이 전후 동일했다. 임시 receipt·worktree는 삭제 후 부재를 확인했다.
+- 외래교수회 26행 × 50,000원은 여전히 후보 evidence일 뿐이다. 향후 실제 bank evidence가 추가되면 기존 terminal evidence를 변경하지 않고 새 source revision/release/preview와 별도 source-decision으로 처리한다.
+- Todo 18 source coverage는 종료됐고 Todo 19의 legacy `payments` compatibility/cutover 구현이 다음 실행 경로다. 현재 추가 운영 승인은 필요하지 않다.
 - Production DB 쓰기, Republish, 실제 결제 연동, C1 SSOT 전환은 각각 별도 운영 경계다.
 
 ## 문서 동기화 규칙
