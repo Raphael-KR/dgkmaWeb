@@ -247,12 +247,13 @@ async function runReceiptRefundProbe(
       ON entity.action_correlation_uid=audit.correlation_uid WHERE entity.operation_uid=receipt.operation_uid) audits,
     (SELECT count(*)::int FROM public.dues_receipt_reversals WHERE refund_event_id=$2 AND status='approved') reversals,
     (SELECT count(*)::int FROM public.dues_allocations WHERE request_uid=$3::uuid AND status='approved') allocations,
-    (SELECT effective_at::text FROM public.dues_allocations WHERE request_uid=$3::uuid) effective_at,
+    (SELECT to_char(effective_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS')||'Z'
+      FROM public.dues_allocations WHERE request_uid=$3::uuid) effective_at,
     (SELECT rights_effect_mode FROM public.dues_allocations WHERE request_uid=$3::uuid) rights_effect_mode
     FROM public.business_operation_receipts receipt WHERE receipt.operation_uid=$1::uuid AND receipt.entity_type='receipt_refund'`,
   [command.operationUid, refundEventId, command.newAllocationRequestUids[0]]);
   const state = stored.rows[0];
-  if (stored.rowCount !== 1 || state.entities !== 2 || state.audits !== 2 || state.reversals !== 1 || state.allocations !== 1 || state.rights_effect_mode !== "next_month_negative" || !state.effective_at.startsWith("2026-04-01 00:00:00+09")) throw new Error(`task_20_refund_result_mismatch:${canonicalJson(state as unknown as CanonicalValue)}`);
+  if (stored.rowCount !== 1 || state.entities !== 2 || state.audits !== 2 || state.reversals !== 1 || state.allocations !== 1 || state.rights_effect_mode !== "next_month_negative" || state.effective_at !== "2026-03-31T15:00:00Z") throw new Error(`task_20_refund_result_mismatch:${canonicalJson(state as unknown as CanonicalValue)}`);
   assertBusinessOperationPayloadHash(state.canonical_payload, state.payload_sha256);
   const payload = state.canonical_payload as Record<string, CanonicalValue>;
   if (validateBusinessOperationPayloadV2(state.canonical_payload).sha256 !== created.payloadSha256 || canonicalJson(payload.expected_results!) !== canonicalJson(state.result_entity_keys)) throw new Error("task_20_refund_receipt_mismatch");
