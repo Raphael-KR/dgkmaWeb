@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { canonicalJson, readArtifactDescriptors, readManifest, sha256 } from "./schema-ledger";
+import { readGlobalLockRegistry } from "../server/accounting/global-lock-contract";
 
 function fail(code: string): never {
   throw new Error(code);
@@ -61,6 +62,7 @@ function main(): void {
   }
   if (!Array.isArray(value.actor_action_registry) || value.actor_action_registry.length !== 59) fail("manifest_actor_action_closure_mismatch");
   if (!Array.isArray(value.lock_class_registry) || value.lock_class_registry.length !== 62 || value.lock_class_registry[0].rank !== 10 || value.lock_class_registry.at(-1).rank !== 490) fail("manifest_lock_class_closure_mismatch");
+  readGlobalLockRegistry();
   if (!Array.isArray(value.primary_keys) || value.primary_keys.length !== 55) fail("manifest_primary_key_closure_mismatch");
   if (!Array.isArray(value.unique_constraints) || value.unique_constraints.length < 100) fail("manifest_unique_constraint_closure_mismatch");
   const tableColumns = new Map(value.tables.map((table: any) => [table.table, new Set(table.columns.map((column: any) => column.name))]));
