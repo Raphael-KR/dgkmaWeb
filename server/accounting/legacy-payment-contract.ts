@@ -132,6 +132,29 @@ export function legacyCandidateKstDates(occurredKstDate: string): [string, strin
   }) as [string, string, string];
 }
 
+export function legacyCandidateLockKeys(input: {
+  memberUid: string;
+  duesYear: number;
+  amount: string;
+  occurredKstDate: string;
+}): Array<{ occurredKstDate: string; candidateKey: string; advisoryKey: string }> {
+  if (!UUID.test(input.memberUid)) fail("legacy_candidate_member_uid_invalid");
+  if (!Number.isSafeInteger(input.duesYear) || input.duesYear < 2024 || input.duesYear > 2026) fail("legacy_candidate_dues_year_invalid");
+  if (!/^[1-9][0-9]*$/.test(input.amount)) fail("legacy_candidate_amount_invalid");
+  return legacyCandidateKstDates(input.occurredKstDate).map((occurredKstDate) => {
+    const candidateKey = sha256(canonicalJson({
+      candidate_key_version: "event-candidate-v2",
+      party_identity: `member:${input.memberUid}`,
+      dues_year_or_null: input.duesYear,
+      amount: input.amount,
+      occurred_date_kst: occurredKstDate,
+      direction: "credit",
+      party_kind: "member",
+    } as CanonicalValue));
+    return { occurredKstDate, candidateKey, advisoryKey: candidateKey };
+  }).sort((left, right) => left.advisoryKey.localeCompare(right.advisoryKey));
+}
+
 export function legacyDecisionKey(row: FrozenLegacyPayment, decision: LegacyDecisionProjection): string {
   return sha256(canonicalJson({
     digest_version: "legacy-decision-v1",

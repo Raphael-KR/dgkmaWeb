@@ -4,6 +4,7 @@ import {
   decideLegacyPayment,
   firstLegacyIneligibility,
   legacyCandidateKstDates,
+  legacyCandidateLockKeys,
   legacyDecisionKey,
   parseLegacySignedAmount,
   type FrozenLegacyPayment,
@@ -89,6 +90,14 @@ test("candidate date locks are exactly previous, same and next KST calendar day"
   assert.deepEqual(legacyCandidateKstDates("2024-02-29"), ["2024-02-28", "2024-02-29", "2024-03-01"]);
   assert.deepEqual(legacyCandidateKstDates("2025-01-01"), ["2024-12-31", "2025-01-01", "2025-01-02"]);
   assert.throws(() => legacyCandidateKstDates("2025-02-29"), /legacy_occurred_kst_date_invalid/);
+});
+
+test("candidate-day locks use the exact member candidate preimage and full-digest order", () => {
+  const keys = legacyCandidateLockKeys({ memberUid, duesYear: 2026, amount: "50000", occurredKstDate: "2026-03-16" });
+  assert.deepEqual(keys.map((entry) => entry.occurredKstDate).sort(), ["2026-03-15", "2026-03-16", "2026-03-17"]);
+  assert.deepEqual(keys.map((entry) => entry.advisoryKey), [...keys.map((entry) => entry.advisoryKey)].sort());
+  assert.equal(new Set(keys.map((entry) => entry.candidateKey)).size, 3);
+  assert.equal(keys.every((entry) => /^[0-9a-f]{64}$/.test(entry.candidateKey) && /^[0-9a-f]{64}$/.test(entry.advisoryKey)), true);
 });
 
 test("decision key is deterministic and changes with terminal evidence", () => {
