@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-export const TODO_13_MANIFEST_SHA256 = "bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b";
+export const TODO_13_MANIFEST_SHA256 = "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700";
 type TierCode = "president" | "senior_vice_president" | "vice_president_auditor_chair" | "director" | "member" | "honorary";
 export type PolicySeed = Readonly<{ year: 2024 | 2025 | 2026; tierCode: TierCode; priority: number; monthlyMinimum: number; annualMinimum: number; dueDay: 10; reminderDay: 11; status: "draft" }>;
 

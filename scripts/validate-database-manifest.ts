@@ -143,14 +143,18 @@ function main(): void {
   const descriptors = readArtifactDescriptors();
   if (descriptors.some((entry) => entry.materialization_state !== "materialized" || entry.artifact_sha256 === null)) fail("manifest_artifact_not_materialized");
   if (descriptors.filter((entry) => entry.sequence_no === 65).some((entry) => entry.required_for_startup || !entry.required_for_production)) fail("manifest_sequence_65_route_mismatch");
-  const sequence70 = descriptors.filter((entry) => entry.sequence_no === 70);const sequence80=descriptors.filter((entry)=>entry.sequence_no===80);
+  const sequence70 = descriptors.filter((entry) => entry.sequence_no === 70);const sequence80=descriptors.filter((entry)=>entry.sequence_no===80);const sequence90=descriptors.filter((entry)=>entry.sequence_no===90);
   const parentManifest=readManifest((manifest.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);
-  if (sequence70.length !== 1 || !sequence70[0].required_for_startup || !sequence70[0].required_for_production || sequence70[0].manifest_sha256 !== parentManifest.sha256) fail("manifest_sequence_70_route_mismatch");
-  if(sequence80.length!==1||!sequence80[0].required_for_startup||!sequence80[0].required_for_production||sequence80[0].manifest_sha256!==manifest.sha256)fail("manifest_sequence_80_route_mismatch");
+  const grandparentManifest=readManifest((parentManifest.value.manifest_lineage as {parent_manifest_path:string}).parent_manifest_path);
+  if (sequence70.length !== 1 || !sequence70[0].required_for_startup || !sequence70[0].required_for_production || sequence70[0].manifest_sha256 !== grandparentManifest.sha256) fail("manifest_sequence_70_route_mismatch");
+  if(sequence80.length!==1||!sequence80[0].required_for_startup||!sequence80[0].required_for_production||sequence80[0].manifest_sha256!==parentManifest.sha256)fail("manifest_sequence_80_route_mismatch");
+  if(sequence90.length!==1||!sequence90[0].required_for_startup||!sequence90[0].required_for_production||sequence90[0].manifest_sha256!==manifest.sha256)fail("manifest_sequence_90_route_mismatch");
   const claimCoordinate = value.unique_constraints.find((entry: any) => entry.table === "economic_event_claims" && JSON.stringify(entry.columns) === '["coordinate_id"]');
   if (claimCoordinate?.predicate_sql !== "version=1" || claimCoordinate?.source !== "sequence_70_materialization_correction") fail("manifest_claim_coordinate_root_mismatch");
   const groupMemberSource=value.unique_constraints.find((entry:any)=>entry.table==="dues_group_members"&&JSON.stringify(entry.columns)==='["group_id","source_row_version_id"]');
   if(groupMemberSource?.predicate_sql!=="version=1"||groupMemberSource?.source!=="sequence_80_materialization_correction")fail("manifest_group_member_source_root_mismatch");
+  const legacyCutoverCode=value.unique_constraints.find((entry:any)=>entry.table==="legacy_cutover_states"&&JSON.stringify(entry.columns)==='["cutover_code"]');
+  if(legacyCutoverCode?.predicate_sql!=="version=1"||legacyCutoverCode?.source!=="sequence_90_materialization_correction")fail("manifest_legacy_cutover_code_root_mismatch");
   console.log(JSON.stringify({
     schema_version: "dgkma-database-manifest-validation-v1",
     manifest_sha256: manifest.sha256,

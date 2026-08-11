@@ -98,6 +98,15 @@
       "materialization_state": "materialized",
       "required_for_startup": true,
       "sequence_no": 80
+    },
+    {
+      "artifact_id": "legacy-cutover-code-root-v1",
+      "artifact_sha256": "7777777777777777777777777777777777777777777777777777777777777790",
+      "kind": "manual",
+      "manifest_sha256": "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700",
+      "materialization_state": "materialized",
+      "required_for_startup": true,
+      "sequence_no": 90
     }
   ],
   "ledger_rows": [
@@ -209,6 +218,17 @@
       "manifest_sha256": "bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b",
       "release_state": "verified",
       "sequence_no": 80,
+      "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    {
+      "artifact_id": "legacy-cutover-code-root-v1",
+      "artifact_kind": "manual",
+      "artifact_sha256": "7777777777777777777777777777777777777777777777777777777777777790",
+      "capability_variant": "preferred_btree_gist",
+      "executor_version": "schema-ledger-v1",
+      "manifest_sha256": "19ac53ce74af375ab5eb6a9c96a3ca4d5fd7cc5127e9ad7bbd1da4cad33ea700",
+      "release_state": "verified",
+      "sequence_no": 90,
       "target_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777"
     }
   ],

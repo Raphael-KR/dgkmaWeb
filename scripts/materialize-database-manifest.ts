@@ -12,8 +12,8 @@ type Column = {
 
 const PLAN_PATH = "docs/plans/database-architecture-audit.md";
 const MANIFEST_PATH = "docs/database-manifest.yaml";
-const EXPECTED_PLAN_SHA = "bf03b4c5fa505edb869a47ce53d971ea736110f7f957a7c1c64357f3b8938c14";
-const PARENT_MANIFEST_SHA = "31671836f8550190c38f27b15ec3d3e45e330e5fa3c256f3db48cdf059fe64f6";
+const EXPECTED_PLAN_SHA = "ed09074f568d1891a188cadf4c10c8a4ad773b7293ac065e1694ecd92f6e2199";
+const PARENT_MANIFEST_SHA = "bf7216af6f30a366c0adad4b355fc6c4bed0aaf625154a70d063db2864d86b3b";
 const SHA = /^[0-9a-f]{64}$/;
 
 function sha256(bytes: string | Buffer): string {
@@ -568,6 +568,8 @@ function main(): void {
   addUnique("economic_event_claims", ["coordinate_id"], "version=1", "sequence_70_materialization_correction");
   uniqueConstraints.delete("dues_group_members:group_id,source_row_version_id:");
   addUnique("dues_group_members", ["group_id","source_row_version_id"], "version=1", "sequence_80_materialization_correction");
+  uniqueConstraints.delete("legacy_cutover_states:cutover_code:");
+  addUnique("legacy_cutover_states", ["cutover_code"], "version=1", "sequence_90_materialization_correction");
   for (const [table, columns] of Object.entries({
     schema_release_runs: [["release_uid"]],
     business_operation_receipts: [["operation_uid"],["root_correlation_uid"]],
@@ -597,7 +599,6 @@ function main(): void {
     ["bank_transactions",["event_id"],null],
     ["bank_transactions",["source_row_version_id"],null],
     ["legacy_payment_decisions",["decision_key"],null],
-    ["legacy_cutover_states",["cutover_code"],null],
   ] as Array<[string,string[],string | null]>) addUnique(table, columns, predicate, "literal_prose_identity");
 
   const canonicalPhone = "CASE WHEN raw IS NULL OR btrim(raw)='' THEN NULL WHEN regexp_replace(coalesce(raw,''),'[^0-9]','','g') ~ '^8210[0-9]{8}$' THEN '0'||substring(regexp_replace(coalesce(raw,''),'[^0-9]','','g') from 3) WHEN regexp_replace(coalesce(raw,''),'[^0-9]','','g') ~ '^10[0-9]{8}$' THEN '0'||regexp_replace(coalesce(raw,''),'[^0-9]','','g') WHEN regexp_replace(coalesce(raw,''),'[^0-9]','','g') ~ '^0[0-9]{9,10}$' THEN regexp_replace(coalesce(raw,''),'[^0-9]','','g') ELSE NULL END";
@@ -608,7 +609,7 @@ function main(): void {
     manifest_lineage: {
       parent_manifest_sha256: PARENT_MANIFEST_SHA,
       parent_manifest_path: `docs/database-manifests/${PARENT_MANIFEST_SHA}.yaml`,
-      amendment_code: "group_member_source_root_v1",
+      amendment_code: "legacy_cutover_code_root_v1",
     },
     manifest_contract: {
       deterministic_serialization: "RFC8785_JSON_AS_YAML_1_2_PLUS_LF",
@@ -732,7 +733,7 @@ function main(): void {
       classification_statuses: ["approved","quarantined"],
       collision_open_successor: { parent_status: "open", new_status: "open", action: "supersede", reason_code: "COLLISION_REVIEW_REQUIRED" },
     },
-    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80],
+    artifact_sequences: [1,10,15,20,30,40,50,60,65,70,80,90],
   };
   const bytes = `${canonicalJson(manifest)}\n`;
   const unresolved = bytes.match(/\b(?:ACTOR|AUDIT_ACTOR|OPTIONAL_ACTOR|VCHAIN|CANONICAL_PHONE|DEFAULT_ACTOR)\b|<[a-z][a-z0-9_-]*>/);
@@ -743,7 +744,9 @@ function main(): void {
   const currentBytes=readFileSync(MANIFEST_PATH);const currentSha=sha256(currentBytes);const nextSha=sha256(bytes);
   const archiveDir="docs/database-manifests";const archivePath=`${archiveDir}/${PARENT_MANIFEST_SHA}.yaml`;mkdirSync(archiveDir,{recursive:true});
   const parentBytes=currentSha===PARENT_MANIFEST_SHA?currentBytes:existsSync(archivePath)?readFileSync(archivePath):Buffer.alloc(0);
-  if((currentSha!==PARENT_MANIFEST_SHA&&currentSha!==nextSha)||sha256(parentBytes)!==PARENT_MANIFEST_SHA)throw new Error("manifest_amendment_parent_mismatch");
+  const currentLineage=currentSha===PARENT_MANIFEST_SHA?null:(JSON.parse(currentBytes.toString("utf8")) as {manifest_lineage?:{parent_manifest_sha256?:unknown;amendment_code?:unknown}}).manifest_lineage;
+  const currentIsSameAmendment=currentLineage?.parent_manifest_sha256===PARENT_MANIFEST_SHA&&currentLineage.amendment_code==="legacy_cutover_code_root_v1";
+  if((currentSha!==PARENT_MANIFEST_SHA&&currentSha!==nextSha&&!currentIsSameAmendment)||sha256(parentBytes)!==PARENT_MANIFEST_SHA)throw new Error("manifest_amendment_parent_mismatch");
   if(existsSync(archivePath)){if(!readFileSync(archivePath).equals(parentBytes))throw new Error("manifest_amendment_archive_drift");}else writeFileSync(archivePath,parentBytes);
   writeFileSync(MANIFEST_PATH, bytes);
 }
