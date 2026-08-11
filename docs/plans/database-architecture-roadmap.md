@@ -14,12 +14,12 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | 항목 | 확인된 상태 |
 |---|---|
 | 구현 브랜치 | `codex/database-architecture-todo16` |
-| 현재 단계 | Todo 20 진행 중 ∥ Todo 21 보안·보존 기준선 진행 중 |
-| 완료 범위 | Todo 1–19, Todo 23 방향 전환, N1 |
+| 현재 단계 | Todo 20 진행 중; Todo 21 완료 |
+| 완료 범위 | Todo 1–19, 21, Todo 23 방향 전환, N1 |
 | manifest | sequence-130 descendant SHA-256 `ec18e2c2a60ee9fed75ac97bd77f56b281804313de624cf7d18bce0f43a86b1e` verified |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80,90,100,110,120,130]`; sequence 130 `applied → verified_noop`; schema-exception CHECK/trigger `6/1`, 행 0; business-reason CHECK/trigger `8/8`; startup/catalog 승인 |
 | Todo 20 현재 단위 | strict payload/live-service, 48개 reason, 25-code exception, KST rights·close/balance·62-class lock trace 완료. registry disposable, stored payload/hash/result·same-UID replay sequence 불변, 서로 다른 operation UID의 동일 stable-key race `1 commit/1 serialization abort`·loser receipt 0·DB absence를 증명했다. `48fda9a` activation DB writer와 fresh disposable run `21f7c263-25ab-47ef-9cab-047a81de44d5`가 정책 6개 선행→매핑 24개, binding 오류 0, failure residue 0, Development digest/teardown을 닫았다. `c157218` refund DB tail writer는 승인 원본 receipt/allocation과 source-bound debit event·bound claim·bank transaction을 잠근 뒤 ordinary next-month 및 두 correction retroactive 저장 분기만 예약/기록하도록 구현됐고 Replit `tsc`·집중 테스트 10/10을 통과했다. refund fresh disposable FK/trigger probe, 두 writer의 operation receipt/audit wrapper와 나머지 workflow 전체 harness가 남음 |
-| Todo 21 현재 단위 | Replit 기준선이 canonical phone fixture와 Todo 19 legacy payment write fence를 따르지 않던 계정 삭제 통합 fixture 두 결함을 발견했다. `28b0014`/`244c3fe`로 fixture를 현재 physical contract에 맞췄고 Replit `npm run check`와 계정 삭제·Kakao 종료 경합·route security·startup retention 34/34가 통과했다. Development metadata-only catalog는 owner mismatch, PUBLIC privilege, RLS/policy/SECURITY DEFINER 모두 0과 role membership digest `15ca7b04…`를 기록하고 `ROLLBACK`했다. `e57c743`/`dd48a0d`/`2f58989`은 workload runner를 CLI화하고 current manifest/materialization index set 432개에 결박했다. 13개 table cardinality 불변, 15 workload×2 plan 안정, business/schema write 0, ANALYZE-only와 중복 index 후보 DB-call 0 거부를 증명했다. 미설치 `payments__user_id__idx` runtime effectiveness는 `false`로 보존했다. `2993f2d`/`3d4d82a`는 credential-shaped synthetic log와 PUBLIC/RLS/owner/unsafe SECURITY DEFINER drift를 fail-closed로 만들었다. fresh disposable `5497f710-fd6e-497d-b6bc-469a9db5a420`에서 sequence 130 baseline을 닫고 PUBLIC routine grant를 `security_catalog_drift`로 탐지한 뒤 rollback catalog 동일성·role membership digest 불변·DB/receipt/worktree 부재를 증명했다. exact happy/failure Todo 21 통합 harness가 남음 |
+| Todo 21 완료 | `4f43cb8` exact happy/failure harness가 Replit `npm run check`, 계정 삭제·Kakao 종료 경합·route security·startup retention·security evidence 37/37, Development 13-table cardinality 불변과 15 workload×2 stable plan, current index 432개 불변, ANALYZE-only, schema/business write 0을 재현했다. failure는 redundant index를 DB call 0으로 거부하고 synthetic credential log를 탐지했다. happy/failure fresh disposable `f582fd29-7703-453a-a6b1-381c08202934`/`1d9c28d9-883e-42d7-808f-74e94cee9d4c`는 PUBLIC routine grant를 `security_catalog_drift`로 탐지한 뒤 rollback catalog 동일성·role membership digest 불변·DB/actor receipt 부재를 증명했다. 미설치 `payments__user_id__idx` runtime effectiveness는 사실대로 `false`다. Production·배포 작업 0 |
 | Todo 19 schema prerequisite | sequence 90 legacy cutover-code root correction committed; disposable와 Development 모두 `applied → verified_noop`, startup/catalog 승인; cutover/payment/legacy-decision row 0 유지 |
 | Todo 19 zero-row cutover | sequence 100과 Development legacy v3 release·preview·`legacy→fenced→new` 완료; five-service operation `created → verified_noop`; phase `new`, watermark 0, payment/decision 0, receipt/entity/audit `5/6/6` |
 | Todo 19 nonzero/disposable | exact commit `a6944d1`; eligible cross-link/new, signed zero·negative exclusion, ambiguity rollback, concurrent writer snapshot-drift 차단, audited `new→read_rollback→new`, replay no-op와 DB absence 증명 |
@@ -34,7 +34,7 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 
 | 순서 | Todo/Phase | 다음 완료 조건 |
 |---:|---|---|
-| 1 | 20 ∥ 21 | 시간·금액·마감·동시성 불변식과 security/retention/workload 검증 |
+| 1 | 20 | refund·annual activation operation wrapper와 남은 시간·금액·마감·동시성 불변식 검증 |
 | 2 | 22 | Development 최종 검증, measured restore drill, Production read-only dossier |
 | 3 | F1–F4 | 동일 frozen SHA를 독립 검증한 provider-bound receipts |
 | 4 | A1 | 최종 architecture attestation |
