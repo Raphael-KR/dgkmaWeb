@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { assertBusinessOperationPayloadHash, validateBusinessOperationPayloadV2 } from "./business-operation-payload";
 
@@ -13,4 +14,15 @@ test("receipt, kind, order and one-audit-per-result closure fail closed",()=>{
   assert.throws(()=>validateBusinessOperationPayloadV2({...payload,reservation_slots:[payload.reservation_slots[0],payload.reservation_slots[2],payload.reservation_slots[1]]} as never),/slot_order_invalid/);
   assert.throws(()=>validateBusinessOperationPayloadV2({...payload,reservation_slots:payload.reservation_slots.slice(0,2)} as never),/audit_bijection_invalid/);
   assert.throws(()=>validateBusinessOperationPayloadV2({...payload,reservation_slots:[...payload.reservation_slots,payload.reservation_slots[2]]} as never),/slot_order_invalid|audit_bijection_invalid/);
+});
+
+test("authenticated source-decision and legacy services validate before receipt DML",()=>{
+  const sourceDecision=readFileSync("server/accounting/source-decision-service.ts","utf8");
+  const legacyPayment=readFileSync("server/accounting/legacy-payment-service.ts","utf8");
+  for(const source of [sourceDecision,legacyPayment]){
+    assert.match(source,/validateBusinessOperationPayloadV2\(payload as unknown as CanonicalValue\)/);
+    assert.ok(source.indexOf("validateBusinessOperationPayloadV2(payload as unknown as CanonicalValue)")<source.indexOf("INSERT INTO public.business_operation_receipts"));
+    assert.match(source,/validatedPayload\.canonical/);
+    assert.match(source,/validatedPayload\.sha256/);
+  }
 });

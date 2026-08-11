@@ -12,6 +12,7 @@ import { loadRoleApplyPlans } from "./source-decision-role-plan";
 import { executeRoleMaterialization, projectRoleOperation, reserveRoleExecution } from "./source-decision-role-materialization";
 import { loadIndividualApplyPlans } from "./source-decision-individual-plan";
 import { executeIndividualMaterialization, projectIndividualOperation, reserveIndividualExecution } from "./source-decision-individual-materialization";
+import { validateBusinessOperationPayloadV2 } from "./business-operation-payload";
 
 type JsonObject = Record<string, CanonicalValue>;
 export type SourceDecisionActor = {
@@ -98,8 +99,9 @@ async function insertOperation(
   receiptId: string,
 ): Promise<void> {
   const payload = { command: `source_decision:${receipt.decision}`, expected_results: results, inputs: { approval_receipt: receipt as unknown as CanonicalValue, operation_payload_sha256: receipt.operation_payload_sha256, primary_decision_set_uid: receipt.primary_decision_set_uid }, reservation_slots: slots, schema_version: "business-operation-payload-v2" };
+  const validatedPayload=validateBusinessOperationPayloadV2(payload as unknown as CanonicalValue);
   const rootCorrelation = deterministicUuidV4(`${command.operationUid}\nroot-correlation`);
-  await client.query(`INSERT INTO public.business_operation_receipts (id,action,actor_name_snapshot,actor_scope,actor_target_user_id,actor_target_user_id_snapshot,actor_uid_snapshot,actor_user_id,actor_user_id_snapshot,authorization_version,canonical_payload,entity_type,operation_uid,payload_sha256,recorded_at,result_entity_keys,root_correlation_uid,target_fingerprint) OVERRIDING SYSTEM VALUE VALUES ($1,$2,$3,'admin',NULL,NULL,$4::uuid,$5,$5,$6,$7::jsonb,'source_decision',$8::uuid,$9,$10::timestamptz,$11::jsonb,$12::uuid,$13)`, [receiptId, receipt.decision, actor.name, actor.userUid, actor.userId, actor.authorizationVersion, canonicalJson(payload as unknown as CanonicalValue), command.operationUid, sha256(canonicalJson(payload as unknown as CanonicalValue)), receipt.decided_at, canonicalJson(results as unknown as CanonicalValue), rootCorrelation, actor.targetFingerprint]);
+  await client.query(`INSERT INTO public.business_operation_receipts (id,action,actor_name_snapshot,actor_scope,actor_target_user_id,actor_target_user_id_snapshot,actor_uid_snapshot,actor_user_id,actor_user_id_snapshot,authorization_version,canonical_payload,entity_type,operation_uid,payload_sha256,recorded_at,result_entity_keys,root_correlation_uid,target_fingerprint) OVERRIDING SYSTEM VALUE VALUES ($1,$2,$3,'admin',NULL,NULL,$4::uuid,$5,$5,$6,$7::jsonb,'source_decision',$8::uuid,$9,$10::timestamptz,$11::jsonb,$12::uuid,$13)`, [receiptId, receipt.decision, actor.name, actor.userUid, actor.userId, actor.authorizationVersion, validatedPayload.canonical, command.operationUid, validatedPayload.sha256, receipt.decided_at, canonicalJson(results as unknown as CanonicalValue), rootCorrelation, actor.targetFingerprint]);
   for (const result of results) await client.query("INSERT INTO public.business_operation_entities (operation_uid,ordinal,entity_type,entity_key,entity_action,action_correlation_uid) VALUES ($1::uuid,$2,$3,$4,$5,$6::uuid)", [command.operationUid, result.ordinal, result.entity_type, result.entity_key, result.entity_action, result.action_correlation_uid]);
 }
 
@@ -218,7 +220,8 @@ export async function decideSourcePreview(
     }
     const results = plans.map((plan, index) => ({ action_correlation_uid: plan.correlationUid, entity_action: plan.action, entity_key: plan.entityKey, entity_type: plan.entityType, ordinal: index + 1 }));
     const slots: JsonObject[] = [{ local_ordinal: 1, phase: 0, qualified_table_name: "public.business_operation_receipts", reserved_id: receiptId, result_ordinal: 0, slot_kind: "operation_receipt", slot_kind_order: 0 }];
-    plans.forEach((plan, index) => { slots.push({ local_ordinal: 1, phase: 1, qualified_table_name: `public.${plan.table}`, reserved_id: plan.id, result_ordinal: index + 1, slot_kind: "business_row", slot_kind_order: 1 }); slots.push({ local_ordinal: 1, phase: 2, qualified_table_name: "public.accounting_audit_events", reserved_id: plan.auditId, result_ordinal: index + 1, slot_kind: "audit_row", slot_kind_order: 2 }); });
+    plans.forEach((plan, index) => slots.push({ local_ordinal: 1, phase: 1, qualified_table_name: `public.${plan.table}`, reserved_id: plan.id, result_ordinal: index + 1, slot_kind: "business_row", slot_kind_order: 1 }));
+    plans.forEach((plan, index) => slots.push({ local_ordinal: 1, phase: 2, qualified_table_name: "public.accounting_audit_events", reserved_id: plan.auditId, result_ordinal: index + 1, slot_kind: "audit_row", slot_kind_order: 2 }));
     await insertOperation(client, command, actor, approvalReceipt, results, slots, receiptId);
     if (command.decision === "approve") {
       const setPlan = plans[0]; const batchPlan = plans[1];
