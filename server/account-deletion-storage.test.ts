@@ -89,6 +89,7 @@ test("development PostgreSQL deletes one member while preserving public content"
   const { storage } = await import("./storage");
   const { hashKakaoEmailIdentity, hashKakaoIdentity } = await import("./kakao-identity");
   const token = randomUUID().replaceAll("-", "");
+  const numericToken = [...token].map((value) => String(Number.parseInt(value, 16) % 10)).join("");
   const email = `task4-${token}@example.invalid`;
   const mixedCaseEmail = email.toUpperCase();
   const kakaoId = `task4-${token}`;
@@ -113,11 +114,11 @@ test("development PostgreSQL deletes one member while preserving public content"
         kakaoId,
         email,
         marker,
-        `010-${token.slice(0, 4)}-${token.slice(4, 8)}`,
+        `010-${numericToken.slice(0, 4)}-${numericToken.slice(4, 8)}`,
         otherKakaoId,
         otherEmail,
         `${marker}-other`,
-        `011-${token.slice(8, 12)}-${token.slice(12, 16)}`,
+        `011-${numericToken.slice(8, 12)}-${numericToken.slice(12, 16)}`,
       ],
     );
     userId = usersResult.rows[0].id;
@@ -144,7 +145,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       `insert into alumni_database
         (department, generation, name, mobile, is_matched, matched_user_id)
        values ('한의학과', $1, $1, $2, true, $3)`,
-      [marker, `010-${token.slice(16, 20)}-${token.slice(20, 24)}`, userId],
+      [marker, `010-${numericToken.slice(16, 20)}-${numericToken.slice(20, 24)}`, userId],
     );
     await pool.query(
       `insert into obituaries
