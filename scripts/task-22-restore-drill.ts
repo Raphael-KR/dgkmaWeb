@@ -92,14 +92,22 @@ async function dataCatalog(client: PoolClient): Promise<Json> {
 
 async function securityCatalog(client: PoolClient): Promise<Json> {
   const [database, schema, relations, routines, defaults, memberships] = await Promise.all([
-    client.query(`SELECT pg_get_userbyid(datdba) owner_name,COALESCE(datacl::text,'') acl FROM pg_database WHERE datname=current_database()`),
-    client.query(`SELECT nspname,pg_get_userbyid(nspowner) owner_name,COALESCE(nspacl::text,'') acl FROM pg_namespace WHERE nspname='public'`),
+    client.query(`SELECT pg_get_userbyid(d.datdba) owner_name,CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(x.grantee) END grantee_name,x.privilege_type,x.is_grantable FROM pg_database d CROSS JOIN LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) x WHERE d.datname=current_database() ORDER BY grantee_name,x.privilege_type,x.is_grantable`),
+    client.query(`SELECT n.nspname,pg_get_userbyid(n.nspowner) owner_name,CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(x.grantee) END grantee_name,x.privilege_type,x.is_grantable FROM pg_namespace n CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl,acldefault('n',n.nspowner))) x WHERE n.nspname='public' ORDER BY grantee_name,x.privilege_type,x.is_grantable`),
     client.query(`SELECT c.relname,c.relkind,pg_get_userbyid(c.relowner) owner_name,COALESCE(c.relacl::text,'') acl FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','S') ORDER BY c.relkind,c.relname`),
     client.query(`SELECT p.proname,pg_get_function_identity_arguments(p.oid) identity_arguments,p.prokind,pg_get_userbyid(p.proowner) owner_name,COALESCE(p.proacl::text,'') acl FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' ORDER BY p.proname,identity_arguments`),
     client.query(`SELECT COALESCE(r.rolname,'') owner_name,d.defaclobjtype,COALESCE(n.nspname,''),COALESCE(d.defaclacl::text,'') acl FROM pg_default_acl d LEFT JOIN pg_roles r ON r.oid=d.defaclrole LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace ORDER BY owner_name,d.defaclobjtype,n.nspname`),
     client.query(`SELECT pg_get_userbyid(roleid) role_name,pg_get_userbyid(member) member_name,admin_option FROM pg_auth_members ORDER BY role_name,member_name,admin_option`),
   ]);
   return { database: database.rows, schema: schema.rows, relations: relations.rows, routines: routines.rows, defaults: defaults.rows, memberships: memberships.rows } as Json;
+}
+
+function expectedRestoredSecurity(source: Json): Json {
+  if (source === null || Array.isArray(source) || typeof source !== "object" || !Array.isArray(source.database) || !Array.isArray(source.schema)) fail("task22_source_security_shape_invalid");
+  const database = (source.database as Array<Record<string, Json>>).filter((row) => row.grantee_name !== "PUBLIC" || row.privilege_type === "CONNECT");
+  const schema = (source.schema as Array<Record<string, Json>>).filter((row) => row.grantee_name !== "PUBLIC");
+  if (!database.some((row) => row.grantee_name === "PUBLIC" && row.privilege_type === "CONNECT")) fail("task22_source_public_connect_missing");
+  return { ...source, database, schema };
 }
 
 function digest(value: Json): string {
@@ -199,6 +207,7 @@ async function main(): Promise<void> {
     await closeDisposableTarget(controlPool, disposable);
 
     const observedAt = iso();
+    const expectedSecurity = expectedRestoredSecurity(sourceSecurity);
     const receipt = signedReceipt({
       schema_version: "dgkma-restore-validation-v1",
       source_target_fingerprint: development.targetFingerprint,
@@ -225,7 +234,7 @@ async function main(): Promise<void> {
       sequence_60_artifact_sha256: sidecar.artifact_sha256,
       restore_reconcile_sha256: sidecar.restore_reconcile_sha256,
       pre_security_catalog_sha256: digest(preSecurity),
-      post_security_catalog_sha256: digest(sourceSecurity),
+      post_security_catalog_sha256: digest(expectedSecurity),
       schema_catalog_sha256: digest(sourceSchema),
       data_catalog_sha256: digest(sourceData),
       observed_at: observedAt,
@@ -249,7 +258,7 @@ async function main(): Promise<void> {
         fail(`task22_restore_schema_digest_mismatch:${sections.join(",")}:${columns.join(",")}`);
       }
       if (digest(targetData) !== receipt.data_catalog_sha256) fail("task22_restore_data_digest_mismatch");
-      if (digest(targetSecurity) !== receipt.post_security_catalog_sha256) fail(`task22_restore_security_digest_mismatch:${mismatchedSections(sourceSecurity, targetSecurity).join(",")}`);
+      if (digest(targetSecurity) !== receipt.post_security_catalog_sha256) fail(`task22_restore_security_digest_mismatch:${mismatchedSections(expectedSecurity, targetSecurity).join(",")}`);
       const ledger = await verifyClient.query<{ count: number }>("SELECT count(*)::int count FROM public.schema_change_ledger");
       if ((ledger.rows[0]?.count ?? 0) === 0) fail("task22_restore_ledger_missing");
     } finally {
