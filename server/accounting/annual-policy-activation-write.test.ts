@@ -20,7 +20,7 @@ class Fixture {
 
   client = { query: async (sql: string, params?: unknown[]) => {
     this.calls.push(sql.replace(/\s+/g, " ").trim());
-    if (sql === "SHOW transaction_isolation") return { rowCount: 1, rows: [{ transaction_isolation: this.isolation }] };
+    if (sql === "SELECT current_setting('transaction_isolation') transaction_isolation") return { rowCount: 1, rows: [{ transaction_isolation: this.isolation }] };
     if (sql.includes("FROM public.users")) return { rowCount: 1, rows: [{ id: actor.userId, user_uid: actor.userUid, name: actor.name, is_admin: true }] };
     if (sql.includes("FROM public.dues_policies") && sql.includes("status='draft'")) return { rowCount: 6, rows: tiers.map((tier, index) => ({ id: String(index + 1), tier_code: tier, priority: 600 - index, monthly_minimum: "1000", annual_minimum: "12000", due_day: 10, reminder_day: 11, source_logical_id: "9", source_row_version_id: null, version: 1 })) };
     if (sql.includes("FROM public.dues_position_tier_mappings") && sql.includes("status='draft'")) return { rowCount: 2, rows: [

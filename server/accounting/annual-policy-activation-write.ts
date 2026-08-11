@@ -66,7 +66,7 @@ export async function materializeAnnualPolicyActivation(
   if (!Number.isInteger(input.duesYear) || input.duesYear < 2000 || !Number.isFinite(Date.parse(input.effectiveAt)) || input.resolutionRef.trim() === "") fail("annual_activation_input_invalid");
   if (!Number.isSafeInteger(input.actor.userId) || input.actor.userId <= 0 || !UUID.test(input.actor.userUid) || !SHA256.test(input.actor.authorizationVersion) || input.actor.name.trim() === "") fail("annual_activation_actor_invalid");
 
-  const isolation = await client.query<{ transaction_isolation: string }>("SHOW transaction_isolation");
+  const isolation = await client.query<{ transaction_isolation: string }>("SELECT current_setting('transaction_isolation') transaction_isolation");
   if (isolation.rowCount !== 1 || isolation.rows[0].transaction_isolation !== "serializable") fail("annual_activation_serializable_required");
   const actor = await client.query<{ id: number; user_uid: string; name: string; is_admin: boolean }>(
     "SELECT id,user_uid::text,name,is_admin FROM public.users WHERE id=$1 FOR UPDATE",
