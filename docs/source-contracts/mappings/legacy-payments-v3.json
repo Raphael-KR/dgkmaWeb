@@ -1,0 +1,98 @@
+{
+  "adapter_code": "legacy-payments-v3",
+  "columns": [
+    {
+      "parser_code": "legacy_amount_envelope_v3",
+      "record_kind": "legacy_payment",
+      "required": true,
+      "source_selector": { "kind": "column", "value": "amount" },
+      "target_field": "amount_parse"
+    },
+    {
+      "parser_code": "legacy_created_at_v1",
+      "record_kind": "legacy_payment",
+      "required": false,
+      "source_selector": { "kind": "column", "value": "created_at" },
+      "target_field": "created_at"
+    },
+    {
+      "parser_code": "nullable_integer_v1",
+      "record_kind": "legacy_payment",
+      "required": true,
+      "source_selector": { "kind": "column", "value": "id" },
+      "target_field": "payment_id"
+    },
+    {
+      "parser_code": "legacy_signed_scalar_v3",
+      "record_kind": "legacy_payment",
+      "required": false,
+      "source_selector": { "kind": "column", "value": "amount" },
+      "target_field": "source_amount_signed"
+    },
+    {
+      "parser_code": "constant_v1",
+      "record_kind": "legacy_payment",
+      "required": true,
+      "source_selector": { "kind": "batch_field", "value": "captured_timezone" },
+      "target_field": "source_timezone"
+    },
+    {
+      "parser_code": "text_enum_v1",
+      "record_kind": "legacy_payment",
+      "required": true,
+      "source_selector": { "kind": "column", "value": "status" },
+      "target_field": "status"
+    },
+    {
+      "parser_code": "text_enum_v1",
+      "record_kind": "legacy_payment",
+      "required": true,
+      "source_selector": { "kind": "column", "value": "type" },
+      "target_field": "type"
+    },
+    {
+      "parser_code": "nullable_integer_v1",
+      "record_kind": "legacy_payment",
+      "required": false,
+      "source_selector": { "kind": "column", "value": "user_id" },
+      "target_field": "user_id"
+    },
+    {
+      "parser_code": "nullable_integer_v1",
+      "record_kind": "legacy_payment",
+      "required": true,
+      "source_selector": { "kind": "column", "value": "year" },
+      "target_field": "year"
+    }
+  ],
+  "constants": {
+    "captured_timezone": "Asia/Seoul",
+    "decision_contract": "legacy_decision_only",
+    "receipt_url_excluded": true
+  },
+  "locator": "public.payments",
+  "output_family": "legacy-payment-row-v1",
+  "parsers": {
+    "constant_v1": { "operation": "constant" },
+    "legacy_amount_envelope_v3": { "operation": "signed_integer_evidence_envelope" },
+    "legacy_created_at_v1": { "operation": "timestamp_without_timezone", "timezone_source": "batch.captured_timezone" },
+    "legacy_signed_scalar_v3": { "operation": "signed_integer_or_null_from_envelope" },
+    "nullable_integer_v1": { "operation": "nullable_integer" },
+    "text_enum_v1": { "operation": "nfc_trim" }
+  },
+  "record_selectors": [
+    {
+      "a1_range_or_null": null,
+      "data_start_row_or_null": null,
+      "header_row_or_null": null,
+      "record_kind": "legacy_payment",
+      "selector_code": "payments_primary_key_order",
+      "tab_id_or_null": null,
+      "tab_title_snapshot_or_null": "public.payments"
+    }
+  ],
+  "schema_version": "source-input-map-v3",
+  "source_code": "LEGACY_PAYMENTS",
+  "source_profile_sha256": "e125b3aa343f4a7cd2f2e46fd39e0f1bed49793fb29414a1e40c5e06f8b701c2",
+  "surface": "postgresql_table"
+}

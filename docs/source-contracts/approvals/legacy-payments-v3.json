@@ -1,0 +1,22 @@
+{
+  "authority_basis": "owner-delegated-safe-development-decision-v1",
+  "continuation_text_sha256": "f5b5c0b67f85f46ca28fb18a87bce96d340c1766a3968062a32d6271ac969a3c",
+  "decided_at": "2026-08-11T03:48:02Z",
+  "decision_scope": [
+    "correct_v2_amount_envelope_and_signed_scalar_mapping_without_mutating_history",
+    "retain_names_in_administrator_surfaces_and_use_secretless_digests_for_integrity",
+    "legacy_decision_only_without_source_decision_or_classification",
+    "zero_row_development_release_batch_and_cutover",
+    "fail_closed_on_nonzero_legacy_rows_until_full_materialization_is_proven",
+    "no_legacy_source_rewrite",
+    "no_production",
+    "no_deploy"
+  ],
+  "mapping_sha256": "33c823f48bb2bad0c426ec6c930c9f54dcddaf1067d8e3686b761ab73584b538",
+  "project_id": "local-fcb170b4427ba4e258ce8af48e487c64",
+  "receipt_sha256": "50b45c821e75393137810859b8e2ed0b7e7f0ff806ac44412ffa403d6cfddc8d",
+  "schema_version": "source-mapping-delegated-decision-v1",
+  "source_code": "LEGACY_PAYMENTS",
+  "source_profile_sha256": "e125b3aa343f4a7cd2f2e46fd39e0f1bed49793fb29414a1e40c5e06f8b701c2",
+  "thread_id": "019fe3d1-7669-7911-b30f-2ebc99d3245a"
+}

@@ -1,0 +1,53 @@
+{
+  "actor_authorization_version": "37a63f049f689d717316b1ccd0d538c532ed2208bc6bd9d8ef702d567195f861",
+  "actor_user_id": 315,
+  "actor_user_uid": "ab6e10c9-efd6-42fc-a3ef-7cac77260109",
+  "batch": {
+    "action_correlation_uid": "1347efbd-3122-48b2-9ac1-71cb750643c9",
+    "audit_event_uid": "507f09c6-cdc3-4a6c-ae47-c29551c11838",
+    "batch_uid": "4aab2a7d-0984-47c2-a6f9-38b1e1ecf495",
+    "coverage_from": "2026-08-10T04:53:48Z",
+    "coverage_through": "2026-08-10T04:53:49Z",
+    "operation_uid": "e87f7f52-9515-4808-b0c6-24195b4cc8cb",
+    "preview_manifest_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "root_correlation_uid": "2cdc135b-d860-4b34-afce-4d2905dfd2a7",
+    "source_fingerprint": "0fa2e942be25288ec324a5b3eb207130c04721e8e04edc422141a5547e8ce995"
+  },
+  "cutover": {
+    "cutover_code": "payments-v1",
+    "cutover_uid": "0dfe238c-a114-4dee-8935-129d3c9d05bc",
+    "fenced": {
+      "action_correlation_uid": "2da7c273-a982-4714-b186-87bb4b7b9a6b",
+      "audit_event_uid": "3ea4041f-bd94-4a1a-b4ae-2f5c9d2a1b24",
+      "batch_action_correlation_uid": "1782441e-eb52-4e4f-9227-02d453f7f8ee",
+      "batch_audit_event_uid": "b0bd7c9d-8553-4099-9f1a-599bd25c893c",
+      "operation_uid": "248fe2ae-c0cf-40bf-8a49-2bb074fa31d5",
+      "root_correlation_uid": "8dc035b5-cd7d-4f16-af3e-e0a94ceeff1e"
+    },
+    "legacy": {
+      "action_correlation_uid": "3ac0c7d4-01b3-492f-b753-a887c2524524",
+      "audit_event_uid": "f1065b5e-3f99-4ea5-854f-a5a085d13ced",
+      "operation_uid": "a97aab5d-eeb9-4f6f-a9b5-28c20e0726c6",
+      "root_correlation_uid": "b0a3f336-e5aa-456f-9885-abdbe536ecd2"
+    },
+    "new": {
+      "action_correlation_uid": "64cf5898-03a0-4db5-a631-989076d0deb4",
+      "audit_event_uid": "916c72e4-95a9-415e-9c37-7ad733fb7bc6",
+      "operation_uid": "7def55ad-88ac-4d94-9a1a-e621f7c6d98b",
+      "root_correlation_uid": "0c11f9ec-50c0-41f1-8666-bd0f4d1412b6"
+    }
+  },
+  "descriptor_sha256": "bed792e000a3f68074dde14ece0a937ab1cf35d68a06ca3da9aef4b08d1dff95",
+  "plan_sha256": "53ac4b98fd15226d0a8eccf24246186f27ab9e8d9ffd913518fb4b6131f29ead",
+  "release": {
+    "action_correlation_uid": "5747ca0e-3311-4c31-a709-7c12c2824d17",
+    "audit_event_uid": "2c8d6095-6040-410d-96e5-dc042d0d0983",
+    "operation_uid": "a9a775ce-9752-4243-bb37-9c18ef35ca25",
+    "release_uid": "a95d2cfa-ce6d-487b-9335-4252f93d2fb9",
+    "root_correlation_uid": "d1319df9-f328-4fea-a167-ac98bd53d4e1"
+  },
+  "schema_version": "legacy-payments-development-plan-v3",
+  "source_code": "LEGACY_PAYMENTS",
+  "source_revision": "development-target:b3f038ee10e11f57fa524477ce393d82a67b71c223ef582776a83b828d239971;row-count:0;constraints-validated:4",
+  "target_fingerprint": "b3f038ee10e11f57fa524477ce393d82a67b71c223ef582776a83b828d239971"
+}

@@ -69,6 +69,7 @@ import {
 import { isConfiguredKakaoAdministrator } from "./kakao-admin-allowlist";
 import { readSourceDecisionReview, type SourceDecisionReview } from "./accounting/source-decision-review";
 import { decideSourcePreview, type SourceDecisionActor, type SourceDecisionApprovalReceipt } from "./accounting/source-decision-service";
+import { executeLegacyPaymentCommand, type LegacyPaymentExecution } from "./accounting/legacy-payment-service";
 import { canonicalJson as canonicalAccountingJson, sha256 as accountingSha256, type CanonicalValue as AccountingCanonicalValue } from "./accounting/source-contracts";
 
 declare module "express-session" {
@@ -172,6 +173,7 @@ export type RouteDependencies = {
   sourceDecisionAdminReceipt?: { userId: number; userUid: string; authorizationVersion?: string; targetFingerprint?: string };
   sourceDecisionReviewReader?: (decisionSetUid: string) => Promise<SourceDecisionReview | undefined>;
   sourceDecisionExecutor?: (decisionSetUid: string, command: Record<string, unknown>, actor: SourceDecisionActor) => Promise<SourceDecisionApprovalReceipt>;
+  legacyPaymentExecutor?: (command: Record<string, unknown>, actor: SourceDecisionActor) => Promise<LegacyPaymentExecution>;
 };
 
 function requestHostOrigin(req: Request): string | undefined {
@@ -263,6 +265,10 @@ export async function registerRoutes(
   const sourceDecisionExecutor = dependencies.sourceDecisionExecutor
     ?? (async (decisionSetUid: string, command: Record<string, unknown>, actor: SourceDecisionActor) => {
       const { pool } = await import("./db"); return decideSourcePreview(pool, decisionSetUid, command, actor);
+    });
+  const legacyPaymentExecutor = dependencies.legacyPaymentExecutor
+    ?? (async (command: Record<string, unknown>, actor: SourceDecisionActor) => {
+      const { pool } = await import("./db"); return executeLegacyPaymentCommand(pool, command, actor);
     });
   const getAccountDeletionUser = dependencies.getAccountDeletionUser
     ?? ((userId: number) => storage.getUser(userId));
@@ -1423,6 +1429,24 @@ export async function registerRoutes(
       if (code.includes("admin_required") || code.includes("unauthenticated") || code.includes("frozen_admin")) return res.status(403).json({ message: "승인된 관리자만 결정할 수 있습니다" });
       console.error("Source decision apply failed:", getErrorType(error));
       return res.status(500).json({ message: "결정을 적용하지 못했습니다" });
+    }
+  });
+
+  app.post("/api/admin/accounting/legacy-payments/command", express.json({ limit: "64kb" }), async (req, res) => {
+    if (!hasTrustedSameOrigin(req)) return res.status(403).json({ message: "동일 출처의 관리자 요청이 필요합니다" });
+    const userId = req.session.userId!;
+    try {
+      const live = await getSourceDecisionAdmin(userId);
+      if (!live || !live.isAdmin || live.id !== sourceDecisionAdminReceipt.userId || live.userUid !== sourceDecisionAdminReceipt.userUid || !live.name || !sourceDecisionAdminReceipt.authorizationVersion || !sourceDecisionAdminReceipt.targetFingerprint) return res.status(403).json({ message: "승인된 관리자만 legacy 전환을 실행할 수 있습니다" });
+      if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) return res.status(400).json({ message: "유효한 legacy 명령이 필요합니다" });
+      return res.json(await legacyPaymentExecutor(req.body as Record<string, unknown>, { userId: live.id, userUid: live.userUid, name: live.name, authorizationVersion: sourceDecisionAdminReceipt.authorizationVersion, targetFingerprint: sourceDecisionAdminReceipt.targetFingerprint }));
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "legacy_payment_unknown";
+      if (code.includes("invalid") || code.includes("mismatch") || code.includes("binding")) return res.status(400).json({ message: "legacy 명령이 동결된 계획과 일치하지 않습니다" });
+      if (code.includes("state") || code.includes("reuse") || code.includes("missing") || code.includes("nonzero")) return res.status(409).json({ message: "legacy 전환 선행 상태가 변경되었습니다" });
+      if (code.includes("admin_required") || code.includes("actor")) return res.status(403).json({ message: "승인된 관리자만 legacy 전환을 실행할 수 있습니다" });
+      console.error("Legacy payment command failed:", getErrorType(error));
+      return res.status(500).json({ message: "legacy 전환 명령을 실행하지 못했습니다" });
     }
   });
 
