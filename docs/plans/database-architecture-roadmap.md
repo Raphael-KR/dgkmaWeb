@@ -18,7 +18,7 @@ Phase 1의 목표는 회원·조직 원본을 임의 추정 없이 반복 이관
 | 완료 범위 | Todo 1–19, Todo 23 방향 전환, N1 |
 | manifest | sequence-130 descendant SHA-256 `ec18e2c2a60ee9fed75ac97bd77f56b281804313de624cf7d18bce0f43a86b1e` verified |
 | Development schema | ledger `[1,10,15,20,30,40,50,60,70,80,90,100,110,120,130]`; sequence 130 `applied → verified_noop`; schema-exception CHECK/trigger `6/1`, 행 0; business-reason CHECK/trigger `8/8`; startup/catalog 승인 |
-| Todo 20 현재 단위 | strict payload/live-service, 48개 business-reason, 25-code schema-exception 완료. `a1c44b4` KST rights matrix, `496771e` canonical close/balance, `44ae829` exact 62-class global lock trace와 rank-20/23 reservation 경계까지 완료; DB transaction·race·sequence disposable harness가 남음 |
+| Todo 20 현재 단위 | strict payload/live-service, 48개 business-reason, 25-code schema-exception 완료. `a1c44b4` KST rights, `496771e` close/balance, `44ae829` 62-class lock trace 완료. `cfb17a0` disposable은 ledger 1→130, registry catalog `6/1·8`, invalid insert 9건 SQLSTATE 23514, ROLLBACK·Development digest 불변·DB absence를 증명; transaction race·sequence/retry 전체 harness가 남음 |
 | Todo 19 schema prerequisite | sequence 90 legacy cutover-code root correction committed; disposable와 Development 모두 `applied → verified_noop`, startup/catalog 승인; cutover/payment/legacy-decision row 0 유지 |
 | Todo 19 zero-row cutover | sequence 100과 Development legacy v3 release·preview·`legacy→fenced→new` 완료; five-service operation `created → verified_noop`; phase `new`, watermark 0, payment/decision 0, receipt/entity/audit `5/6/6` |
 | Todo 19 nonzero/disposable | exact commit `a6944d1`; eligible cross-link/new, signed zero·negative exclusion, ambiguity rollback, concurrent writer snapshot-drift 차단, audited `new→read_rollback→new`, replay no-op와 DB absence 증명 |
