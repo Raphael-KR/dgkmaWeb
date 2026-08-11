@@ -1,0 +1,50 @@
+{
+  "execution_commit_sha": "07b7927645d2ca8e988adc29a6d2fbb48cd80e68",
+  "failure": {
+    "database_calls": 0,
+    "evidence_sha256": "318f7bbf9b84bbcb68fe30056e4faaa596b1be3c4e5ebbc91a5903e76f1b0a53",
+    "expected_exit_code": 1,
+    "failure_case_count": 8,
+    "production_operations": 0,
+    "result": "rejected"
+  },
+  "happy": {
+    "data_catalog_sha256": "b1bd134ab285f75b59baebf8817cce4020b4ffc56b191318018f0b6f8c975219",
+    "development_target_fingerprint": "b3f038ee10e11f57fa524477ce393d82a67b71c223ef582776a83b828d239971",
+    "disposable_target_fingerprint": "33f53ff042a37ad1c9a1b05c351ffdad02d14c1b4fd063762dac56a385f23d86",
+    "dump_duration_ms": 1597,
+    "evidence_sha256": "28f79e3bced27bdbb9a3c0935b51f7eb8943a84ce1d2fe8157f7f8d40b727710",
+    "post_security_catalog_sha256": "b5f9dcec1959fa3b225b75d539bb2bf69454345fc73252a72729acd253fcd5da",
+    "production_readonly": "unverified",
+    "production_operations": 0,
+    "production_writes": 0,
+    "restore_duration_ms": 6623,
+    "restore_receipt_sha256": "74a3a4e69f04e171efc7e66d5bc7947bd027c076ab5ea489819f379e8823383a",
+    "restore_run_uid": "52b4594c-8733-42bc-a633-f478b6273427",
+    "result": "approved",
+    "schema_catalog_sha256": "1bd252019300834e4d7dc575b49184f547d8bb20a58e47773ab16b8942dd3621"
+  },
+  "manifest_sha256": "ec18e2c2a60ee9fed75ac97bd77f56b281804313de624cf7d18bce0f43a86b1e",
+  "recorded_at_kst": "2026-08-11T23:56:10+09:00",
+  "recorded_at_utc": "2026-08-11T14:56:10Z",
+  "repository_verification": {
+    "build": "approved",
+    "full_test_failures": 0,
+    "full_test_passed": 425,
+    "full_test_skipped": 2,
+    "full_test_total": 427,
+    "manifest_catalog_ledger": "approved",
+    "typecheck": "approved",
+    "verifier_inventory_count": 12,
+    "verifier_inventory_sha256": "496d175d8497bfe53b9378f40626e6fb82a05010601ee39306c146d8ef4748db"
+  },
+  "result": "approved",
+  "schema_version": "dgkma-todo22-final-validation-evidence-v1",
+  "verification": {
+    "deployments": 0,
+    "disposable_database_absent": true,
+    "dump_absent": true,
+    "pre_f3_browser_artifacts": 0,
+    "raw_snapshot_id_exposed": false
+  }
+}

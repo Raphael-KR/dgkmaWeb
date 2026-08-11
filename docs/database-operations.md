@@ -390,7 +390,9 @@ Exact commit `e57db48`의 Replit 격리 worktree에서 `scripts/preflight-bank-s
 
 ## 가역 rollout과 복원 검증 계약
 
-복원 준비 상태는 정확히 `pending Todo 22 measured drill`이다. 아래 내용은 Todo 22의 측정 가능한 Development→disposable 검증을 위한 고정 계약이며, 현재 복원 실행 승인이나 성공 주장이 아니다. Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
+Todo 5에서 동결한 사전 실행 복원 준비 label은 정확히 `pending Todo 22 measured drill`이다. Todo 22는 exact commit `07b7927645d2ca8e988adc29a6d2fbb48cd80e68`에서 이 계약대로 Development→UUID-bound disposable 측정 drill을 완료했다. 같은 repeatable-read exported snapshot에 결합된 source/dump/restore receipt로 target-neutral schema·application-data digest와 hardened security catalog 일치를 확인했고, dump와 disposable DB의 사후 부재를 증명했다. 측정값은 dump `1597 ms`, restore `6623 ms`이며 receipt SHA-256은 `74a3a4e69f04e171efc7e66d5bc7947bd027c076ab5ea489819f379e8823383a`이다. 따라서 현재 Development 복원 검증 상태는 `verified by Todo 22 measured drill`이다. 위 frozen label과 코드 상수는 Todo 5 pre-drill 계약 식별자로만 보존하며 현재 상태를 뜻하지 않는다.
+
+Production backup/restore는 이 계약의 범위 밖이고 RPO/RTO는 policy-pending이다. Production read-only credential도 사용하지 않아 Production catalog/drift는 `unverified`이며 호출·쓰기·배포는 모두 0건이다. Production에는 명시적인 사용자 승인, 별도 백업·복구 계획, 대상 확인과 측정된 Todo 22 drill receipt 없이는 이 절차를 적용하지 않는다.
 
 ### 동일 snapshot의 custom dump
 
