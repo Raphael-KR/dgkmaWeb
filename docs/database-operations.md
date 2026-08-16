@@ -199,6 +199,40 @@ CREATE TABLE IF NOT EXISTS event_parse_rate_limits (
 
 적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development Database에는 2026-07-14 적용·0건 초기 상태를 확인했다. Production Database에는 2026-07-14 적용해 같은 스키마와 0건 초기 상태를 확인했고, 2026-07-16 Republish 후 실제 회원의 문자 분석·초안 생성·삭제와 운영 DB의 경조사·초안 0건 정리를 확인했다.
 
+### 동문 공식 이름·개명 전 별칭 스키마
+
+Google Sheets의 `alumni_database.name` 복제값은 원본 대조를 위해 덮어쓰지 않는다. 검증된 현재 공식 이름과 개명 전 이름은 별도 additive 테이블에 저장하며, 관리자 경조사 대리등록에서만 `입력 이름 또는 별칭 + 학번` 단일 일치 판정에 사용한다. 카카오 가입·로그인 명부 매칭의 기존 이름+전화번호 계약은 이 별칭 조회로 확장하지 않는다.
+
+```sql
+CREATE TABLE IF NOT EXISTS alumni_name_aliases (
+  id serial PRIMARY KEY,
+  alumni_id integer NOT NULL,
+  name text NOT NULL,
+  normalized_name text NOT NULL,
+  alias_type text NOT NULL,
+  is_preferred boolean NOT NULL DEFAULT false,
+  created_at timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT alumni_name_aliases_alumni_id_alumni_database_id_fk
+    FOREIGN KEY (alumni_id) REFERENCES alumni_database(id) ON DELETE CASCADE,
+  CONSTRAINT alumni_name_aliases_type_check
+    CHECK (alias_type IN ('current_name', 'former_name')),
+  CONSTRAINT alumni_name_aliases_normalized_not_blank
+    CHECK (length(normalized_name) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS alumni_name_aliases_alumni_normalized_unique
+  ON alumni_name_aliases (alumni_id, normalized_name);
+CREATE UNIQUE INDEX IF NOT EXISTS alumni_name_aliases_preferred_unique
+  ON alumni_name_aliases (alumni_id)
+  WHERE is_preferred = true;
+CREATE INDEX IF NOT EXISTS alumni_name_aliases_normalized_idx
+  ON alumni_name_aliases (normalized_name);
+```
+
+별칭 적용 전 `current_database()`와 대상 `이름+학번` 일치 건수를 확인한다. 하나의 transaction에서 대상 `alumni_id`를 다시 잠그고 현재 공식 이름은 `alias_type='current_name'`, `is_preferred=true`, 개명 전 이름은 `alias_type='former_name'`, `is_preferred=false`로 upsert한다. 적용 후 새 연결에서 대상별 preferred 1건, 중복 정규화 이름 0건, 다른 명부 행 변경 0건을 확인한다. Production Database 적용은 코드 Republish와 별도의 운영 DB 변경으로 취급하며 Development 검증 뒤 명시적으로 실행한다.
+
+2026-08-16 Development `heliumdb`에는 위 테이블·제약 4개·인덱스 3개를 적용했다. 기존 스키마에 Drizzle 관리 밖의 회계 테이블이 있어 비대화형 `drizzle-kit push`가 새 테이블을 기존 테이블 rename 후보로 잘못 제시한 뒤 적용 없이 종료됐다. 기존 테이블 보존과 새 테이블 미생성을 확인한 다음 위 정확한 additive SQL만 transaction으로 실행했다. 검증된 한 명의 현재 공식 이름 1건과 개명 전 이름 1건을 추가했고 preferred 1건, 원본 `alumni_database.name` 보존, 전체 별칭 2건을 확인했다. Production에는 적용하지 않았다.
+
 ## 정식 오픈 전 초기화
 
 사용자가 데이터 보존을 선언하기 전까지 양쪽 DB의 애플리케이션 레코드는 테스트 데이터이며 개발 목적에 따라 초기화할 수 있다. 초기화할 때는 외래키 의존 순서를 확인하고 카테고리처럼 유지할 기준 데이터를 명시한다.
@@ -212,6 +246,7 @@ obituaries
 payments
 posts
 alumni_database
+alumni_name_aliases
 pending_registrations
 users
 session
