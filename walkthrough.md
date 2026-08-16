@@ -279,6 +279,8 @@ Replit SSH 공개키 인증이 거부되어 편집기에서 개발 워크플로�
 
 같은 검증에서 명부의 숫자형 기수 `1`이 표준 부고문에 `졸업1`로 표시되는 실제 데이터 형식 결함을 추가 RED로 확인해 canonical `1기`로 정규화했다. 최종 전체 테스트는 이번 변경과 무관하게 현재 Development DB의 `users` 전화번호 canonical check와 `kakao_oauth_states` 시작·만료 check를 기존 fixture 2개가 위반해 383/385였다. 전화번호 fixture를 현재 제약에 맞추자 다음 독립 회계 전환 제약 `legacy_payments_write_fenced`가 같은 계정삭제 통합 테스트의 legacy `payments` 직접 쓰기를 차단했다. 제품 제약을 약화하거나 이번 별칭 작업을 회계 마이그레이션으로 확장하지 않고 해당 무관 fixture 수정은 되돌렸다. 별칭·부고 집중 테스트와 실제 HTTP 흐름의 성공 판정은 유지하며, 전체-suite DB drift는 별도 후속 범위다.
 
+후속 fixture 정리에서는 계정삭제 테스트의 전화번호를 현행 canonical 형식으로 생성하고, Development 쓰기 fence가 막는 legacy `payments` 직접 insert를 제거하면서 저장소의 결제 익명화 순서 정적 계약은 유지했다. OAuth 만료 fixture는 `started_at < expires_at < now()`를 만족하도록 고쳤다. Chromium·`--no-sandbox` 경로를 제외하고 제공자 API→완전한 정적 HTML→입력 문자 fallback만 유지한 안전 배포 후보에서 관련 문서 계약 11/11, Replit 전체 380/380, `npm run check`, `npm run build`, `git diff --check`가 통과했다. Production `neondb`는 적용 전 13-table baseline과 대상 이름+학번 단일 일치를 확인한 뒤 별칭 스키마와 승인된 2건만 transaction으로 적용했고, 새 연결과 canonical metadata-only catalog에서 14 tables/119 columns/14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, preferred 1건, 중복 0건과 원본 명부 보존을 확인했다. 이 시점에는 아직 새 코드 Republish와 운영 HTTP smoke를 수행하지 않았다.
+
 ## 프로필·권리회원
 
 실제 회원 계정으로 `/profile`에 접근한다.

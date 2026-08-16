@@ -242,7 +242,9 @@ CREATE INDEX IF NOT EXISTS alumni_name_aliases_normalized_idx
 
 별칭 적용 전 `current_database()`와 대상 `이름+학번` 일치 건수를 확인한다. 하나의 transaction에서 대상 `alumni_id`를 다시 잠그고 현재 공식 이름은 `alias_type='current_name'`, `is_preferred=true`, 개명 전 이름은 `alias_type='former_name'`, `is_preferred=false`로 upsert한다. 적용 후 새 연결에서 대상별 preferred 1건, 중복 정규화 이름 0건, 다른 명부 행 변경 0건을 확인한다. Production Database 적용은 코드 Republish와 별도의 운영 DB 변경으로 취급하며 Development 검증 뒤 명시적으로 실행한다.
 
-2026-08-16 Development `heliumdb`에는 위 테이블·제약 4개·인덱스 3개를 적용했다. 기존 스키마에 Drizzle 관리 밖의 회계 테이블이 있어 비대화형 `drizzle-kit push`가 새 테이블을 기존 테이블 rename 후보로 잘못 제시한 뒤 적용 없이 종료됐다. 기존 테이블 보존과 새 테이블 미생성을 확인한 다음 위 정확한 additive SQL만 transaction으로 실행했다. 검증된 한 명의 현재 공식 이름 1건과 개명 전 이름 1건을 추가했고 preferred 1건, 원본 `alumni_database.name` 보존, 전체 별칭 2건을 확인했다. Production에는 적용하지 않았다.
+2026-08-16 Development `heliumdb`에는 위 테이블·제약 4개·비-PK 인덱스 3개를 적용했다. 기존 스키마에 Drizzle 관리 밖의 회계 테이블이 있어 비대화형 `drizzle-kit push`가 새 테이블을 기존 테이블 rename 후보로 잘못 제시한 뒤 적용 없이 종료됐다. 기존 테이블 보존과 새 테이블 미생성을 확인한 다음 위 정확한 additive SQL만 transaction으로 실행했다. 검증된 한 명의 현재 공식 이름 1건과 개명 전 이름 1건을 추가했고 preferred 1건, 원본 `alumni_database.name` 보존, 전체 별칭 2건을 확인했다.
+
+같은 날 Production `neondb`는 적용 전 13 tables/112 columns/13 PK/9 FK/6 non-PK UNIQUE constraints/20 indexes/9 sequences와 별칭 테이블 부재를 확인했다. 이름+학번 조건이 정확히 한 명과 일치한 뒤 하나의 transaction으로 exact additive SQL과 그 동문의 별칭 2건만 적용했다. 새 연결에서 14/119/14/10/6/24/10, 별칭 제약 4개, PK 포함 인덱스 4개, preferred 1건, 중복 정규화 이름 0건, 원본 명부 보존을 확인했으며 canonical metadata-only catalog가 read-only `ROLLBACK`과 completion marker로 종료됐다. 실제 이름·연락처·행 데이터·연결 문자열은 검증 기록에 남기지 않는다.
 
 ## 정식 오픈 전 초기화
 
