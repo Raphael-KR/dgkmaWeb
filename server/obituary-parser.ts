@@ -10,6 +10,7 @@ export interface ParsedObituary {
   chiefMourner: string;
   bankAccount: string;
   contactNumber: string;
+  familyContactName?: string;
 }
 
 type ObituaryDraft = Extract<CommunityEventDraftInput, { eventType: "obituary" }>;
@@ -182,8 +183,22 @@ function extractPhone(text: string): string {
   return phoneMatch ? phoneMatch[0].replace(/\s/g, "") : "";
 }
 
+function extractNamedFamilyContact(
+  text: string,
+): { name: string; phone: string } | undefined {
+  const match = text.match(
+    /(?:^|\n)\s*(장남|차남|장녀|차녀|아들|딸|배우자|상주)\s*[-：:]?\s*([가-힣]{2,5})\s*\(?\s*(01[0-9][\s-]?\d{3,4}[\s-]?\d{4})\s*\)?(?=\s|\n|$)/,
+  );
+  if (!match) return undefined;
+  return {
+    name: `${match[1]} ${match[2]}`,
+    phone: match[3].replace(/\s/g, ""),
+  };
+}
+
 export function parseObituarySms(text: string): Partial<ParsedObituary> {
   const deceasedRelation = extractRelation(text);
+  const namedFamilyContact = extractNamedFamilyContact(text);
   return {
     deceasedName: extractDeceasedName(text),
     ...(deceasedRelation ? { deceasedRelation } : {}),
@@ -192,7 +207,8 @@ export function parseObituarySms(text: string): Partial<ParsedObituary> {
     jangji: extractLabeled(text, ["장지"]),
     chiefMourner: extractLabeled(text, ["상주"]),
     bankAccount: extractAccountInfo(text),
-    contactNumber: extractPhone(text),
+    contactNumber: namedFamilyContact?.phone ?? extractPhone(text),
+    ...(namedFamilyContact ? { familyContactName: namedFamilyContact.name } : {}),
   };
 }
 
@@ -217,6 +233,7 @@ export function parseObituaryEventSource(text: string): ParsedObituaryEventSourc
     ...(legacy.bankAccount ? { accountInfo: legacy.bankAccount } : {}),
     ...(sourceUrl ? { sourceUrl } : {}),
     ...(legacy.contactNumber ? { familyContact: legacy.contactNumber } : {}),
+    ...(legacy.familyContactName ? { familyContactName: legacy.familyContactName } : {}),
     ...(legacy.jangji ? { burialPlace: legacy.jangji } : {}),
     ...(legacy.chiefMourner ? { chiefMourner: legacy.chiefMourner } : {}),
   };

@@ -112,6 +112,7 @@ function obituaryDraft(overrides: Partial<CommunityEvent> = {}): CommunityEvent 
 function memberStorage(
   requestingUser: User,
   alumniMatches: AlumniRecord[] = [targetAlumni],
+  aliasMatches: AlumniRecord[] = alumniMatches,
 ): ObituaryMemberStorage {
   return {
     getUser: async (id) => {
@@ -126,6 +127,7 @@ function memberStorage(
     },
     getMembershipStatus: async () => membership,
     findAlumniByName: async () => alumniMatches,
+    findAlumniByNameOrAlias: async () => aliasMatches,
   };
 }
 
@@ -170,6 +172,39 @@ test("an exact directory match does not require the alumnus to have signed in", 
   assert.equal(result.input.memberName, "김현수");
   assert.equal(result.input.membershipTier, "일반회원");
   assert.equal(result.input.memberPhone, "010-1111-2222");
+});
+
+test("an admin can preview a renamed member through one official alias and admission-year match", async () => {
+  const renamedAlumni = {
+    ...targetAlumni,
+    name: "김현재",
+    admissionDate: "1979-03-02",
+  };
+  const result = await assembleTrustedObituary(
+    obituaryDraft({
+      title: "김현재 동문 본인상",
+      relatedMemberName: "김현재",
+      sourceText: "1기 김현재 (개명 전 김이전) 본인상 학번-79학번",
+      details: {
+        deceasedName: "김현재",
+        deceasedAge: 66,
+        relationship: "본인",
+        funeralDate: "2026년 8월 18일",
+        funeralHome: "동국장례식장 1호",
+        familyContactName: "장남 김유족",
+        familyContact: "010-9999-0000",
+      },
+    }),
+    requesterId,
+    memberStorage(requester, [], [renamedAlumni]),
+  );
+
+  assert.equal(result.kind, "ready");
+  if (result.kind !== "ready") return;
+  assert.equal(result.input.memberName, "김현재");
+  assert.equal(result.input.admissionYear, "79학번");
+  assert.equal(result.input.memberPhone, "010-9999-0000");
+  assert.equal(result.input.contactName, "장남 김유족");
 });
 
 test("an admin is blocked when name and admission year match more than one alumnus", async () => {

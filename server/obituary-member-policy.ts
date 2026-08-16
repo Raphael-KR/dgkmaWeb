@@ -15,6 +15,7 @@ import {
 
 export type ObituaryMemberStorage = {
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
+  findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]>;
   getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
   getMembershipStatus(userId: number): Promise<MembershipStatus>;
   getUser(userId: number): Promise<User | undefined>;
@@ -92,7 +93,7 @@ async function resolvePreviewSources(
     };
   }
 
-  const alumniMatches = (await memberStorage.findAlumniByName(draft.relatedMemberName ?? ""))
+  const alumniMatches = (await memberStorage.findAlumniByNameOrAlias(draft.relatedMemberName ?? ""))
     .filter((alumni) => admissionYearLabel(alumni.admissionDate) === requestedAdmissionYear);
   if (alumniMatches.length !== 1) {
     return {
@@ -109,7 +110,13 @@ async function resolvePreviewSources(
   const membership = user
     ? await memberStorage.getMembershipStatus(user.id)
     : regularMembership();
-  return { kind: "ready" as const, user, alumni, membership };
+  return {
+    kind: "ready" as const,
+    user,
+    alumni,
+    memberDisplayName: alumni.name,
+    membership,
+  };
 }
 
 export async function assembleTrustedObituary(
@@ -145,6 +152,7 @@ export async function assembleTrustedObituary(
     draft: validatedDraft.draft,
     user: sources.user,
     alumni: sources.alumni,
+    memberDisplayName: sources.memberDisplayName,
     membership: sources.membership,
   });
   if (!preview.input) {

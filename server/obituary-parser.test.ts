@@ -56,6 +56,26 @@ test("uses a generation shorthand as member evidence and keeps self-obituary ide
   ]);
 });
 
+test("keeps a renamed self obituary and extracts the named family contact", () => {
+  const parsed = parseObituaryEventSource(`
+1기 김현재 (개명 전 김이전) 본인상
+향년 66세
+장남-김유족(010-0000-0000)
+학번-79학번
+故 김현재
+발인: 2026년 8월 18일 오전 7시
+빈소: 동국장례식장 1호실
+  `.trim());
+
+  assert.deepEqual(parsed.missingFields, []);
+  assert.equal(parsed.draft.relatedMemberName, "김현재");
+  assert.equal(parsed.draft.details.deceasedName, "김현재");
+  assert.equal(parsed.draft.details.deceasedAge, 66);
+  assert.equal(parsed.draft.details.relationship, "본인");
+  assert.equal(parsed.draft.details.familyContactName, "장남 김유족");
+  assert.equal(parsed.draft.details.familyContact, "010-0000-0000");
+});
+
 test("infers a father obituary only when a named member is listed as the deceased man's daughter", () => {
   const parsed = parseObituaryEventSource(`
 졸업21기 조은영

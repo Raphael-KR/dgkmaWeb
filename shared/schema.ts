@@ -1,5 +1,16 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  check,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { CommunityEventDetails } from "@shared/community-events";
@@ -107,6 +118,33 @@ export const alumniDatabase = pgTable("alumni_database", {
   isMatched: boolean("is_matched").default(false),
   matchedUserId: integer("matched_user_id").references(() => users.id),
 });
+
+export const alumniNameAliases = pgTable("alumni_name_aliases", {
+  id: serial("id").primaryKey(),
+  alumniId: integer("alumni_id")
+    .notNull()
+    .references(() => alumniDatabase.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull(),
+  aliasType: text("alias_type").notNull(),
+  isPreferred: boolean("is_preferred").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  check(
+    "alumni_name_aliases_type_check",
+    sql`${table.aliasType} IN ('current_name', 'former_name')`,
+  ),
+  check(
+    "alumni_name_aliases_normalized_not_blank",
+    sql`length(${table.normalizedName}) > 0`,
+  ),
+  uniqueIndex("alumni_name_aliases_alumni_normalized_unique")
+    .on(table.alumniId, table.normalizedName),
+  uniqueIndex("alumni_name_aliases_preferred_unique")
+    .on(table.alumniId)
+    .where(sql`${table.isPreferred} = true`),
+  index("alumni_name_aliases_normalized_idx").on(table.normalizedName),
+]);
 
 export const obituaries = pgTable("obituaries", {
   id: serial("id").primaryKey(),
@@ -218,10 +256,18 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   }),
 }));
 
-export const alumniDatabaseRelations = relations(alumniDatabase, ({ one }) => ({
+export const alumniDatabaseRelations = relations(alumniDatabase, ({ one, many }) => ({
   matchedUser: one(users, {
     fields: [alumniDatabase.matchedUserId],
     references: [users.id],
+  }),
+  nameAliases: many(alumniNameAliases),
+}));
+
+export const alumniNameAliasesRelations = relations(alumniNameAliases, ({ one }) => ({
+  alumni: one(alumniDatabase, {
+    fields: [alumniNameAliases.alumniId],
+    references: [alumniDatabase.id],
   }),
 }));
 
@@ -312,6 +358,7 @@ export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type AlumniRecord = typeof alumniDatabase.$inferSelect;
+export type AlumniNameAlias = typeof alumniNameAliases.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;

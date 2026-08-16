@@ -20,6 +20,7 @@ export interface ObituaryAnnouncementInput {
   funeralHome: string;
   funeralDate: string;
   memberPhone: string;
+  contactName?: string;
   accountInfo?: string;
   sourceUrl?: string;
 }
@@ -42,7 +43,8 @@ export function renderObituaryAnnouncement(
     `- 빈소: ${input.funeralHome}`,
     `- 발인: ${input.funeralDate}`,
   ];
-  const contactLines = [`- 연락처: ${input.memberName} ${input.memberPhone}`];
+  const contactName = input.contactName?.trim() || input.memberName;
+  const contactLines = [`- 연락처: ${contactName} ${input.memberPhone}`];
 
   if (accountInfo) {
     contactLines.push(`- 마음 전하실 곳: ${accountInfo}`);
