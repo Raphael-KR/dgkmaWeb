@@ -66,6 +66,10 @@ function hasEventEvidence(text: string): boolean {
   return /(?:故\s*[가-힣]{2,5}|부고|별세|소천|작고|발인|입관|빈소|장지|상주|고인과의\s*관계)/.test(text);
 }
 
+function hasUnavailableSourceEvidence(text: string): boolean {
+  return /(?:삭제|종료)된\s*(?:부고|게시물)|존재하지\s*않는\s*(?:부고|게시물)|다음\s*항목에\s*오류가\s*있습니다|Warning:\s*(?:include|require)(?:_once)?\(|failed to open stream|Failed opening\s+['"]?\/[^\s]+/.test(text);
+}
+
 export async function readEventSources(
   input: string,
   dependencies: EventSourceReaderDependencies = {},
@@ -111,6 +115,7 @@ export async function readEventSources(
         extracted = normalizeSourceText(extractText(renderedPage));
         if (extracted) method = "javascript";
       }
+      if (hasUnavailableSourceEvidence(extracted)) throw new Error("unavailable public source");
       if (!extracted) throw new Error("empty public page");
       textParts.push(extracted);
       sources.push({ url, status: "fetched", method, message: SOURCE_MESSAGES.fetched });

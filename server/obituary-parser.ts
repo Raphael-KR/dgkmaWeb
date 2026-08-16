@@ -102,7 +102,7 @@ function extractRelatedMemberName(text: string): string | undefined {
   );
   if (explicitRelationship) return explicitRelationship[1];
 
-  return text.match(/졸업\s*\d+\s*기\s*([가-힣]{2,5})/)?.[1]
+  return text.match(/(?:졸업\s*)?\d+\s*기\s*([가-힣]{2,5})/)?.[1]
     ?? text.match(/\d{2,4}\s*학번\s*([가-힣]{2,5})/)?.[1];
 }
 
@@ -205,9 +205,11 @@ export function parseObituaryEventSource(text: string): ParsedObituaryEventSourc
   const relatedMemberName = extractRelatedMemberName(text);
   const relationship = (legacy.deceasedRelation
     ?? inferRelationshipFromFamilyList(text, relatedMemberName)) as ObituaryDetails["relationship"];
+  const deceasedName = legacy.deceasedName
+    || (relationship === "본인" ? relatedMemberName : undefined);
 
   const details: ObituaryDetails = {
-    ...(legacy.deceasedName ? { deceasedName: legacy.deceasedName } : {}),
+    ...(deceasedName ? { deceasedName } : {}),
     ...(deceasedAge ? { deceasedAge } : {}),
     ...(relationship ? { relationship } : {}),
     ...(funeralDate ? { funeralDate } : {}),

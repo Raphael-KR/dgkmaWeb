@@ -43,6 +43,19 @@ test("Given a possessive alumni obituary sentence, When parsing, Then it keeps t
   assert.equal(parsed.draft.relatedMemberName, "김동국");
 });
 
+test("uses a generation shorthand as member evidence and keeps self-obituary identity", () => {
+  const parsed = parseObituaryEventSource("1기 김동국 본인상");
+
+  assert.equal(parsed.draft.relatedMemberName, "김동국");
+  assert.equal(parsed.draft.details.relationship, "본인");
+  assert.equal(parsed.draft.details.deceasedName, "김동국");
+  assert.deepEqual(parsed.missingFields, [
+    "details.deceasedAge",
+    "details.funeralDate",
+    "details.funeralHome",
+  ]);
+});
+
 test("infers a father obituary only when a named member is listed as the deceased man's daughter", () => {
   const parsed = parseObituaryEventSource(`
 졸업21기 조은영

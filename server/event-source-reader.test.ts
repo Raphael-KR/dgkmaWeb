@@ -116,6 +116,35 @@ test("does not execute JavaScript for an unsupported source host", async () => {
   assert.equal(result.sources[0]?.status, "fetched");
 });
 
+test("treats a public obituary deletion notice as unavailable", async () => {
+  const url = "https://kakaobugo.example/m/39716";
+  const result = await readEventSources(`1기 김동국 본인상 ${url}`, {
+    fetchPage: async () => htmlPage(url, "<main>삭제된 부고입니다. 돌아가기</main>"),
+  });
+
+  assert.equal(result.combinedText, "1기 김동국 본인상");
+  assert.deepEqual(result.sources, [{
+    url,
+    status: "unavailable",
+    message: "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.",
+  }]);
+});
+
+test("does not expose an upstream PHP include warning as fetched source text", async () => {
+  const url = "https://kakaobugo.example/m/39716";
+  const upstreamWarning = [
+    "Warning: include_once(/home/provider/www/tail.php): failed to open stream",
+    "Failed opening '/home/provider/www/tail.php' for inclusion",
+  ].join("\n");
+  const result = await readEventSources(`1기 김동국 본인상 ${url}`, {
+    fetchPage: async () => htmlPage(url, `<main>${upstreamWarning}</main>`),
+  });
+
+  assert.equal(result.combinedText, "1기 김동국 본인상");
+  assert.equal(result.sources[0]?.status, "unavailable");
+  assert.doesNotMatch(JSON.stringify(result), /\/home\/provider|tail\.php|include_once/);
+});
+
 test("keeps message fallback when a supported JavaScript source cannot render", async () => {
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   const result = await readEventSources(`졸업21기 조은영 ${url}`, {
