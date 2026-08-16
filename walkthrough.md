@@ -285,6 +285,8 @@ Replit 서버 코어에서 같은 링크와 `졸업21기 OOO` 힌트를 다시 �
 
 같은 검증에서 명부의 숫자형 기수 `1`이 표준 부고문에 `졸업1`로 표시되는 실제 데이터 형식 결함을 추가 RED로 확인해 canonical `1기`로 정규화했다. 최종 전체 테스트는 이번 변경과 무관하게 현재 Development DB의 `users` 전화번호 canonical check와 `kakao_oauth_states` 시작·만료 check를 기존 fixture 2개가 위반해 383/385였다. 전화번호 fixture를 현재 제약에 맞추자 다음 독립 회계 전환 제약 `legacy_payments_write_fenced`가 같은 계정삭제 통합 테스트의 legacy `payments` 직접 쓰기를 차단했다. 제품 제약을 약화하거나 이번 별칭 작업을 회계 마이그레이션으로 확장하지 않고 해당 무관 fixture 수정은 되돌렸다. 별칭·부고 집중 테스트와 실제 HTTP 흐름의 성공 판정은 유지하며, 전체-suite DB drift는 별도 후속 범위다.
 
+후속 승인으로 Development DB fixture를 현재 제약에 맞췄다. 계정삭제 fixture는 숫자형 `010` 테스트 번호만 생성하고 쓰기가 차단된 legacy `payments` 직접 insert를 제거하되, 저장소의 결제 익명화 순서 정적 계약은 유지했다. OAuth 만료 fixture는 `started_at < expires_at < now()`를 만족하는 명시적 시각으로 생성했다. 두 집중 통합 테스트 6/6과 Replit 전체 테스트 385/385가 통과했고 fixture 잔여 데이터는 각 테스트의 사후 0건 검증으로 확인했다.
+
 ## 프로필·권리회원
 
 실제 회원 계정으로 `/profile`에 접근한다.
