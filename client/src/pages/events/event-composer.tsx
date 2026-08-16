@@ -53,6 +53,7 @@ type ComposerFieldPath =
   | "details.accountInfo"
   | "details.sourceUrl"
   | "details.memberTitle"
+  | "details.familyContactName"
   | "details.familyContact"
   | "details.burialPlace"
   | "details.chiefMourner";
@@ -87,6 +88,7 @@ const composerFieldPaths = new Set<ComposerFieldPath>([
   "details.accountInfo",
   "details.sourceUrl",
   "details.memberTitle",
+  "details.familyContactName",
   "details.familyContact",
   "details.burialPlace",
   "details.chiefMourner",

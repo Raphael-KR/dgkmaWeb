@@ -75,6 +75,17 @@ test("admission year labels require a real calendar date", () => {
   assert.equal(admissionYearLabel("알 수 없음"), undefined);
 });
 
+test("numeric directory generations render as canonical graduation-class labels", () => {
+  const result = assembleObituaryPreview({
+    draft,
+    user,
+    alumni: { ...alumni, generation: "1" },
+    membership,
+  });
+
+  assert.equal(result.input?.graduationClass, "1기");
+});
+
 test("empty detail account falls back to the trimmed common account", () => {
   const result = assembleObituaryPreview({
     draft: { ...draft, details: { ...draft.details, accountInfo: "   " } },
@@ -117,6 +128,30 @@ test("member phone uses the nullish user-phone priority without fabrication", ()
   });
   assert.equal(blankUserPhone.input, undefined);
   assert.ok(blankUserPhone.missingFields.includes("memberPhone"));
+});
+
+test("a self obituary uses the named family contact instead of the deceased member phone", () => {
+  const result = assembleObituaryPreview({
+    draft: {
+      ...draft,
+      relatedMemberName: "김현재",
+      details: {
+        ...draft.details,
+        deceasedName: "김현재",
+        relationship: "본인",
+        familyContactName: "장남 김유족",
+        familyContact: "010-9999-0000",
+      },
+    },
+    user: { ...user, name: "김이전", phoneNumber: "010-1111-0000" },
+    alumni: { ...alumni, name: "김이전" },
+    memberDisplayName: "김현재",
+    membership,
+  });
+
+  assert.equal(result.input?.memberName, "김현재");
+  assert.equal(result.input?.memberPhone, "010-9999-0000");
+  assert.equal(result.input?.contactName, "장남 김유족");
 });
 
 test("membership tier must be one of the server-approved values", () => {
