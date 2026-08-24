@@ -11,14 +11,14 @@
 | 확인된 DB | `heliumdb` | `neondb` |
 | 기본 선택 여부 | 기본값 | 명시적으로 선택할 때만 사용 |
 
-2026-07-12 기준으로 Google Sheets 명부 3,458건을 양쪽 `alumni_database`에 1회 이관했다. 최종 전환 선언 전까지 Google Sheets는 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Google Sheets를 직접 조회하지 않으며, 명시적인 관리자 동기화로 PostgreSQL 복제본을 갱신한다. 양쪽 DB의 당시 휴대전화 중복과 필수값 누락은 0건이었고 `users`와 명부 연결은 0건이었다. 이 수치는 영구적인 운영 통계가 아니다.
+Google Sheets는 최종 전환 선언 전까지 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Google Sheets를 직접 조회하지 않으며, 명시적인 관리자 동기화로 PostgreSQL 복제본을 갱신한다. 이 문서는 행 데이터·개인정보·운영 건수를 기록하지 않는다.
 
 ## SSH 접속
 
 로컬 Mac에서 다음 SSH 명령으로 Replit 개발 워크스페이스에 접속한다.
 
 ```bash
-ssh -i ~/.ssh/replit -p 22 dc5e5541-525b-4ad6-b914-2d2db70cb4a9@dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev
+ssh -i ~/.ssh/replit -p 22 <replit-user>@<replit-host>
 cd /home/runner/workspace
 ```
 
@@ -40,6 +40,17 @@ cd /home/runner/workspace
 ## Development Database 사용
 
 개발 DB는 기본 연결이다. 앱 코드, 테스트, `db:push`와 일반 DB 검증은 별도 운영 URL 없이 실행한다.
+
+### 스키마 카탈로그 재검증
+
+현행 구조와 객체의 기준은 [database-schema.md](database-schema.md)다. Development 기본 metadata-only 재검증은 해당 문서의 catalog SQL을 실행하고 `heliumdb`, read-only, `ROLLBACK`, completion marker를 확인한다. 기존 운영 예시는 보존하며, 이 명령은 행 데이터를 조회하지 않는다.
+
+```bash
+psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
+  -f scripts/database-schema-catalog.sql
+```
+
+테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain, runtime DDL 또는 migration을 바꾸면 같은 PR에서 기준 문서를 갱신하고 이 metadata-only 검증을 다시 실행한다. Production은 명시적으로 대상 DB를 선택하고, 성공 catalog 전에는 일치나 drift를 추정하지 않는다.
 
 ```bash
 npm run check
@@ -181,7 +192,7 @@ CREATE TABLE IF NOT EXISTS kakao_identity_terminations (
 
 새 운영 연결에서 두 테이블의 컬럼과 `kakao_oauth_states_pkey`, `kakao_oauth_states_session_binding_hash_unique`, `kakao_identity_terminations_pkey`, 기존 `session`, `session_expire_idx`를 확인한 뒤에만 코드를 Republish한다.
 
-Development Database에는 2026-07-13 적용했으며, Production Database에는 별도 승인 작업 전까지 적용하지 않는다. 종료 marker에는 카카오 회원번호와 소문자 이메일의 원문 대신 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 hash를 저장하며, 각 identity key별 종료 시각의 최신 marker 1건만 보유한다.
+Development Database에는 2026-07-13 적용했으며, Production Database에는 별도 승인 작업 전까지 적용하지 않는다. 종료 marker에는 카카오 회원번호와 소문자 이메일의 원문 대신 각각 도메인 분리한 `SESSION_SECRET` 기반 HMAC-SHA-256 hash를 저장하며, 각 identity key별 최신 종료 marker만 보유한다.
 
 ### 경조사 링크 파싱 제한 스키마 선행 순서
 
@@ -197,7 +208,43 @@ CREATE TABLE IF NOT EXISTS event_parse_rate_limits (
 );
 ```
 
-적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development Database에는 2026-07-14 적용·0건 초기 상태를 확인했다. Production Database에는 2026-07-14 적용해 같은 스키마와 0건 초기 상태를 확인했고, 2026-07-16 Republish 후 실제 회원의 문자 분석·초안 생성·삭제와 운영 DB의 경조사·초안 0건 정리를 확인했다.
+적용 전후 `current_database()`를 확인하고, 새 연결에서 `event_parse_rate_limits`의 네 컬럼, 기본키와 `users(id)` 외래키를 확인한 뒤에만 경조사 링크 파싱 코드를 Republish한다. Development와 Production의 적용·초기 상태·Republish 후 흐름은 개인정보 없는 검증 기록으로 확인한다.
+
+### 동문 공식 이름·개명 전 별칭 스키마
+
+Google Sheets의 `alumni_database.name` 복제값은 원본 대조를 위해 덮어쓰지 않는다. 검증된 현재 공식 이름과 개명 전 이름은 별도 additive 테이블에 저장하며, 관리자 경조사 대리등록에서만 `입력 이름 또는 별칭 + 학번` 단일 일치 판정에 사용한다. 카카오 가입·로그인 명부 매칭의 기존 이름+전화번호 계약은 이 별칭 조회로 확장하지 않는다.
+
+```sql
+CREATE TABLE IF NOT EXISTS alumni_name_aliases (
+  id serial PRIMARY KEY,
+  alumni_id integer NOT NULL,
+  name text NOT NULL,
+  normalized_name text NOT NULL,
+  alias_type text NOT NULL,
+  is_preferred boolean NOT NULL DEFAULT false,
+  created_at timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT alumni_name_aliases_alumni_id_alumni_database_id_fk
+    FOREIGN KEY (alumni_id) REFERENCES alumni_database(id) ON DELETE CASCADE,
+  CONSTRAINT alumni_name_aliases_type_check
+    CHECK (alias_type IN ('current_name', 'former_name')),
+  CONSTRAINT alumni_name_aliases_normalized_not_blank
+    CHECK (length(normalized_name) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS alumni_name_aliases_alumni_normalized_unique
+  ON alumni_name_aliases (alumni_id, normalized_name);
+CREATE UNIQUE INDEX IF NOT EXISTS alumni_name_aliases_preferred_unique
+  ON alumni_name_aliases (alumni_id)
+  WHERE is_preferred = true;
+CREATE INDEX IF NOT EXISTS alumni_name_aliases_normalized_idx
+  ON alumni_name_aliases (normalized_name);
+```
+
+별칭 적용 전 `current_database()`와 대상 `이름+학번` 일치 건수를 확인한다. 하나의 transaction에서 대상 `alumni_id`를 다시 잠그고 현재 공식 이름은 `alias_type='current_name'`, `is_preferred=true`, 개명 전 이름은 `alias_type='former_name'`, `is_preferred=false`로 upsert한다. 적용 후 새 연결에서 대상별 preferred 1건, 중복 정규화 이름 0건, 다른 명부 행 변경 0건을 확인한다. Production Database 적용은 코드 Republish와 별도의 운영 DB 변경으로 취급하며 Development 검증 뒤 명시적으로 실행한다.
+
+2026-08-16 Development `heliumdb`에는 위 테이블·제약 4개·비-PK 인덱스 3개를 적용했다. 기존 스키마에 Drizzle 관리 밖의 회계 테이블이 있어 비대화형 `drizzle-kit push`가 새 테이블을 기존 테이블 rename 후보로 잘못 제시한 뒤 적용 없이 종료됐다. 기존 테이블 보존과 새 테이블 미생성을 확인한 다음 위 정확한 additive SQL만 transaction으로 실행했다. 검증된 한 명의 현재 공식 이름 1건과 개명 전 이름 1건을 추가했고 preferred 1건, 원본 `alumni_database.name` 보존, 전체 별칭 2건을 확인했다.
+
+같은 날 Production `neondb`는 적용 전 13 tables/112 columns/13 PK/9 FK/6 non-PK UNIQUE constraints/20 indexes/9 sequences와 별칭 테이블 부재를 확인했다. 이름+학번 조건이 정확히 한 명과 일치한 뒤 하나의 transaction으로 exact additive SQL과 그 동문의 별칭 2건만 적용했다. 새 연결에서 14/119/14/10/6/24/10, 별칭 제약 4개, PK 포함 인덱스 4개, preferred 1건, 중복 정규화 이름 0건, 원본 명부 보존을 확인했으며 canonical metadata-only catalog가 read-only `ROLLBACK`과 completion marker로 종료됐다. 실제 이름·연락처·행 데이터·연결 문자열은 검증 기록에 남기지 않는다.
 
 ## 정식 오픈 전 초기화
 
@@ -212,6 +259,7 @@ obituaries
 payments
 posts
 alumni_database
+alumni_name_aliases
 pending_registrations
 users
 session

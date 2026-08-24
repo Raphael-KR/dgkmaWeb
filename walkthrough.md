@@ -239,6 +239,7 @@
 - [x] DNS·리디렉션·본문 읽기를 포함한 서버 전체 deadline과 클라이언트 연결 종료 신호가 진행 중 요청과 남은 URL 처리를 중단한다.
 - [x] 초안 생성·수정·게시 API가 파싱 API를 우회한 사설 주소를 거부하고, 저장된 기존 비공개 주소도 회원 응답에서 제거한다.
 - [x] PostgreSQL의 회원별 공유 호출 제한에서 허용량을 넘은 요청은 `429`를 반환하고, 각 인스턴스는 회원별·전체 동시 작업 수도 제한한다.
+- [x] 검증된 제공자 API와 제한된 정적 HTML만 사용하며, 필수 부고 필드가 불완전한 앱 셸은 `unavailable`로 처리하고 서버에서 제3자 JavaScript를 실행하지 않는다.
 
 이 체크는 외부 사이트별 파싱 정확도나 실제 회원 브라우저 QA 완료를 뜻하지 않는다. 대표 공개 링크·만료 링크와 실제 부고문은 개발 서버에서 확인한 뒤 통합 QA 항목에 누적한다.
 
@@ -268,7 +269,17 @@ Replit SSH 공개키 인증이 거부되어 편집기에서 개발 워크플로�
 
 브라우저 콘솔에는 debug/info만 있고 warning/error는 0건이었다. Replit 실행 로그는 요청 메서드·경로·상태·처리시간만 기록했으며 이름·전화번호·계좌·주소·입력 원문은 출력하지 않았다. 검증 후 Development Database에서 ID 321만 transaction으로 삭제하고 새 연결에서 0건을 확인했으며, `/events` 목록도 0건이다. Production·Production Database·Republish는 사용하지 않았다.
 
-2026-07-31 GitHub `main`에 병합된 PR #11을 Replit Development에서 재검증했다. 파서·대상자 정책·공개 페이지 수집 집중 회귀 50/50이 통과했다. 실제 관리자 세션의 `/events`에서 안전한 합성 부고 문자와 `https://example.com/`을 함께 분석해 `링크 내용을 불러왔습니다`, 관련 동문 `김동국`, 관계 `부친`, 제목과 날짜 병합, `임시저장됨`을 확인했다. 게시에 필요한 고인·나이·빈소가 없는 입력이므로 게시하지 않았고, 초안을 삭제한 뒤 원문과 확인 영역이 초기화됐으며 브라우저 오류는 0건이었다.
+2026-08-01 `bugo.gipoom.com` 실제 링크는 정적 서버 요청에서 앱 셸만 반환했다. 제공자가 사용하는 인증 없는 구조화 API를 기존 SSRF·DNS 주소 고정·응답 제한 안에서 먼저 읽고 최소 부고 필드만 검증하는 어댑터를 추가했다. API 실패 시 완전한 필수 필드를 가진 정적 HTML만 성공으로 인정하며, 앱 셸과 불완전 본문은 `unavailable`로 처리해 함께 입력한 문자를 유지한다. 독립 보안 감사에서 위험 대비 제품 가치가 부족하다고 판정한 `--no-sandbox` Chromium과 `puppeteer-core`는 배포 후보에서 제거했다.
+
+합성 제공자 API 응답과 공통 부고 파서에서 고인·나이·발인·빈소·관계의 필수 근거, provider 우선순위, 정적 HTML fallback, 불완전 앱 셸 거부를 자동화했다. 관련 동문과 고인의 가족 역할·성별 근거가 함께 있을 때만 부모 관계를 추론하며, 관련 동문 힌트 또는 성별이 없으면 관계를 만들지 않는다.
+
+후속 승인으로 Development DB fixture를 현재 제약에 맞췄다. 계정삭제 fixture는 숫자형 `010` 테스트 번호만 생성하고 쓰기가 차단된 legacy `payments` 직접 insert를 제거하되, 저장소의 결제 익명화 순서 정적 계약은 유지했다. OAuth 만료 fixture는 `started_at < expires_at < now()`를 만족하는 명시적 시각으로 생성했다. 두 집중 통합 테스트 6/6과 Replit 전체 테스트 385/385가 통과했고 fixture 잔여 데이터는 각 테스트의 사후 0건 검증으로 확인했다.
+
+2026-08-16 `kakaobugo.com/m/39717` 개명 본인상 입력은 공개 원문을 `fetched/static-html`로 읽고 현재 이름·본인 관계·발인·빈소를 추출했지만 원문에 향년·유가족 연락처가 없어 게시할 수 없었다. 사용자가 향년, `79학번`, 명의가 있는 유가족 연락처와 공식 별칭 정책을 추가 승인했다. Google Sheets 복제 이름을 보존하는 별도 `alumni_name_aliases` 구조, 관리자 경조사 전용 이름·별칭+학번 단일 매칭, 본인상에서 사망한 회원 연락처 대신 확인된 유가족 연락처 명의를 사용하는 계약을 RED 6건으로 고정했고 최소 구현과 숫자형 기수 정규화 뒤 Replit 집중 테스트 45/45, `npm run check`, `npm run build`가 통과했다. Development `heliumdb`에는 제약·인덱스를 포함한 additive 스키마와 현재 공식 이름·개명 전 이름 2건만 적용했다. SSH 내부 합성 관리자 세션의 실제 HTTP 흐름에서 파싱 `200`, 초안 `201`, 최신 초안 복구, 미리보기 `200`, 게시 `200`, 목록·상세 `200`, 게시 후 초안 `404`, 공개 응답 원문 비노출을 확인했다. 검증 event·rate-limit·session·합성 사용자는 모두 0건으로 정리했고 공식 별칭 2건만 보존했다. GUI를 사용하지 않았으므로 실제 브라우저 화면·콘솔은 확인하지 않았고 Production·Production DB·Republish는 사용하지 않았다.
+
+같은 검증에서 명부의 숫자형 기수 `1`이 표준 부고문에 `졸업1`로 표시되는 실제 데이터 형식 결함을 추가 RED로 확인해 canonical `1기`로 정규화했다. 최종 전체 테스트는 이번 변경과 무관하게 현재 Development DB의 `users` 전화번호 canonical check와 `kakao_oauth_states` 시작·만료 check를 기존 fixture 2개가 위반해 383/385였다. 전화번호 fixture를 현재 제약에 맞추자 다음 독립 회계 전환 제약 `legacy_payments_write_fenced`가 같은 계정삭제 통합 테스트의 legacy `payments` 직접 쓰기를 차단했다. 제품 제약을 약화하거나 이번 별칭 작업을 회계 마이그레이션으로 확장하지 않고 해당 무관 fixture 수정은 되돌렸다. 별칭·부고 집중 테스트와 실제 HTTP 흐름의 성공 판정은 유지하며, 전체-suite DB drift는 별도 후속 범위다.
+
+후속 fixture 정리에서는 계정삭제 테스트의 전화번호를 현행 canonical 형식으로 생성하고, Development 쓰기 fence가 막는 legacy `payments` 직접 insert를 제거하면서 저장소의 결제 익명화 순서 정적 계약은 유지했다. OAuth 만료 fixture는 `started_at < expires_at < now()`를 만족하도록 고쳤다. Chromium·`--no-sandbox` 경로를 제외하고 제공자 API→완전한 정적 HTML→입력 문자 fallback만 유지한 안전 배포 후보에서 관련 문서 계약 11/11, Replit 전체 380/380, `npm run check`, `npm run build`, `git diff --check`가 통과했다. Production `neondb`는 적용 전 13-table baseline과 대상 이름+학번 단일 일치를 확인한 뒤 별칭 스키마와 승인된 2건만 transaction으로 적용했고, 새 연결과 canonical metadata-only catalog에서 14 tables/119 columns/14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, preferred 1건, 중복 0건과 원본 명부 보존을 확인했다. 이 시점에는 아직 새 코드 Republish와 운영 HTTP smoke를 수행하지 않았다.
 
 ## 프로필·권리회원
 
@@ -303,8 +314,8 @@ Replit SSH 공개키 인증이 거부되어 편집기에서 개발 워크플로�
 
 - [ ] Development와 Production에서 각각 현재 환경 allowlist의 카카오 계정으로 로그인하면 `isAdmin=true`가 복구되고, DB 초기화·계정 재생성 뒤에도 같은 동작을 한다.
 - [ ] allowlist Secret이 없으면 자동 승격하지 않고, 다른 절차로 부여한 기존 관리자 권한은 allowlist에 없다는 이유로 자동 회수하지 않는다.
-- [x] 관리자 계정의 커뮤니티 홈 상단 `관리자` 배지가 클릭 가능한 상태로 표시되고 `/admin` 관리자 패널로 이동한다.
-- [ ] 일반회원에게는 관리자 패널 링크가 표시되지 않는다.
+- [x] Production 실제 관리자 계정의 커뮤니티 홈 상단 `관리자` 링크가 `/admin` 관리자 패널로 이동한다.
+- [ ] Development 실제 관리자 계정에서도 같은 동작을 확인하고, 일반회원에게는 관리자 패널 링크가 표시되지 않는지 확인한다.
 - [ ] 비로그인·일반회원의 모든 `/api/admin/*` 요청이 각각 `401`, `403`을 반환하며, 특히 `POST /api/admin/sync-alumni/preview`와 `POST /api/admin/sync-alumni`가 DB를 변경하지 않는다.
 - [ ] 관리자 화면에서 가입 승인과 Google Sheets 연결 확인이 정상 동작한다.
 - [ ] `변경 미리보기`는 원본·DB·추가·수정·동일·충돌·오류·원본만·DB만 건수와 fingerprint만 반환하고 이름·전화번호·주소·메모를 브라우저나 응답에 노출하지 않는다.
@@ -352,7 +363,7 @@ Replit SSH 공개키 인증이 거부되어 편집기에서 개발 워크플로�
 - [x] 배포 커밋 `de0ed6e` Republish 후 운영 `/`와 정확한 JavaScript·CSS 자산, `/api/categories` `200`, 비로그인 `/api/auth/me`·`/api/events`·`/api/admin/pending-registrations`·`POST /api/payments` `401`, 제거된 `/api/debug/login` `404`를 확인했다.
 - [x] 같은 운영 배포에서 실제 카카오 재로그인으로 관리자 권한이 복구됐고, 홈 관리자 링크→`/admin` 패널 진입과 전체 페이지 재요청 뒤 세션 지속, 브라우저 오류 0건을 확인했다.
 - [x] 2026-07-18 관리자 자동 복구 커밋 `e021457` Republish 후 운영 `/`, `/api/categories`가 `200`, 제거된 `POST /api/debug/login`이 `404`, 비로그인 `/api/admin/sync-alumni/preview`와 `/api/events`가 `401`을 반환했다. 기존 실제 회원 세션의 홈도 정상 로드됐다.
-- [x] Republish 직후 `false`였던 지정 계정의 Production Database `isAdmin`이 운영 카카오 재로그인 뒤 `true`로 자동 복구됐고, 커뮤니티 홈의 `관리자` 표시를 실제 화면에서 확인했다. 관리자 패널 진입 링크는 다음 Republish 후 확인한다.
+- [x] Republish 직후 `false`였던 지정 계정의 Production Database `isAdmin`이 운영 카카오 재로그인 뒤 `true`로 자동 복구됐고, 커뮤니티 홈의 `관리자` 표시를 실제 화면에서 확인했다. 당시 미확인이던 관리자 패널 진입과 세션 지속은 2026-07-30 후속 검증에서 확인했다.
 - [x] Republish 후 운영 `/`와 `/api/categories`가 `200`, 비로그인 `/api/admin/sync-alumni/preview`, `/api/events`, `POST /api/payments`가 `401`을 반환했다. 제거된 `POST /api/debug/login`과 미등록 `/api/*`는 고정 한국어 JSON `404`를 반환했다.
 - [x] 운영 JavaScript 자산 `assets/index-CJN6DkYf.js`와 Replit 현재 빌드의 SHA-256이 `45d04488e7a34e2e7d4993a8aeff461196ca826bfcf63d8df136db92ea7a8f10`으로 일치해 배포본이 검증한 빌드와 같음을 확인했다.
 - [x] 운영 실제 일반회원 세션으로 회원 홈, `/events`, `/directory`, `/o`의 `/events?type=obituary` 이동, `/profile`을 확인했다. 각 화면은 정상 제목과 경로로 로드됐고 1,280px 데스크톱에서 가로 overflow가 없었다.

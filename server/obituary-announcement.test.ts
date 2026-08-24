@@ -44,6 +44,18 @@ test("self obituary adds the member-self tag", () => {
   assert.match(renderObituaryAnnouncement({ ...input, relationship: "본인" }), /^#부고 #동문본인상\n/);
 });
 
+test("self obituary renders the confirmed family contact name", () => {
+  const text = renderObituaryAnnouncement({
+    ...input,
+    relationship: "본인",
+    contactName: "장남 김유족",
+    memberPhone: "010-9999-0000",
+  });
+
+  assert.match(text, /- 연락처: 장남 김유족 010-9999-0000/);
+  assert.doesNotMatch(text, /- 연락처: 김동국 010-9999-0000/);
+});
+
 test("omits absent optional lines without empty labels", () => {
   const text = renderObituaryAnnouncement({
     ...input,

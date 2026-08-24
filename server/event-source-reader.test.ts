@@ -28,8 +28,110 @@ test("reads a URL-only source and appends extracted public text", async () => {
   assert.deepEqual(result.sources, [{
     url: "https://example.com/notice",
     status: "fetched",
+    method: "static-html",
     message: "링크 내용을 불러왔습니다.",
   }]);
+});
+
+test("treats an incomplete Gipoom app shell as unavailable without executing JavaScript", async () => {
+  const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
+  const result = await readEventSources(`졸업21기 조은영 ${url}`, {
+    readProviderSource: async () => undefined,
+    fetchPage: async () => htmlPage(url, "<main>기억을 품는 공간, 기품</main>"),
+  });
+
+  assert.equal(result.combinedText, "졸업21기 조은영");
+  assert.equal(result.sources[0]?.status, "unavailable");
+});
+
+test("uses a complete provider adapter result before static HTML", async () => {
+  const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
+  let fetched = false;
+  const result = await readEventSources(url, {
+    readProviderSource: async () => [
+      "故 김한의",
+      "남/78세",
+      "김동국 동문 부친상",
+      "발인: 2026년 8월 3일 10시 00분",
+      "빈소: 동국장례식장 특실",
+    ].join("\n"),
+    fetchPage: async () => {
+      fetched = true;
+      throw new Error("must not fetch the page");
+    },
+  });
+
+  assert.equal(fetched, false);
+  assert.match(result.combinedText, /故 김한의/);
+  assert.equal(result.sources[0]?.status, "fetched");
+  assert.equal(result.sources[0]?.method, "provider-api");
+});
+
+test("falls back to complete static obituary HTML when the provider adapter fails", async () => {
+  const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
+  const result = await readEventSources(url, {
+    readProviderSource: async () => { throw new Error("provider changed"); },
+    fetchPage: async () => htmlPage(url, `<main>
+      故 김한의
+      남/78세
+      김동국 동문 부친상
+      발인: 2026년 8월 3일 10시 00분
+      빈소: 동국장례식장 특실
+    </main>`),
+  });
+
+  assert.equal(result.sources[0]?.status, "fetched");
+  assert.equal(result.sources[0]?.method, "static-html");
+});
+
+test("keeps generic non-provider static HTML behavior", async () => {
+  const result = await readEventSources("https://example.com/notice", {
+    fetchPage: async (url) => htmlPage(url, "<main>기억을 품는 공간, 기품</main>"),
+  });
+
+  assert.equal(result.combinedText, "기억을 품는 공간, 기품");
+  assert.equal(result.sources[0]?.status, "fetched");
+});
+
+test("treats a public obituary deletion notice as unavailable", async () => {
+  const url = "https://kakaobugo.example/m/39716";
+  const result = await readEventSources(`1기 김동국 본인상 ${url}`, {
+    fetchPage: async () => htmlPage(url, "<main>삭제된 부고입니다. 돌아가기</main>"),
+  });
+
+  assert.equal(result.combinedText, "1기 김동국 본인상");
+  assert.deepEqual(result.sources, [{
+    url,
+    status: "unavailable",
+    message: "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.",
+  }]);
+});
+
+test("does not expose an upstream PHP include warning as fetched source text", async () => {
+  const url = "https://kakaobugo.example/m/39716";
+  const upstreamWarning = [
+    "Warning: include_once(/home/provider/www/tail.php): failed to open stream",
+    "Failed opening '/home/provider/www/tail.php' for inclusion",
+  ].join("\n");
+  const result = await readEventSources(`1기 김동국 본인상 ${url}`, {
+    fetchPage: async () => htmlPage(url, `<main>${upstreamWarning}</main>`),
+  });
+
+  assert.equal(result.combinedText, "1기 김동국 본인상");
+  assert.equal(result.sources[0]?.status, "unavailable");
+  assert.doesNotMatch(JSON.stringify(result), /\/home\/provider|tail\.php|include_once/);
+});
+
+test("keeps message fallback when Gipoom provider and static HTML are incomplete", async () => {
+  const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
+  const result = await readEventSources(`졸업21기 조은영 ${url}`, {
+    readProviderSource: async () => undefined,
+    fetchPage: async () => htmlPage(url, "<div id=\"root\"></div>"),
+  });
+
+  assert.equal(result.combinedText, "졸업21기 조은영");
+  assert.equal(result.sources[0]?.status, "unavailable");
+  assert.doesNotMatch(JSON.stringify(result.sources), /incomplete public obituary source/);
 });
 
 test("combines pasted message text and fetched link content", async () => {
