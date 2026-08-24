@@ -19,6 +19,7 @@
 - SSH 프로세스는 Replit Secret의 `PROD_DATABASE_URL`을 명시적으로 선택할 때 Production Database에 직접 연결할 수 있습니다. 개발 중 반복되는 운영 스키마·데이터 작업을 위해 Secret은 유지하되 기본 연결로 사용하지 않습니다.
 - 개발 DB에 적용한 SQL과 seed는 프로덕션 DB에 자동 반영되지 않습니다.
 - 개발·운영 DB 직접 연결과 안전한 변경 절차는 [데이터베이스 운영 런북](./docs/database-operations.md)을 따릅니다.
+- 현재 DB 구조의 기준은 [docs/database-schema.md](./docs/database-schema.md)입니다.
 
 ### 개발 중 확인 원칙
 
@@ -27,6 +28,12 @@
 개발 홈페이지에서 확인 가능한 화면과 사용자 흐름은 Codex가 인앱브라우저로 직접 검증하며 사용자에게 대신 확인해 달라고 요청하지 않습니다. 개발 검증이 통과한 뒤 운영 환경에서만 확인 가능한 사항이 있을 때에만 Republish를 요청하고, 가능한 운영 확인 항목을 한 번에 모아 Republish 횟수를 줄입니다.
 
 Republish는 배포할 코드와 Production Database 준비가 끝난 뒤 수행합니다. Republish 후에만 운영 홈페이지에서 smoke check와 실제 운영 환경 검증을 진행합니다.
+
+### 공개 링크 제공자 어댑터
+
+공개 페이지 제공자가 인증 없이 읽을 수 있는 구조화 API를 실제 페이지에 사용하는 경우, 검증된 정확한 출처에 한해 제공자 전용 어댑터를 먼저 사용한다. 어댑터는 기존 공개 주소 검사·DNS 주소 고정·응답 시간·크기·압축·콘텐츠 유형 제한을 그대로 통과하고, 필요한 최소 필드만 스키마로 검증한다.
+
+어댑터 실패 시 제한된 정적 HTML을 읽되, 제공자 앱 셸이나 필수 부고 필드가 불완전한 본문은 성공으로 취급하지 않고 함께 입력한 문자로 fallback한다. 서버는 제3자 JavaScript를 실행하지 않는다. 새 제공자를 추가할 때는 출처·공개 API 또는 정적 본문 구조·필수 필드·fallback을 각각 회귀 테스트와 Replit 개발 환경에서 검증한다.
 
 ## GitHub 동기화
 
@@ -77,7 +84,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Production Database의 `alumni_database`로 1회 이관했습니다. 최종 원본 전환을 선언하기 전까지 Google Sheets를 동문 명부의 **관리 원본**으로 유지하고, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**으로 운용합니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다.
+Google Sheets를 동문 명부의 **관리 원본**으로 유지하며, PostgreSQL `alumni_database`는 로그인·가입 심사에 사용하는 **런타임 복제본**입니다. 이 경계는 사용자가 최종 원본 전환을 선언할 때까지 유효합니다. 로그인 요청 자체는 Google Sheets를 조회하지 않으며, 관리자가 명시적으로 실행하는 동문 명부 동기화 기능으로 PostgreSQL 복제본을 갱신합니다. 관련 Secrets와 동기화 기능은 사용자가 PostgreSQL 단독 원본 전환을 명시적으로 선언할 때까지 유지합니다. 이 문서는 행 데이터·개인정보·운영 건수를 기록하지 않습니다.
 
 ### 선택 운영 설정
 
@@ -124,7 +131,7 @@ Google Sheets 명부 3,458건은 2026-07-12에 Development Database와 Productio
 
 ### 스키마 변경
 
-스키마 변경은 자동 실행하지 않습니다. Development Database와 Production Database에 각각 additive 변경 SQL을 명시적으로 검토한 뒤 수동 적용하고, 테이블과 컬럼을 확인합니다. 개발 환경에서 `db:push`를 사용해야 할 때도 변경 내용을 먼저 확인한 뒤 Replit Shell에서 직접 실행합니다.
+스키마 변경은 자동 실행하지 않습니다. Development Database와 Production Database에 각각 additive 변경 SQL을 명시적으로 검토한 뒤 수동 적용하고, 테이블과 컬럼을 확인합니다. 개발 환경에서 `db:push`를 사용해야 할 때도 변경 내용을 먼저 확인한 뒤 Replit Shell에서 직접 실행합니다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain, runtime DDL 또는 migration 변경은 같은 PR에서 [docs/database-schema.md](./docs/database-schema.md)를 갱신하고 metadata-only catalog를 재검증해야 합니다.
 
 ```bash
 npm run db:push
@@ -142,7 +149,9 @@ npm run db:push
 
 현재 Production Database에는 Republish 전에 [docs/database-operations.md](./docs/database-operations.md)의 조건부 additive SQL을 적용합니다. 이 SQL은 `kakao_oauth_states` 전체 테이블을 먼저 `CREATE TABLE IF NOT EXISTS`로 만들고, 초기 버전 테이블을 위해 `kakao_oauth_states.started_at`을 `ADD COLUMN IF NOT EXISTS`로 보완한 다음 `kakao_identity_terminations`를 생성합니다.
 
-새 연결에서 두 테이블의 전체 컬럼, 기본키, `session_binding_hash` 고유 제약과 기존 `session`, `session_expire_idx`가 모두 존재하는지 확인합니다. 이 확인이 끝난 뒤에만 새 코드를 Republish합니다. 이번 작업에서는 Production Database에 접근하거나 적용하지 않습니다.
+새 연결에서 두 테이블의 전체 컬럼, 기본키, `session_binding_hash` 고유 제약과 기존 `session`, `session_expire_idx`가 모두 존재하는지 확인합니다. 이 확인이 끝난 뒤에만 새 코드를 Republish합니다.
+
+2026-08-16에는 [데이터베이스 운영 런북](./docs/database-operations.md)의 `alumni_name_aliases` exact additive SQL을 Production `neondb`에 transaction으로 적용했다. 적용 전 대상 이름+학번 단일 일치와 기존 13-table baseline을 확인했고, 적용 후 새 연결과 canonical metadata-only catalog에서 14 tables/119 columns/14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, 별칭 제약 4개, preferred 1건, 중복 0건과 원본 명부 보존을 확인했다. 실제 이름·연락처·연결 문자열은 기록하지 않는다.
 
 ### 운영 데이터와 seed
 

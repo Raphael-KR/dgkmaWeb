@@ -14,6 +14,7 @@ type PreviewSources = {
   draft: ObituaryDraftInput;
   user: User | undefined;
   alumni: AlumniRecord | undefined;
+  memberDisplayName?: string;
   membership: MembershipStatus;
 };
 
@@ -31,6 +32,15 @@ function requiredText(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed || undefined;
+}
+
+export function graduationClassLabel(value: unknown): string | undefined {
+  const text = requiredText(value);
+  if (!text) return undefined;
+  const match = /^(?:제\s*)?(\d+)\s*기?$/.exec(text);
+  if (!match) return undefined;
+  const generation = Number(match[1]);
+  return Number.isInteger(generation) && generation > 0 ? `${generation}기` : undefined;
 }
 
 export function admissionYearLabel(value: unknown): string | undefined {
@@ -95,12 +105,15 @@ export function assembleObituaryPreview({
   draft,
   user,
   alumni,
+  memberDisplayName,
   membership,
 }: PreviewSources): ObituaryPreviewAssembly {
   const details = draft.details;
-  const graduationClass = requiredText(alumni?.generation);
+  const graduationClass = graduationClassLabel(alumni?.generation);
   const admissionYear = admissionYearLabel(alumni?.admissionDate);
-  const memberName = requiredText(user?.name) ?? requiredText(alumni?.name);
+  const memberName = requiredText(memberDisplayName)
+    ?? requiredText(user?.name)
+    ?? requiredText(alumni?.name);
   const membershipTier = membership.tier === "권리회원" || membership.tier === "일반회원"
     ? membership.tier
     : undefined;
@@ -111,7 +124,12 @@ export function assembleObituaryPreview({
     : undefined;
   const funeralHome = requiredText(details.funeralHome);
   const funeralDate = requiredText(details.funeralDate);
-  const memberPhone = requiredText(user?.phoneNumber ?? alumni?.mobile);
+  const memberPhone = relationship === "본인"
+    ? requiredText(details.familyContact)
+    : requiredText(user?.phoneNumber ?? alumni?.mobile);
+  const contactName = relationship === "본인"
+    ? requiredText(details.familyContactName)
+    : undefined;
   const requiredValues = {
     graduationClass,
     admissionYear,
@@ -142,6 +160,7 @@ export function assembleObituaryPreview({
       funeralHome: funeralHome!,
       funeralDate: funeralDate!,
       memberPhone: memberPhone!,
+      contactName,
       accountInfo: requiredText(details.accountInfo) ?? requiredText(draft.accountInfo),
       sourceUrl: requiredText(details.sourceUrl),
     },

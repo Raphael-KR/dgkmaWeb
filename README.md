@@ -42,6 +42,7 @@ GitHub main
 | [planning_proposal.md](./planning_proposal.md) | 제품 비전, 확정 정책, 현재 상태, 개발 우선순위와 완료 조건을 관리하는 통합 계획서 |
 | [walkthrough.md](./walkthrough.md) | 현재 프로덕션 기능의 수동 회귀 테스트 |
 | [replit.md](./replit.md) | Replit 개발·배포·환경변수·DB 운영 절차 |
+| [docs/database-schema.md](./docs/database-schema.md) | **최우선 DB 구조 기준서**: 현재 테이블·컬럼·객체·관계·재검증 상태 |
 | [docs/database-operations.md](./docs/database-operations.md) | 개발·운영 DB 선택, SSH 직접 연결, 변경·검증·Secret 수명 관리 |
 | [CHANGELOG.md](./CHANGELOG.md) | 버전별 추가·변경·보안 이력 |
 | [AGENTS.md](./AGENTS.md) | Codex가 이 저장소에서 따르는 작업 규칙 |
@@ -49,6 +50,8 @@ GitHub main
 | [경조사 통합 시스템 설계](./docs/superpowers/specs/2026-07-11-community-events-design.md) | 부고·결혼·개원·기타 통합 모델과 파싱·보안·마이그레이션 설계 |
 
 문서 내용이 충돌하면 프로덕션에서 검증된 동작, 현재 `main` 코드와 Replit 설정, `AGENTS.md`, 기존 운영 문서, 과거 기획과 변경 이력 순서로 확인합니다.
+
+DB 구조 변경은 같은 변경에서 최우선 기준서인 [docs/database-schema.md](./docs/database-schema.md)를 함께 갱신하고 catalog 재검증합니다.
 
 ## 기본 검증
 

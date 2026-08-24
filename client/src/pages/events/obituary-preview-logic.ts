@@ -18,6 +18,7 @@ const MISSING_FIELD_LABELS: Record<string, string> = {
   funeralDate: "발인 일시",
   funeralHome: "빈소",
   memberTitle: "회원 직함",
+  familyContactName: "유가족 연락처 명의",
   familyContact: "유가족 연락처",
   burialPlace: "장지",
   chiefMourner: "상주",
@@ -25,7 +26,7 @@ const MISSING_FIELD_LABELS: Record<string, string> = {
   admissionYear: "입학 연도",
   memberName: "회원 이름",
   membershipTier: "회원 등급",
-  memberPhone: "회원 연락처",
+  memberPhone: "연락처",
   sourceUrl: "모바일 부고장 URL",
 };
 

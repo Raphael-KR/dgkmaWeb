@@ -1,5 +1,5 @@
 import {
-  users, posts, payments, alumniDatabase, pendingRegistrations, categories, obituaries, comments, communityEvents,
+  users, posts, payments, alumniDatabase, alumniNameAliases, pendingRegistrations, categories, obituaries, comments, communityEvents,
   kakaoIdentityTerminations,
   type User, type InsertUser, type Post, type InsertPost,
   type Payment, type InsertPayment, type AlumniRecord, type InsertAlumniRecord,
@@ -373,6 +373,7 @@ export interface IStorage {
   // Alumni methods
   getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
+  findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]>;
   claimAlumniRecord(name: string, phoneNumber: string, userId: number): Promise<AlumniRecord | undefined>;
   findAlumniByNameAndYear(name: string, year: number): Promise<AlumniRecord | undefined>;
   updateAlumniMatch(id: number, userId: number): Promise<AlumniRecord | undefined>;
@@ -712,6 +713,39 @@ export class DatabaseStorage implements IStorage {
 
     return await db.select().from(alumniDatabase)
       .where(sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`);
+  }
+
+  async findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]> {
+    const normalizedName = normalizeNameForComparison(name);
+    if (!normalizedName) return [];
+
+    const matchedRows = await db
+      .selectDistinct({ alumni: alumniDatabase })
+      .from(alumniDatabase)
+      .leftJoin(alumniNameAliases, eq(alumniNameAliases.alumniId, alumniDatabase.id))
+      .where(or(
+        sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizedName}`,
+        eq(alumniNameAliases.normalizedName, normalizedName),
+      ))
+      .orderBy(asc(alumniDatabase.id));
+    const matches = matchedRows.map(({ alumni }) => alumni);
+    if (matches.length === 0) return [];
+
+    const preferredNames = await db
+      .select({ alumniId: alumniNameAliases.alumniId, name: alumniNameAliases.name })
+      .from(alumniNameAliases)
+      .where(and(
+        inArray(alumniNameAliases.alumniId, matches.map((alumni) => alumni.id)),
+        eq(alumniNameAliases.isPreferred, true),
+      ));
+    const preferredByAlumniId = new Map(
+      preferredNames.map((preferred) => [preferred.alumniId, preferred.name]),
+    );
+
+    return matches.map((alumni) => ({
+      ...alumni,
+      name: preferredByAlumniId.get(alumni.id) ?? alumni.name,
+    }));
   }
 
   async claimAlumniRecord(

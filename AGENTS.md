@@ -9,6 +9,7 @@
 - 현재 사용자의 명시적 결정이 최우선이다. 그다음에는 문서의 책임 범위에 따라 아래 canonical 문서를 따른다.
   - `planning_proposal.md`: 제품 비전, 확정 정책, 현재 상태, 우선순위와 완료 조건
   - `replit.md`: Replit 개발·배포·환경변수 운영
+  - `docs/database-schema.md`: 현재 DB 구조와 객체별 무결성 기준
   - `docs/database-operations.md`: 개발·운영 DB 선택, 변경, 백업·복구와 검증
   - `walkthrough.md`: 실제 계정과 프로덕션 회귀·smoke check
 - `README.md`는 문서 진입점이고 `CHANGELOG.md`와 `docs/superpowers/`의 설계·계획은 이력 자료다. 이력 자료를 현재 정책보다 우선하지 않는다.
@@ -32,6 +33,7 @@
 
 ## 데이터베이스와 명부
 
+- DB 관련 설계·구현·리뷰 전에는 `docs/database-schema.md`를 기준으로 삼는다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain 또는 runtime DDL/migration이 바뀌면 같은 변경에서 스키마 문서와 metadata-only catalog 재검증을 함께 갱신하며, 누락 시 작업은 미완료로 본다.
 - 모든 직접 DB 작업은 `docs/database-operations.md`를 따른다.
 - Development Database가 기본이다. `server/db.ts`에서는 Replit `PG*` 변수가 `DATABASE_URL`보다 우선하므로 일반 개발, 실행과 테스트에서 이를 해제하지 않는다.
 - Production Database는 명시적인 운영 명령으로만 선택한다. 먼저 `current_database()`와 변경 전 건수를 확인하고, 가능한 경우 트랜잭션을 사용한 뒤 새 연결에서 결과를 검증한다. 반복 조회에는 `PROD_DATABASE_READONLY_URL`을 우선한다.

@@ -239,6 +239,7 @@
 - [x] DNS·리디렉션·본문 읽기를 포함한 서버 전체 deadline과 클라이언트 연결 종료 신호가 진행 중 요청과 남은 URL 처리를 중단한다.
 - [x] 초안 생성·수정·게시 API가 파싱 API를 우회한 사설 주소를 거부하고, 저장된 기존 비공개 주소도 회원 응답에서 제거한다.
 - [x] PostgreSQL의 회원별 공유 호출 제한에서 허용량을 넘은 요청은 `429`를 반환하고, 각 인스턴스는 회원별·전체 동시 작업 수도 제한한다.
+- [x] 검증된 제공자 API와 제한된 정적 HTML만 사용하며, 필수 부고 필드가 불완전한 앱 셸은 `unavailable`로 처리하고 서버에서 제3자 JavaScript를 실행하지 않는다.
 
 이 체크는 외부 사이트별 파싱 정확도나 실제 회원 브라우저 QA 완료를 뜻하지 않는다. 대표 공개 링크·만료 링크와 실제 부고문은 개발 서버에서 확인한 뒤 통합 QA 항목에 누적한다.
 
@@ -267,6 +268,18 @@
 Replit SSH 공개키 인증이 거부되어 편집기에서 개발 워크플로를 시작하고 원격 브랜치를 fast-forward한 뒤 서버를 완전히 재시작했다. 정책 통합 fixture를 현재 계약에 맞춘 뒤 Replit 집중 테스트 33/33, 전체 354/354, `npm run check`, `npm run build`, `git diff --check`가 모두 통과했다. 실제 혼합 입력의 대상은 Development 명부에서 이름+07학번 정확히 1명, 연결 계정 0명으로 확인됐고, 미리보기는 작성자가 아닌 대상 동문의 명부 기수·07학번·일반회원·연락처를 사용했다. 게시 ID 321의 목록 카드와 상세에서 제목·대상 동문·고인·관계·발인·빈소·장지·상주·연락처·원문 링크가 미리보기와 일치하고 게시 후 같은 초안이 복구되지 않는 것을 확인했다.
 
 브라우저 콘솔에는 debug/info만 있고 warning/error는 0건이었다. Replit 실행 로그는 요청 메서드·경로·상태·처리시간만 기록했으며 이름·전화번호·계좌·주소·입력 원문은 출력하지 않았다. 검증 후 Development Database에서 ID 321만 transaction으로 삭제하고 새 연결에서 0건을 확인했으며, `/events` 목록도 0건이다. Production·Production Database·Republish는 사용하지 않았다.
+
+2026-08-01 `bugo.gipoom.com` 실제 링크는 정적 서버 요청에서 앱 셸만 반환했다. 제공자가 사용하는 인증 없는 구조화 API를 기존 SSRF·DNS 주소 고정·응답 제한 안에서 먼저 읽고 최소 부고 필드만 검증하는 어댑터를 추가했다. API 실패 시 완전한 필수 필드를 가진 정적 HTML만 성공으로 인정하며, 앱 셸과 불완전 본문은 `unavailable`로 처리해 함께 입력한 문자를 유지한다. 독립 보안 감사에서 위험 대비 제품 가치가 부족하다고 판정한 `--no-sandbox` Chromium과 `puppeteer-core`는 배포 후보에서 제거했다.
+
+합성 제공자 API 응답과 공통 부고 파서에서 고인·나이·발인·빈소·관계의 필수 근거, provider 우선순위, 정적 HTML fallback, 불완전 앱 셸 거부를 자동화했다. 관련 동문과 고인의 가족 역할·성별 근거가 함께 있을 때만 부모 관계를 추론하며, 관련 동문 힌트 또는 성별이 없으면 관계를 만들지 않는다.
+
+후속 승인으로 Development DB fixture를 현재 제약에 맞췄다. 계정삭제 fixture는 숫자형 `010` 테스트 번호만 생성하고 쓰기가 차단된 legacy `payments` 직접 insert를 제거하되, 저장소의 결제 익명화 순서 정적 계약은 유지했다. OAuth 만료 fixture는 `started_at < expires_at < now()`를 만족하는 명시적 시각으로 생성했다. 두 집중 통합 테스트 6/6과 Replit 전체 테스트 385/385가 통과했고 fixture 잔여 데이터는 각 테스트의 사후 0건 검증으로 확인했다.
+
+2026-08-16 `kakaobugo.com/m/39717` 개명 본인상 입력은 공개 원문을 `fetched/static-html`로 읽고 현재 이름·본인 관계·발인·빈소를 추출했지만 원문에 향년·유가족 연락처가 없어 게시할 수 없었다. 사용자가 향년, `79학번`, 명의가 있는 유가족 연락처와 공식 별칭 정책을 추가 승인했다. Google Sheets 복제 이름을 보존하는 별도 `alumni_name_aliases` 구조, 관리자 경조사 전용 이름·별칭+학번 단일 매칭, 본인상에서 사망한 회원 연락처 대신 확인된 유가족 연락처 명의를 사용하는 계약을 RED 6건으로 고정했고 최소 구현과 숫자형 기수 정규화 뒤 Replit 집중 테스트 45/45, `npm run check`, `npm run build`가 통과했다. Development `heliumdb`에는 제약·인덱스를 포함한 additive 스키마와 현재 공식 이름·개명 전 이름 2건만 적용했다. SSH 내부 합성 관리자 세션의 실제 HTTP 흐름에서 파싱 `200`, 초안 `201`, 최신 초안 복구, 미리보기 `200`, 게시 `200`, 목록·상세 `200`, 게시 후 초안 `404`, 공개 응답 원문 비노출을 확인했다. 검증 event·rate-limit·session·합성 사용자는 모두 0건으로 정리했고 공식 별칭 2건만 보존했다. GUI를 사용하지 않았으므로 실제 브라우저 화면·콘솔은 확인하지 않았고 Production·Production DB·Republish는 사용하지 않았다.
+
+같은 검증에서 명부의 숫자형 기수 `1`이 표준 부고문에 `졸업1`로 표시되는 실제 데이터 형식 결함을 추가 RED로 확인해 canonical `1기`로 정규화했다. 최종 전체 테스트는 이번 변경과 무관하게 현재 Development DB의 `users` 전화번호 canonical check와 `kakao_oauth_states` 시작·만료 check를 기존 fixture 2개가 위반해 383/385였다. 전화번호 fixture를 현재 제약에 맞추자 다음 독립 회계 전환 제약 `legacy_payments_write_fenced`가 같은 계정삭제 통합 테스트의 legacy `payments` 직접 쓰기를 차단했다. 제품 제약을 약화하거나 이번 별칭 작업을 회계 마이그레이션으로 확장하지 않고 해당 무관 fixture 수정은 되돌렸다. 별칭·부고 집중 테스트와 실제 HTTP 흐름의 성공 판정은 유지하며, 전체-suite DB drift는 별도 후속 범위다.
+
+후속 fixture 정리에서는 계정삭제 테스트의 전화번호를 현행 canonical 형식으로 생성하고, Development 쓰기 fence가 막는 legacy `payments` 직접 insert를 제거하면서 저장소의 결제 익명화 순서 정적 계약은 유지했다. OAuth 만료 fixture는 `started_at < expires_at < now()`를 만족하도록 고쳤다. Chromium·`--no-sandbox` 경로를 제외하고 제공자 API→완전한 정적 HTML→입력 문자 fallback만 유지한 안전 배포 후보에서 관련 문서 계약 11/11, Replit 전체 380/380, `npm run check`, `npm run build`, `git diff --check`가 통과했다. Production `neondb`는 적용 전 13-table baseline과 대상 이름+학번 단일 일치를 확인한 뒤 별칭 스키마와 승인된 2건만 transaction으로 적용했고, 새 연결과 canonical metadata-only catalog에서 14 tables/119 columns/14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, preferred 1건, 중복 0건과 원본 명부 보존을 확인했다. 이 시점에는 아직 새 코드 Republish와 운영 HTTP smoke를 수행하지 않았다.
 
 ## 프로필·권리회원
 

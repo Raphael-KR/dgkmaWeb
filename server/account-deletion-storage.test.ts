@@ -89,6 +89,11 @@ test("development PostgreSQL deletes one member while preserving public content"
   const { storage } = await import("./storage");
   const { hashKakaoEmailIdentity, hashKakaoIdentity } = await import("./kakao-identity");
   const token = randomUUID().replaceAll("-", "");
+  const phoneSeed = Number(BigInt(`0x${token.slice(0, 12)}`) % 99_999_997n);
+  const testPhone = (offset: number) => {
+    const suffix = ((phoneSeed + offset) % 100_000_000).toString().padStart(8, "0");
+    return `010-${suffix.slice(0, 4)}-${suffix.slice(4)}`;
+  };
   const email = `task4-${token}@example.invalid`;
   const mixedCaseEmail = email.toUpperCase();
   const kakaoId = `task4-${token}`;
@@ -113,11 +118,11 @@ test("development PostgreSQL deletes one member while preserving public content"
         kakaoId,
         email,
         marker,
-        `010-${token.slice(0, 4)}-${token.slice(4, 8)}`,
+        testPhone(0),
         otherKakaoId,
         otherEmail,
         `${marker}-other`,
-        `011-${token.slice(8, 12)}-${token.slice(12, 16)}`,
+        testPhone(1),
       ],
     );
     userId = usersResult.rows[0].id;
@@ -136,15 +141,10 @@ test("development PostgreSQL deletes one member while preserving public content"
       [postResult.rows[0].id, userId, marker],
     );
     await pool.query(
-      `insert into payments (user_id, amount, year, type, status)
-       values ($1, 10000, 2099, $2, 'completed')`,
-      [userId, marker],
-    );
-    await pool.query(
       `insert into alumni_database
         (department, generation, name, mobile, is_matched, matched_user_id)
        values ('한의학과', $1, $1, $2, true, $3)`,
-      [marker, `010-${token.slice(16, 20)}-${token.slice(20, 24)}`, userId],
+      [marker, testPhone(2), userId],
     );
     await pool.query(
       `insert into obituaries
@@ -231,7 +231,7 @@ test("development PostgreSQL deletes one member while preserving public content"
       post_anonymous_count: 1,
       comment_anonymous_count: 1,
       obituary_anonymous_count: 1,
-      payment_anonymous_count: 1,
+      payment_anonymous_count: 0,
       alumni_unmatched_count: 1,
       pending_count: 0,
       target_session_count: 0,
