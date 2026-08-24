@@ -1,25 +1,26 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 권위는 코드 의도와 저장된 Development catalog뿐이며, Production은 미검증이다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 권위는 코드 의도, 저장된 Development catalog와 2026-08-16에 재검증한 Production catalog다. Development의 현재 `public`에는 과거 기준보다 많은 비애플리케이션 객체가 함께 있어 전체 count는 Production과 직접 비교하지 않고, 이번 별칭 객체만 별도로 확인했다.
 
 ## 1. authority/verification metadata
 
 | 항목 | 값 |
 | --- | --- |
-| code intent | `shared/schema.ts`의 12 `pgTable` + `server/index.ts` 런타임 `session` DDL |
+| code intent | `shared/schema.ts`의 13 `pgTable` + `server/index.ts` 런타임 `session` DDL |
 | source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
 | source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
 | Development catalog verification start KST | `2026-07-27 16:25:11 KST +0900` |
 | Development catalog verification start UTC | `2026-07-27 07:25:11 UTC +0000` |
 | Development catalog verification end KST | `2026-07-27 16:25:13 KST +0900` |
 | Development catalog verification end UTC | `2026-07-27 07:25:14 UTC +0000` |
-| local HEAD | `f8518c0d7ebeff957b5b20ad66ae7a46611981c2` |
-| Replit Development HEAD | `a0c421428081f375b4f72a72bff0e2b91a125ef5` |
+| alias release candidate before schema-doc commit | `98bd8ea703838a59ae8b52e67180425c8aa01808` |
+| Production catalog verification KST | `2026-08-16 18:28 KST +0900` |
+| Production catalog verification UTC | `2026-08-16 09:28 UTC +0000` |
 | code status | verified |
-| Development catalog | verified: `heliumdb`, PostgreSQL `16.10`, read-only catalog |
-| Production catalog | unverified |
-| Production drift | unknown |
-| 기준 count (tables/columns/PK/FK/non-PK UNIQUE/index/sequence) | `13/112/13/9/6/20/9` |
+| Development catalog | historical app baseline verified; 2026-08-16 별칭 객체 verified, 전체 `public` count는 확장되어 별도 reconciliation 필요 |
+| Production catalog | verified: `neondb`, PostgreSQL `16.10`, canonical read-only catalog completed |
+| Production drift | alias release code intent와 일치 |
+| 기준 count (tables/columns/PK/FK/non-PK UNIQUE/index/sequence) | `14/119/14/10/6/24/10` |
 | catalog SQL SHA-256 | `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f` |
 | Development evidence | local/uncommitted orchestration evidence: `.omo/evidence/current-db-schema-documentation/task-7-development-normalized-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-summary-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-rerun-receipt.md` |
 
@@ -27,7 +28,7 @@ Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a
 
 위 Development evidence는 현재 실행의 local/uncommitted 감사 기록이며, future checkout에서 파일이 없더라도 verification failure를 뜻하지 않는다. 재검증의 권위는 tracked catalog SQL과 runbook이다.
 
-Production의 성공 catalog가 없으므로 Production schema, Development와의 일치, Production drift 유무를 주장하지 않는다.
+Production은 additive transaction 적용 뒤 새 연결에서 별칭 테이블, 제약 4개, PK 포함 인덱스 4개, sequence를 확인했고 canonical metadata-only catalog가 `ROLLBACK`과 completion marker로 종료됐다. 별칭 데이터 검증은 행 내용을 기록하지 않고 대상 단일 일치, 별칭 2건, preferred 1건, 중복 0건, 원본 명부 보존 여부만 확인했다.
 
 ## 2. system and external boundaries
 
@@ -39,16 +40,16 @@ Production의 성공 catalog가 없으므로 Production schema, Development와�
 
 | object_kind | schema | physical_name | code_status | dev_status | prod_status | drift_note | evidence_ref |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| ordinary tables | public | baseline 13 | verified | verified (13) | unverified | Production 비교 불가 | Todo 7 rerun |
-| columns | public | baseline 112 | verified | verified (112) | unverified | Production 비교 불가 | Todo 7 rerun |
-| constraints/indexes/sequences | public | 13/9/6/20/9 | verified | verified | unverified | Production 비교 불가 | Todo 7 rerun |
-| views | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| materialized views | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| triggers | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| policies | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| routines | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| enums | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
-| domains | public | ABSENT (catalog count=0) | n/a | ABSENT (catalog count=0) | unverified | Production 부재 추정 금지 | Todo 7 rerun |
+| ordinary tables | public | baseline 14 | verified | 별칭 객체 verified; 전체 count 확장 | verified (14) | Production은 code intent와 일치 | 2026-08-16 catalog |
+| columns | public | baseline 119 | verified | 별칭 7열 verified; 전체 count 확장 | verified (119) | Production은 code intent와 일치 | 2026-08-16 catalog |
+| constraints/indexes/sequences | public | 14/10/6/24/10 | verified | 별칭 객체 verified | verified | Production은 code intent와 일치 | 2026-08-16 catalog |
+| views | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| materialized views | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| triggers | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| policies | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| routines | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| enums | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| domains | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
 
 ## 4. baseline ERD
 
@@ -60,6 +61,7 @@ erDiagram
   users o|--o{ obituaries : author_id
   users o|--o{ community_events : author_id
   users o|--o{ alumni_database : matched_user_id
+  alumni_database ||--o{ alumni_name_aliases : alumni_id
   users ||--o| event_parse_rate_limits : user_id
   categories o|--o{ posts : category_id
   posts ||--o{ comments : post_id
@@ -78,11 +80,12 @@ flowchart LR
   App --> Storage[Object Storage]
 ```
 
-ERD의 선은 catalog의 9 FK를 표현한다. nullable FK는 부모 쪽을 `o|`로 표시한다. `alumni_database.matched_user_id`는 FK이나 UNIQUE가 없어 물리 cardinality는 `users o|--o{ alumni_database`이고 1:1은 logical_only다. `community_events.legacy_obituary_id`는 UNIQUE이나 `obituaries` FK는 없다.
+ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|`로 표시한다. `alumni_database.matched_user_id`는 FK이나 UNIQUE가 없어 물리 cardinality는 `users o|--o{ alumni_database`이고 1:1은 logical_only다. `community_events.legacy_obituary_id`는 UNIQUE이나 `obituaries` FK는 없다.
 
 | FK constraint | ON UPDATE | ON DELETE |
 | --- | --- | --- |
 | `alumni_database_matched_user_id_users_id_fk` | NO ACTION | NO ACTION |
+| `alumni_name_aliases_alumni_id_alumni_database_id_fk` | NO ACTION | CASCADE |
 | `comments_author_id_users_id_fk` | NO ACTION | NO ACTION |
 | `comments_post_id_posts_id_fk` | NO ACTION | CASCADE |
 | `community_events_author_id_users_id_fk` | NO ACTION | NO ACTION |
@@ -94,7 +97,7 @@ ERD의 선은 catalog의 9 FK를 표현한다. nullable FK는 부모 쪽을 `o|`
 
 ## 5. per-table dictionary
 
-모든 열은 `name:type NULL/NOT NULL default; identity/generated` 순서다. 명시하지 않은 `identity/generated`는 `none/none`이며, 모든 CHECK는 `없음`이다. 각 행의 drift note는 `code/Development verified; Production unverified`다.
+모든 열은 `name:type NULL/NOT NULL default; identity/generated` 순서다. 명시하지 않은 `identity/generated`는 `none/none`이며, 별칭 테이블에만 명시한 CHECK 2개가 있다. 기존 행의 Development 검증 표기는 2026-07-27 app baseline을 뜻하며, Production은 2026-08-16 전체 catalog로 검증했다.
 
 ### TABLE_ROW: users
 
@@ -144,6 +147,15 @@ ERD의 선은 catalog의 9 FK를 표현한다. nullable FK는 부모 쪽을 `o|`
 - PK/FK/UNIQUE/CHECK/index: PK `alumni_database_pkey(id)`; FK `alumni_database_matched_user_id_users_id_fk(matched_user_id→users.id NO ACTION)`; UNIQUE `alumni_database_mobile_unique(mobile)`; indexes `alumni_database_pkey`, `alumni_database_mobile_unique`.
 - physical/logical relations: users claim, 그러나 `matched_user_id` UNIQUE 없음. readers/writers: admin sync preview/apply, onboarding claim. transaction/lifecycle: advisory lock + one transaction sync, 자동 삭제 없음.
 - PII class: direct identifier, contact, profile, user content. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+
+### TABLE_ROW: alumni_name_aliases
+
+- physical name: `alumni_name_aliases`; code symbol: `alumniNameAliases`; owner: Membership Registry/Onboarding; purpose: 명부 원본 이름을 덮어쓰지 않고 검증된 현재 공식 이름·개명 전 이름을 보관해 관리자 경조사 대리등록의 이름+학번 단일 일치에 사용.
+- column/type/null/default/identity-generated: `id:integer NOT NULL nextval('alumni_name_aliases_id_seq'::regclass); none/none`; `alumni_id:integer NOT NULL none; none/none`; `name:text NOT NULL none; none/none`; `normalized_name:text NOT NULL none; none/none`; `alias_type:text NOT NULL none; none/none`; `is_preferred:boolean NOT NULL false; none/none`; `created_at:timestamp without time zone NOT NULL now(); none/none`.
+- PK/FK/UNIQUE/CHECK/index: PK `alumni_name_aliases_pkey(id)`; FK `alumni_name_aliases_alumni_id_alumni_database_id_fk(alumni_id→alumni_database.id ON DELETE CASCADE)`; CHECK `alumni_name_aliases_type_check`, `alumni_name_aliases_normalized_not_blank`; unique indexes `alumni_name_aliases_alumni_normalized_unique`, `alumni_name_aliases_preferred_unique`(partial); lookup index `alumni_name_aliases_normalized_idx`.
+- physical/logical relations: 한 명의 동문은 여러 별칭을 가질 수 있지만 preferred는 최대 1건이고 동일 정규화 이름은 동문별 최대 1건이다. Google Sheets 복제 원본 `alumni_database.name`은 변경하지 않는다.
+- readers/writers: 관리자 경조사 대리등록의 이름+학번 조회와 명시적 운영 transaction. 카카오 가입·로그인 명부 claim은 이 테이블을 읽지 않는다.
+- PII class: direct identifier, profile. retention evidence: 명부 원본과 함께 관리하며 별도 기간은 정책 미정. drift note: code/Development object/Production catalog verified.
 
 ### TABLE_ROW: obituaries
 
@@ -203,32 +215,32 @@ ERD의 선은 catalog의 9 FK를 표현한다. nullable FK는 부모 쪽을 `o|`
 
 ## 6. non-table objects
 
-Development saved catalog 기준이다. Production 열은 모두 unverified이며 absence를 추정하지 않는다.
+기존 13-table 행은 2026-07-27 Development saved catalog, 별칭 행과 Production 열은 2026-08-16 검증 기준이다. 현재 Development 전체 `public`은 앱 baseline 밖 객체가 섞여 있으므로 이번 문서에서는 그 전체 목록을 새로운 앱 기준으로 승격하지 않는다.
 
 | category | Development object/status | Production |
 | --- | --- | --- |
-| ordinary/partitioned tables | ordinary 13: `alumni_database`, `categories`, `comments`, `community_events`, `event_parse_rate_limits`, `kakao_identity_terminations`, `kakao_oauth_states`, `obituaries`, `payments`, `pending_registrations`, `posts`, `session`, `users`; partitioned 없음 | unverified |
-| views | ABSENT (catalog count=0) | unverified |
-| materialized views | ABSENT (catalog count=0) | unverified |
-| triggers | ABSENT (catalog count=0) | unverified |
-| RLS/force-RLS | 13 tables 모두 `rls_enabled=false`, `rls_forced=false` | unverified |
-| policies | ABSENT (catalog count=0) | unverified |
-| routines | ABSENT (catalog count=0) | unverified |
-| enums | ABSENT (catalog count=0) | unverified |
-| domains | ABSENT (catalog count=0); domain constraints ABSENT (catalog count=0) | unverified |
-| extensions/dependencies | `plpgsql` version `1.0`, schema `pg_catalog`, relocatable=false; public dependency ABSENT (catalog count=0) | unverified |
-| sequences | `alumni_database_id_seq`, `categories_id_seq`, `comments_id_seq`, `community_events_id_seq`, `obituaries_id_seq`, `payments_id_seq`, `pending_registrations_id_seq`, `posts_id_seq`, `users_id_seq`; 모두 integer start/increment/min/cache `1`, max `2147483647`, cycles=false | unverified |
-| indexes/constraints | PK 13, FK 9, non-PK UNIQUE 6, indexes 20. FK: `alumni_database_matched_user_id_users_id_fk`, `comments_author_id_users_id_fk`, `comments_post_id_posts_id_fk`, `community_events_author_id_users_id_fk`, `event_parse_rate_limits_user_id_users_id_fk`, `obituaries_author_id_users_id_fk`, `payments_user_id_users_id_fk`, `posts_author_id_users_id_fk`, `posts_category_id_categories_id_fk`; all catalog-valid/ready | unverified |
+| ordinary/partitioned tables | historical app baseline 13 + `alumni_name_aliases`; 현재 전체 public count는 별도 reconciliation 필요 | ordinary 14, partitioned 없음; verified |
+| views | historical ABSENT | ABSENT (catalog count=0) |
+| materialized views | historical ABSENT | ABSENT (catalog count=0) |
+| triggers | historical ABSENT | ABSENT (catalog count=0) |
+| RLS/force-RLS | historical 13 tables false; 별칭 객체 확인 | 14 tables 모두 `rls_enabled=false`, `rls_forced=false` |
+| policies | historical ABSENT | ABSENT (catalog count=0) |
+| routines | historical ABSENT | ABSENT (catalog count=0) |
+| enums | historical ABSENT | ABSENT (catalog count=0) |
+| domains | historical ABSENT | ABSENT (catalog count=0); domain constraints ABSENT |
+| extensions/dependencies | historical `plpgsql`; 현재 전체 상태 미분류 | `plpgsql` version `1.0`, public dependency ABSENT |
+| sequences | historical 9 + `alumni_name_aliases_id_seq` | 10; catalog-valid |
+| indexes/constraints | 별칭 객체의 PK/FK/CHECK/index verified | PK 14, FK 10, non-PK UNIQUE constraints 6, indexes 24; all catalog-valid/ready |
 
-PK index names are `alumni_database_pkey`, `categories_pkey`, `comments_pkey`, `community_events_pkey`, `event_parse_rate_limits_pkey`, `kakao_identity_terminations_pkey`, `kakao_oauth_states_pkey`, `obituaries_pkey`, `payments_pkey`, `pending_registrations_pkey`, `posts_pkey`, `session_pkey`, `users_pkey`. Non-PK unique indexes are `alumni_database_mobile_unique`, `categories_name_unique`, `community_events_legacy_obituary_id_unique`, `kakao_oauth_states_session_binding_hash_unique`, `users_email_unique`, `users_kakao_id_unique`; standalone index is `session_expire_idx`.
+새 PK index는 `alumni_name_aliases_pkey`, 새 unique index는 `alumni_name_aliases_alumni_normalized_unique`와 partial `alumni_name_aliases_preferred_unique`, 새 lookup index는 `alumni_name_aliases_normalized_idx`다. 기존 PK·UNIQUE·standalone index 목록은 2026-07-27 baseline과 동일하다.
 
 ## 7. logical invariants
 
-물리 강제는 PK/FK/UNIQUE/CASCADE뿐이다. 다음은 logical_only다: `matched_user_id` 1:1 기대(UNIQUE 없음), pending `status` 및 payment/event `type/status`의 허용값, category/post visibility coupling, `legacy_obituary_id`의 obituary FK, Object Storage URL GC, 등록 승인·거절 중복 방지와 alumni claim 경쟁, `session.sess.userId`의 users 연결. CHECK 없음은 유효값 보장을 뜻하지 않는다.
+물리 강제는 PK/FK/UNIQUE/CASCADE와 별칭의 CHECK 2개다. 별칭은 `alias_type` 허용값과 빈 정규화 이름을 CHECK로 막고, partial unique index로 동문별 preferred 최대 1건을 보장한다. 다음은 logical_only다: `matched_user_id` 1:1 기대(UNIQUE 없음), pending `status` 및 payment/event `type/status`의 허용값, category/post visibility coupling, `legacy_obituary_id`의 obituary FK, Object Storage URL GC, 등록 승인·거절 중복 방지와 alumni claim 경쟁, `session.sess.userId`의 users 연결.
 
 ## 8. CRUD/transaction/lifecycle
 
-가입 승인/거절은 `pending_registrations`, `users`, `alumni_database`를 한 transaction으로 다룬다. 계정 삭제는 Kakao termination marker, 세션, claim 해제, 콘텐츠·납부·행사 참조를 함께 처리한다. Google Sheets sync는 advisory lock + one transaction, OAuth state는 issue/consume + 10분 만료, session은 60초 pruning + 7일 cookie, event parse quota는 원자적 window update, post 삭제는 comments cascade다. 별도 보존 기간은 각 table row의 `정책 미정`을 따른다.
+가입 승인/거절은 `pending_registrations`, `users`, `alumni_database`를 한 transaction으로 다룬다. 계정 삭제는 Kakao termination marker, 세션, claim 해제, 콘텐츠·납부·행사 참조를 함께 처리한다. Google Sheets sync는 advisory lock + one transaction, OAuth state는 issue/consume + 10분 만료, session은 60초 pruning + 7일 cookie, event parse quota는 원자적 window update, post 삭제는 comments cascade다. 별칭 운영 변경은 이름+학번 단일 일치와 원본 이름 불변을 transaction 안에서 확인한다. 별도 보존 기간은 각 table row의 `정책 미정`을 따른다.
 
 ## 9. PII/retention
 
@@ -239,7 +251,7 @@ PK index names are `alumni_database_pkey`, `categories_pkey`, `comments_pkey`, `
 | owner | tables |
 | --- | --- |
 | Identity/Session | `users`, `session`, `kakao_oauth_states`, `kakao_identity_terminations` |
-| Membership Registry/Onboarding | `alumni_database`, `pending_registrations` |
+| Membership Registry/Onboarding | `alumni_database`, `alumni_name_aliases`, `pending_registrations` |
 | Community Content | `categories`, `posts`, `comments` |
 | Dues | `payments` |
 | Community Events | `obituaries`, `community_events`, `event_parse_rate_limits` |
@@ -261,14 +273,14 @@ registration/approval, account deletion, alumni claim/sync는 여러 owner의 �
 | R4 | `legacy_obituary_id` UNIQUE, obituary FK 없음 | migration/link integrity를 logical_only로 추적 |
 | R5 | category/post visibility coupling | inactive/published 불일치 가능 |
 | R6 | Object Storage URL GC 없음 | orphan·retention 위험; 정책 미정 |
-| R7 | checked-in six-table migration | 13-table current reproduction path 아님 |
+| R7 | checked-in six-table migration | 14-table current reproduction path 아님 |
 
 ## 13. migration drift
 
-`migrations/0000_cheerful_nick_fury.sql`은 6-table historical incomplete baseline이며 현재 13-table reproduction path가 아니다. `session`은 runtime DDL, `kakao_oauth_states`·`kakao_identity_terminations`·`event_parse_rate_limits`은 additive operation, `seed-categories.sql`은 seed, `migrate-obituaries-to-community-events.sql`은 explicit data migration이다. 등록 schema command는 `drizzle-kit push`이며, 이 문서 작업에서는 실행하지 않았다. Production 미검증 상태를 migration drift로 감추지 않는다.
+`migrations/0000_cheerful_nick_fury.sql`은 6-table historical incomplete baseline이며 현재 14-table reproduction path가 아니다. `session`은 runtime DDL, `kakao_oauth_states`·`kakao_identity_terminations`·`event_parse_rate_limits`·`alumni_name_aliases`는 additive operation, `seed-categories.sql`은 seed, `migrate-obituaries-to-community-events.sql`은 explicit data migration이다. Development의 기존 회계 테이블 때문에 `drizzle-kit push`가 위험한 rename 후보를 제시해 중단했고, 별칭 테이블은 문서화한 exact additive SQL transaction으로 양쪽 DB에 적용했다.
 
 ## 14. revalidation link/checklist
 
-Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행하며 `ROLLBACK`과 completion marker를 확인한다. Production은 명시적으로 `expected_database=neondb`를 선택하고 성공 catalog가 생기기 전까지 unverified/unknown을 유지한다.
+Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행한다. Production은 연결 문자열을 명시적으로 선택하고 `expected_database=neondb` safety gate, `READ ONLY`, `ROLLBACK`, completion marker를 모두 확인한다.
 
-체크리스트: 문서 14개 장의 고정 순서와 catalog 출력 18개 section의 고정 순서를 각각 확인하고, 13 table row, 112 columns, 13 PK/9 FK/6 non-PK UNIQUE/20 indexes/9 sequences, zero-count category, RLS false 13, Production 미검증을 재확인한다. 재검증은 metadata-only이고 결과의 행·PII·Secret을 저장하지 않는다.
+체크리스트: 문서 14개 장의 고정 순서와 catalog 출력 18개 section의 고정 순서를 각각 확인하고, Production의 14 table row, 119 columns, 14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, zero-count category, RLS false 14를 재확인한다. Development는 앱 baseline 밖 객체를 앱 스키마로 오인하지 않고 별도 reconciliation한다. 재검증은 metadata-only이고 결과의 행·PII·Secret을 저장하지 않는다.

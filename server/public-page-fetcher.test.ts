@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import test from "node:test";
 import {
+  fetchPublicJson,
   fetchPublicPage,
   requestPublicAddress,
   type PublicPageFetcherDependencies,
@@ -169,6 +170,41 @@ test("fetchPublicPage returns a small HTML page through validated dependency inj
     address: PUBLIC_ADDRESS,
     family: 4,
   }]);
+});
+
+test("fetchPublicJson parses bounded JSON through the same public-address policy", async () => {
+  let accept = "";
+  const result = await fetchPublicJson("https://api.example/public/member/1", {
+    lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 4 }),
+    requestPublicAddress: async (_url, _address, _family, _signal, requestedAccept) => {
+      accept = requestedAccept ?? "";
+      return textResponse(
+        JSON.stringify({ deceased: { age: 80 } }),
+        { "content-type": "application/json; charset=utf-8" },
+      );
+    },
+  });
+
+  assert.deepEqual(result, { deceased: { age: 80 } });
+  assert.equal(accept, "application/json");
+});
+
+test("fetchPublicJson rejects HTML and malformed JSON", async () => {
+  const lookup = publicLookup({ address: PUBLIC_ADDRESS, family: 4 });
+  await assert.rejects(
+    fetchPublicJson("https://api.example/html", {
+      lookup,
+      requestPublicAddress: async () => textResponse("<p>not json</p>"),
+    }),
+    /JSON 형식/,
+  );
+  await assert.rejects(
+    fetchPublicJson("https://api.example/broken", {
+      lookup,
+      requestPublicAddress: async () => textResponse("{", { "content-type": "application/json" }),
+    }),
+    /JSON 응답을 해석/,
+  );
 });
 
 test("fetchPublicPage revalidates every redirect destination", async () => {

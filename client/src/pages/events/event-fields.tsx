@@ -29,6 +29,7 @@ type EventFieldName =
   | "details.accountInfo"
   | "details.sourceUrl"
   | "details.memberTitle"
+  | "details.familyContactName"
   | "details.familyContact"
   | "details.burialPlace"
   | "details.chiefMourner";
@@ -159,6 +160,9 @@ export function EventFields({ disabled, eventType, form, publishErrors }: EventF
             </Field>
             <Field id="family-contact" label="유가족 연락처">
               <Input id="family-contact" disabled={disabled} placeholder="예: 010-0000-0000" {...fieldA11y("family-contact")} {...form.register(toFormPath("details.familyContact"), { setValueAs: normalizeOptionalText })} />
+            </Field>
+            <Field id="family-contact-name" label="유가족 연락처 명의">
+              <Input id="family-contact-name" disabled={disabled} placeholder="예: 장남 홍길동" {...fieldA11y("family-contact-name")} {...form.register(toFormPath("details.familyContactName"), { setValueAs: normalizeOptionalText })} />
             </Field>
             <Field id="burial-place" label="장지">
               <Input id="burial-place" disabled={disabled} placeholder="장지 정보" {...fieldA11y("burial-place")} {...form.register(toFormPath("details.burialPlace"), { setValueAs: normalizeOptionalText })} />

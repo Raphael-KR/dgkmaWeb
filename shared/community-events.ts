@@ -15,6 +15,7 @@ export const obituaryDetailsSchema = z.object({
   accountInfo: z.string().trim().optional(),
   sourceUrl: z.string().url().optional(),
   memberTitle: z.string().trim().optional(),
+  familyContactName: z.string().trim().optional(),
   familyContact: z.string().trim().optional(),
   burialPlace: z.string().trim().optional(),
   chiefMourner: z.string().trim().optional(),
@@ -100,6 +101,7 @@ export interface LegacyObituaryDetails {
   funeralHome?: string;
   accountInfo?: string;
   familyContact?: string;
+  familyContactName?: string;
   burialPlace?: string;
   chiefMourner?: string;
 }

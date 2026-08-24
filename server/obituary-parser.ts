@@ -10,6 +10,7 @@ export interface ParsedObituary {
   chiefMourner: string;
   bankAccount: string;
   contactNumber: string;
+  familyContactName?: string;
 }
 
 type ObituaryDraft = Extract<CommunityEventDraftInput, { eventType: "obituary" }>;
@@ -89,6 +90,7 @@ function extractFuneralDate(text: string): string {
 
 function extractDeceasedAge(text: string): number | undefined {
   const match = text.match(/향년\s*(\d{1,3})\s*세/)
+    ?? text.match(/(?:^|\n)\s*\(?[남여]\s*\/\s*(\d{1,3})\s*세\s*\)?(?=\n|$)/)
     ?? text.match(/(?:^|\n)\s*(\d{1,3})\s*세(?:\s*\/[^\n]*)?(?=\n|$)/);
   if (!match) return undefined;
   const age = Number(match[1]);
@@ -96,10 +98,37 @@ function extractDeceasedAge(text: string): number | undefined {
 }
 
 function extractRelatedMemberName(text: string): string | undefined {
-  const match = text.match(
+  const explicitRelationship = text.match(
     /([가-힣]{2,5})\s*(?:동문|회원)(?:의)?\s*(?:본인|부친|모친|빙부|빙모|장인|장모|시부|시모|자녀|아들|딸)(?:상|께서)/,
   );
-  return match?.[1];
+  if (explicitRelationship) return explicitRelationship[1];
+
+  return text.match(/(?:졸업\s*)?\d+\s*기\s*([가-힣]{2,5})/)?.[1]
+    ?? text.match(/\d{2,4}\s*학번\s*([가-힣]{2,5})/)?.[1];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function inferRelationshipFromFamilyList(
+  text: string,
+  relatedMemberName: string | undefined,
+): ObituaryDetails["relationship"] | undefined {
+  if (!relatedMemberName) return undefined;
+
+  const gender = text.match(/(?:^|\n)\s*\(?(남|여)\s*\/\s*\d{1,3}\s*세\s*\)?(?=\n|$)/)?.[1]
+    ?? text.match(/(?:^|\n)\s*\d{1,3}\s*세\s*\/\s*(남|여)(?=\s|\n|$)/)?.[1];
+  if (!gender) return undefined;
+
+  const roleMatch = text.match(new RegExp(
+    `(?:^|\\n)\\s*(아들|딸|사위|며느리)\\s*(?:\\n\\s*|\\s+)${escapeRegExp(relatedMemberName)}(?=\\s|\\n|$)`,
+  ));
+  const role = roleMatch?.[1];
+  if (role === "아들" || role === "딸") return gender === "남" ? "부친" : "모친";
+  if (role === "사위") return gender === "남" ? "빙부" : "빙모";
+  if (role === "며느리") return gender === "남" ? "시부" : "시모";
+  return undefined;
 }
 
 function extractDateOfDeath(text: string): string {
@@ -154,8 +183,22 @@ function extractPhone(text: string): string {
   return phoneMatch ? phoneMatch[0].replace(/\s/g, "") : "";
 }
 
+function extractNamedFamilyContact(
+  text: string,
+): { name: string; phone: string } | undefined {
+  const match = text.match(
+    /(?:^|\n)\s*(장남|차남|장녀|차녀|아들|딸|배우자|상주)\s*[-：:]?\s*([가-힣]{2,5})\s*\(?\s*(01[0-9][\s-]?\d{3,4}[\s-]?\d{4})\s*\)?(?=\s|\n|$)/,
+  );
+  if (!match) return undefined;
+  return {
+    name: `${match[1]} ${match[2]}`,
+    phone: match[3].replace(/\s/g, ""),
+  };
+}
+
 export function parseObituarySms(text: string): Partial<ParsedObituary> {
   const deceasedRelation = extractRelation(text);
+  const namedFamilyContact = extractNamedFamilyContact(text);
   return {
     deceasedName: extractDeceasedName(text),
     ...(deceasedRelation ? { deceasedRelation } : {}),
@@ -164,21 +207,25 @@ export function parseObituarySms(text: string): Partial<ParsedObituary> {
     jangji: extractLabeled(text, ["장지"]),
     chiefMourner: extractLabeled(text, ["상주"]),
     bankAccount: extractAccountInfo(text),
-    contactNumber: extractPhone(text),
+    contactNumber: namedFamilyContact?.phone ?? extractPhone(text),
+    ...(namedFamilyContact ? { familyContactName: namedFamilyContact.name } : {}),
   };
 }
 
 export function parseObituaryEventSource(text: string): ParsedObituaryEventSource {
   const legacy = parseObituarySms(text);
-  const relationship = legacy.deceasedRelation as ObituaryDetails["relationship"];
   const deceasedAge = extractDeceasedAge(text);
   const funeralDate = extractFuneralDate(text);
   const sourceUrls = extractEventSourceUrls(text);
   const sourceUrl = sourceUrls[0];
   const relatedMemberName = extractRelatedMemberName(text);
+  const relationship = (legacy.deceasedRelation
+    ?? inferRelationshipFromFamilyList(text, relatedMemberName)) as ObituaryDetails["relationship"];
+  const deceasedName = legacy.deceasedName
+    || (relationship === "본인" ? relatedMemberName : undefined);
 
   const details: ObituaryDetails = {
-    ...(legacy.deceasedName ? { deceasedName: legacy.deceasedName } : {}),
+    ...(deceasedName ? { deceasedName } : {}),
     ...(deceasedAge ? { deceasedAge } : {}),
     ...(relationship ? { relationship } : {}),
     ...(funeralDate ? { funeralDate } : {}),
@@ -186,6 +233,7 @@ export function parseObituaryEventSource(text: string): ParsedObituaryEventSourc
     ...(legacy.bankAccount ? { accountInfo: legacy.bankAccount } : {}),
     ...(sourceUrl ? { sourceUrl } : {}),
     ...(legacy.contactNumber ? { familyContact: legacy.contactNumber } : {}),
+    ...(legacy.familyContactName ? { familyContactName: legacy.familyContactName } : {}),
     ...(legacy.jangji ? { burialPlace: legacy.jangji } : {}),
     ...(legacy.chiefMourner ? { chiefMourner: legacy.chiefMourner } : {}),
   };

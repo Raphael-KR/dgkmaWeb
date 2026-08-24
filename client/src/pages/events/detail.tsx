@@ -26,6 +26,7 @@ type ObituaryDetails = {
   funeralHome?: string;
   burialPlace?: string;
   chiefMourner?: string;
+  familyContactName?: string;
   familyContact?: string;
   accountInfo?: string;
   legacyDateOfDeath?: string;
@@ -80,6 +81,7 @@ function getObituaryDetails(details: unknown): ObituaryDetails {
     funeralHome: getDetailText(safeDetails.funeralHome),
     burialPlace: getDetailText(safeDetails.burialPlace),
     chiefMourner: getDetailText(safeDetails.chiefMourner),
+    familyContactName: getDetailText(safeDetails.familyContactName),
     familyContact: getDetailText(safeDetails.familyContact),
     accountInfo: getDetailText(safeDetails.accountInfo),
     legacyDateOfDeath: getDetailText(safeDetails.legacyDateOfDeath),
@@ -195,7 +197,13 @@ export default function CommunityEventDetail() {
             {obituaryDetails?.burialPlace && <DetailRow label="장지" value={obituaryDetails.burialPlace} />}
             {obituaryDetails?.chiefMourner && <DetailRow label="상주" value={obituaryDetails.chiefMourner} />}
             {(event.contactNumber || obituaryDetails?.familyContact) && (
-              <DetailRow label="연락처" value={event.contactNumber || obituaryDetails?.familyContact || ""} />
+              <DetailRow
+                label="연락처"
+                value={[
+                  obituaryDetails?.familyContactName,
+                  event.contactNumber || obituaryDetails?.familyContact,
+                ].filter(Boolean).join(" ")}
+              />
             )}
             {(event.accountInfo || obituaryDetails?.accountInfo) && (
               <DetailRow label="마음 전하실 곳" value={event.accountInfo || obituaryDetails?.accountInfo || ""} />

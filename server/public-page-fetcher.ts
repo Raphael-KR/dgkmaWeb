@@ -22,6 +22,10 @@ export type PublicPageResult = {
   body: string;
 };
 
+type PublicResourceResult = Omit<PublicPageResult, "contentType"> & {
+  contentType: PublicPageResult["contentType"] | "application/json";
+};
+
 export type RawPublicResponse = {
   status: number;
   headers: Record<string, string | string[] | undefined>;
@@ -33,6 +37,7 @@ export type RequestPublicAddress = (
   address: string,
   family: 4 | 6,
   signal?: AbortSignal,
+  accept?: string,
 ) => Promise<RawPublicResponse>;
 
 export type PublicPageFetcherDependencies = {
@@ -136,6 +141,7 @@ export function requestPublicAddress(
   address: string,
   family: 4 | 6,
   signal?: AbortSignal,
+  accept = "text/html, text/plain;q=0.9",
 ): Promise<RawPublicResponse> {
   const isHttps = url.protocol === "https:";
   const transport = isHttps ? https : http;
@@ -158,7 +164,7 @@ export function requestPublicAddress(
       path: `${url.pathname}${url.search}`,
       method: "GET",
       headers: {
-        Accept: "text/html, text/plain;q=0.9",
+        Accept: accept,
         "Accept-Encoding": "identity",
         Connection: "close",
         Host: url.host,
@@ -258,12 +264,16 @@ async function readBoundedBody(
   }
 }
 
-function responseContentType(response: RawPublicResponse): "text/html" | "text/plain" | undefined {
+function responseContentType(response: RawPublicResponse): PublicResourceResult["contentType"] | undefined {
   const contentType = headerValue(response.headers, "content-type")
     ?.split(";", 1)[0]
     ?.trim()
     .toLowerCase();
-  return contentType === "text/html" || contentType === "text/plain" ? contentType : undefined;
+  return contentType === "text/html"
+    || contentType === "text/plain"
+    || contentType === "application/json"
+    ? contentType
+    : undefined;
 }
 
 function isCompressed(response: RawPublicResponse): boolean {
@@ -281,11 +291,14 @@ function declaredBodyTooLarge(response: RawPublicResponse): boolean {
   return Number.isFinite(parsed) && parsed > MAX_BODY_BYTES;
 }
 
-export async function fetchPublicPage(
+async function fetchPublicResource(
   rawUrl: string,
+  allowedContentTypes: ReadonlySet<PublicResourceResult["contentType"]>,
+  unsupportedFormatMessage: string,
+  accept: string,
   dependencies: PublicPageFetcherDependencies = {},
   signal?: AbortSignal,
-): Promise<PublicPageResult> {
+): Promise<PublicResourceResult> {
   throwIfAborted(signal);
   const requestedUrl = assertSafeSourceUrl(rawUrl);
   const lookup = dependencies.lookup ?? dns.promises.lookup;
@@ -298,7 +311,7 @@ export async function fetchPublicPage(
     const safeUrl = assertSafeSourceUrl(currentUrl.href);
     const address = await resolvePublicAddress(safeUrl, lookup, signal);
     const response = await abortable(
-      request(safeUrl, address.address, address.family, signal),
+      request(safeUrl, address.address, address.family, signal, accept),
       signal,
     );
 
@@ -323,9 +336,9 @@ export async function fetchPublicPage(
     }
 
     const contentType = responseContentType(response);
-    if (!contentType) {
+    if (!contentType || !allowedContentTypes.has(contentType)) {
       await cancelBody(response.body);
-      throw new Error("텍스트 형식의 응답만 읽을 수 있습니다");
+      throw new Error(unsupportedFormatMessage);
     }
     if (declaredBodyTooLarge(response)) {
       await cancelBody(response.body);
@@ -338,5 +351,49 @@ export async function fetchPublicPage(
       contentType,
       body: await readBoundedBody(response.body, signal),
     };
+  }
+}
+
+export async function fetchPublicPage(
+  rawUrl: string,
+  dependencies: PublicPageFetcherDependencies = {},
+  signal?: AbortSignal,
+): Promise<PublicPageResult> {
+  const result = await fetchPublicResource(
+    rawUrl,
+    new Set<PublicResourceResult["contentType"]>(["text/html", "text/plain"]),
+    "텍스트 형식의 응답만 읽을 수 있습니다",
+    "text/html, text/plain;q=0.9",
+    dependencies,
+    signal,
+  );
+  if (result.contentType === "application/json") {
+    throw new Error("텍스트 형식의 응답만 읽을 수 있습니다");
+  }
+  return {
+    requestedUrl: result.requestedUrl,
+    finalUrl: result.finalUrl,
+    contentType: result.contentType,
+    body: result.body,
+  };
+}
+
+export async function fetchPublicJson(
+  rawUrl: string,
+  dependencies: PublicPageFetcherDependencies = {},
+  signal?: AbortSignal,
+): Promise<unknown> {
+  const result = await fetchPublicResource(
+    rawUrl,
+    new Set<PublicResourceResult["contentType"]>(["application/json"]),
+    "JSON 형식의 응답만 읽을 수 있습니다",
+    "application/json",
+    dependencies,
+    signal,
+  );
+  try {
+    return JSON.parse(result.body) as unknown;
+  } catch {
+    throw new Error("공개 JSON 응답을 해석할 수 없습니다");
   }
 }

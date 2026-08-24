@@ -5,6 +5,11 @@ import {
 } from "./event-source-policy";
 import { fetchPublicPage, type PublicPageResult } from "./public-page-fetcher";
 import { extractPublicPageText } from "./public-page-text";
+import {
+  isGipoomPublicObituaryUrl,
+  readGipoomPublicObituary,
+} from "./gipoom-public-api";
+import { parseObituaryEventSource } from "./obituary-parser";
 
 const SOURCE_MESSAGES = {
   fetched: "링크 내용을 불러왔습니다.",
@@ -15,6 +20,7 @@ const SOURCE_MESSAGES = {
 export type EventSourceStatus = {
   url: string;
   status: "fetched" | "unavailable" | "blocked";
+  method?: "provider-api" | "static-html";
   message?: string;
 };
 
@@ -26,6 +32,7 @@ export type EventSourceReadResult = {
 
 export type EventSourceReaderDependencies = {
   fetchPage?: (url: string, signal?: AbortSignal) => Promise<PublicPageResult>;
+  readProviderSource?: (url: string, signal?: AbortSignal) => Promise<string | undefined>;
   extractText?: (page: PublicPageResult) => string;
 };
 
@@ -51,6 +58,14 @@ function withoutSourceUrls(input: string, urls: string[]): string {
   return normalizeSourceText(text);
 }
 
+function hasUnavailableSourceEvidence(text: string): boolean {
+  return /(?:삭제|종료)된\s*(?:부고|게시물)|존재하지\s*않는\s*(?:부고|게시물)|다음\s*항목에\s*오류가\s*있습니다|Warning:\s*(?:include|require)(?:_once)?\(|failed to open stream|Failed opening\s+['"]?\/[^\s]+/.test(text);
+}
+
+function hasCompleteObituaryEvidence(text: string): boolean {
+  return parseObituaryEventSource(text).missingFields.length === 0;
+}
+
 export async function readEventSources(
   input: string,
   dependencies: EventSourceReaderDependencies = {},
@@ -59,6 +74,10 @@ export async function readEventSources(
   throwIfAborted(signal);
   const urls = extractEventSourceUrls(input);
   const fetchPage = dependencies.fetchPage ?? fetchPublicPage;
+  const readProviderSource = dependencies.readProviderSource ?? (async (url, requestSignal) =>
+    isGipoomPublicObituaryUrl(url)
+      ? readGipoomPublicObituary(url, undefined, requestSignal)
+      : undefined);
   const extractText = dependencies.extractText ?? extractPublicPageText;
   const textParts = [withoutSourceUrls(input, urls)].filter(Boolean);
   const sources: EventSourceStatus[] = [];
@@ -67,11 +86,27 @@ export async function readEventSources(
     throwIfAborted(signal);
     try {
       assertSafeSourceUrl(url);
-      const page = await fetchPage(url, signal);
-      const extracted = normalizeSourceText(extractText(page));
+      let extracted = "";
+      let method: EventSourceStatus["method"];
+      try {
+        extracted = normalizeSourceText(await readProviderSource(url, signal) ?? "");
+        if (extracted) method = "provider-api";
+      } catch {
+        throwIfAborted(signal);
+        // A provider adapter is an optimization; the existing page readers remain the fallback.
+      }
+      if (!extracted) {
+        const page = await fetchPage(url, signal);
+        extracted = normalizeSourceText(extractText(page));
+        if (extracted) method = "static-html";
+      }
+      if (hasUnavailableSourceEvidence(extracted)) throw new Error("unavailable public source");
+      if (isGipoomPublicObituaryUrl(url) && !hasCompleteObituaryEvidence(extracted)) {
+        throw new Error("incomplete public obituary source");
+      }
       if (!extracted) throw new Error("empty public page");
       textParts.push(extracted);
-      sources.push({ url, status: "fetched", message: SOURCE_MESSAGES.fetched });
+      sources.push({ url, status: "fetched", method, message: SOURCE_MESSAGES.fetched });
     } catch (error) {
       throwIfAborted(signal);
       const blocked = error instanceof EventSourcePolicyError;

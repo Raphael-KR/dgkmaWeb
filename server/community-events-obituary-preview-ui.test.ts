@@ -93,7 +93,7 @@ test("every preview missing-field path is presented in Korean with a safe fallba
   for (const field of [
     "eventType", "title", "eventDate", "location", "relatedMemberName", "contactNumber",
     "accountInfo", "sourceText", "sourceUrls", "details", "deceasedName", "deceasedAge",
-    "relationship", "funeralDate", "funeralHome", "memberTitle", "familyContact",
+    "relationship", "funeralDate", "funeralHome", "memberTitle", "familyContactName", "familyContact",
     "burialPlace", "chiefMourner", "graduationClass", "admissionYear", "memberName",
     "membershipTier", "memberPhone", "sourceUrl",
   ]) {
@@ -125,4 +125,5 @@ test("obituary preview keeps formatting and exposes an accessible icon copy acti
 
   const fields = await readFile(new URL("../client/src/pages/events/event-fields.tsx", import.meta.url), "utf8");
   assert.match(fields, /미리보기에는 매칭된 동문 명부의 직함이 사용됩니다/);
+  assert.match(fields, /유가족 연락처 명의/);
 });
