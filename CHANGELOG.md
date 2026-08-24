@@ -24,9 +24,10 @@ project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - [코드·Replit 검증 완료, 통합 QA 예정] Google Sheets 명부의 필수값·전화번호·중복 preflight, 개인정보 없는 변경 미리보기와 fingerprint 기반 원자 적용
 - [코드·Replit 검증 완료, 통합 QA 예정] 12개 명부 관리 컬럼 헤더 검증, 원본 오류 상태의 미리보기 접근, 로컬·내부 hostname 경조사 링크 차단
 - [운영 smoke 확인] 최종 Republish 자산과 Replit 검증 빌드의 SHA-256 일치, 공개·회원 화면 로드, 390px 실제 회원 주요 동선, 비로그인 관리자·경조사·결제 API 경계와 제거된 debug API의 `404`
-- [코드·Replit 검증 완료, 실제 재로그인 QA 예정] 환경별 카카오 회원번호 서버 Secret allowlist와 로그인 시 관리자 권한 자동 복구
-- [코드·Replit 검증 완료] 커뮤니티 홈의 관리자 상태 배지를 관리자 패널 진입 링크로 변경
+- [코드·Replit 검증 완료, Development 재로그인 QA 예정] 환경별 카카오 회원번호 서버 Secret allowlist와 로그인 시 관리자 권한 자동 복구. Production은 2026-07-30 배포 커밋 `de0ed6e`에서 실제 계정 재로그인으로 확인
+- [2026-07-30 배포 커밋 `de0ed6e` 기준 Production 실제 계정 검증 완료] 커뮤니티 홈의 관리자 상태 배지를 관리자 패널 진입 링크로 변경하고 전체 페이지 재요청 뒤 관리자 세션 유지 확인
 - [코드·Replit 검증 완료, 실제 운영 관리자 QA 보류] 프로필·활동지역·회원 상태의 세션 권한, 허용 필드와 응답 축소를 실제 Express/session route 계약 9개 시나리오 및 KST 연도 경계·연회비 집계 테스트로 고정. Replit 집중 25/25, 전체 338/338, `npm run check`, `npm run build`, `git diff --check`가 종료 코드 `0`으로 통과
+- [Development 실제 관리자 세션 검증 완료] PR #11 병합본의 문자+공개 링크 수집, 관련 동문·관계·제목·날짜 병합, 초안 자동저장·삭제와 화면 초기화
 
 ### Changed
 
