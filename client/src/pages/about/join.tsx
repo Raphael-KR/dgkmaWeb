@@ -41,7 +41,10 @@ export default function AboutJoin() {
           <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
           <p className="text-sm text-gray-600 mt-3">
             동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자라면 누구나 회원으로 가입할 수 있습니다.
-            (회칙 제7조 ~ 제9조)
+            {" "}
+            <Link href="/about/bylaws" className="tp-text-gold-dark underline underline-offset-2">
+              (회칙 제7조 ~ 제9조)
+            </Link>
           </p>
         </header>
 
