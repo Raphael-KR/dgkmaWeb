@@ -84,9 +84,14 @@ export default function AboutDues() {
             <div className="mb-5">
               <h3 className="font-semibold tp-text-green-dark mb-2">가. 경조사(부고/혼인) 지원</h3>
               <ul className="space-y-1 text-sm text-gray-700 list-disc list-inside">
-                <li>범위: 본인 및 배우자의 직계 1촌 이내</li>
+                <li>범위: 본인 및 배우자 직계 1촌 이내, 행사 1건당 1회씩</li>
                 <li>경조사 공고를 동문회에서 올려드림 (밴드 &amp; 회원 단톡방)</li>
-                <li>문자 / 화환 / 근조기 발송비 각각 <strong>5만원 감액</strong></li>
+                <li>
+                  동문회에서 현금 <strong>10만원 부조</strong>
+                  <span className="block pl-4 mt-1 text-xs text-gray-500 leading-relaxed">
+                    최윤용 회장 사비로 지원하며, 밴드와 회원 단톡방에 공지된 권리회원 본인의 경조사에 한합니다.
+                  </span>
+                </li>
               </ul>
             </div>
 
@@ -123,7 +128,11 @@ export default function AboutDues() {
           <CardContent className="p-6">
             <h2 className="text-lg font-bold tp-text-green-dark mb-3">회비 사용 내역</h2>
             <p className="text-sm text-gray-700 mb-3">
-              납부된 회비는 회칙 제4조 사업과 제22조 재정 규정에 따라 다음 용도로 집행됩니다.
+              납부된 회비는{" "}
+              <a href="/about/bylaws" className="tp-text-gold-dark underline underline-offset-2">
+                동국대학교한의과대학동문회 회칙
+              </a>
+              {" "}제4조 사업과 제22조 재정 규정에 따라 다음 용도로 집행됩니다.
             </p>
             <ul className="space-y-2 text-gray-700 text-sm list-disc list-inside">
               <li>모교의 발전에 기여하는 사업</li>
@@ -141,8 +150,69 @@ export default function AboutDues() {
           </CardContent>
         </Card>
 
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-bold tp-text-green-dark mb-2">직책별 회비</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              근거: 동국대학교한의과대학동문회 회원관리 및 회계 규정 별표 1
+            </p>
+            <div className="overflow-x-auto -mx-2 px-2">
+              <table className="w-full text-sm min-w-[420px]">
+                <thead>
+                  <tr className="border-b tp-border-gold/40 text-left">
+                    <th className="py-3 px-2 font-semibold tp-text-green-dark">직책</th>
+                    <th className="py-3 px-2 font-semibold tp-text-green-dark">월납</th>
+                    <th className="py-3 px-2 font-semibold tp-text-green-dark">연납</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-gray-700">
+                  <tr>
+                    <td className="py-3 px-2 font-medium">회장</td>
+                    <td className="py-3 px-2">100,000원 이상</td>
+                    <td className="py-3 px-2">1,200,000원 이상</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-2 font-medium">수석부회장</td>
+                    <td className="py-3 px-2">50,000원 이상</td>
+                    <td className="py-3 px-2">600,000원 이상</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-2 font-medium">부회장·감사·총회의장</td>
+                    <td className="py-3 px-2">30,000원 이상</td>
+                    <td className="py-3 px-2">400,000원 이상</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-2 font-medium">이사</td>
+                    <td className="py-3 px-2">10,000원 이상</td>
+                    <td className="py-3 px-2">200,000원 이상</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-2 font-medium">회원</td>
+                    <td className="py-3 px-2">2,000원 이상</td>
+                    <td className="py-3 px-2">50,000원 이상</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 px-2 font-medium">명예회원</td>
+                    <td className="py-3 px-2">0원</td>
+                    <td className="py-3 px-2">0원</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="tp-bg-cream border tp-border-gold/40 rounded-lg p-5 text-sm text-gray-700">
-          문의: <strong>010-4720-8055 (수석부회장 박종웅)</strong> 으로 톡 주시면 됩니다. 감사합니다.
+          궁금한 점은{" "}
+          <a
+            href="https://buly.kr/AF2yVzW"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold tp-text-gold-dark underline underline-offset-2"
+          >
+            수석부회장 박종웅에게 카카오톡으로 문의
+          </a>
+          해 주세요. 감사합니다.
         </div>
       </div>
     </PublicLayout>
