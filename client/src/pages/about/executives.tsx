@@ -81,6 +81,7 @@ export default function AboutExecutives() {
           <h1 className="text-3xl sm:text-4xl font-bold tp-text-green-dark">임원 명단</h1>
           <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
           <p className="text-sm text-gray-500 mt-3">동국대학교한의과대학동문회 22대 임원진</p>
+          <p className="text-xs text-gray-400 mt-1">임기: 2026년 ~ 2027년</p>
         </header>
 
         {/* 지도부 */}
@@ -113,7 +114,6 @@ export default function AboutExecutives() {
           </div>
         </section>
 
-        <p className="text-center text-xs text-gray-400 mt-8">임기: 2024 – 2026</p>
       </div>
     </PublicLayout>
   );
