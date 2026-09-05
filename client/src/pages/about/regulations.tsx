@@ -30,7 +30,7 @@ export default function AboutRegulations() {
 
         <div className="mb-8 rounded-lg border tp-border-gold/40 tp-bg-cream p-5 text-sm text-gray-700 leading-relaxed">
           <strong className="block tp-text-green-dark mb-1">현행 규정</strong>
-          제22대 제2차 이사회(서면결의) 제1호로 원안 가결되었습니다.
+          2026년 9월 4일, 제22대 제2차 이사회(서면결의) 제1호로 원안 가결되었습니다.
           <span className="block mt-2">
             상위 규범:{" "}
             <Link href="/about/bylaws" className="tp-text-gold-dark underline underline-offset-2">
