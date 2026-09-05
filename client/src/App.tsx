@@ -25,6 +25,7 @@ import Privacy from "@/pages/privacy";
 import KakaoCallback from "@/pages/kakao-callback";
 import OnboardingRegion from "@/pages/onboarding/region";
 import AboutBylaws from "@/pages/about/bylaws";
+import AboutRegulations from "@/pages/about/regulations";
 import AboutJoin from "@/pages/about/join";
 import AboutDues from "@/pages/about/dues";
 import AboutCondolence from "@/pages/about/condolence";
@@ -75,6 +76,7 @@ function Router() {
       <Route path="/about/intro" component={AboutIntro} />
       <Route path="/about/executives" component={AboutExecutives} />
       <Route path="/about/bylaws" component={AboutBylaws} />
+      <Route path="/about/bylaws/regulations" component={AboutRegulations} />
       <Route path="/about/join" component={AboutJoin} />
       <Route path="/about/dues" component={AboutDues} />
       <Route path="/about/condolence" component={AboutCondolence} />

@@ -1,16 +1,30 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, GraduationCap, LogIn, LogOut, User } from "lucide-react";
+import { ChevronDown, Menu, X, GraduationCap, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoginModal } from "@/components/auth/login-modal";
 import { useAuth } from "@/hooks/use-auth";
 import symbolLogo from "@assets/public-home/symbol-logo.svg";
 
-const publicNav: { path: string; label: string; gated?: boolean }[] = [
+type NavItem = {
+  path: string;
+  label: string;
+  gated?: boolean;
+  children?: { path: string; label: string }[];
+};
+
+const publicNav: NavItem[] = [
   { path: "/", label: "홈" },
   { path: "/about/intro", label: "소개" },
   { path: "/about/executives", label: "임원명단" },
-  { path: "/about/bylaws", label: "회칙" },
+  {
+    path: "/about/bylaws",
+    label: "회칙",
+    children: [
+      { path: "/about/bylaws", label: "회칙" },
+      { path: "/about/bylaws/regulations", label: "규정" },
+    ],
+  },
   { path: "/about/join", label: "회원가입" },
   { path: "/about/dues", label: "회비" },
   { path: "/about/condolence", label: "경조사" },
@@ -24,7 +38,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingTarget, setPendingTarget] = useState<string | null>(null);
 
-  const handleNavClick = (e: React.MouseEvent, item: typeof publicNav[number]) => {
+  const handleNavClick = (e: React.MouseEvent, item: NavItem) => {
     if (item.gated && !user) {
       e.preventDefault();
       setPendingTarget(item.path);
@@ -48,7 +62,39 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
           <nav className="hidden md:flex items-center gap-1 lg:gap-1">
             {publicNav.map((item) => {
-              const active = location === item.path;
+              const active = location === item.path || item.children?.some((child) => child.path === location);
+              if (item.children) {
+                return (
+                  <div key={item.path} className="relative group">
+                    <Link
+                      href={item.path}
+                      className={`px-2 lg:px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                        active ? "tp-bg-gold tp-text-green-dark" : "text-white/90 hover:bg-white/10"
+                      }`}
+                    >
+                      {item.label}
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </Link>
+                    <div className="absolute left-0 top-full pt-1 hidden group-hover:block group-focus-within:block">
+                      <div className="w-32 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.path}
+                            href={child.path}
+                            className={`block rounded px-3 py-2 text-sm ${
+                              location === child.path
+                                ? "tp-bg-gold tp-text-green-dark font-semibold"
+                                : "tp-text-green hover:bg-gray-100"
+                            }`}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <Link
                   key={item.path}
@@ -116,19 +162,38 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             </div>
             <nav className="flex-1 p-2 overflow-y-auto">
               {publicNav.map((item) => {
-                const active = location === item.path;
+                const active = location === item.path || item.children?.some((child) => child.path === location);
                 return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    onClick={(e) => handleNavClick(e, item)}
-                    className={`block px-4 py-3 rounded-md text-sm font-medium ${
-                      active ? "tp-bg-gold tp-text-green-dark" : "tp-text-green hover:bg-gray-100"
-                    }`}
-                  >
-                    {item.label}
-                    {item.gated && !user && <span className="ml-2 text-xs text-gray-400">로그인 필요</span>}
-                  </Link>
+                  <div key={item.path}>
+                    <Link
+                      href={item.path}
+                      onClick={(e) => handleNavClick(e, item)}
+                      className={`block px-4 py-3 rounded-md text-sm font-medium ${
+                        active ? "tp-bg-gold tp-text-green-dark" : "tp-text-green hover:bg-gray-100"
+                      }`}
+                    >
+                      {item.label}
+                      {item.gated && !user && <span className="ml-2 text-xs text-gray-400">로그인 필요</span>}
+                    </Link>
+                    {item.children && (
+                      <div className="ml-5 border-l border-gray-200 pl-2">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.path}
+                            href={child.path}
+                            onClick={() => setDrawerOpen(false)}
+                            className={`block rounded-md px-4 py-2.5 text-sm ${
+                              location === child.path
+                                ? "font-semibold tp-text-gold-dark bg-amber-50"
+                                : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </nav>
