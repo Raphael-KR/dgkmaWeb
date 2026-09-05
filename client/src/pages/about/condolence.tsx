@@ -4,228 +4,155 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Heart } from "lucide-react";
 import { useSeo } from "@/lib/seo";
 
+const account = "기업 085-110653-04-017 동국대학교한의과대학동문회";
+
 export default function AboutCondolence() {
   useSeo({
     title: "회원 경조사 지원 안내(문자/화환/근조기)",
     description:
-      "동국대학교한의과대학동문회의 경조사 문자·화환·근조기 신청 절차와 부담금, 입금 계좌, FAQ를 안내합니다.",
+      "동국대학교한의과대학동문회 권리회원의 경조사 문자·화환·근조기 신청 절차와 비용을 안내합니다.",
     path: "/about/condolence",
   });
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <PublicLayout>
       <div className="max-w-3xl mx-auto px-4 py-10 sm:py-14">
         <header className="mb-8 text-center">
           <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">CONDOLENCE</div>
           <h1 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">
-            회원 경조사 지원 안내 (문자 / 화환 / 근조기)
+            회원 경조사 신청 안내
           </h1>
           <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
-          <p className="text-sm text-gray-600 mt-3">회원과 가족의 경조사를 동문회가 함께합니다.</p>
+          <p className="text-sm text-gray-600 mt-3">문자 · 화환 · 근조기 신청 절차를 안내합니다.</p>
         </header>
 
-        {/* 지원 범위·금액 한눈에 보기 */}
         <Card className="mb-6 border-l-4 tp-border-gold">
           <CardContent className="p-6">
-            <h2 className="text-lg font-bold tp-text-green-dark mb-3">지원 항목별 금액 (한눈에 보기)</h2>
-            <p className="text-sm text-gray-700 mb-3">
-              지원 대상: 회원 본인 및 <strong>배우자의 직계 1촌(부모·자녀)</strong> 이내 경조사.
-              회칙 제25조에 따른 길흉사(결혼·개원·사망)에 적용됩니다.
+            <h2 className="text-lg font-bold tp-text-green-dark mb-3">신청 대상</h2>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              경조사 문자·화환·근조기는 <strong>권리회원(회비 납부자)만 신청</strong>할 수 있습니다.
+              다만 본인상 또는 회장단이 예외로 결정한 경우에는 신청할 수 있습니다.
             </p>
-            <div className="overflow-x-auto -mx-2 px-2">
-              <table className="w-full text-sm min-w-[480px]">
-                <thead>
-                  <tr className="border-b tp-border-gold/40">
-                    <th className="text-left py-2 px-2 tp-text-green-dark">구분</th>
-                    <th className="text-center py-2 px-2 tp-text-green-dark">회비 납부자</th>
-                    <th className="text-center py-2 px-2 tp-text-green-dark">회비 미납자</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-gray-700">
-                  <tr>
-                    <td className="py-3 px-2 font-medium">단문 문자 (한글 45자 이하)</td>
-                    <td className="py-3 px-2 text-center"><strong>무료</strong></td>
-                    <td className="py-3 px-2 text-center">5만원</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-2 font-medium">장문 문자 (한글 45자 초과)</td>
-                    <td className="py-3 px-2 text-center">10만원</td>
-                    <td className="py-3 px-2 text-center">15만원</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-2 font-medium">근조기</td>
-                    <td className="py-3 px-2 text-center">5만원</td>
-                    <td className="py-3 px-2 text-center">10만원</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 px-2 font-medium">화환</td>
-                    <td className="py-3 px-2 text-center">8만원</td>
-                    <td className="py-3 px-2 text-center">13만원</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <p className="text-xs text-gray-500 mt-3">2026년 9월 1일 시행</p>
           </CardContent>
         </Card>
 
-        {/* 가. 경조사 문자 신청 */}
         <Card className="mb-6">
           <CardContent className="p-6">
-            <h2 className="text-lg font-bold tp-text-green-dark mb-4">가. 경조사 문자 신청 방법</h2>
+            <h2 className="text-lg font-bold tp-text-green-dark mb-4">신청 절차</h2>
 
-            <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-1">0단계. 동문회 밴드 가입</h3>
-              <p className="text-sm text-gray-700">
+            <ol className="space-y-6">
+              <li>
+                <h3 className="font-semibold tp-text-green-dark mb-2">1단계. 동문회 밴드 가입</h3>
                 <a
                   href="https://band.us/@dkom"
                   target="_blank"
-                  rel="noreferrer"
-                  className="tp-text-gold-dark underline"
+                  rel="noopener noreferrer"
+                  className="text-sm tp-text-gold-dark underline underline-offset-2"
                 >
-                  https://band.us/@dkom
+                  동문회 밴드 가입하기
                 </a>
-              </p>
-            </div>
+              </li>
 
-            <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-2">1단계. 부고 등록</h3>
-              <p className="text-sm text-gray-700 mb-2">
-                동문회비 납부자는 동문회에서 대신 올려드립니다. 동문회 밴드에 다음 양식으로 올려 주세요.
-              </p>
-              <pre className="text-xs bg-gray-50 border border-gray-200 rounded-md p-4 whitespace-pre-wrap leading-relaxed text-gray-800">{`-- 동문회 밴드에 부고를 아래 양식으로 올려주세요 --
-동국한의 졸업OO기(OO학번) 김OO 동문의 부친께서
-OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
-
-- 고인: 김OO (향년 OO세)
-- 빈소: OO병원 장례식장 A102호
-- 발인: OOOO년 O월 O일(O요일)
-- 연락처: 김OO 010-OOOO-OOOO
-- 마음 전하실 곳: OO은행 OO-OOO-OOOO 홍OO
-* 유가족 및 장례식장 위치 확인: https://OOOO.com/OOO`}</pre>
-            </div>
-
-            <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-2">2단계. 비용 입금</h3>
-              <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 발송요청자 부담금]</p>
-              <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
-                <li>회비 납부자: 단문 무료, 장문 10만원(한글 45자 초과시)</li>
-                <li>
-                  회비 미납자: 단문 5만원, 장문 15만원
-                </li>
-              </ul>
-              <p className="text-sm font-medium text-gray-800 mb-1">[경조사 문자 비용 입금 계좌]</p>
-              <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-                <li>
-                  <strong>기업 085-110653-04-017 동국대학교한의과대학동문회</strong>
-                </li>
-                <li>
-                  송금 시 <strong>'졸업기수 이름 문자비용'</strong>(예: 16기 박종웅 문자비용)으로 적어
-                  보내주세요.
-                </li>
-                <li>
-                  ※ 경조사 문자 외에 다른 송금액(회비, 근조기 등)과 합쳐서 보내지 마시고 항목별로 따로
-                  보내주세요. 임원들이 직접 회계장부를 작성하므로 협조 부탁드립니다.
-                </li>
-              </ul>
-            </div>
-
-            <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-1">3단계. 발송 요청</h3>
-              <p className="text-sm text-gray-700">
-                동문회 카톡{" "}
-                <a
-                  href="https://bit.ly/duckma"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="tp-text-gold-dark underline"
-                >
-                  https://bit.ly/duckma
-                </a>
-                {" "}으로 문자 발송을 요청합니다.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold tp-text-green-dark mb-1">4단계. 발송 승인</h3>
-              <p className="text-sm text-gray-700">
-                동문회 카톡으로 보내드리는 '발송 문구 시안'을 검토 후, 발송 승인을 합니다.
-                (발송 승인을 거쳐서 나간 문자 내용에 대해 동문회는 책임을 지지 않습니다.)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 나. 화환/근조기 신청 */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <h2 className="text-lg font-bold tp-text-green-dark mb-4">나. 화환 / 근조기 신청 방법</h2>
-
-            <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-2">1단계. 비용 입금</h3>
-              <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 발송요청자 부담금]</p>
-              <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 mb-3">
-                <li>회비 납부자: 근조기 5만원 / 화환 8만원</li>
-                <li>
-                  회비 미납자: 근조기 10만원 / 화환 13만원
-                </li>
-              </ul>
-              <p className="text-sm font-medium text-gray-800 mb-1">[화환/근조기 비용 입금 계좌]</p>
-              <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-                <li>
-                  <strong>기업 085-110653-04-017 동국대학교한의과대학동문회</strong>
-                </li>
-                <li>
-                  송금 시 <strong>'졸업기수 이름 항목'</strong>(예: 16기 박종웅 근조기)으로 적어
-                  보내주세요.
-                </li>
-                <li>
-                  ※ 화환/근조기 비용을 다른 송금액과 합쳐서 보내지 마시고 항목별로 따로 보내주세요.
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold tp-text-green-dark mb-1">2단계. 발송 요청</h3>
-              <p className="text-sm text-gray-700">
-                동문회 카톡{" "}
-                <a
-                  href="http://pf.kakao.com/_fPxgxeG/chat"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="tp-text-gold-dark underline break-all"
-                >
-                  pf.kakao.com/_fPxgxeG/chat
-                </a>
-                {" "}으로 발송을 요청합니다.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 다. FAQ */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <h2 className="text-lg font-bold tp-text-green-dark mb-3">다. 경조사 문자 FAQ</h2>
-            <ol className="space-y-3 text-sm text-gray-700 list-decimal list-outside ml-5">
               <li>
-                경조사 문자는 단문은 권리회원(본인 및 배우자의 직계 1촌 이내)과 본인상은 무료, 일반회원 5만원,
-                장문 10만원(한글 45자 초과시)은 권리회원, 일반회원 15만원을 받고 발송합니다.
-                <ul className="mt-1 list-disc list-inside text-gray-600">
-                  <li>동문 전체 문자는 단문 약 3만원, 장문 약 9만원의 실비가 발생합니다.</li>
+                <h3 className="font-semibold tp-text-green-dark mb-2">2단계. 동문회비 납부</h3>
+                <div className="rounded-md bg-gray-50 border border-gray-200 p-4 text-sm text-gray-700 space-y-2">
+                  <p><strong>{account}</strong></p>
+                  <p>회비: <strong>5만원</strong></p>
+                  <p>
+                    입금자명: <strong>졸업기수+이름+회비</strong>
+                    <span className="text-gray-500"> (예: 00기홍길동회비)</span>
+                  </p>
+                </div>
+              </li>
+
+              <li>
+                <h3 className="font-semibold tp-text-green-dark mb-2">3단계. 신청 항목 비용 입금</h3>
+                <div className="overflow-x-auto -mx-2 px-2 mb-4">
+                  <table className="w-full text-sm min-w-[360px]">
+                    <thead>
+                      <tr className="border-b tp-border-gold/40 text-left">
+                        <th className="py-3 px-2 font-semibold tp-text-green-dark">항목</th>
+                        <th className="py-3 px-2 font-semibold tp-text-green-dark">비용</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-gray-700">
+                      <tr>
+                        <td className="py-3 px-2 font-medium">문자(장문)</td>
+                        <td className="py-3 px-2">10만원</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 px-2 font-medium">근조기</td>
+                        <td className="py-3 px-2">5만원</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 px-2 font-medium">화환</td>
+                        <td className="py-3 px-2">8만원</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="rounded-md bg-gray-50 border border-gray-200 p-4 text-sm text-gray-700 space-y-2">
+                  <p><strong>{account}</strong></p>
+                  <p>
+                    입금자명: <strong>졸업기수+이름+신청항목</strong>
+                    <span className="text-gray-500"> (예: 00기홍길동문자)</span>
+                  </p>
+                </div>
+              </li>
+
+              <li>
+                <h3 className="font-semibold tp-text-green-dark mb-2">4단계. 홈페이지 게시 및 발송 요청</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  경조사 내용을{" "}
+                  <a
+                    href="https://buly.kr/AF2yVzW"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold tp-text-gold-dark underline underline-offset-2"
+                  >
+                    수석부회장 박종웅에게 카카오톡으로 전달
+                  </a>
+                  하고 문자·화환·근조기 발송을 요청해 주세요.
+                </p>
+                <ul className="mt-3 space-y-2 text-sm text-gray-700 list-disc list-outside ml-5">
+                  <li>권리회원의 경조사는 동문회 커뮤니티와 권리회원 단톡방에 알려드립니다.</li>
+                  <li>권리회원이 아닌 동문의 경조사는 본인이 직접 커뮤니티에 올려 주세요.</li>
                 </ul>
               </li>
+
               <li>
-                부고 문자는 밴드에 올라온 부고문 링크를 단축주소로 변환하여 첨부합니다. 커뮤니티 활성화를
-                위하여 밴드 링크 외에 다른 URL은 첨부하지 않습니다.
+                <h3 className="font-semibold tp-text-green-dark mb-2">5단계. 문자 발송 승인</h3>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  문자를 신청한 경우 카카오톡으로 전달받은 <strong>발송 문구 시안</strong>을 검토하고
+                  발송을 승인해 주세요. 승인을 거쳐 발송된 문자 내용에 대해서는 동문회가 책임지지 않습니다.
+                </p>
               </li>
-              <li>단문으로 보낼지 장문으로 보낼지는 문자 발송 요청자의 뜻에 따릅니다.</li>
+            </ol>
+          </CardContent>
+        </Card>
+
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 leading-relaxed">
+          <strong className="block mb-1">입금 시 꼭 확인해 주세요</strong>
+          회비와 문자(장문)·근조기·화환 비용은 합치지 말고 각각 따로 보내 주세요. 동문회에는 사무국이나
+          상근 직원이 없으며, 임원들이 무임금으로 봉사하며 회계장부를 직접 작성하고 있습니다.
+        </div>
+
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-bold tp-text-green-dark mb-4">FAQ</h2>
+            <ol className="space-y-3 text-sm text-gray-700 list-decimal list-outside ml-5">
+              <li>졸업생 전체 문자는 단문 약 3만원, 장문 약 9만원의 실비가 발생합니다.</li>
               <li>
-                문자 발송 요청자는 발송 문구 시안을 검토 후 발송 승인을 해 주셔야 문자가 발송됩니다.
-                (발송 승인을 거쳐서 나간 문자 내용에 대해 동문회는 책임을 지지 않습니다.)
+                부고 문자는 커뮤니티 활성화를 위해 밴드 링크 외의 다른 URL을 첨부하지 않습니다.
               </li>
               <li>
-                동국한의 동문회 문자를 받기 원하지 않으시면 졸업기수, 입학학번, 성함과 함께 문자 거부
-                의사를 문자메시지로 주시면 조치해 드리겠습니다.
+                동문회 문자를 받지 않으려면 졸업기수, 입학학번, 성함과 함께 문자 수신 거부 의사를
+                문자메시지로 보내 주세요.
               </li>
             </ol>
           </CardContent>
@@ -236,7 +163,7 @@ OOOO년 O월 O일 별세하셨기에 삼가 알려드립니다.
             <Heart className="text-red-600" size={20} />
           </div>
           <p className="text-sm text-gray-700 leading-relaxed">
-            동문 여러분의 기쁨과 슬픔에 항상 함께하겠습니다. 자세한 사항은 동문회 카톡으로 문의해 주세요.
+            동문 여러분의 기쁨과 슬픔에 항상 함께하겠습니다. 자세한 사항은 동문회 카카오톡으로 문의해 주세요.
           </p>
         </div>
       </div>
