@@ -99,13 +99,15 @@
 - 이전 후보의 focused `60/60`·전체 `341/341` 근거는 성공 로그인 세션 회전 수정으로 최종 후보 근거에서 무효화했다. 새 최종 후보의 정확한 focused·전체·JUnit·check·build·residue 수치와 SHA는 `최종 후보의 candidate-metadata.json으로 식별한 증거 루트`에 기록한다.
 - IAB는 bootstrap 자산을 만들지 못해 실행을 시작할 수 없었고, native Development URL pre-navigation interception도 확인하지 못했다. 실제 격리 UI QA는 승인된 `agent-browser` CLI fallback으로 현재 후보의 Replit `dist/public` archive를 loopback에서 실행해 관리자 control count `1`·name `관리자 화면으로 이동`·href `/admin`·click 후 `관리자 패널` heading `1`, member control `0`·direct `/admin` denial을 확인했다. mutation/unexpected API/cross-origin/external asset/console·page·runtime error는 모두 `0`이었고 archive hash·inventory와 cleanup을 기록했다. 이는 IAB 또는 native Development URL·실제 서버 응답·실제 계정 QA가 아닌 synthetic/client-navigation QA다. 근거는 `최종 후보의 candidate-metadata.json으로 식별한 증거 루트 아래 final-F3-browser/`이다.
 
-실제 계정 allowlist/login/recovery, Production smoke, 실제 Kakao 통합 QA, Google Sheets 적용, payment provider 및 실제 결제는 현재 병합 후보에서 미검증으로 유지한다.
+2026-07-30 배포 커밋 `de0ed6e` 운영에서는 실제 카카오 재로그인 뒤 지정 계정의 관리자 권한 복구, 커뮤니티 홈의 관리자 링크, `/admin` 패널 진입과 전체 페이지 재요청 뒤 세션·권한 유지를 인앱브라우저로 확인했다. 같은 배포의 비로그인 Production smoke도 통과했다. Development 재로그인 복구, DB 초기화·계정 재생성 뒤 복구, 일반회원 `403`, Google Sheets 적용, payment provider 및 실제 결제는 아직 통합 QA에 남긴다. 이 이력은 현재 `main`의 2026-08-16 안전 후보에 대한 Republish·Production smoke를 대신하지 않는다.
+
+2026-07-31 GitHub `main`에 병합된 PR #11의 문자·공개 링크 파서 범위를 Replit Development에서 다시 검증했다. 집중 회귀 50/50이 통과했고, 실제 관리자 세션으로 안전한 합성 부고 문자와 공개 URL을 함께 분석해 링크 수집 성공, 관련 동문·부친 관계·제목·날짜 병합, 초안 자동저장·삭제와 화면 초기화, 브라우저 오류 0건을 확인했다.
 
 ## 5. P0/P1 보안·무결성 과제
 
 | 우선순위 | 과제 | 현재 상태와 근거 | 완료 조건 | 선행 조건 |
 |---|---|---|---|---|
-| P0 | 관리자 API 보호 | 진행 중: 공개 개발 디버그 로그인 제거, 공통 `requireAdmin`, 전체 관리자 endpoint `401/403` 행렬과 안전한 오류 응답의 자동화·Replit 검증 완료. 현재 병합 후보에서 익명 same-cookie pending OAuth `202→/api/auth/me 401`, 기존 회원 세션을 로그인 시작에서 해제·저장한 뒤 다른 카카오 신원의 pending `202→/api/auth/me 401`·pending `1`·member/finalize writes `0`, 성공 회원 callback의 이전 세션 `401`·회전된 세션 `200` 계약을 자동 검증했다. 관리자/member UI 계약은 IAB bootstrap 불가 후 승인된 `agent-browser` CLI 격리 fallback으로 확인했으며, native Development URL·실제 계정 allowlist/login/recovery·Production 관리자 통합 QA는 미검증이다. | 프로덕션에서 모든 `/api/admin/*`가 비로그인 `401`, 일반회원 `403`, 관리자 성공이며 DB 초기화 뒤 지정 계정의 재로그인으로 관리자 권한 복구 | 실제 운영 관리자와 일반회원 계정의 통합 QA |
+| P0 | 관리자 API 보호 | 진행 중: 공개 개발 디버그 로그인 제거, 공통 `requireAdmin`, 전체 관리자 endpoint `401/403` 행렬과 안전한 오류 응답의 자동화·Replit 검증을 완료했다. 성공 회원 callback의 이전 세션 `401`·회전된 세션 `200` 계약을 자동 검증했고, 2026-07-30 배포 커밋 `de0ed6e`의 운영 실제 카카오 재로그인에서 관리자 권한 복구·관리자 링크·패널 진입·전체 페이지 재요청 뒤 세션 유지를 확인했다. | 프로덕션에서 모든 `/api/admin/*`가 비로그인 `401`, 일반회원 `403`, 관리자 성공이며 DB 초기화 뒤 지정 계정의 재로그인으로 관리자 권한 복구 | 일반회원 `403`, Development 재로그인과 DB 초기화·계정 재생성 뒤 복구 통합 QA |
 | P0 | 결제 기록 보호 | 진행 중: 후보 자동화에서 정확한 valid payload의 `201`·write `1`, `amount` 누락의 `400`·write `0`, 기존 비로그인 `401`·일반회원 `403` 무쓰기 회귀를 확인했다. 이는 내부 관리자 기록 계약이며 payment provider·실제 결제나 Production smoke를 검증한 것이 아니다. | 프로덕션에서 비로그인 `401`, 일반회원 `403`, 관리자 테스트 기록 성공과 데이터 불변 확인 | 테스트 결제 기록 범위 합의 |
 | P1 | 개인정보 로그 제거 | 진행 중: 카카오·Google Sheets 로그 정제 코드와 자동화 검증 완료 | Replit 실행 로그에서 이름·전화번호·주소·이메일·생일·원본 행·사용자 객체가 보이지 않고 건수·단계·마스킹 식별자만 기록 | 실제 동기화와 로그인 로그 관찰 |
 | P1 | 부고·경조사 접근 정책 | 진행 중: 비로그인 운영 `401`, 실제 회원 `/events` 진입·문자 파싱·초안 생성·삭제 확인 | 실제 회원이 레거시 부고와 통합 경조사의 목록·상세·파싱·초안·등록을 정상 사용 | 통합 QA의 역할·모바일 검증 |
@@ -127,8 +129,8 @@
 현재 작업은 사용자 검증으로 중단하지 않고 다음 순서로 진행합니다.
 
 1. 운영 배포가 끝난 문자·공개 링크 혼합 파서와 경조사 네 유형의 대표 입력 사례를 통합 QA 목록에 누적합니다.
-2. 가입 불일치 승인·거절과 P0/P1 역할 정책은 자동화·개발 환경 검증을 유지하고, 환경별 카카오 관리자 allowlist의 실제 재로그인·권한 복구와 관리자 배지→패널 진입을 포함한 실제 계정 항목을 통합 QA에 누적합니다.
-3. 실제 계정 allowlist/login/recovery와 Production smoke는 `walkthrough.md`의 미체크 항목으로 유지하고, 실제 Kakao 통합 QA를 별도로 수행합니다.
+2. 가입 불일치 승인·거절과 P0/P1 역할 정책은 자동화·개발 환경 검증을 유지하고, 남은 일반회원 관리자 API `403`, Development 재로그인 복구와 DB 초기화·계정 재생성 뒤 복구를 통합 QA에 누적합니다.
+3. 2026-07-30 배포 커밋 `de0ed6e`의 운영 실제 계정 allowlist 재로그인·관리자 링크·패널 진입·세션 지속과 비로그인 Production smoke 근거를 유지하고, 이후 후보와 미검증 역할·변경 동작은 별도 통합 QA로 수행합니다.
 4. 명부 변경 미리보기·차단·적용 흐름은 실제 관리 원본을 변경하지 않은 상태로 통합 QA 목록에 누적하고, Sheets 적용은 백업·건수 대조와 별도 실행 확인 후 수행합니다.
 5. 카카오 채널 메시지와 payment provider·실제 결제 등 후속 기능의 운영 요구사항을 개발 착수 시 확정합니다.
 6. 핵심 개발 범위가 완료되면 `walkthrough.md`에 누적된 항목으로 실제 계정·역할·데스크톱·모바일 통합 QA를 한 번에 수행합니다.
