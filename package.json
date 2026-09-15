@@ -51,17 +51,17 @@
     "@uppy/core": "^5.2.0",
     "@uppy/dashboard": "^5.1.1",
     "@uppy/react": "^5.2.0",
-    "axios": "^1.10.0",
+    "axios": "^1.20.0",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^3.6.0",
-    "drizzle-orm": "^0.39.1",
+    "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "express-session": "^1.19.0",
     "framer-motion": "^11.13.1",
     "google-auth-library": "^10.7.0",
@@ -71,7 +71,7 @@
     "korean-lunar-calendar": "^0.4.0",
     "lucide-react": "^0.453.0",
     "memorystore": "^1.6.7",
-    "nanoid": "^5.1.5",
+    "nanoid": "^5.1.16",
     "next-themes": "^0.4.6",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
@@ -88,7 +88,7 @@
     "tw-animate-css": "^1.2.5",
     "vaul": "^1.1.2",
     "wouter": "^3.3.5",
-    "ws": "^8.18.3",
+    "ws": "^8.21.0",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0"
   },
@@ -106,17 +106,42 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.5.13",
-    "@vitejs/plugin-react": "^4.3.2",
+    "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.30.6",
+    "drizzle-kit": "^0.31.10",
     "esbuild": "^0.25.0",
-    "postcss": "^8.4.47",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.1",
+    "tsx": "^4.23.13",
     "typescript": "5.6.3",
-    "vite": "^5.4.19"
+    "vite": "^6.4.3"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "overrides": {
+    "@babel/core": "7.29.7",
+    "@babel/helpers": "7.29.7",
+    "brace-expansion": "2.1.7",
+    "browserslist": "4.28.9",
+    "form-data": "4.0.6",
+    "glob": "10.5.0",
+    "minimatch": "9.0.9",
+    "postcss-selector-parser": "6.1.4",
+    "undici": "7.29.1",
+    "uuid": "11.1.1",
+    "yaml": "2.9.1",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "$esbuild"
+    },
+    "anymatch": {
+      "picomatch": "2.3.2"
+    },
+    "micromatch": {
+      "picomatch": "2.3.2"
+    },
+    "readdirp": {
+      "picomatch": "2.3.2"
+    }
   }
 }
