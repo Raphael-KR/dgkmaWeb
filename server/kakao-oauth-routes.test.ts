@@ -264,6 +264,34 @@ test("authorization start generates random state, persists it, and redirects wit
   }
 });
 
+test("authorization start does not revoke an existing authenticated session", async () => {
+  const server = await startServer({
+    getKakaoOAuthConfig: () => config,
+    kakaoAuthStorage: kakaoAuthStorageDouble(),
+  });
+  try {
+    const cookie = await createAdminSession(server.baseUrl);
+    const beforeStart = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie },
+    });
+    assert.equal(beforeStart.status, 200);
+
+    const startResponse = await fetch(`${server.baseUrl}/api/auth/kakao/start`, {
+      headers: { cookie },
+      redirect: "manual",
+    });
+    assert.equal(startResponse.status, 302);
+
+    const afterStart = await fetch(`${server.baseUrl}/api/auth/me`, {
+      headers: { cookie },
+    });
+    assert.equal(afterStart.status, 200);
+    assert.equal((await afterStart.json()).user.id, createdUser.id);
+  } finally {
+    await server.close();
+  }
+});
+
 test("authorization start returns 500 without redirect when state persistence fails", async () => {
   const server = await startServer(
     { getKakaoOAuthConfig: () => config },

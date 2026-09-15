@@ -144,8 +144,11 @@ export class ObjectStorageService {
     }
   }
 
-  // Gets the upload URL for an object entity.
-  async getObjectEntityUploadURL(): Promise<string> {
+  // Creates the storage target for an object entity upload.
+  createObjectEntityUploadTarget(): {
+    objectId: string;
+    objectPath: string;
+  } {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
@@ -157,14 +160,36 @@ export class ObjectStorageService {
     const objectId = randomUUID();
     const fullPath = `${privateObjectDir}/uploads/${objectId}`;
 
-    const { bucketName, objectName } = parseObjectPath(fullPath);
+    // Validate the configured path while the target is created instead of
+    // waiting until the upload request reaches object storage.
+    parseObjectPath(fullPath);
 
-    // Sign URL for PUT method with TTL
-    return signObjectURL({
-      bucketName,
-      objectName,
-      method: "PUT",
-      ttlSec: 900,
+    return {
+      objectId,
+      objectPath: `/objects/uploads/${objectId}`,
+    };
+  }
+
+  // Stores an upload after the request route has validated its size and type.
+  async uploadObjectEntity(
+    objectId: string,
+    contents: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    if (!/^[0-9a-f-]{36}$/i.test(objectId)) {
+      throw new Error("Invalid object ID");
+    }
+
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const objectFile = objectStorageClient.bucket(bucketName).file(objectName);
+
+    await objectFile.save(contents, {
+      resumable: false,
+      metadata: {
+        contentType,
+      },
     });
   }
 
@@ -272,42 +297,4 @@ function parseObjectPath(path: string): {
     bucketName,
     objectName,
   };
-}
-
-async function signObjectURL({
-  bucketName,
-  objectName,
-  method,
-  ttlSec,
-}: {
-  bucketName: string;
-  objectName: string;
-  method: "GET" | "PUT" | "DELETE" | "HEAD";
-  ttlSec: number;
-}): Promise<string> {
-  const request = {
-    bucket_name: bucketName,
-    object_name: objectName,
-    method,
-    expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
-  };
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
-    );
-  }
-
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
 }

@@ -12,5 +12,6 @@ The Replit `object_storage` blueprint (`server/replit_integrations/object_storag
 
 **How to apply:**
 - Gate `request-url` and (for member-only apps) `GET /objects` behind `req.session?.userId`. `<img>` tags send the session cookie same-origin, so logged-in rendering is unaffected.
+- When the sidecar signer cannot bind upload size/type, proxy uploads through the app with a short-lived, HMAC-bound target and validate the complete request body before writing to storage.
 - In `downloadObject`, force non-`image/*` stored content types to `application/octet-stream` + `Content-Disposition: attachment`, and always set `X-Content-Type-Options: nosniff`.
 - Validation for post `imageUrls` should only allow the real serving prefix `/objects/` (relative path), blocking external `<img src>` injection.

@@ -19,11 +19,11 @@ interface UseUploadOptions {
 }
 
 /**
- * React hook for handling file uploads with presigned URLs.
+ * React hook for handling bounded file uploads.
  *
- * This hook implements the two-step presigned URL upload flow:
- * 1. Request a presigned URL from your backend (sends JSON metadata, NOT the file)
- * 2. Upload the file directly to the presigned URL
+ * This hook implements the two-step upload flow:
+ * 1. Request a short-lived upload URL from your backend (sends JSON metadata, NOT the file)
+ * 2. Upload the file directly to the bounded application URL
  *
  * @example
  * ```tsx
@@ -57,7 +57,7 @@ export function useUpload(options: UseUploadOptions = {}) {
   const [progress, setProgress] = useState(0);
 
   /**
-   * Request a presigned URL from the backend.
+   * Request a short-lived upload URL from the backend.
    * IMPORTANT: Send JSON metadata, NOT the file itself.
    */
   const requestUploadUrl = useCallback(
@@ -85,9 +85,9 @@ export function useUpload(options: UseUploadOptions = {}) {
   );
 
   /**
-   * Upload a file directly to the presigned URL.
+   * Upload a file directly to the bounded application URL.
    */
-  const uploadToPresignedUrl = useCallback(
+  const uploadToBoundedUrl = useCallback(
     async (file: File, uploadURL: string): Promise<void> => {
       const response = await fetch(uploadURL, {
         method: "PUT",
@@ -105,7 +105,7 @@ export function useUpload(options: UseUploadOptions = {}) {
   );
 
   /**
-   * Upload a file using the presigned URL flow.
+   * Upload a file using the bounded upload flow.
    *
    * @param file - The file to upload
    * @returns The upload response containing the object path
@@ -117,13 +117,13 @@ export function useUpload(options: UseUploadOptions = {}) {
       setProgress(0);
 
       try {
-        // Step 1: Request presigned URL (send metadata as JSON)
+        // Step 1: Request the upload URL (send metadata as JSON)
         setProgress(10);
         const uploadResponse = await requestUploadUrl(file);
 
-        // Step 2: Upload file directly to presigned URL
+        // Step 2: Upload the file directly to the bounded application URL
         setProgress(30);
-        await uploadToPresignedUrl(file, uploadResponse.uploadURL);
+        await uploadToBoundedUrl(file, uploadResponse.uploadURL);
 
         setProgress(100);
         options.onSuccess?.(uploadResponse);
@@ -137,14 +137,14 @@ export function useUpload(options: UseUploadOptions = {}) {
         setIsUploading(false);
       }
     },
-    [requestUploadUrl, uploadToPresignedUrl, options]
+    [requestUploadUrl, uploadToBoundedUrl, options]
   );
 
   /**
    * Get upload parameters for Uppy's AWS S3 plugin.
    *
    * IMPORTANT: This function receives the UppyFile object from Uppy.
-   * Use file.name, file.size, file.type to request per-file presigned URLs.
+   * Use file.name, file.size, file.type to request per-file upload URLs.
    *
    * Use this with the ObjectUploader component:
    * ```tsx
@@ -161,7 +161,7 @@ export function useUpload(options: UseUploadOptions = {}) {
       url: string;
       headers?: Record<string, string>;
     }> => {
-      // Use the actual file properties to request a per-file presigned URL
+      // Use the actual file properties to request a per-file upload URL
       const response = await fetch("/api/uploads/request-url", {
         method: "POST",
         headers: {
