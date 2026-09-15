@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 import { useSeo } from "@/lib/seo";
 
 const account = "기업 085-110653-04-017 동국대학교한의과대학동문회";
@@ -53,6 +54,10 @@ export default function AboutCondolence() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm tp-text-gold-dark underline underline-offset-2"
+                  onClick={() => trackEvent("external_contact_clicked", {
+                    destination: "band",
+                    source: "condolence",
+                  })}
                 >
                   동문회 밴드 가입하기
                 </a>
@@ -114,6 +119,10 @@ export default function AboutCondolence() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-semibold tp-text-gold-dark underline underline-offset-2"
+                    onClick={() => trackEvent("external_contact_clicked", {
+                      destination: "kakao",
+                      source: "condolence",
+                    })}
                   >
                     수석부회장 박종웅에게 카카오톡으로 전달
                   </a>

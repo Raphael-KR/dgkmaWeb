@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { useSeo } from "@/lib/seo";
+import { trackEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoginModal } from "@/components/auth/login-modal";
@@ -106,7 +107,10 @@ export default function AboutJoin() {
           <Button
             size="lg"
             className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400 font-bold"
-            onClick={() => setLoginOpen(true)}
+            onClick={() => {
+              trackEvent("membership_join_started", { provider: "kakao" });
+              setLoginOpen(true);
+            }}
           >
             <LogIn size={18} className="mr-2" /> 카카오로 가입하기
           </Button>

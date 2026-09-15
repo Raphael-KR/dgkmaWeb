@@ -10,6 +10,7 @@ import { useEventDraft } from "@/hooks/use-event-draft";
 import { saveEventDraftWithFallback } from "@/hooks/event-draft-coordinator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { trackEvent } from "@/lib/analytics";
 import {
   communityEventDraftSchema,
   communityEventPublishSchema,
@@ -250,9 +251,17 @@ export function EventComposer() {
       setParseMissingFields(Array.isArray(parsed.missingFields)
         ? parsed.missingFields.filter((field): field is string => typeof field === "string")
         : []);
+      trackEvent("community_event_parse_succeeded", {
+        event_type: snapshot.eventType,
+        source_count: Array.isArray(parsed.sources) ? parsed.sources.length : 0,
+      });
       toast({ title: "경조사 내용 분석 완료", description: "입력된 내용을 확인하고 필요한 정보를 보완해주세요." });
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === "AbortError";
+      trackEvent("community_event_parse_failed", {
+        event_type: snapshot.eventType,
+        reason: timedOut ? "timeout" : "request_error",
+      });
       toast({
         title: timedOut ? "분석 시간이 초과되었습니다" : "분석 실패",
         description: "문자 내용을 자동 분석하지 못했습니다. 직접 입력해주세요.",
@@ -361,6 +370,9 @@ export function EventComposer() {
       });
 
       if (result.outcome === "published") {
+        trackEvent("community_event_published", {
+          event_type: publishSnapshot.eventType,
+        });
         await completePublish(publishSnapshot.eventType);
       } else {
         lockPublishResolution(result.draftId);
