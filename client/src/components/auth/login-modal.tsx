@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { kakaoLogin } from "@/lib/auth";
+import { trackEvent } from "@/lib/analytics";
 import { GraduationCap } from "lucide-react";
 
 interface LoginModalProps {
@@ -13,6 +14,10 @@ interface LoginModalProps {
 export function LoginModal({ open, onOpenChange, returnTo, reason }: LoginModalProps) {
   // v5 — REST authorize URL 직접 이동 방식이라 SDK init 불필요.
   const handleLogin = () => {
+    trackEvent("login_started", {
+      provider: "kakao",
+      has_return_path: Boolean(returnTo),
+    });
     if (returnTo) {
       try {
         sessionStorage.setItem("auth:returnTo", returnTo);

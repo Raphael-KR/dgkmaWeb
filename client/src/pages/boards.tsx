@@ -18,6 +18,7 @@ import { insertPostSchema, type Category, type InsertPost } from "@shared/schema
 import { isSelectablePostCategory } from "@shared/category-policy";
 import { Plus, ImagePlus, X, Loader2, HeartHandshake } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { trackEvent } from "@/lib/analytics";
 import { useLocation } from "wouter";
 import { useUpload } from "@/hooks/use-upload";
 
@@ -112,7 +113,11 @@ export default function Boards() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_post, variables) => {
+      trackEvent("post_published", {
+        has_image: imageUrls.length > 0,
+        category_id: variables.categoryId ?? 0,
+      });
       toast({
         title: "게시글 작성 완료",
         description: "게시글이 성공적으로 작성되었습니다.",

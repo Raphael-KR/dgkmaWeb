@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Card, CardContent } from "@/components/ui/card";
+import { trackEvent } from "@/lib/analytics";
 import { useSeo } from "@/lib/seo";
 
 export default function AboutDues() {
@@ -209,6 +210,10 @@ export default function AboutDues() {
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold tp-text-gold-dark underline underline-offset-2"
+            onClick={() => trackEvent("external_contact_clicked", {
+              destination: "kakao",
+              source: "dues",
+            })}
           >
             수석부회장 박종웅에게 카카오톡으로 문의
           </a>
