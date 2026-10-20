@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "test": "node scripts/run-tests.mjs",
+    "test:development-db": "RUN_DEVELOPMENT_DB_TESTS=1 node --import tsx --test server/tests/development-db-target.test.ts server/modules/events/community-events-development-db.test.ts server/modules/registry/alumni-sync-storage.test.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc && npm run check:boundaries",

@@ -3,21 +3,8 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { Pool } from "pg";
+import { developmentDbConfig, developmentDbSkip, verifyDevelopmentDb } from "../../tests/development-db-target";
 import type { AlumniSourceSnapshot } from "./alumni-sync-plan";
-
-const DEVELOPMENT_REPL_ID = "dc5e5541-525b-4ad6-b914-2d2db70cb4a9";
-const developmentDatabasePort = Number(process.env.PGPORT ?? "5432");
-const hasExplicitDevelopmentDatabaseTarget = Boolean(
-  process.env.REPL_ID === DEVELOPMENT_REPL_ID
-    && process.env.REPLIT_DEPLOYMENT !== "1"
-    && process.env.NODE_ENV !== "production"
-    && process.env.PGHOST === "helium"
-    && process.env.PGDATABASE === "heliumdb"
-    && process.env.PGUSER
-    && process.env.PGPASSWORD
-    && Number.isInteger(developmentDatabasePort)
-    && developmentDatabasePort > 0,
-);
 
 test("alumni sync storage uses one advisory-locked transaction without delete", async () => {
   const source = await readFile(new URL("./storage.ts", import.meta.url), "utf8");
@@ -42,17 +29,10 @@ test("alumni sync storage uses one advisory-locked transaction without delete", 
 });
 
 test("development helium fixture proves preview, guarded apply, rollback, and cleanup", {
-  skip: hasExplicitDevelopmentDatabaseTarget
-    ? false
-    : "지정된 Replit Development Database의 명시적 PG* 대상이 아니므로 건너뜁니다.",
+  skip: developmentDbSkip,
 }, async (t) => {
   const testPool = new Pool({
-    host: process.env.PGHOST!,
-    port: developmentDatabasePort,
-    user: process.env.PGUSER!,
-    password: process.env.PGPASSWORD!,
-    database: process.env.PGDATABASE!,
-    ssl: false,
+    ...developmentDbConfig(),
     max: 3,
   });
   const token = randomUUID().replaceAll("-", "");
@@ -67,6 +47,7 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
   const functionName = `task5_fail_${token.slice(0, 16)}`;
   const triggerName = `task5_trigger_${token.slice(0, 16)}`;
   let targetVerified = false;
+  let runtimePool: Pool | undefined;
   let userId: number | undefined;
   const fixtureAlumniIds = new Set<number>();
   let currentSnapshot: AlumniSourceSnapshot;
@@ -103,10 +84,9 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
   });
 
   try {
-    const database = await testPool.query<{ database: string }>(
-      "select current_database() as database",
-    );
-    assert.equal(database.rows[0]?.database, "heliumdb");
+    await verifyDevelopmentDb(testPool);
+    runtimePool = (await import("../../db")).pool;
+    await verifyDevelopmentDb(runtimePool);
     targetVerified = true;
 
     const collisions = await testPool.query<{
@@ -360,9 +340,11 @@ test("development helium fixture proves preview, guarded apply, rollback, and cl
           trigger_count: 0,
           function_count: 0,
         });
+        t.diagnostic("fixture residue: alumni=0 users=0 triggers=0 functions=0");
       }
     } finally {
       await testPool.end();
+      await runtimePool?.end();
     }
   }
 });

@@ -2,30 +2,15 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { Pool } from "pg";
+import { developmentDbConfig, developmentDbSkip, verifyDevelopmentDb } from "../../tests/development-db-target";
 import type {
   CommunityEventDraftInput,
   CommunityEventPublishInput,
 } from "@shared/community-events";
 
-const DEVELOPMENT_REPL_ID = "dc5e5541-525b-4ad6-b914-2d2db70cb4a9";
-const developmentDatabasePort = Number(process.env.PGPORT ?? "5432");
-const hasExplicitDevelopmentDatabaseTarget = Boolean(
-  process.env.REPL_ID === DEVELOPMENT_REPL_ID
-    && process.env.REPLIT_DEPLOYMENT !== "1"
-    && process.env.NODE_ENV !== "production"
-    && process.env.PGHOST === "helium"
-    && process.env.PGDATABASE === "heliumdb"
-    && process.env.PGUSER
-    && process.env.PGPASSWORD
-    && Number.isInteger(developmentDatabasePort)
-    && developmentDatabasePort > 0,
-);
-
 test("development PostgreSQL preserves event draft ownership, reuse, and publish idempotency", {
-  skip: hasExplicitDevelopmentDatabaseTarget
-    ? false
-    : "지정된 Replit Development Database의 명시적 PG* 대상이 아니므로 건너뜁니다.",
-}, async () => {
+  skip: developmentDbSkip,
+}, async (t) => {
   const token = randomUUID().replaceAll("-", "");
   const emails = [
     `event-task3-${token}-owner@example.invalid`,
@@ -47,28 +32,19 @@ test("development PostgreSQL preserves event draft ownership, reuse, and publish
     details: { memo: "게시 내용" },
   };
   const testPool = new Pool({
-    host: process.env.PGHOST!,
-    port: developmentDatabasePort,
-    user: process.env.PGUSER!,
-    password: process.env.PGPASSWORD!,
-    database: process.env.PGDATABASE!,
-    ssl: false,
+    ...developmentDbConfig(),
     max: 1,
   });
   let targetVerified = false;
   let userIds: number[] = [];
+  let runtimePool: Pool | undefined;
 
   try {
-    const databaseResult = await testPool.query<{ database: string }>(
-      "select current_database() as database",
-    );
-    assert.equal(
-      databaseResult.rows[0]?.database,
-      "heliumdb",
-      "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
-    );
+    await verifyDevelopmentDb(testPool);
     targetVerified = true;
 
+    runtimePool = (await import("../../db")).pool;
+    await verifyDevelopmentDb(runtimePool);
     const { storage } = await import("../../storage");
     const usersResult = await testPool.query<{ id: number }>(
       `insert into users (email, name, is_verified, activity_region)
@@ -134,9 +110,11 @@ test("development PostgreSQL preserves event draft ownership, reuse, and publish
           [emails, sourceMarker],
         );
         assert.deepEqual(residue.rows[0], { users_count: 0, events_count: 0 });
+        t.diagnostic("fixture residue: users=0 events=0");
       }
     } finally {
       await testPool.end();
+      await runtimePool?.end();
     }
   }
 });
