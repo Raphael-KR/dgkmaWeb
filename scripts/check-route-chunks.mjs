@@ -29,4 +29,5 @@ console.log(JSON.stringify({
   initialJsChunks: files.length, initialJsBytes: bytes, initialJsGzipBytes: gzip,
   lazyRouteEntries: routes.length,
   totalJsChunks: Object.values(manifest).filter(value => value.file.endsWith(".js")).length,
+  measurementScope: "Static JS manifest and gzip budgets only; use npm run measure:mobile for browser network and LCP data.",
 }, null, 2));

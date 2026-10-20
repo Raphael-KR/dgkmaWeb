@@ -156,3 +156,59 @@ node --import tsx --test client/src/app/routing/router.test.ts \
   `/o/new` mobile의 로그인 안내를 스크린샷으로 확인했다.
   비로그인 `/api/auth/me` 401 외 새 브라우저 오류는 없었다.
 - 운영 배포·운영 데이터·외부 provider 쓰기 작업은 수행하지 않았다.
+
+## 실제 모바일 브라우저 측정 (2026-10-20)
+
+정적 manifest/gzip budget만으로는 네트워크 요청과 화면 표시 시간을 알 수 없어
+`npm run measure:mobile`에 Chromium 모바일 네트워크 실측을 추가했다. 이 명령은
+프로덕션 빌드를 만든 다음 `dist/public`을 Express 정적 서버로 제공한다.
+`/api/auth/me`만 익명 401 응답으로 대체하며 Google Fonts/jsDelivr 요청은 실제 CDN에
+연결한다. 운영 서버·운영 계정·운영 데이터 측정은 아니다.
+
+| 조건 | 값 |
+|---|---|
+| 화면 | 390×844 CSS px, DPR 3, 모바일 viewport |
+| 네트워크 | 왕복 지연 150 ms, 다운로드 1.6 Mbps, 업로드 750 Kbps |
+| 반복 | 콜드/웜 각 3회, 표는 중앙값 |
+| 콜드 | 브라우저 캐시 삭제 및 캐시 비활성화 후 첫 방문 |
+| 웜 | 같은 브라우저에서 캐시를 켜고 홈을 다시 열기 |
+| 전송 바이트 | Chromium CDP `Network.loadingFinished.encodedDataLength` 합계. HTTP 응답 기준이며 TLS/IP 오버헤드는 제외 |
+| LCP | `PerformanceObserver`의 최종 Largest Contentful Paint 후보. 네트워크 유휴 후 1초간 추가 관찰 |
+
+| 흐름 | 요청 수 | 전송량 | LCP/화면 전환 |
+|---|---:|---:|---:|
+| 공개 홈 콜드 | 24 | 4,235,628 bytes (약 4.04 MiB) | LCP 3,540 ms, hero 소개 문단 |
+| 공개 홈 웜 | 23 | 1,603 bytes | LCP 716 ms, 심볼 로고 |
+| 홈 → `/b` 회원 경로 콜드 | 추가 0 | 추가 0 bytes | 로그인 안내까지 40.5 ms |
+| 홈 → `/b` 회원 경로 웜 | 추가 0 | 추가 0 bytes | 로그인 안내까지 20.0 ms |
+
+콜드 홈 3회 전송량 범위는 4,234,833–4,236,644 bytes, LCP 범위는
+3,536–4,436 ms였다. `/b` 이동 시 익명 `AuthGate`가 화면 본문을 막으므로
+lazy 회원 화면 chunk가 요청되지 않는다. 이는 익명 방문자 흐름만 측정한 결과이며,
+실제 로그인 세션에서 회원 화면을 내려받는 시간은 인증 우회 없이 이 작업 사본에서
+측정하지 않았다.
+
+### 확인된 병목과 범위 결정
+
+- 가장 큰 비용은 14개의 WOFF2 폰트 요청으로, 중앙값 3,498,093 bytes
+  (콜드 총량의 약 82.6%)였다. 그중 Pretendard 정적 Regular/Medium/SemiBold/Bold
+  네 파일이 약 3.12 MB이며, 각 파일이 약 0.77–0.79 MB다. 나머지는 Noto Sans KR
+  부분 글리프 파일이다. 현재 `client/src/index.css`는 Pretendard와 Noto Sans KR /
+  Noto Serif KR을 외부 CSS로 불러온다.
+- 콜드 LCP는 hero의 소개 문단으로 약 3.5초였고, 웜 LCP는 심볼 SVG로 약 0.74초였다.
+  따라서 콜드 LCP의 우선 조사 대상은 JS 공유 chunk보다 중복·대형 폰트 패밀리와
+  weight 전달이다. 초기 JS는 350,175 bytes(빌드 gzip 111.78 kB)로 기존 한도 안이다.
+- 이미지도 콜드 요청에 포함된다: 심볼 SVG 약 82.9 kB, 화면 아래 회장 사진 약
+  59.8 kB. 폰트보다 작고, 이 측정에서는 이미지 최적화나 UI 변경을 하지 않았다.
+- 웜 재방문은 폰트 응답 본문을 다시 전송하지 않았고, 로컬 정적 자산은 보통 2–4개
+  조건부 304 응답으로 재검증됐다. 즉 웜 전송량은 재방문 캐시 설정에 따라 달라질 수 있다.
+- 빌드 HTML에 있는 Replit 개발 배너 스크립트는 브라우저에서
+  `ERR_BLOCKED_BY_ORB`로 실패해 요청 수에는 포함되지만 0 bytes다. CDN 폰트는 실제
+  외부망 상태와 브라우저 캐시에 따라 값이 변할 수 있다.
+
+**다음 최적화 후보(아직 미적용):** 첫 방문 글꼴 비용이 우세하므로
+`client/src/index.css`의 기본 font family/weight 조합과 Pretendard 전체 정적 파일
+사용을 검토한다. 사용하지 않는 패밀리·weight를 제거하거나 필요한 한글 글리프만
+제공하도록 조정한 뒤, 동일 명령으로 LCP와 전송량을 다시 비교한다. 폰트 표시의
+시각적 회귀도 확인해야 한다. 측정 결과만으로 vendor chunk 병합, 임의 preload,
+홈 UI 재설계는 제안하지 않는다.
