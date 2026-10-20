@@ -1,2 +1,3 @@
-export { default as Boards } from "./boards";
-export { default as PostDetail } from "./post-detail";
+import { lazy } from "react";
+export const Boards = lazy(() => import("./boards"));
+export const PostDetail = lazy(() => import("./post-detail"));

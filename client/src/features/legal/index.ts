@@ -1,2 +1,3 @@
-export { default as Terms } from "./terms";
-export { default as Privacy } from "./privacy";
+import { lazy } from "react";
+export const Terms = lazy(() => import("./terms"));
+export const Privacy = lazy(() => import("./privacy"));

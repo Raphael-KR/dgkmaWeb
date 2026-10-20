@@ -1,1 +1,2 @@
-export { default as Admin } from "./admin";
+import { lazy } from "react";
+export const Admin = lazy(() => import("./admin"));

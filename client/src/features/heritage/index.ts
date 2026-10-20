@@ -1,1 +1,2 @@
-export { default as HeritagePage } from "./heritage";
+import { lazy } from "react";
+export const HeritagePage = lazy(() => import("./heritage"));

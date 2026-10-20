@@ -5,7 +5,7 @@ import test from "node:test";
 test("community event routes and the all-events list stay member-only and guarded", async () => {
   const [app, page, list, robots] = await Promise.all([
     readFile(new URL("../../../app/routing/router.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../index.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../event-list.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../../../public/robots.txt", import.meta.url), "utf8"),
   ]);
@@ -97,7 +97,7 @@ test("community event composer progressively reveals schema-backed review fields
 });
 
 test("community events page keeps one unfiltered list after publishing", async () => {
-  const page = await readFile(new URL("../index.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /<EventComposer \/>/);
   assert.match(page, /<EventList onSelect=/);
@@ -129,7 +129,7 @@ test("legacy obituary entry routes redirect without replacing legacy details or 
   const legacyListRedirect = '<Route path="/o" component={() => <Redirect to="/events?type=obituary" replace />} />';
   const legacyDetailRoute = '<Route path="/o/:id">\n        <AuthGate><ObituaryDetail /></AuthGate>\n      </Route>';
 
-  assert.match(app, /import \{ Switch, Route, Redirect \} from "wouter"/);
+  assert.match(app, /import \{ Switch, Route, Redirect, useLocation \} from "wouter"/);
   assert.ok(app.includes(legacyNewRedirect));
   assert.ok(app.includes(legacyListRedirect));
   assert.ok(app.includes(legacyDetailRoute));

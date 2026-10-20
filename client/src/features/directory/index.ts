@@ -1,1 +1,2 @@
-export { default as Directory } from "./directory";
+import { lazy } from "react";
+export const Directory = lazy(() => import("./directory"));

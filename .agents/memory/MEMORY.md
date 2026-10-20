@@ -1,3 +1,4 @@
 - [Drizzle push & session table](drizzle-push-session-table.md) — db:push prompts create-vs-rename because connect-pg-simple `session` isn't in schema; apply additive DDL via executeSql instead, never re-run push.
 - [Object storage serving hardening](object-storage-serving-hardening.md) — blueprint upload/serve routes are insecure by default; session-gate them + force non-image to octet-stream/nosniff to block stored XSS.
 - [Modular compatibility](modular-boundaries.md) — preserve shared storage receiver dispatch and actual generated-validator coercion when changing structure.
+- [Route loading policy](route-loading-policy.md) — keep the public landing path and auth stable; defer screen bodies and measure the whole initial dependency graph.

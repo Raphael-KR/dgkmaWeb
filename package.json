@@ -11,6 +11,7 @@
     "check": "tsc && npm run check:boundaries",
     "check:tests": "tsc -p tsconfig.tests.json",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:chunks": "node scripts/check-route-chunks.mjs",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
+import { RouteBoundary } from "./route-boundary";
 import { AuthGate, useAuth, Login, KakaoCallback, OnboardingRegion } from "@/features/auth";
 import { Home, PublicHome } from "@/features/home";
 import { Admin } from "@/features/admin";
@@ -29,7 +30,9 @@ function RootRoute() {
 }
 
 export function Router() {
+  const [location] = useLocation();
   return (
+    <RouteBoundary routeKey={location}>
     <Switch>
       <Route path="/" component={RootRoute} />
       <Route path="/login" component={Login} />
@@ -93,5 +96,6 @@ export function Router() {
       <Route path="/history" component={() => { window.location.href = '/heritage'; return null; }} />
       <Route component={NotFound} />
     </Switch>
+    </RouteBoundary>
   );
 }
