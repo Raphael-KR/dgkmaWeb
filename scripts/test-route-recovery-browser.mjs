@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import express from "express";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createRequire } from "node:module";
+import { serveStatic } from "../server/vite.ts";
 
 const require = createRequire(import.meta.url);
 const WebSocket = require("ws");
@@ -14,7 +16,9 @@ const viteBin = path.join(projectRoot, "node_modules", ".bin", "vite");
 const chromiumBin = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
 const tempRoot = mkdtempSync(path.join(tmpdir(), "route-recovery-browser-"));
 const requestLog = [];
+const browserResponses = [];
 let activeBuildDir;
+let activateBuild;
 let nextRequestId = 0;
 const pendingCommands = new Map();
 
@@ -39,18 +43,6 @@ function buildSnapshot(label, destination) {
   cpSync(output, destination, { recursive: true });
 }
 
-function contentType(filePath) {
-  if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
-  if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
-  if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
-  if (filePath.endsWith(".svg")) return "image/svg+xml";
-  if (filePath.endsWith(".png")) return "image/png";
-  if (filePath.endsWith(".avif")) return "image/avif";
-  if (filePath.endsWith(".webp")) return "image/webp";
-  if (filePath.endsWith(".woff2")) return "font/woff2";
-  return "application/octet-stream";
-}
-
 function documentRequestCount() {
   return requestLog.filter((entry) =>
     entry.status === 200 &&
@@ -59,43 +51,20 @@ function documentRequestCount() {
 }
 
 async function startStaticServer() {
-  const server = createServer((request, response) => {
-    const pathname = new URL(request.url, "http://127.0.0.1").pathname;
-    if (pathname.startsWith("/api/")) {
-      response.writeHead(404, { "Content-Type": "application/json" });
-      response.end("{}");
-      return;
-    }
-
-    const relativePath = pathname === "/" ? "index.html" : decodeURIComponent(pathname).slice(1);
-    const candidate = path.resolve(activeBuildDir, relativePath);
-    const buildRoot = `${path.resolve(activeBuildDir)}${path.sep}`;
-    if (candidate !== path.resolve(activeBuildDir) && !candidate.startsWith(buildRoot)) {
-      response.writeHead(400).end();
-      return;
-    }
-
-    if (existsSync(candidate)) {
-      const status = 200;
-      requestLog.push({ pathname, status, buildDir: activeBuildDir });
-      response.writeHead(status, { "Content-Type": contentType(candidate) });
-      response.end(readFileSync(candidate));
-      return;
-    }
-
-    // Mirror a static host for versioned assets: missing old hashed chunks are
-    // real 404s, not the application's HTML history fallback.
-    if (/\.(?:js|css|woff2?|png|svg|avif|webp)$/.test(pathname)) {
-      requestLog.push({ pathname, status: 404, buildDir: activeBuildDir });
-      response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end("Not found");
-      return;
-    }
-
-    requestLog.push({ pathname, status: 200, buildDir: activeBuildDir });
-    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    response.end(readFileSync(path.join(activeBuildDir, "index.html")));
+  const app = express();
+  app.use((request, response, next) => {
+    response.on("finish", () => {
+      requestLog.push({
+        pathname: request.originalUrl.split("?", 1)[0],
+        status: response.statusCode,
+        contentType: response.getHeader("content-type"),
+        buildDir: activeBuildDir,
+      });
+    });
+    next();
   });
+  serveStatic(app, path.join(tempRoot, "current-build"));
+  const server = createServer(app);
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
@@ -118,6 +87,13 @@ function openCdpSocket(url) {
     socket.once("error", reject);
     socket.on("message", (raw) => {
       const message = JSON.parse(raw.toString());
+      if (message.method === "Network.responseReceived") {
+        browserResponses.push({
+          url: message.params.response.url,
+          status: message.params.response.status,
+          mimeType: message.params.response.mimeType,
+        });
+      }
       if (!message.id) return;
       const pending = pendingCommands.get(message.id);
       if (!pending) return;
@@ -207,7 +183,7 @@ async function runBrowserRegression(port) {
     assert.equal(originalDocumentRequests, 1, "the browser starts with the old build's HTML");
 
     // A second local build becomes current while the existing browser tab stays open.
-    activeBuildDir = path.join(tempRoot, "build-new");
+    activateBuild(path.join(tempRoot, "build-new"));
     const introLinkExists = await evaluate(
       socket,
       "Boolean(document.querySelector('a[href=\"/about/intro\"]'))",
@@ -229,8 +205,26 @@ async function runBrowserRegression(port) {
       /새로고침/,
     );
     const missingChunks = requestLog.filter((entry) => entry.status === 404 && /\.js$/.test(entry.pathname));
-    assert.equal(missingChunks.length, 1, "the old hashed lazy chunk fails with one 404");
+    assert.equal(
+      missingChunks.length,
+      1,
+      `the old hashed lazy chunk fails with one 404; requests: ${JSON.stringify(requestLog)}; browser responses: ${JSON.stringify(browserResponses)}`,
+    );
+    assert.match(
+      String(missingChunks[0].contentType),
+      /^text\/plain(?:;|$)/i,
+      "the missing chunk response is not the SPA's HTML fallback",
+    );
     const oldChunkPath = missingChunks[0].pathname;
+    assert.equal(
+      existsSync(path.join(activeBuildDir, oldChunkPath.slice(1))),
+      false,
+      "the latest production bundle no longer contains the old hashed chunk",
+    );
+    const browserChunkFailure = browserResponses.find((entry) => entry.url.endsWith(oldChunkPath));
+    assert.equal(browserChunkFailure?.status, 404, "Chromium receives the server's chunk 404");
+    assert.equal(browserChunkFailure?.mimeType, "text/plain",
+      "Chromium does not receive HTML for the missing chunk");
     assert.equal(
       documentRequestCount(),
       originalDocumentRequests,
@@ -264,7 +258,9 @@ async function runBrowserRegression(port) {
     );
     assert.ok(newIntroChunks.some((entry) => entry.pathname !== oldChunkPath),
       "the refreshed page loads a different hashed chunk from the latest build");
-    assert.equal(requestLog.filter((entry) => entry.status === 404).length, 1,
+    assert.equal(requestLog.filter(
+      (entry) => entry.status === 404 && /\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(entry.pathname),
+    ).length, 1,
       "the recovery completes without further missing-asset retries");
 
     console.log("PASS old tab → lazy chunk 404 → explicit reload → latest route; no reload loop");
@@ -286,11 +282,18 @@ let staticServer;
 try {
   const oldBuildDir = path.join(tempRoot, "build-old");
   const newBuildDir = path.join(tempRoot, "build-new");
+  const currentBuildLink = path.join(tempRoot, "current-build");
   buildSnapshot("old", oldBuildDir);
   buildSnapshot("new", newBuildDir);
+  symlinkSync(oldBuildDir, currentBuildLink, "dir");
   activeBuildDir = oldBuildDir;
   const local = await startStaticServer();
   staticServer = local.server;
+  activateBuild = (buildDir) => {
+    rmSync(currentBuildLink);
+    symlinkSync(buildDir, currentBuildLink, "dir");
+    activeBuildDir = buildDir;
+  };
   await runBrowserRegression(local.port);
 } catch (error) {
   console.error(error);

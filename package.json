@@ -14,7 +14,7 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:chunks": "node scripts/check-route-chunks.mjs",
     "measure:mobile": "npm run build && node scripts/measure-mobile-home.mjs",
-    "test:route-recovery-browser": "node scripts/test-route-recovery-browser.mjs",
+    "test:route-recovery-browser": "node --import tsx scripts/test-route-recovery-browser.mjs",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
