@@ -13,6 +13,7 @@
     "check:tests": "tsc -p tsconfig.tests.json",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:chunks": "node scripts/check-route-chunks.mjs",
+    "test:route-recovery-browser": "node scripts/test-route-recovery-browser.mjs",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
