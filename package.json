@@ -5,10 +5,12 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
-    "test": "tsx --test server/*.test.ts",
+    "test": "node scripts/run-tests.mjs",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
-    "check": "tsc",
+    "check": "tsc && npm run check:boundaries",
+    "check:tests": "tsc -p tsconfig.tests.json",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
