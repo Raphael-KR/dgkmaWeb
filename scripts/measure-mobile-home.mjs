@@ -209,11 +209,38 @@ async function navigateHome(socket, url) {
   await delay(1_000);
   const pageMetrics = await evaluate(socket, `(() => {
     const navigation = performance.getEntriesByType("navigation")[0];
+    const fontSamples = [
+      ["heroHeading", document.querySelector(".theme-public h1")],
+      ["heroCopy", document.querySelector(".theme-public section p")],
+      ["heroLead", document.querySelector(".theme-public section p span")],
+    ].filter(([, element]) => element);
     return {
       lcp: window.__mobileBenchLcp ?? null,
       domContentLoadedMs: navigation?.domContentLoadedEventEnd ?? null,
       loadEventMs: navigation?.loadEventEnd ?? null,
-      title: document.querySelector("h1")?.innerText ?? null
+      title: document.querySelector("h1")?.innerText ?? null,
+      fontUsage: {
+        samples: fontSamples.map(([name, element]) => {
+          const style = getComputedStyle(element);
+          return {
+            name,
+            family: style.fontFamily,
+            weight: style.fontWeight,
+            loadedForText: document.fonts.check(
+              style.fontWeight + " " + style.fontSize + " " + style.fontFamily,
+              element.innerText || element.textContent || "",
+            ),
+          };
+        }),
+        loadedFaces: [...document.fonts]
+          .filter((face) => face.status === "loaded")
+          .map((face) => ({ family: face.family, weight: face.weight }))
+          .filter((face, index, faces) =>
+            faces.findIndex((candidate) =>
+              candidate.family === face.family && candidate.weight === face.weight,
+            ) === index,
+          ),
+      },
     };
   })()`);
   return { ...summarizeRequests(firstRequestIndex), pageMetrics };
@@ -263,6 +290,27 @@ function aggregate(runs, key) {
     min: Math.min(...values),
     max: Math.max(...values),
   };
+}
+
+async function removeProfileDirectory() {
+  const retryableErrors = new Set(["EBUSY", "ENOTEMPTY", "EPERM"]);
+  let lastError;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      rmSync(profileDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 2,
+        retryDelay: 100,
+      });
+      return;
+    } catch (error) {
+      if (!retryableErrors.has(error.code)) throw error;
+      lastError = error;
+      await delay(250);
+    }
+  }
+  throw lastError;
 }
 
 async function run() {
@@ -377,7 +425,7 @@ async function run() {
         await Promise.race([new Promise((resolve) => browser.once("exit", resolve)), delay(2_000)]);
       }
     }
-    rmSync(profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    await removeProfileDirectory();
   }
 }
 
