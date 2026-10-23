@@ -24,9 +24,60 @@
     <meta name="twitter:description" content="따뜻한 연대, 함께하는 성장 — 모교 기여, 장학, 동문 모임, 경조사 안내" />
     <meta name="twitter:image" content="/og-image.png" />
     <link rel="icon" type="image/svg+xml" href="/og-image.svg" />
+    <style>
+      #startup-recovery[hidden] { display: none; }
+      #startup-recovery {
+        box-sizing: border-box;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        color: #111827;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+      }
+      #startup-recovery > div { max-width: 24rem; }
+      #startup-recovery h1 { margin: 0 0 12px; font-size: 1.25rem; }
+      #startup-recovery p { margin: 0 0 24px; color: #4b5563; line-height: 1.6; }
+      #startup-recovery button {
+        border: 0;
+        border-radius: 6px;
+        padding: 10px 20px;
+        background: #111827;
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+      #startup-recovery button:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <main id="startup-recovery" role="alert" aria-live="assertive" hidden>
+      <div>
+        <h1>화면을 불러오지 못했습니다</h1>
+        <p>새 버전이 배포되었거나 연결이 일시적으로 끊겼을 수 있습니다. 새로고침을 눌러 최신 화면을 다시 불러와 주세요.</p>
+        <button id="startup-recovery-reload" type="button">새로고침</button>
+      </div>
+    </main>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+        var recovery = document.getElementById("startup-recovery");
+        var reloadButton = document.getElementById("startup-recovery-reload");
+        reloadButton.addEventListener("click", function () {
+          window.location.reload();
+        });
+        window.addEventListener("error", function (event) {
+          var failedScript = event.target;
+          if (!(failedScript instanceof HTMLScriptElement) || failedScript.type !== "module") return;
+          if (new URL(failedScript.src, window.location.href).origin !== window.location.origin) return;
+          root.hidden = true;
+          recovery.hidden = false;
+        }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>

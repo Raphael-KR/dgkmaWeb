@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import express from "express";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -145,7 +153,7 @@ async function waitFor(socket, expression, description, timeoutMs = 12_000) {
   throw new Error(`Timed out waiting for ${description}`);
 }
 
-async function runBrowserRegression(port) {
+async function runBrowserRegression(port, newBuildDir) {
   const profileDir = path.join(tempRoot, "chromium-profile");
   const browser = spawn(chromiumBin, [
     "--headless=new",
@@ -327,6 +335,92 @@ async function runBrowserRegression(port) {
       "only the intentional stale chunk, missing CSS, and missing font requests fail");
 
     console.log("PASS old tab → deployment replacement → stale lazy chunk 404 → explicit reload → latest route; no reload loop");
+
+    const entryFailureBuildDir = path.join(tempRoot, "build-entry-failure");
+    cpSync(newBuildDir, entryFailureBuildDir, { recursive: true });
+    const entryFailureIndexPath = path.join(entryFailureBuildDir, "index.html");
+    const entryFailureHtml = readFileSync(entryFailureIndexPath, "utf8");
+    const entryScriptTag = entryFailureHtml.match(/<script\b[^>]*type="module"[^>]*>/)?.[0];
+    assert.ok(entryScriptTag, "the production HTML has a module entry script");
+    const missingEntryScriptTag = entryScriptTag.replace(
+      /\bsrc="[^"]+"/,
+      'src="/assets/__route-recovery-missing-entry__.js"',
+    );
+    assert.notEqual(missingEntryScriptTag, entryScriptTag,
+      "the production entry script has a source to replace");
+    writeFileSync(entryFailureIndexPath, entryFailureHtml.replace(entryScriptTag, missingEntryScriptTag));
+
+    activateBuild(entryFailureBuildDir);
+    const documentsBeforeEntryFailure = documentRequestCount();
+    await sendCdp(socket, "Page.navigate", { url: `http://127.0.0.1:${port}/` });
+    await waitFor(
+      socket,
+      "document.querySelector('#startup-recovery:not([hidden])') && document.querySelector('#root').hidden",
+      "the HTML startup recovery after the module entry script fails",
+    );
+    assert.match(
+      await evaluate(socket, "document.querySelector('#startup-recovery').innerText"),
+      /화면을 불러오지 못했습니다/,
+    );
+    assert.match(
+      await evaluate(socket, "document.querySelector('#startup-recovery').innerText"),
+      /새로고침/,
+    );
+    const missingEntry = requestLog.find((entry) =>
+      entry.pathname === "/assets/__route-recovery-missing-entry__.js",
+    );
+    assert.equal(missingEntry?.status, 404, "the module entry request receives a real 404");
+    assert.equal(missingEntry?.buildDir, entryFailureBuildDir,
+      "the current deployment handled the missing entry request");
+    assert.match(String(missingEntry?.contentType), /^text\/plain(?:;|$)/i,
+      "the failed module entry does not receive the SPA HTML fallback");
+    const browserEntryFailure = browserResponses.find((entry) =>
+      entry.url.endsWith("/assets/__route-recovery-missing-entry__.js"),
+    );
+    assert.equal(browserEntryFailure?.status, 404,
+      "Chromium receives the missing entry script's 404");
+    assert.equal(
+      documentRequestCount(),
+      documentsBeforeEntryFailure + 1,
+      "the startup failure does not trigger an automatic page reload",
+    );
+    await delay(1_000);
+    assert.equal(
+      documentRequestCount(),
+      documentsBeforeEntryFailure + 1,
+      "the startup recovery remains stable without a reload loop",
+    );
+    assert.equal(
+      await evaluate(socket, "window.__routeRecoveryBrowserBuild || null"),
+      null,
+      "React did not run while the entry script was missing",
+    );
+
+    activateBuild(newBuildDir);
+    await evaluate(socket, "document.querySelector('#startup-recovery-reload').click()");
+    await waitFor(
+      socket,
+      "document.querySelector('a[href=\"/about/intro\"]') && !document.querySelector('#root').hidden",
+      "the app after the user-triggered startup recovery",
+    );
+    assert.equal(
+      documentRequestCount(),
+      documentsBeforeEntryFailure + 2,
+      "the recovery button loads exactly one latest document",
+    );
+    const recoveredDocument = requestLog.findLast((entry) =>
+      (entry.pathname === "/" || entry.pathname === "/about/intro") &&
+      entry.status === 200,
+    );
+    assert.equal(recoveredDocument?.buildDir, activeBuildDir,
+      "the recovery button receives HTML from the latest build");
+    await evaluate(socket, "document.querySelector('a[href=\"/about/intro\"]').click()");
+    await waitFor(
+      socket,
+      "window.__routeRecoveryBrowserBuild === 'new' && document.querySelector('h1')?.innerText.includes('동문회 소개')",
+      "a route from the latest build after startup recovery",
+    );
+    console.log("PASS missing module entry 404 → HTML recovery → explicit reload → latest page; no reload loop");
   } finally {
     if (socket) socket.close();
     if (browser.exitCode === null) {
@@ -357,7 +451,7 @@ try {
     symlinkSync(buildDir, currentBuildLink, "dir");
     activeBuildDir = buildDir;
   };
-  await runBrowserRegression(local.port);
+  await runBrowserRegression(local.port, newBuildDir);
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

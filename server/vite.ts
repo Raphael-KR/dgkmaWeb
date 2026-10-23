@@ -105,8 +105,8 @@ export function serveStatic(
   app.use("*", rejectUnknownApiPath);
 
   // Never return the SPA document for a missing script/style/media request.
-  // Browsers need a real missing-asset response so lazy imports fail cleanly
-  // and route-level recovery can show its reload action.
+  // Entry-script failures need a real 404 so the HTML startup recovery can
+  // appear; lazy imports need the same response for route-level recovery.
   app.use("*", (req, res, next) => {
     const pathname = req.originalUrl.split("?", 1)[0];
     if (/\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(pathname)) {
