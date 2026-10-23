@@ -29,5 +29,6 @@ console.log(JSON.stringify({
   initialJsChunks: files.length, initialJsBytes: bytes, initialJsGzipBytes: gzip,
   lazyRouteEntries: routes.length,
   totalJsChunks: Object.values(manifest).filter(value => value.file.endsWith(".js")).length,
-  measurementScope: "Static JS manifest and gzip budgets only; use npm run measure:mobile for browser network and LCP data.",
+  budgets: { initialJsBytes: 400_000, individualJsChunkBytes: 500_000, lazyRouteEntries: 23 },
+  measurementScope: "Build-time guard for initial and per-chunk JavaScript only; npm run measure:mobile compares browser requests, transfer bytes, and cold LCP.",
 }, null, 2));

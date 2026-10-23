@@ -1,18 +1,22 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import express from "express";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createRequire } from "node:module";
+import { createMobileHomeBaseline, evaluateMobileHomeRegression } from "./mobile-home-regression.mjs";
 
 const require = createRequire(import.meta.url);
 const WebSocket = require("ws");
 const projectRoot = process.cwd();
 const buildDir = path.join(projectRoot, "dist", "public");
 const chromiumBin = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
-const runCount = Number(process.env.MOBILE_BENCH_RUNS || 3);
+const runCount = Number(process.env.MOBILE_BENCH_RUNS || 5);
+const minimumRunCount = 5;
+const baselinePath = path.join(projectRoot, "scripts", "mobile-home-baseline.json");
+const updateBaseline = process.argv.includes("--update-baseline");
 const profileDir = mkdtempSync(path.join(tmpdir(), "mobile-home-bench-"));
 const pendingCommands = new Map();
 const requests = new Map();
@@ -21,7 +25,8 @@ let commandId = 0;
 let navigationStart = 0;
 
 assert.ok(existsSync(path.join(buildDir, "index.html")), "Run npm run build first");
-assert.ok(Number.isInteger(runCount) && runCount > 0, "MOBILE_BENCH_RUNS must be a positive integer");
+assert.ok(Number.isInteger(runCount) && runCount >= minimumRunCount,
+  `MOBILE_BENCH_RUNS must be an integer of at least ${minimumRunCount}`);
 assert.ok(existsSync(chromiumBin), `Chromium was not found at ${chromiumBin}; set CHROMIUM_PATH`);
 
 function startStaticServer() {
@@ -164,8 +169,17 @@ async function waitForNetworkIdle(socket, quietMs = 700, timeoutMs = 20_000) {
   throw new Error("Timed out waiting for network quiet");
 }
 
-function summarizeRequests(fromIndex) {
+function summarizeRequests(fromIndex, localOrigin) {
   const entries = requestLog.slice(fromIndex).filter((request) => !request.url.startsWith("data:"));
+  const localEntries = entries.filter((request) => new URL(request.url).origin === localOrigin);
+  const externalEntries = entries.filter((request) => new URL(request.url).origin !== localOrigin);
+  const stableEntries = entries.filter((request) => {
+    const parsedUrl = new URL(request.url);
+    const fontCdn = parsedUrl.hostname === "fonts.googleapis.com" || parsedUrl.hostname === "fonts.gstatic.com";
+    const injectedDevBanner = parsedUrl.hostname === "replit.com" &&
+      parsedUrl.pathname === "/public/js/replit-dev-banner.js";
+    return !fontCdn && !injectedDevBanner;
+  });
   const groups = {};
   for (const entry of entries) {
     const key = entry.mimeType || entry.type || "other";
@@ -176,6 +190,11 @@ function summarizeRequests(fromIndex) {
   return {
     requestCount: entries.length,
     transferredBytes: entries.reduce((sum, request) => sum + request.transferredBytes, 0),
+    stableRequestCount: stableEntries.length,
+    localRequestCount: localEntries.length,
+    localTransferredBytes: localEntries.reduce((sum, request) => sum + request.transferredBytes, 0),
+    externalRequestCount: externalEntries.length,
+    externalTransferredBytes: externalEntries.reduce((sum, request) => sum + request.transferredBytes, 0),
     statusCounts: entries.reduce((counts, request) => {
       const status = request.status === null ? "no-response" : String(request.status);
       counts[status] = (counts[status] ?? 0) + 1;
@@ -188,6 +207,7 @@ function summarizeRequests(fromIndex) {
       const parsedUrl = new URL(request.url);
       return {
         resource: `${parsedUrl.origin}${parsedUrl.pathname}`,
+        scope: parsedUrl.origin === localOrigin ? "local" : "external",
         type: request.mimeType || request.type || "other",
         status: request.status,
         transferredBytes: request.transferredBytes,
@@ -243,7 +263,11 @@ async function navigateHome(socket, url) {
       },
     };
   })()`);
-  return { ...summarizeRequests(firstRequestIndex), pageMetrics };
+  assert.ok(
+    Number.isFinite(pageMetrics?.lcp?.startTime) && pageMetrics.lcp.startTime > 0,
+    "Public home did not report an LCP candidate",
+  );
+  return { ...summarizeRequests(firstRequestIndex, new URL(url).origin), pageMetrics };
 }
 
 async function measureMemberTransition(socket) {
@@ -273,7 +297,7 @@ async function measureMemberTransition(socket) {
   }
   const transitionMs = await evaluate(socket, `performance.now() - ${startedAt}`);
   await waitForNetworkIdle(socket);
-  return { transitionMs, ...summarizeRequests(firstRequestIndex) };
+  return { transitionMs, ...summarizeRequests(firstRequestIndex, await evaluate(socket, "location.origin")) };
 }
 
 function median(values) {
@@ -388,6 +412,18 @@ async function run() {
       browser: "Chromium headless with 390×844 CSS viewport, DPR 3",
       network: { rttMs: 150, downloadKbps: 1600, uploadKbps: 750 },
       runs: runCount,
+      comparisonPolicy: {
+        baseline: "scripts/mobile-home-baseline.json",
+        requiredRuns: minimumRunCount,
+        failingRunShare: "at least 80% of runs must exceed a limit",
+        gates: {
+          stableRequests: "baseline + 1 request; excludes Google Fonts CDN sharding and the injected Replit dev banner",
+          localBytes: "baseline + max(5%, 32 KiB)",
+          externalBytes: "baseline + max(35%, 100 KiB)",
+          coldLcp: "baseline + max(25%, 750 ms)",
+        },
+        externalRequestCount: "reported only; not gated because CDN font sharding can change request count",
+      },
       server: "Express static; anonymous /api/auth/me is stubbed to 401; external font CDN requests remain live",
       scenarios: {
         cold: coldRuns,
@@ -396,12 +432,22 @@ async function run() {
       medians: {
         coldHome: {
           requests: aggregate(coldRuns.map((run) => run.home), "requestCount"),
+          stableRequests: aggregate(coldRuns.map((run) => run.home), "stableRequestCount"),
           transferredBytes: aggregate(coldRuns.map((run) => run.home), "transferredBytes"),
+          localRequests: aggregate(coldRuns.map((run) => run.home), "localRequestCount"),
+          localTransferredBytes: aggregate(coldRuns.map((run) => run.home), "localTransferredBytes"),
+          externalRequests: aggregate(coldRuns.map((run) => run.home), "externalRequestCount"),
+          externalTransferredBytes: aggregate(coldRuns.map((run) => run.home), "externalTransferredBytes"),
           lcpMs: aggregate(coldRuns.map((run) => run.home.pageMetrics.lcp?.startTime ?? 0)),
         },
         warmHome: {
           requests: aggregate(warmRuns.map((run) => run.home), "requestCount"),
+          stableRequests: aggregate(warmRuns.map((run) => run.home), "stableRequestCount"),
           transferredBytes: aggregate(warmRuns.map((run) => run.home), "transferredBytes"),
+          localRequests: aggregate(warmRuns.map((run) => run.home), "localRequestCount"),
+          localTransferredBytes: aggregate(warmRuns.map((run) => run.home), "localTransferredBytes"),
+          externalRequests: aggregate(warmRuns.map((run) => run.home), "externalRequestCount"),
+          externalTransferredBytes: aggregate(warmRuns.map((run) => run.home), "externalTransferredBytes"),
           lcpMs: aggregate(warmRuns.map((run) => run.home.pageMetrics.lcp?.startTime ?? 0)),
         },
         coldMemberTransitionMs: aggregate(coldRuns.map((run) => run.member), "transitionMs"),
@@ -412,8 +458,30 @@ async function run() {
         warmMemberTransferredBytes: aggregate(warmRuns.map((run) => run.member), "transferredBytes"),
       },
     };
+    const coldHomeRuns = coldRuns.map((run) => run.home);
+    if (updateBaseline) {
+      const baseline = createMobileHomeBaseline(coldHomeRuns);
+      writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+      report.regression = { status: "baseline-updated", baselinePath: path.relative(projectRoot, baselinePath) };
+      console.error(`Mobile home baseline updated: ${path.relative(projectRoot, baselinePath)}`);
+    } else {
+      const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+      report.regression = evaluateMobileHomeRegression(coldHomeRuns, baseline);
+    }
     // Keep the report machine-readable; callers can archive or compare it without new dependencies.
     console.log(JSON.stringify(report, null, 2));
+    if (report.regression.status === "failed") {
+      for (const failure of report.regression.failures) {
+        console.error(
+          `Mobile home regression: ${failure.label}: median ${failure.median} vs limit ${failure.limit} ` +
+          `(${failure.exceedingRuns}/${runCount} runs over limit).`,
+        );
+        for (const asset of failure.largestAssetIncreases) {
+          console.error(`  ${asset.resource}: +${asset.increaseBytes} bytes`);
+        }
+      }
+      process.exitCode = 1;
+    }
   } finally {
     if (server.listening) await new Promise((resolve) => server.close(resolve));
     if (socket) socket.close();
