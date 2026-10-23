@@ -188,6 +188,52 @@ async function runBrowserRegression(port) {
       "the browser must revalidate the HTML so a user-triggered reload gets the current release",
     );
 
+    const fallbackResponses = await evaluate(socket, `Promise.all([
+      fetch("/assets/__route-recovery-missing__.css"),
+      fetch("/assets/__route-recovery-missing__.woff2"),
+      fetch("/__route_recovery_fallback__"),
+      fetch("/api/__route_recovery_missing__"),
+    ]).then(async ([css, font, page, api]) => ({
+      css: { status: css.status, contentType: css.headers.get("content-type") },
+      font: { status: font.status, contentType: font.headers.get("content-type") },
+      page: { status: page.status, contentType: page.headers.get("content-type") },
+      api: {
+        status: api.status,
+        contentType: api.headers.get("content-type"),
+        body: await api.json(),
+      },
+    }))`);
+    for (const [assetType, response] of Object.entries({
+      CSS: fallbackResponses.css,
+      font: fallbackResponses.font,
+    })) {
+      assert.equal(response.status, 404, `a missing ${assetType} returns 404`);
+      assert.doesNotMatch(
+        String(response.contentType),
+        /text\/html/i,
+        `a missing ${assetType} does not receive the SPA HTML fallback`,
+      );
+      assert.match(String(response.contentType), /^text\/plain(?:;|$)/i,
+        `a missing ${assetType} receives a plain-text error`);
+    }
+    assert.equal(fallbackResponses.page.status, 200,
+      "an unknown non-asset path still falls back to the SPA document");
+    assert.match(String(fallbackResponses.page.contentType), /^text\/html(?:;|$)/i,
+      "an unknown non-asset path still receives HTML");
+    assert.equal(fallbackResponses.api.status, 404, "an unknown API path remains a 404");
+    assert.match(String(fallbackResponses.api.contentType), /^application\/json(?:;|$)/i,
+      "an unknown API path remains a JSON response");
+    assert.ok(fallbackResponses.api.body?.message, "the API 404 keeps its error message");
+    for (const pathname of [
+      "/assets/__route-recovery-missing__.css",
+      "/assets/__route-recovery-missing__.woff2",
+      "/__route_recovery_fallback__",
+      "/api/__route_recovery_missing__",
+    ]) {
+      assert.ok(requestLog.some((entry) => entry.pathname === pathname),
+        `the local production server handled ${pathname}`);
+    }
+
     // A second local build becomes current while the existing browser tab stays open.
     activateBuild(path.join(tempRoot, "build-new"));
     const introLinkExists = await evaluate(
@@ -277,8 +323,8 @@ async function runBrowserRegression(port) {
       "the refreshed page loads a different hashed chunk from the latest build");
     assert.equal(requestLog.filter(
       (entry) => entry.status === 404 && /\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(entry.pathname),
-    ).length, 1,
-      "the recovery completes without further missing-asset retries");
+    ).length, 3,
+      "only the intentional stale chunk, missing CSS, and missing font requests fail");
 
     console.log("PASS old tab → deployment replacement → stale lazy chunk 404 → explicit reload → latest route; no reload loop");
   } finally {
