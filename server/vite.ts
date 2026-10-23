@@ -94,7 +94,13 @@ export function serveStatic(
     );
   }
 
-  app.use(express.static(resolvedDistPath));
+  app.use(express.static(resolvedDistPath, {
+    setHeaders: (res, filePath) => {
+      if (path.basename(filePath) === "index.html") {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }));
 
   app.use("*", rejectUnknownApiPath);
 
@@ -118,7 +124,12 @@ export function serveStatic(
         "utf-8",
       );
       const page = await injectSeo(req, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      res.status(200)
+        .set({
+          "Content-Type": "text/html",
+          "Cache-Control": "no-cache",
+        })
+        .end(page);
     } catch (error) {
       next(error);
     }

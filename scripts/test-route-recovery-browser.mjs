@@ -17,8 +17,6 @@ const chromiumBin = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
 const tempRoot = mkdtempSync(path.join(tmpdir(), "route-recovery-browser-"));
 const requestLog = [];
 const browserResponses = [];
-const browserFailedRequests = [];
-const browserRequestUrls = new Map();
 let activeBuildDir;
 let activateBuild;
 let nextRequestId = 0;
@@ -60,6 +58,7 @@ async function startStaticServer() {
         pathname: request.originalUrl.split("?", 1)[0],
         status: response.statusCode,
         contentType: response.getHeader("content-type"),
+        cacheControl: response.getHeader("cache-control"),
         buildDir: activeBuildDir,
       });
     });
@@ -94,15 +93,6 @@ function openCdpSocket(url) {
           url: message.params.response.url,
           status: message.params.response.status,
           mimeType: message.params.response.mimeType,
-        });
-      }
-      if (message.method === "Network.requestWillBeSent") {
-        browserRequestUrls.set(message.params.requestId, message.params.request.url);
-      }
-      if (message.method === "Network.loadingFailed") {
-        browserFailedRequests.push({
-          url: browserRequestUrls.get(message.params.requestId),
-          errorText: message.params.errorText,
         });
       }
       if (!message.id) return;
@@ -192,16 +182,14 @@ async function runBrowserRegression(port) {
     assert.equal(await evaluate(socket, "window.__routeRecoveryBrowserBuild || null"), null);
     const originalDocumentRequests = documentRequestCount();
     assert.equal(originalDocumentRequests, 1, "the browser starts with the old build's HTML");
+    assert.equal(
+      requestLog.find((entry) => entry.pathname === "/" && entry.status === 200)?.cacheControl,
+      "no-cache",
+      "the browser must revalidate the HTML so a user-triggered reload gets the current release",
+    );
 
     // A second local build becomes current while the existing browser tab stays open.
     activateBuild(path.join(tempRoot, "build-new"));
-    await sendCdp(socket, "Network.emulateNetworkConditions", {
-      offline: true,
-      latency: 0,
-      downloadThroughput: 0,
-      uploadThroughput: 0,
-    });
-    const requestsBeforeOfflineNavigation = requestLog.length;
     const introLinkExists = await evaluate(
       socket,
       "Boolean(document.querySelector('a[href=\"/about/intro\"]'))",
@@ -222,53 +210,43 @@ async function runBrowserRegression(port) {
       await evaluate(socket, "document.querySelector('[role=\"alert\"]').innerText"),
       /새로고침/,
     );
-    const failedLazyChunks = browserFailedRequests.filter((entry) =>
-      entry.url?.startsWith(`http://127.0.0.1:${port}/`) &&
-      /\.js(?:\?|$)/.test(entry.url),
-    );
+    const missingChunks = requestLog.filter((entry) => entry.status === 404 && /\.js$/.test(entry.pathname));
     assert.equal(
-      failedLazyChunks.length,
+      missingChunks.length,
       1,
-      `the lazy chunk fails in the offline browser; requests: ${JSON.stringify(requestLog)}; browser failures: ${JSON.stringify(browserFailedRequests)}`,
+      `the old hashed lazy chunk fails with one 404; requests: ${JSON.stringify(requestLog)}; browser responses: ${JSON.stringify(browserResponses)}`,
     );
-    assert.match(failedLazyChunks[0].errorText, /internet|network|ERR_/i,
-      "Chromium reports a network failure for the lazy chunk");
+    assert.match(
+      String(missingChunks[0].contentType),
+      /^text\/plain(?:;|$)/i,
+      "the missing chunk response is not the SPA's HTML fallback",
+    );
+    const oldChunkPath = missingChunks[0].pathname;
     assert.equal(
-      requestLog.length,
-      requestsBeforeOfflineNavigation,
-      "the offline browser cannot reach the server for its lazy chunk",
+      existsSync(path.join(activeBuildDir, oldChunkPath.slice(1))),
+      false,
+      "the latest production bundle no longer contains the old hashed chunk",
     );
+    assert.equal(missingChunks[0].buildDir, activeBuildDir,
+      "the missing old chunk was requested from the replacement build");
+    const browserChunkFailure = browserResponses.find((entry) => entry.url.endsWith(oldChunkPath));
+    assert.equal(browserChunkFailure?.status, 404, "Chromium receives the server's chunk 404");
+    assert.equal(browserChunkFailure?.mimeType, "text/plain",
+      "Chromium does not receive HTML for the missing chunk");
     assert.equal(
       documentRequestCount(),
       originalDocumentRequests,
-      "an offline chunk error does not trigger an automatic page reload",
+      "a chunk error does not trigger an automatic page reload",
     );
 
-    // Give any accidental reload loop time to become visible while offline.
+    // Give any accidental reload loop time to become visible before the user action.
     await delay(1_000);
     assert.equal(
       documentRequestCount(),
       originalDocumentRequests,
-      "the offline error UI remains stable without repeatedly reloading",
+      "the error UI remains stable without repeatedly reloading",
     );
     assert.equal(await evaluate(socket, "window.__routeRecoveryBrowserBuild || null"), null);
-
-    await sendCdp(socket, "Network.emulateNetworkConditions", {
-      offline: false,
-      latency: 0,
-      downloadThroughput: -1,
-      uploadThroughput: -1,
-    });
-    await delay(1_000);
-    assert.equal(
-      documentRequestCount(),
-      originalDocumentRequests,
-      "restoring the network does not automatically reload the page",
-    );
-    assert.ok(
-      await evaluate(socket, "Boolean(document.querySelector('[role=\"alert\"] button'))"),
-      "the reload action remains available after network recovery",
-    );
 
     await evaluate(socket, "document.querySelector('[role=\"alert\"] button').click()");
     await waitFor(
@@ -281,23 +259,28 @@ async function runBrowserRegression(port) {
     assert.equal(
       documentRequestsAfterRecovery,
       originalDocumentRequests + 1,
-      "exactly one new document is loaded after the user selects reload",
+      "exactly one new document is loaded after the explicit reload",
     );
-    const oldRouteChunk = new URL(failedLazyChunks[0].url).pathname;
-    const latestRouteChunk = requestLog.find(
-      (entry) => entry.status === 200 &&
-        /\/intro-[^/]+\.js$/.test(entry.pathname) &&
-        entry.buildDir === activeBuildDir,
+    const latestDocument = requestLog.findLast(
+      (entry) =>
+        (entry.pathname === "/" || entry.pathname === "/about/intro") &&
+        entry.status === 200,
     );
-    assert.ok(latestRouteChunk, "the refreshed page loads the latest route chunk");
-    assert.notEqual(latestRouteChunk.pathname, oldRouteChunk,
-      "the refreshed page loads a different hashed route chunk from the latest build");
+    assert.equal(latestDocument?.buildDir, activeBuildDir,
+      "the user-triggered reload receives HTML from the replacement build");
+    assert.equal(latestDocument?.cacheControl, "no-cache",
+      "the replacement HTML is not reused without revalidation");
+    const newIntroChunks = requestLog.filter(
+      (entry) => entry.status === 200 && /\.js$/.test(entry.pathname) && entry.buildDir === activeBuildDir,
+    );
+    assert.ok(newIntroChunks.some((entry) => entry.pathname !== oldChunkPath),
+      "the refreshed page loads a different hashed chunk from the latest build");
     assert.equal(requestLog.filter(
       (entry) => entry.status === 404 && /\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(entry.pathname),
-    ).length, 0,
-      "the recovery completes without missing-asset responses");
+    ).length, 1,
+      "the recovery completes without further missing-asset retries");
 
-    console.log("PASS old tab → offline lazy chunk failure → network restored → explicit reload → latest route; no reload loop");
+    console.log("PASS old tab → deployment replacement → stale lazy chunk 404 → explicit reload → latest route; no reload loop");
   } finally {
     if (socket) socket.close();
     if (browser.exitCode === null) {
