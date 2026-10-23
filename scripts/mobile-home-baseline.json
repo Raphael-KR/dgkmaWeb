@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "scenario": "coldHome",
+  "createdAt": "2026-10-23T10:12:48.172Z",
+  "runCount": 5,
+  "metrics": {
+    "stableRequests": 7,
+    "localTransferredBytes": 597187,
+    "externalTransferredBytes": 566970,
+    "lcpMs": 2936
+  },
+  "assets": [
+    { "scope": "local", "resource": "/assets/index-<hash>.js", "medianRequests": 1, "medianTransferredBytes": 350175 },
+    { "scope": "local", "resource": "/assets/index-<hash>.css", "medianRequests": 1, "medianTransferredBytes": 96494 },
+    { "scope": "local", "resource": "/assets/symbol-logo-<hash>.svg", "medianRequests": 1, "medianTransferredBytes": 82868 },
+    { "scope": "local", "resource": "/images/executives/choi-yun-yong-president.avif", "medianRequests": 1, "medianTransferredBytes": 59813 },
+    { "scope": "local", "resource": "/og-image.svg", "medianRequests": 1, "medianTransferredBytes": 4861 },
+    { "scope": "local", "resource": "/", "medianRequests": 1, "medianTransferredBytes": 2705 },
+    { "scope": "local", "resource": "/api/auth/me", "medianRequests": 1, "medianTransferredBytes": 271 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.77.woff2", "medianRequests": 1, "medianTransferredBytes": 52992 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.68.woff2", "medianRequests": 1, "medianTransferredBytes": 51822 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.82.woff2", "medianRequests": 1, "medianTransferredBytes": 50894 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.76.woff2", "medianRequests": 1, "medianTransferredBytes": 48537 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.83.woff2", "medianRequests": 1, "medianTransferredBytes": 41617 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.104.woff2", "medianRequests": 1, "medianTransferredBytes": 29201 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.100.woff2", "medianRequests": 1, "medianTransferredBytes": 26399 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.101.woff2", "medianRequests": 1, "medianTransferredBytes": 26165 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5CgmG0X7t.woff2", "medianRequests": 1, "medianTransferredBytes": 25988 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.105.woff2", "medianRequests": 1, "medianTransferredBytes": 25417 },
+    { "scope": "external", "resource": "https://fonts.googleapis.com/css2", "medianRequests": 1, "medianTransferredBytes": 23364 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.108.woff2", "medianRequests": 1, "medianTransferredBytes": 19795 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.111.woff2", "medianRequests": 1, "medianTransferredBytes": 17489 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.119.woff2", "medianRequests": 1, "medianTransferredBytes": 16666 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.113.woff2", "medianRequests": 1, "medianTransferredBytes": 16467 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.112.woff2", "medianRequests": 1, "medianTransferredBytes": 16444 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.115.woff2", "medianRequests": 1, "medianTransferredBytes": 16294 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.116.woff2", "medianRequests": 1, "medianTransferredBytes": 16206 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.114.woff2", "medianRequests": 1, "medianTransferredBytes": 16180 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.118.woff2", "medianRequests": 1, "medianTransferredBytes": 14648 },
+    { "scope": "external", "resource": "https://fonts.gstatic.com/s/notosanskr/v40/PbykFmXiEBPT4ITbgNA5Cgm20xz64px_1hVWr0wuPNGmlQNMEfD4.117.woff2", "medianRequests": 1, "medianTransferredBytes": 14385 },
+    { "scope": "external", "resource": "https://replit.com/public/js/replit-dev-banner.js", "medianRequests": 1, "medianTransferredBytes": 0 }
+  ]
+}

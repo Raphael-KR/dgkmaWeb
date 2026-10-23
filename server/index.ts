@@ -4,7 +4,7 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { resolveSessionSecret } from "./session-secret";
+import { resolveSessionSecret } from "./lib/session-secret";
 
 const app = express();
 

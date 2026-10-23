@@ -37,6 +37,9 @@ GitHub main
 
 ## 개발 운영 문서
 
+코드 변경 전 [프로젝트 구조·소유권·의존 경계](./docs/project-structure.md)와
+[구조 개편 검증 기록](./docs/structure-validation.md)을 참고합니다.
+
 | 문서 | 역할 |
 |---|---|
 | [planning_proposal.md](./planning_proposal.md) | 제품 비전, 확정 정책, 현재 상태, 개발 우선순위와 완료 조건을 관리하는 통합 계획서 |
@@ -59,6 +62,8 @@ Replit 개발 워크스페이스에서 실행합니다.
 
 ```bash
 npm run check
+npm run check:tests
+npm test
 npm run build
 ```
 
