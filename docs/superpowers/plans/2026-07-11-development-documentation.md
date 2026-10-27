@@ -38,7 +38,7 @@ Run:
 diff -u CLAUDE.md AGENTS.md
 ```
 
-Expected: `# CLAUDE.md`/`Claude Code`가 `# AGENTS.md`/`Codex`로 바뀐 두 줄만 출력되고 종료 코드는 `1`이다.
+Expected: `# CLAUDE.md`/`Claude Code`가 `# AGENTS.md`/`AI Agent`로 바뀐 두 줄만 출력되고 종료 코드는 `1`이다.
 
 - [ ] **Step 2: `AGENTS.md`를 추적하고 `CLAUDE.md`를 삭제**
 
@@ -360,7 +360,7 @@ git commit -m "Refresh production feature walkthrough"
 - `walkthrough.md`: 프로덕션 기능 검증
 - `replit.md`: Replit 개발·배포·DB 운영
 - `CHANGELOG.md`: 버전별 변경 이력
-- `AGENTS.md`: Codex 작업 규칙
+- `AGENTS.md`: AI Agent 작업 규칙
 
 - [ ] **Step 2: `CHANGELOG.md`에 `Unreleased` 추가**
 

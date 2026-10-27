@@ -491,7 +491,7 @@ git commit -m "Separate Kakao login by runtime environment"
 
 **Interfaces:**
 - Consumes: the six-Secret contract and runtime behavior from Tasks 1 and 2.
-- Produces: durable instructions for future Codex and Replit work.
+- Produces: durable instructions for future AI Agent and Replit work.
 
 - [ ] **Step 1: Update the current operating documents**
 

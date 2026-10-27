@@ -25,7 +25,7 @@
 
 구현 중에는 Replit 개발 워크스페이스에 코드를 반영하고 개발 서버를 실행한 뒤 개발 홈페이지에서 바로 확인합니다. 단순 화면·기능 확인을 위해 Republish하지 않습니다.
 
-개발 홈페이지에서 확인 가능한 화면과 사용자 흐름은 Codex가 인앱브라우저로 직접 검증하며 사용자에게 대신 확인해 달라고 요청하지 않습니다. 개발 검증이 통과한 뒤 운영 환경에서만 확인 가능한 사항이 있을 때에만 Republish를 요청하고, 가능한 운영 확인 항목을 한 번에 모아 Republish 횟수를 줄입니다.
+개발 홈페이지에서 확인 가능한 화면과 사용자 흐름은 AI Agent가 인앱브라우저로 직접 검증하며 사용자에게 대신 확인해 달라고 요청하지 않습니다. 개발 검증이 통과한 뒤 운영 환경에서만 확인 가능한 사항이 있을 때에만 Republish를 요청하고, 가능한 운영 확인 항목을 한 번에 모아 Republish 횟수를 줄입니다.
 
 Republish는 배포할 코드와 Production Database 준비가 끝난 뒤 수행합니다. Republish 후에만 운영 홈페이지에서 smoke check와 실제 운영 환경 검증을 진행합니다.
 
@@ -109,7 +109,7 @@ Google Sheets를 동문 명부의 **관리 원본**으로 유지하며, PostgreS
 
 브라우저는 Kakao Secret이나 redirect URI를 선택하지 않습니다. 서버만 `REPLIT_DEPLOYMENT` 값에 따라 REST API key, client secret, redirect URI를 선택하며, 선택된 callback은 해당 환경의 Kakao 설정과 문자열까지 정확히 같아야 합니다.
 
-기존 일반 Kakao Secret 5개는 deprecated 상태입니다. 개발과 프로덕션 smoke check가 모두 통과한 뒤에만 제거합니다.
+기존 일반 Kakao Secret 5개는 현재 코드에서 사용하지 않습니다. 2026-09-05 Replit 개발 SSH 프로세스의 환경변수 존재 여부를 확인해 환경별 Kakao 설정 10개는 모두 존재하고, 기존 일반 설정 5개는 모두 없음을 확인했습니다. 이는 현재 환경변수 상태 확인이며 과거 삭제 시점이나 프로덕션 인스턴스의 Secret 주입 상태를 직접 확인한 것은 아닙니다. 값은 출력하지 않았으며 자세한 범위는 [현재 상태 점검](./walkthrough.md#현재-상태-점검-2026-09-05)을 따릅니다.
 
 서버의 authorization request와 token exchange는 `REPLIT_DEPLOYMENT`로 선택한 동일한 환경 config의 REST API key와 redirect URI를 사용해야 합니다.
 
