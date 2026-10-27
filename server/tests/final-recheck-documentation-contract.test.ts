@@ -46,7 +46,7 @@ test("planning proposal is the single current product and development plan", asy
   ]);
 
   assert.match(proposal, /제품·개발 통합 계획서/);
-  assert.match(proposal, /현재 검증 완료 기반/);
+  assert.match(proposal, /현재 제공 기반과 검증 상태/);
   assert.match(proposal, /P0\/P1 보안·무결성 과제/);
   assert.match(proposal, /현재 진행 중인 개발/);
   assert.match(proposal, /장기·보류 과제/);

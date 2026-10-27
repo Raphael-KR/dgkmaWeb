@@ -1,6 +1,6 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 권위는 코드 의도, 저장된 Development catalog와 2026-08-16에 재검증한 Production catalog다. Development의 현재 `public`에는 과거 기준보다 많은 비애플리케이션 객체가 함께 있어 전체 count는 Production과 직접 비교하지 않고, 이번 별칭 객체만 별도로 확인했다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 구조 관찰은 2026-09-05 Development·Production에서 실행한 읽기 전용 catalog를 기준으로 한다. 양쪽 모두 앱 테이블 14개이며 이전 Development의 추가 객체 상태는 현재 관찰과 다르다. 이름 기준 구조 메타데이터는 같고 `users`·`posts`의 일부 컬럼 물리적 순서는 다르다. 과거 기준·해시는 이력으로 보존하며 catalog 확인을 실제 계정·데이터·기능 검증으로 확대하지 않는다.
 
 ## 1. authority/verification metadata
 
@@ -16,19 +16,22 @@
 | alias release candidate before schema-doc commit | `98bd8ea703838a59ae8b52e67180425c8aa01808` |
 | Production catalog verification KST | `2026-08-16 18:28 KST +0900` |
 | Production catalog verification UTC | `2026-08-16 09:28 UTC +0000` |
-| code status | verified |
-| Development catalog | historical app baseline verified; 2026-08-16 별칭 객체 verified, 전체 `public` count는 확장되어 별도 reconciliation 필요 |
-| Production catalog | verified: `neondb`, PostgreSQL `16.10`, canonical read-only catalog completed |
-| Production drift | alias release code intent와 일치 |
-| 기준 count (tables/columns/PK/FK/non-PK UNIQUE/index/sequence) | `14/119/14/10/6/24/10` |
+| current source inspected | GitHub/Replit `df84c745ed9620803859972a2c245e88485fedf3`; 로컬 `ccc24edd`와 동일 commit tree |
+| current catalog verification KST | `2026-09-05 01:29~01:31 KST +0900` |
+| current catalog verification UTC | `2026-09-04 16:29~16:31 UTC +0000` |
+| code status | 코드 의도는 `shared/schema.ts`와 런타임 DDL 참조; catalog는 별도 실제 관찰 |
+| Development catalog | 2026-09-05 read-only catalog 확인: `heliumdb`, PostgreSQL `16.10`, public tables 14 |
+| Production catalog | 2026-09-05 read-only catalog 확인: `neondb`, PostgreSQL `16.15 (ef25dd3)`, public tables 14 |
+| observed environment difference | `users`·`posts` 일부 컬럼의 물리적 순서 차이. 나머지 catalog 메타데이터는 양쪽 동일 |
+| 현재 count (tables/columns/PK/FK/non-PK UNIQUE/CHECK/index/sequence) | 양쪽 모두 `14/119/14/10/6/2/24/10` |
 | catalog SQL SHA-256 | `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f` |
 | Development evidence | local/uncommitted orchestration evidence: `.omo/evidence/current-db-schema-documentation/task-7-development-normalized-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-summary-rerun.json`, `.omo/evidence/current-db-schema-documentation/task-7-development-rerun-receipt.md` |
 
 Todo 1 source-identity의 local/Replit 동일 SHA-256: `shared/schema.ts=a105c8a37a83a2139676f315d0f62717da3c046ba283861e0ba5aba265f3db4b`; `server/index.ts=c2aa632ef79584ce9a6c7f8d2327505402eec6664dad70ec519cb5e01c161067`; `server/db.ts=65ff0fd353f6f32b4a69f005e27eba145e01c5daea506804a4104969c7665081`; `drizzle.config.ts=a08e0da1e6e514c8ac02019d4294478bd02b6f5c5778394ffa47b8ee2b2dd832`; `migrations/0000_cheerful_nick_fury.sql=45543022ded14b1744f1eb436ca0343ddeb207587d2d9b29b7af0c4c11c23f7a`; `migrations/meta/_journal.json=034c4e7521a5686d3ac2292e61a9cd3ec49fd632cc6596e615bbc72f7f67b848`; `docs/database-operations.md=3be0ef6178304804e00962b454621b5a4d00681760b92637c3580092529e22d0` (문서 작성 전 source baseline hash; final blob hash 아님).
 
-위 Development evidence는 현재 실행의 local/uncommitted 감사 기록이며, future checkout에서 파일이 없더라도 verification failure를 뜻하지 않는다. 재검증의 권위는 tracked catalog SQL과 runbook이다.
+위 Development evidence 경로와 frozen hash는 2026-07-27 문서 작성 당시의 local/uncommitted 기록이다. 현재 checkout에서 원본 파일을 확인하지 못했으며 최신 검증 근거로 사용하지 않는다. 현재 재검증의 절차는 tracked catalog SQL과 runbook이고, 결과는 [2026-09-05 상태 점검](../walkthrough.md#현재-상태-점검-2026-09-05)에 기록한다.
 
-Production은 additive transaction 적용 뒤 새 연결에서 별칭 테이블, 제약 4개, PK 포함 인덱스 4개, sequence를 확인했고 canonical metadata-only catalog가 `ROLLBACK`과 completion marker로 종료됐다. 별칭 데이터 검증은 행 내용을 기록하지 않고 대상 단일 일치, 별칭 2건, preferred 1건, 중복 0건, 원본 명부 보존 여부만 확인했다.
+2026-08-16 Production 검증 기록에서는 additive transaction 적용 뒤 새 연결에서 별칭 테이블, 제약 4개, PK 포함 인덱스 4개, sequence를 확인했고 canonical metadata-only catalog가 `ROLLBACK`과 completion marker로 종료됐다. 별칭 데이터 검증은 행 내용을 기록하지 않고 대상 단일 일치, 별칭 2건, preferred 1건, 중복 0건, 원본 명부 보존 여부만 확인했다.
 
 ## 2. system and external boundaries
 
@@ -38,18 +41,17 @@ Production은 additive transaction 적용 뒤 새 연결에서 별칭 테이블,
 
 ## 3. environment drift matrix
 
-| object_kind | schema | physical_name | code_status | dev_status | prod_status | drift_note | evidence_ref |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| ordinary tables | public | baseline 14 | verified | 별칭 객체 verified; 전체 count 확장 | verified (14) | Production은 code intent와 일치 | 2026-08-16 catalog |
-| columns | public | baseline 119 | verified | 별칭 7열 verified; 전체 count 확장 | verified (119) | Production은 code intent와 일치 | 2026-08-16 catalog |
-| constraints/indexes/sequences | public | 14/10/6/24/10 | verified | 별칭 객체 verified | verified | Production은 code intent와 일치 | 2026-08-16 catalog |
-| views | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
-| materialized views | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
-| triggers | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
-| policies | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
-| routines | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
-| enums | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
-| domains | public | ABSENT (catalog count=0) | n/a | 현재 전체 상태 미분류 | ABSENT | Production verified | 2026-08-16 catalog |
+| object_kind | schema | physical_name | Development 2026-09-05 | Production 2026-09-05 | observed difference |
+| --- | --- | --- | --- | --- | --- |
+| ordinary tables | public | 앱 테이블 14 | 14 | 14 | 없음 |
+| columns | public | 119 | 119 | 119 | `users`·`posts` 일부 ordinal position 차이; 이름·타입·기본값은 동일 |
+| constraints/indexes/sequences | public | PK/FK/UNIQUE/CHECK/index/sequence | 14/10/6/2/24/10 | 14/10/6/2/24/10 | 없음 |
+| views/materialized views | public | ABSENT | 0 | 0 | 없음 |
+| triggers | public | ABSENT | 0 | 0 | 없음 |
+| policies | public | ABSENT | 0 | 0 | 없음 |
+| routines | public | ABSENT | 0 | 0 | 없음 |
+| enums | public | ABSENT | 0 | 0 | 없음 |
+| domains/domain constraints | public | ABSENT | 0 | 0 | 없음 |
 
 ## 4. baseline ERD
 
@@ -106,7 +108,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - PK/FK/UNIQUE/CHECK/index: PK `users_pkey(id)`; UNIQUE `users_email_unique(email)`, `users_kakao_id_unique(kakao_id)`; indexes `users_pkey`, `users_email_unique`, `users_kakao_id_unique`.
 - physical/logical relations: posts/comments/payments/obituaries/community_events/alumni_database/event_parse_rate_limits의 FK 부모; alumni claim은 logical_only 1:1 기대.
 - readers/writers: Kakao callback, 인증 middleware, profile/admin route가 읽기·쓰기. transaction/lifecycle: 가입 승인·거절·탈퇴에서 관련 테이블과 함께; 보존 정책 미정.
-- PII class: direct identifier, contact, profile, authentication/security. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: direct identifier, contact, profile, authentication/security. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: categories
 
@@ -114,7 +116,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('categories_id_seq'::regclass); none/none`; `name:text NOT NULL none; none/none`; `display_name:text NOT NULL none; none/none`; `color:text NULL '#6b7280'::text; none/none`; `badge_variant:text NULL 'secondary'::text; none/none`; `is_active:boolean NULL true; none/none`; `sort_order:integer NULL 0; none/none`; `created_at:timestamp without time zone NULL now(); none/none`; `updated_at:timestamp without time zone NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `categories_pkey(id)`; UNIQUE `categories_name_unique(name)`; indexes `categories_pkey`, `categories_name_unique`.
 - physical/logical relations: `posts.category_id` FK 부모; visibility coupling은 logical_only. readers/writers: category CRUD/admin. transaction/lifecycle: seed와 admin CRUD, 보존 정책 미정.
-- PII class: operational metadata. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: operational metadata. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: posts
 
@@ -122,7 +124,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('posts_id_seq'::regclass); none/none`; `title:text NOT NULL none; none/none`; `content:text NOT NULL none; none/none`; `category_id:integer NULL none; none/none`; `author_id:integer NULL none; none/none`; `is_published:boolean NULL true; none/none`; `created_at:timestamp without time zone NULL now(); none/none`; `updated_at:timestamp without time zone NULL now(); none/none`; `image_urls:text[] NULL none; none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id→users.id NO ACTION)`, `posts_category_id_categories_id_fk(category_id→categories.id NO ACTION)`; index `posts_pkey`.
 - physical/logical relations: comments의 부모이며 삭제 시 comments CASCADE; Object Storage 경로는 logical_only. readers/writers: public/community/admin route. transaction/lifecycle: post CRUD와 comment cascade; 첨부 GC 정책 미정.
-- PII class: user content, direct identifier. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: user content, direct identifier. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: comments
 
@@ -130,7 +132,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('comments_id_seq'::regclass); none/none`; `post_id:integer NOT NULL none; none/none`; `author_id:integer NULL none; none/none`; `content:text NOT NULL none; none/none`; `created_at:timestamp without time zone NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id→users.id NO ACTION)`, `comments_post_id_posts_id_fk(post_id→posts.id ON DELETE CASCADE)`; index `comments_pkey`.
 - physical/logical relations: post parent, optional author. readers/writers: post detail/comment routes. transaction/lifecycle: post 삭제가 cascade; 사용자 삭제 정책 미정.
-- PII class: user content, direct identifier. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: user content, direct identifier. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: payments
 
@@ -138,7 +140,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('payments_id_seq'::regclass); none/none`; `user_id:integer NULL none; none/none`; `amount:integer NOT NULL none; none/none`; `year:integer NOT NULL none; none/none`; `type:text NOT NULL none; none/none`; `status:text NOT NULL 'completed'::text; none/none`; `receipt_url:text NULL none; none/none`; `created_at:timestamp without time zone NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `payments_pkey(id)`; FK `payments_user_id_users_id_fk(user_id→users.id NO ACTION)`; index `payments_pkey`; UNIQUE 없음.
 - physical/logical relations: receipt URL은 Object Storage logical_only. readers/writers: dues/admin 및 회원 납부 내역. transaction/lifecycle: create/update/read, 삭제 정책 미정.
-- PII class: financial, direct identifier. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: financial, direct identifier. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: alumni_database
 
@@ -146,7 +148,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('alumni_database_id_seq'::regclass); none/none`; `department:text NOT NULL none; none/none`; `generation:text NOT NULL none; none/none`; `name:text NOT NULL none; none/none`; `admission_date:text NULL none; none/none`; `graduation_date:text NULL none; none/none`; `address:text NULL none; none/none`; `mobile:text NULL none; none/none`; `phone:text NULL none; none/none`; `group:text NULL none; none/none`; `status:text NULL none; none/none`; `alumni_position:text NULL none; none/none`; `memo:text NULL none; none/none`; `is_matched:boolean NULL false; none/none`; `matched_user_id:integer NULL none; none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `alumni_database_pkey(id)`; FK `alumni_database_matched_user_id_users_id_fk(matched_user_id→users.id NO ACTION)`; UNIQUE `alumni_database_mobile_unique(mobile)`; indexes `alumni_database_pkey`, `alumni_database_mobile_unique`.
 - physical/logical relations: users claim, 그러나 `matched_user_id` UNIQUE 없음. readers/writers: admin sync preview/apply, onboarding claim. transaction/lifecycle: advisory lock + one transaction sync, 자동 삭제 없음.
-- PII class: direct identifier, contact, profile, user content. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: direct identifier, contact, profile, user content. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: alumni_name_aliases
 
@@ -163,7 +165,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('obituaries_id_seq'::regclass); none/none`; `title:text NOT NULL none; none/none`; `deceased_name:text NOT NULL none; none/none`; `deceased_relation:text NOT NULL none; none/none`; `date_of_death:text NOT NULL none; none/none`; `funeral_home:text NULL ''::text; none/none`; `jangji:text NULL ''::text; none/none`; `bank_account:text NULL ''::text; none/none`; `chief_mourner:text NULL ''::text; none/none`; `contact_number:text NULL ''::text; none/none`; `author_id:integer NULL none; none/none`; `created_at:timestamp without time zone NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `obituaries_pkey(id)`; FK `obituaries_author_id_users_id_fk(author_id→users.id NO ACTION)`; index `obituaries_pkey`.
 - physical/logical relations: `community_events.legacy_obituary_id`와 logical-only migration link. readers/writers: obituary/admin routes. transaction/lifecycle: CRUD·명시적 data migration, 삭제 정책 미정.
-- PII class: user content, financial, contact, direct identifier. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: user content, financial, contact, direct identifier. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: community_events
 
@@ -171,7 +173,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('community_events_id_seq'::regclass); none/none`; `legacy_obituary_id:integer NULL none; none/none`; `event_type:text NOT NULL none; none/none`; `status:text NOT NULL 'draft'::text; none/none`; `title:text NULL none; none/none`; `event_date:text NULL none; none/none`; `location:text NULL none; none/none`; `related_member_name:text NULL none; none/none`; `contact_number:text NULL none; none/none`; `account_info:text NULL none; none/none`; `source_text:text NULL none; none/none`; `source_urls:text[] NULL '{}'::text[]; none/none`; `details:jsonb NOT NULL '{}'::jsonb; none/none`; `author_id:integer NULL none; none/none`; `published_at:timestamp without time zone NULL none; none/none`; `created_at:timestamp without time zone NULL now(); none/none`; `updated_at:timestamp without time zone NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `community_events_pkey(id)`; FK `community_events_author_id_users_id_fk(author_id→users.id NO ACTION)`; UNIQUE `community_events_legacy_obituary_id_unique(legacy_obituary_id)`; indexes `community_events_pkey`, `community_events_legacy_obituary_id_unique`.
 - physical/logical relations: legacy obituary link은 FK 없음; source URL은 logical-only. readers/writers: event CRUD/parse/preview/admin. transaction/lifecycle: draft→published, parse quota 별도 원자적 갱신; 삭제 정책 미정.
-- PII class: user content, contact, financial, operational metadata. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: user content, contact, financial, operational metadata. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: event_parse_rate_limits
 
@@ -179,7 +181,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `user_id:integer NOT NULL none; none/none`; `window_started_at:timestamp with time zone NOT NULL now(); none/none`; `request_count:integer NOT NULL 0; none/none`; `updated_at:timestamp with time zone NOT NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `event_parse_rate_limits_pkey(user_id)`; FK `event_parse_rate_limits_user_id_users_id_fk(user_id→users.id ON DELETE CASCADE)`; index `event_parse_rate_limits_pkey`.
 - physical/logical relations: users one-per-user quota. readers/writers: event parser middleware/routes. transaction/lifecycle: atomic rolling-window update와 user deletion cascade.
-- PII class: operational metadata, direct identifier. retention evidence: window policy는 코드 기반, 장기 보존 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: operational metadata, direct identifier. retention evidence: window policy는 코드 기반, 장기 보존 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: pending_registrations
 
@@ -187,7 +189,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `id:integer NOT NULL nextval('pending_registrations_id_seq'::regclass); none/none`; `kakao_id:text NOT NULL none; none/none`; `email:text NOT NULL none; none/none`; `name:text NOT NULL none; none/none`; `user_data:jsonb NULL none; none/none`; `status:text NULL 'pending'::text; none/none`; `created_at:timestamp without time zone NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `pending_registrations_pkey(id)`; FK/UNIQUE 없음; index `pending_registrations_pkey`.
 - physical/logical relations: users/alumni 관계는 approval transaction의 logical_only 검증. readers/writers: login callback, admin approval/rejection. transaction/lifecycle: approval/rejection은 users/alumni와 atomic; 정책 미정.
-- PII class: direct identifier, contact, profile, authentication/security. retention evidence: 정책 미정. drift note: code/Development verified; Production unverified.
+- PII class: direct identifier, contact, profile, authentication/security. retention evidence: 정책 미정. drift note: 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: kakao_oauth_states
 
@@ -195,7 +197,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `state_hash:text NOT NULL none; none/none`; `session_binding_hash:text NOT NULL none; none/none`; `expires_at:timestamp with time zone NOT NULL none; none/none`; `created_at:timestamp with time zone NOT NULL now(); none/none`; `started_at:timestamp with time zone NOT NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `kakao_oauth_states_pkey(state_hash)`; UNIQUE `kakao_oauth_states_session_binding_hash_unique(session_binding_hash)`; indexes 같은 이름 2개.
 - physical/logical relations: session binding은 logical_only. readers/writers: `/api/auth/kakao/start`, callback consume. transaction/lifecycle: issue/consume과 10분 만료·cleanup path.
-- PII class: authentication/security, operational metadata. retention evidence: OAuth state 10분; 장기 정책 미정. drift note: runtime additive DDL, code/Development verified; Production unverified.
+- PII class: authentication/security, operational metadata. retention evidence: OAuth state 10분; 장기 정책 미정. drift note: runtime additive DDL, 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: kakao_identity_terminations
 
@@ -203,7 +205,7 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `identity_hash:text NOT NULL none; none/none`; `terminated_at:timestamp with time zone NOT NULL now(); none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `kakao_identity_terminations_pkey(identity_hash)`; index 같은 이름; FK/별도 UNIQUE 없음.
 - physical/logical relations: Kakao identity logical-only, user FK 없음. readers/writers: account deletion/rejection admin route. transaction/lifecycle: marker upsert와 user deletion transaction.
-- PII class: authentication/security, direct identifier (hashed). retention evidence: 정책 미정. drift note: runtime additive DDL, code/Development verified; Production unverified.
+- PII class: authentication/security, direct identifier (hashed). retention evidence: 정책 미정. drift note: runtime additive DDL, 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ### TABLE_ROW: session
 
@@ -211,26 +213,25 @@ ERD의 선은 catalog의 10 FK를 표현한다. nullable FK는 부모 쪽을 `o|
 - column/type/null/default/identity-generated: `sid:character varying NOT NULL none; none/none`; `sess:json NOT NULL none; none/none`; `expire:timestamp(6) without time zone NOT NULL none; none/none`.
 - PK/FK/UNIQUE/CHECK/index: PK `session_pkey(sid)`; standalone index `session_expire_idx(expire)`; FK/별도 UNIQUE 없음.
 - physical/logical relations: `sess.userId`는 users를 향한 logical-only JSON reference. readers/writers: express-session middleware/pruning worker. transaction/lifecycle: cookie maxAge 7일, prune interval 60초.
-- PII class: authentication/security, operational metadata, direct identifier inside opaque JSON. retention evidence: 7일 cookie/60초 pruning; 기타 정책 미정. drift note: runtime DDL, code/Development verified; Production unverified.
+- PII class: authentication/security, operational metadata, direct identifier inside opaque JSON. retention evidence: 7일 cookie/60초 pruning; 기타 정책 미정. drift note: runtime DDL, 코드 의도와 2026-09-05 양쪽 catalog 메타데이터 확인; 실제 계정·행 데이터 재검증 아님.
 
 ## 6. non-table objects
 
-기존 13-table 행은 2026-07-27 Development saved catalog, 별칭 행과 Production 열은 2026-08-16 검증 기준이다. 현재 Development 전체 `public`은 앱 baseline 밖 객체가 섞여 있으므로 이번 문서에서는 그 전체 목록을 새로운 앱 기준으로 승격하지 않는다.
+기존 상세 정의는 2026-07-27 기준과 2026-08-16 별칭 추가 기록을 기반으로 하며, 아래 객체 수와 환경 차이는 2026-09-05 양쪽 read-only catalog 결과다. 테이블·컬럼 구조 확인은 해당 기능의 Production 사용자 흐름 검증을 뜻하지 않는다.
 
-| category | Development object/status | Production |
+| category | Development 2026-09-05 | Production 2026-09-05 |
 | --- | --- | --- |
-| ordinary/partitioned tables | historical app baseline 13 + `alumni_name_aliases`; 현재 전체 public count는 별도 reconciliation 필요 | ordinary 14, partitioned 없음; verified |
-| views | historical ABSENT | ABSENT (catalog count=0) |
-| materialized views | historical ABSENT | ABSENT (catalog count=0) |
-| triggers | historical ABSENT | ABSENT (catalog count=0) |
-| RLS/force-RLS | historical 13 tables false; 별칭 객체 확인 | 14 tables 모두 `rls_enabled=false`, `rls_forced=false` |
-| policies | historical ABSENT | ABSENT (catalog count=0) |
-| routines | historical ABSENT | ABSENT (catalog count=0) |
-| enums | historical ABSENT | ABSENT (catalog count=0) |
-| domains | historical ABSENT | ABSENT (catalog count=0); domain constraints ABSENT |
-| extensions/dependencies | historical `plpgsql`; 현재 전체 상태 미분류 | `plpgsql` version `1.0`, public dependency ABSENT |
-| sequences | historical 9 + `alumni_name_aliases_id_seq` | 10; catalog-valid |
-| indexes/constraints | 별칭 객체의 PK/FK/CHECK/index verified | PK 14, FK 10, non-PK UNIQUE constraints 6, indexes 24; all catalog-valid/ready |
+| ordinary/partitioned tables | ordinary 14, partitioned 없음 | ordinary 14, partitioned 없음 |
+| views/materialized views | ABSENT | ABSENT |
+| triggers | ABSENT | ABSENT |
+| RLS/force-RLS | 양쪽 14개 table의 catalog 값 동일 | Development와 동일 |
+| policies | ABSENT | ABSENT |
+| routines | ABSENT | ABSENT |
+| enums | ABSENT | ABSENT |
+| domains/domain constraints | ABSENT | ABSENT |
+| extensions/dependencies | `plpgsql` 1개; public dependency ABSENT | `plpgsql` 1개; public dependency ABSENT |
+| sequences | 10 | 10 |
+| indexes/constraints | PK 14, FK 10, non-PK UNIQUE 6, CHECK 2, indexes 24 | Development와 동일 |
 
 새 PK index는 `alumni_name_aliases_pkey`, 새 unique index는 `alumni_name_aliases_alumni_normalized_unique`와 partial `alumni_name_aliases_preferred_unique`, 새 lookup index는 `alumni_name_aliases_normalized_idx`다. 기존 PK·UNIQUE·standalone index 목록은 2026-07-27 baseline과 동일하다.
 

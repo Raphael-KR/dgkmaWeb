@@ -19,42 +19,37 @@
 | 파일 | Replit Object Storage |
 | 개발·배포 | GitHub, Replit 개발 워크스페이스, Replit Deployments |
 
-## 개발 및 배포 흐름
+## 시작하기
 
-공유 소스 기준은 GitHub `main`입니다.
+1. [planning_proposal.md](./planning_proposal.md)에서 제품 정책, 현재 적용 상태와 다음 개발 목표를 확인합니다.
+2. [AGENTS.md](./AGENTS.md)에서 기준 문서 적용, 사용자 결정의 문서 반영과 작업 수행 절차를 확인합니다.
+3. GitHub `main`을 공유 소스로 사용하고, [replit.md](./replit.md)에 따라 Replit 개발 워크스페이스를 준비합니다.
 
-```text
-GitHub main
-  -> Replit 개발 워크스페이스 pull
-  -> npm run check
-  -> npm run build
-  -> 개발 서버에서 화면·기능 확인
-  -> Replit Republish
-  -> dgkma.org 프로덕션 기능 점검
-```
+개발과 배포는 Replit 개발 워크스페이스에서 구현·검증한 뒤 Republish와 프로덕션 점검으로 이어집니다. 실행 명령, 환경변수와 배포 조건은 [replit.md](./replit.md), 화면·기능 확인 항목과 검증 기록은 [walkthrough.md](./walkthrough.md)에서 확인합니다.
 
-개발 중에는 Replit 개발 서버에서 반복 확인하며, 단순 확인을 위해 Republish하지 않습니다. Replit 개발 DB와 프로덕션 DB는 분리되어 있으므로 스키마와 운영 데이터 변경은 환경별로 적용하고 결과를 각각 확인해야 합니다. 상세 절차는 [replit.md](./replit.md)를 따릅니다.
+## 목적별 기준 문서
 
-## 개발 운영 문서
+이 문서는 프로젝트와 문서를 찾는 진입점입니다. 기준 문서의 적용과 변경 절차는 [AGENTS.md](./AGENTS.md)를 따릅니다.
 
-코드 변경 전 [프로젝트 구조·소유권·의존 경계](./docs/project-structure.md)와
-[구조 개편 검증 기록](./docs/structure-validation.md)을 참고합니다.
-
-| 문서 | 역할 |
+| 확인할 내용 | 문서 |
 |---|---|
-| [planning_proposal.md](./planning_proposal.md) | 제품 비전, 확정 정책, 현재 상태, 개발 우선순위와 완료 조건을 관리하는 통합 계획서 |
-| [walkthrough.md](./walkthrough.md) | 현재 프로덕션 기능의 수동 회귀 테스트 |
-| [replit.md](./replit.md) | Replit 개발·배포·환경변수·DB 운영 절차 |
-| [docs/database-schema.md](./docs/database-schema.md) | **최우선 DB 구조 기준서**: 현재 테이블·컬럼·객체·관계·재검증 상태 |
-| [docs/database-operations.md](./docs/database-operations.md) | 개발·운영 DB 선택, SSH 직접 연결, 변경·검증·Secret 수명 관리 |
-| [CHANGELOG.md](./CHANGELOG.md) | 버전별 추가·변경·보안 이력 |
-| [AGENTS.md](./AGENTS.md) | Codex가 이 저장소에서 따르는 작업 규칙 |
-| [docs/obituary-writing-guide.md](./docs/obituary-writing-guide.md) | 부고 필수 정보, 표준 게시문, 초안·검증 규칙 |
-| [경조사 통합 시스템 설계](./docs/superpowers/specs/2026-07-11-community-events-design.md) | 부고·결혼·개원·기타 통합 모델과 파싱·보안·마이그레이션 설계 |
+| 제품 목표·범위, 확정 정책, 적용 상태, 우선순위와 완료 조건 | [planning_proposal.md](./planning_proposal.md) |
+| AI Agent 작업 규칙, 기준 문서 확인·갱신, 변경·검증·보고 절차 | [AGENTS.md](./AGENTS.md) |
+| 프로젝트 구조·소유권·의존 경계 | [docs/project-structure.md](./docs/project-structure.md) |
+| 구조 개편 검증 기록 | [docs/structure-validation.md](./docs/structure-validation.md) |
+| 정적 자산 배포·복구 정책 | [docs/static-asset-release-policy.md](./docs/static-asset-release-policy.md) |
+| Replit 개발·배포·환경변수 운영 | [replit.md](./replit.md) |
+| **최우선 DB 구조 기준**: 테이블·컬럼·객체·관계·무결성과 catalog 재검증 | [docs/database-schema.md](./docs/database-schema.md) |
+| 개발·운영 DB 선택, 직접 연결, 변경·백업·복구·검증과 Secret 수명 관리 | [docs/database-operations.md](./docs/database-operations.md) |
+| 개발·운영 환경의 수동 회귀·smoke check 절차와 실제 검증 기록 | [walkthrough.md](./walkthrough.md) |
+| 부고 필수 정보, 표준 게시문, 초안·검증 규칙 | [docs/obituary-writing-guide.md](./docs/obituary-writing-guide.md) |
 
-문서 내용이 충돌하면 프로덕션에서 검증된 동작, 현재 `main` 코드와 Replit 설정, `AGENTS.md`, 기존 운영 문서, 과거 기획과 변경 이력 순서로 확인합니다.
+## 변경·설계 이력
 
-DB 구조 변경은 같은 변경에서 최우선 기준서인 [docs/database-schema.md](./docs/database-schema.md)를 함께 갱신하고 catalog 재검증합니다.
+과거 변경과 설계의 맥락은 다음 자료에서 확인합니다. 현재 정책과 개발 상태는 위의 담당 기준 문서에서 확인합니다.
+
+- [CHANGELOG.md](./CHANGELOG.md): 버전별 추가·변경·보안 이력
+- [docs/superpowers/](./docs/superpowers/): 과거 설계와 구현 계획. [경조사 통합 시스템 설계](./docs/superpowers/specs/2026-07-11-community-events-design.md) 등 당시 결정의 배경을 보존합니다.
 
 ## 기본 검증
 
