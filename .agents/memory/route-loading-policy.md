@@ -1,0 +1,20 @@
+---
+name: Route loading policy
+description: Why public home and auth stay eager while route screens load on demand
+---
+
+Keep the public home and auth state infrastructure eager; defer the other screen bodies through feature public APIs, with auth gates outside member lazy screens.
+
+**Why:** The public home is the default visitor entry, so deferring it adds a request without avoiding work. Deferring the auth provider risks resetting session UI during navigation. Keeping page splitting inside feature APIs preserves module boundaries.
+
+**How to apply:** When adding routes, avoid eager page re-exports from shared auth/feature entrypoints. Measure the entire entry's static dependency closure, not merely the entry filename; total chunk count is not the initial request count. Use explicit reload recovery for failed lazy imports rather than automatic reload loops. In Express wildcard middleware, use `req.originalUrl` to classify asset paths; mounted `req.path` can be `/` and incorrectly send missing assets to the HTML fallback. In browser network-failure tests, correlate failed requests by the app's local origin because platform-injected scripts may fail independently.
+
+**Why:** A missing hashed chunk must reach the browser as a real asset failure so the lazy-route boundary can show recovery UI; wildcard-mounted paths are not reliable inputs for this classification.
+
+**Why:** Chromium can observe platform-injected external scripts alongside app requests; matching failures without checking their origin can make route-recovery tests fail for unrelated network errors.
+
+For failures to download the HTML entry module, keep the recovery shell and its same-origin module-script error listener in the HTML itself, before the module runs; reload only after an explicit user action.
+
+**Why:** A React error boundary cannot render if React's entry module never downloads.
+
+**How to apply:** Keep this shell self-contained and visible without application CSS or React. Test a real entry-script 404, verify no automatic reload loop, and confirm the user's reload gets the current HTML.

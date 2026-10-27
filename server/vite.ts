@@ -82,28 +82,54 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+export function serveStatic(
+  app: Express,
+  distPath = path.resolve(import.meta.dirname, "public"),
+) {
+  const resolvedDistPath = path.resolve(distPath);
 
-  if (!fs.existsSync(distPath)) {
+  if (!fs.existsSync(resolvedDistPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+      `Could not find the build directory: ${resolvedDistPath}, make sure to build the client first`,
     );
   }
 
-  app.use(express.static(distPath));
+  app.use(express.static(resolvedDistPath, {
+    setHeaders: (res, filePath) => {
+      if (path.basename(filePath) === "index.html") {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }));
 
   app.use("*", rejectUnknownApiPath);
+
+  // Never return the SPA document for a missing script/style/media request.
+  // Entry-script failures need a real 404 so the HTML startup recovery can
+  // appear; lazy imports need the same response for route-level recovery.
+  app.use("*", (req, res, next) => {
+    const pathname = req.originalUrl.split("?", 1)[0];
+    if (/\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(pathname)) {
+      res.status(404).type("text/plain").send("Not found");
+      return;
+    }
+    next();
+  });
 
   // fall through to index.html if the file doesn't exist
   app.use("*", async (req, res, next) => {
     try {
       const template = await fs.promises.readFile(
-        path.resolve(distPath, "index.html"),
+        path.resolve(resolvedDistPath, "index.html"),
         "utf-8",
       );
       const page = await injectSeo(req, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      res.status(200)
+        .set({
+          "Content-Type": "text/html",
+          "Cache-Control": "no-cache",
+        })
+        .end(page);
     } catch (error) {
       next(error);
     }

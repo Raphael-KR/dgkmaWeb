@@ -41,6 +41,21 @@ cd /home/runner/workspace
 
 개발 DB는 기본 연결이다. 앱 코드, 테스트, `db:push`와 일반 DB 검증은 별도 운영 URL 없이 실행한다.
 
+### 격리 개발 DB 회귀 검사 (fork / CI)
+
+경조사·명부 DB 회귀 검사는 원본 Replit ID가 아닌 **명시적 opt-in**으로 실행한다.
+
+```bash
+npm run test:development-db
+```
+
+- 기본 `npm test`에서는 opt-in 미지정 시 두 DB 검사만 skip한다. 전용 명령은 `RUN_DEVELOPMENT_DB_TESTS=1`을 해당 프로세스에만 설정하므로 잘못된 대상은 skip 없이 실패한다.
+- 미리 현행 앱 스키마가 준비된 격리 개발 DB를 사용한다. CI는 `heliumdb` 이름의 로컬 PostgreSQL과 `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`를 준비한다. 허용 호스트는 정확히 `helium`, `localhost`, `127.0.0.1`뿐이다. 원격 CI DB는 허용하지 않는다.
+- `NODE_ENV=production`, `REPLIT_DEPLOYMENT=1`, 다른 DB 이름, 누락된 PG* 인증, 잘못된 포트, 알려진 운영 URL과 같은 endpoint는 연결 전에 거부한다. 운영 Secret은 테스트 대상으로 사용하지 않는다.
+- 테스트 선택 정책은 `server/tests/development-db-target.ts`에만 있다. 서버의 `server/db.ts` PG* 우선순위를 변경하지 않으며 `DATABASE_URL`로 fallback하지 않는다. fixture 연결과 실제 storage 연결 모두 `current_database() = heliumdb`를 확인한 뒤 쓰기를 시작한다.
+- 실제 Google Sheets 호출·apply는 하지 않는다. 명부 source는 메모리 fixture로 대체한다. UUID 소유 fixture만 정리하고, 완료 출력의 경조사 users/events 및 명부 alumni/users/triggers/functions 잔여가 모두 0인지 확인한다.
+- 명부 검사는 rollback 검증용 임시 trigger/function을 만들었다가 제거하므로 해당 권한이 필요하다. 권한/스키마/연결 오류도 실패로 취급한다.
+
 ### 스키마 카탈로그 재검증
 
 현행 구조와 객체의 기준은 [database-schema.md](database-schema.md)다. Development 기본 metadata-only 재검증은 해당 문서의 catalog SQL을 실행하고 `heliumdb`, read-only, `ROLLBACK`, completion marker를 확인한다. 기존 운영 예시는 보존하며, 이 명령은 행 데이터를 조회하지 않는다.

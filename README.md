@@ -35,6 +35,9 @@
 |---|---|
 | 제품 목표·범위, 확정 정책, 적용 상태, 우선순위와 완료 조건 | [planning_proposal.md](./planning_proposal.md) |
 | AI Agent 작업 규칙, 기준 문서 확인·갱신, 변경·검증·보고 절차 | [AGENTS.md](./AGENTS.md) |
+| 프로젝트 구조·소유권·의존 경계 | [docs/project-structure.md](./docs/project-structure.md) |
+| 구조 개편 검증 기록 | [docs/structure-validation.md](./docs/structure-validation.md) |
+| 정적 자산 배포·복구 정책 | [docs/static-asset-release-policy.md](./docs/static-asset-release-policy.md) |
 | Replit 개발·배포·환경변수 운영 | [replit.md](./replit.md) |
 | **최우선 DB 구조 기준**: 테이블·컬럼·객체·관계·무결성과 catalog 재검증 | [docs/database-schema.md](./docs/database-schema.md) |
 | 개발·운영 DB 선택, 직접 연결, 변경·백업·복구·검증과 Secret 수명 관리 | [docs/database-operations.md](./docs/database-operations.md) |
@@ -47,3 +50,18 @@
 
 - [CHANGELOG.md](./CHANGELOG.md): 버전별 추가·변경·보안 이력
 - [docs/superpowers/](./docs/superpowers/): 과거 설계와 구현 계획. [경조사 통합 시스템 설계](./docs/superpowers/specs/2026-07-11-community-events-design.md) 등 당시 결정의 배경을 보존합니다.
+
+## 기본 검증
+
+Replit 개발 워크스페이스에서 실행합니다.
+
+```bash
+npm run check
+npm run check:tests
+npm test
+npm run build
+```
+
+배포 후에는 [walkthrough.md](./walkthrough.md)의 체크리스트로 공개 페이지, 카카오 로그인, 게시판·첨부·댓글, 동문 주소록, 부고, 회원 상태를 확인합니다.
+
+환경변수 값, 데이터베이스 URL, 토큰, SSH 개인키는 문서나 Git에 저장하지 않습니다.

@@ -6,7 +6,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| code intent | `shared/schema.ts`의 13 `pgTable` + `server/index.ts` 런타임 `session` DDL |
+| code intent | `server/db/schema/index.ts`의 13 `pgTable` (`shared/schema.ts`는 호환 export) + `server/index.ts` 런타임 `session` DDL |
 | source identity frozen KST | `2026-07-27 14:46:56 KST +0900` |
 | source identity frozen UTC | `2026-07-27 05:46:56 UTC +0000` |
 | Development catalog verification start KST | `2026-07-27 16:25:11 KST +0900` |
