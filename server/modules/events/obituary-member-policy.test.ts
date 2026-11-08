@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { AddressInfo } from "node:net";
+import express from "express";
 import type {
   AlumniRecord,
   CommunityEvent,
@@ -10,6 +12,9 @@ import {
   assembleTrustedObituary,
   type ObituaryMemberStorage,
 } from "./obituary-member-policy";
+import { resolveEventMember } from "./event-member-policy";
+import { registerRoutes } from "../../routes";
+import { storage } from "../../storage";
 
 const requesterId = 101;
 const targetUserId = 202;
@@ -257,4 +262,136 @@ test("a self obituary is blocked when the member and deceased names differ", asy
     message: "본인상은 동문 이름과 고인 이름이 같아야 합니다",
     missingFields: ["details.deceasedName"],
   });
+});
+
+test("shared event member policy permits self registration and rejects a missing requester", async () => {
+  const input = { relatedMemberName: requester.name };
+  const ownMember = await resolveEventMember(input, requesterId, memberStorage({ ...requester, isAdmin: false }));
+  assert.equal(ownMember.kind, "ready");
+  if (ownMember.kind === "ready") assert.equal(ownMember.user?.id, requesterId);
+  const missingMember = await resolveEventMember(input, requesterId, {
+    ...memberStorage(requester), getUser: async () => undefined,
+  });
+  assert.equal(missingMember.kind, "blocked");
+});
+
+// Reuse the existing users, alumni and obituary input above. All persistence and
+// identity lookups are mocked; no real DB/provider or test account is created.
+test("wedding, opening, other and legacy registration enforce the same member policy before writing", async (t) => {
+  const draft = obituaryDraft();
+  const obituaryDetails = draft.details as {
+    deceasedName: string; relationship: string; funeralHome: string;
+  };
+  let currentMember: User | undefined = requester;
+  let matches = [targetAlumni];
+  let writes: Array<{ authorId: number; data: Record<string, unknown> }> = [];
+  const lookups: string[] = [];
+  t.mock.method(storage, "getUser", async (id: number) => id === requesterId ? currentMember : targetUser);
+  t.mock.method(storage, "getAlumniRecordByUserId", async () => requesterAlumni);
+  t.mock.method(storage, "findAlumniByNameOrAlias", async (name: string) => { lookups.push(name); return matches; });
+  let currentType: "wedding" | "opening" | "other" = "wedding";
+  t.mock.method(storage, "getEventDraft", async () => ({ ...draft, eventType: currentType }));
+  t.mock.method(storage, "publishEvent", async (...[_id, authorId, data]: Parameters<typeof storage.publishEvent>) => {
+    writes.push({ authorId, data });
+    return { ...draft, ...data, authorId, status: "published" };
+  });
+  t.mock.method(storage, "createObituary", async (...[data]: Parameters<typeof storage.createObituary>) => {
+    writes.push({ authorId: data.authorId!, data });
+    return { ...data, id: draft.id, authorId: data.authorId!, createdAt: draft.createdAt };
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => {
+    (req as any).session = req.header("x-test-user-id") ? { userId: requesterId } : {};
+    next();
+  });
+  const server = await registerRoutes(app);
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+  try {
+    for (const type of ["wedding", "opening", "other", "legacy"] as const) {
+      if (type !== "legacy") currentType = type;
+      const payload = type === "legacy" ? {
+        title: draft.title, deceasedName: obituaryDetails.deceasedName,
+        deceasedRelation: obituaryDetails.relationship, dateOfDeath: draft.eventDate,
+        funeralHome: obituaryDetails.funeralHome,
+      } : {
+        eventType: type, title: draft.title, eventDate: draft.eventDate, details: {}, sourceUrls: [],
+      };
+      const submit = async (overrides: Record<string, unknown> = {}, anonymous = false) => {
+        writes = [];
+        return fetch(`${baseUrl}${type === "legacy" ? "/api/obituaries" : `/api/events/${draft.id}/publish`}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(!anonymous ? { "x-test-user-id": String(requesterId) } : {}) },
+          body: JSON.stringify({
+            ...payload, relatedMemberName: draft.relatedMemberName, sourceText: draft.sourceText,
+            authorId: targetUserId, isAdmin: true, ...overrides,
+          }),
+        });
+      };
+      const expectWrite = async (overrides: Record<string, unknown> = {}, expectedName = targetAlumni.name) => {
+        const response = await submit(overrides);
+        assert.equal(response.status, type === "legacy" ? 201 : 200, `${type}: ${await response.text()}`);
+        assert.equal(writes.length, 1);
+        assert.equal(writes[0].authorId, requesterId);
+        assert.equal("isAdmin" in writes[0].data, false);
+        if (type === "legacy") {
+          assert.equal("relatedMemberName" in writes[0].data, false);
+          assert.equal("sourceText" in writes[0].data, false);
+        } else assert.equal(writes[0].data.relatedMemberName, expectedName);
+      };
+      const expectBlocked = async (overrides: Record<string, unknown> = {}, anonymous = false) => {
+        const response = await submit(overrides, anonymous);
+        assert.equal(response.status, anonymous ? 401 : 400, `${type}: ${await response.text()}`);
+        assert.equal(writes.length, 0);
+      };
+
+      await t.test(`${type}: anonymous and forged admin/author cannot register for another member`, async () => {
+        currentMember = { ...requester, isAdmin: false };
+        matches = [targetAlumni];
+        await expectBlocked({}, true);
+        await expectBlocked();
+        await expectWrite({ relatedMemberName: requester.name, sourceText: undefined }, requester.name);
+        currentMember = undefined;
+        await expectBlocked({ relatedMemberName: requester.name, sourceText: undefined });
+      });
+      await t.test(`${type}: admin self, exact match and official alias are allowed`, async () => {
+        currentMember = requester;
+        matches = [targetAlumni];
+        await expectWrite({ relatedMemberName: requester.name, sourceText: undefined }, requester.name);
+        await expectWrite();
+        await expectWrite({ relatedMemberName: "김이전" });
+        assert.equal(lookups.at(-1), "김이전");
+        matches = [{ ...targetAlumni, matchedUserId: null }];
+        await expectWrite();
+      });
+      await t.test(`${type}: missing, mismatched and ambiguous target never writes`, async () => {
+        currentMember = requester;
+        matches = [targetAlumni];
+        await expectBlocked({ relatedMemberName: undefined });
+        await expectBlocked({ sourceText: undefined });
+        await expectBlocked({ sourceText: `${requesterAlumni.admissionDate?.slice(2, 4)}학번` });
+        matches = [];
+        await expectBlocked();
+        matches = [targetAlumni, targetAlumni];
+        await expectBlocked();
+      });
+      if (type === "legacy") {
+        await t.test("legacy: validates the body and self-death identity before insertion", async () => {
+          currentMember = requester;
+          matches = [targetAlumni];
+          await expectBlocked({ deceasedName: "" });
+          await expectBlocked({ deceasedRelation: "본인" });
+          await expectWrite({ deceasedRelation: "본인", deceasedName: targetAlumni.name });
+        });
+      }
+    }
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
