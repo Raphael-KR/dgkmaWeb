@@ -2,7 +2,7 @@
 
 이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전, 현재 상태와 개발 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
-2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 Replit 개발 환경에 적용했습니다. 운영 DB와 배포는 변경하지 않았습니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 개발 Secret의 키 존재 여부만 확인했으며 미설정입니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 Replit 개발 환경에 적용했습니다. 운영 DB와 배포는 변경하지 않았습니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 03:51 KST 사용자 추가 후 개발 서버를 재시작하고 새 프로세스의 키 존재 여부를 확인했습니다. 키 값은 출력하지 않았고 실제 OpenAI 호출은 수행하지 않았습니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
 
 ## 통합 게시글 실행 준비 (2026-11-09)
 
@@ -30,7 +30,15 @@
 - Development `heliumdb` 전환 SQL을 한 트랜잭션으로 커밋했습니다. 새 연결의 metadata-only catalog에서 12개 테이블, posts의 컬럼 4개·CHECK 2개·partial UNIQUE index 1개, 구 테이블 2개 제거를 확인했습니다. 카테고리는 5→7건이고 나머지 테이블 건수는 보존됐습니다.
 - 03:21:53 KST: 기존 개발 서버가 정지돼 있고 5000번 포트가 비어 있는 상태에서 프로젝트 루트의 `npm run dev`로 재기동했습니다. npm PID `535`, 앱 PID `557`이며, 03:22:52 KST 새 SSH 연결에서도 실행·포트 유지가 확인됐습니다.
 - 시작 로그의 개발 DB 연결·session index·5000번 포트 listen을 확인했습니다. 쿠키 없는 loopback 요청은 `/` → 200 HTML, `/api/posts` → 401 JSON입니다. Python 3.13.11의 `Asia/Seoul` 시간대 자료도 확인했습니다. 이는 기동·접근 제한 확인이며 로그인·게시 기능 전체 결과가 아닙니다.
-- 구조 snapshot, 적용 manifest, SQL·catalog·서버 receipts는 개발 workspace의 `.superpowers/unified-posts-activation-20261108T181441Z/`에 보존했습니다. 운영 DB·Republish·실계정 QA·외부 API 호출과 GitHub push·PR·merge는 하지 않았습니다. `OPENAI_API_KEY` 설정이 남아 있습니다.
+- 구조 snapshot, 적용 manifest, SQL·catalog·서버 receipts는 개발 workspace의 `.superpowers/unified-posts-activation-20261108T181441Z/`에 보존했습니다. 운영 DB·Republish·실계정 QA·외부 API 호출과 GitHub push·PR·merge는 하지 않았습니다. 이 최초 적용 당시에는 `OPENAI_API_KEY`가 미설정이었으며 후속 반영은 아래 기록과 구분합니다.
+
+### API 키 반영과 개발 서버 재시작
+
+- 2026-11-09 사용자 요청으로 Replit 개발 Secret의 `OPENAI_API_KEY` 설정 여부를 확인하고 개발 서버를 재시작했습니다. 값·길이·접두어·해시는 출력하거나 문서에 저장하지 않았습니다.
+- 03:50 KST 새 SSH 환경에는 키가 있었으나 기존 개발 앱 PID `557`에는 없었습니다. 기존 `npm run dev` 프로세스 그룹 `535`만 SIGTERM으로 종료하고 5000번 포트 해제를 확인했습니다.
+- 03:51:10 KST `/home/runner/workspace`에서 `npm run dev`로 기동했습니다. 새 npm PID는 `837`, 앱 PID는 `859`이며 새 앱 프로세스에 키가 전달된 것을 존재 여부만으로 확인했습니다. 개발 DB 연결·session index·5000번 포트의 시작 로그도 확인했습니다.
+- 쿠키 없는 loopback GET `/`는 200 HTML, `/api/posts`는 401 JSON이었습니다. 이는 서버 기동과 기존 회원 접근 제한 확인이며 API 키의 유효성·모델 사용 권한·결제 상태나 생성 성공을 확인한 결과는 아닙니다.
+- 실행 코드는 이전에 적용한 통합 후보 그대로이며 코드·DB·Secrets를 수정하지 않았습니다. 운영 배포·실계정 QA·실제 OpenAI 호출·GitHub 게시도 수행하지 않았습니다. 실행 증거는 개발 workspace `.superpowers/openai-key-restart-20261108T185109Z/`에 보존했습니다.
 
 ## 환경 구분
 
