@@ -2,7 +2,35 @@
 
 이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전, 현재 상태와 개발 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
-2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)은 코드·DB 미적용입니다. `posts`·`categories`와 JSON으로 전환하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 현재 호출 구현·모델·Secret 설정은 추가하지 않았습니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 Replit 개발 환경에 적용했습니다. 운영 DB와 배포는 변경하지 않았습니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 개발 Secret의 키 존재 여부만 확인했으며 미설정입니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+
+## 통합 게시글 실행 준비 (2026-11-09)
+
+### 개발 활성화 승인 범위
+
+- 목표: 사용자 요청에 따라 Replit 개발 DB를 공통 게시글 구조로 전환하고 통합 코드로 개발 서버를 재시작한다.
+- 범위: `/home/runner/workspace`, Development `heliumdb`, `scripts/unify-posts.sql`, 개발 서버 `npm run dev`만 적용한다. 로컬과 일치하는 검사 완료 소스를 개발 feature 브랜치에 옮긴다.
+- 완료 조건: posts의 새 컬럼·제약·인덱스 및 부고·경사 카테고리 반영, 구 테이블 2개 제거, 무관한 애플리케이션 테이블 건수 보존, 적용 파일 일치, 새 서버 프로세스와 5000번 포트 확인.
+- 제외 범위: GitHub push·PR·merge, 운영 DB·Republish, 실계정 QA, 실제 OpenAI·청첩장·부고 링크 호출, 별도 기능 회귀 실행은 하지 않는다. API 키 미설정은 그대로 구분해 보고한다.
+- 확인: 변경 전 개발 스키마 snapshot과 대상·의존 관계·건수 기록, 한 트랜잭션의 전환 SQL, 새 연결의 구조·건수 및 metadata-only catalog, 재시작 프로세스·시작 로그·비로그인 HTTP 응답만 확인한다. 같은 소스의 이미 통과한 정적 검사는 반복하지 않는다.
+
+### 코드와 실행 조건
+
+- 정책 선커밋: `2855424`; 구현 브랜치: `codex/unified-member-posts`. 통합 구현은 아직 GitHub에 게시하지 않았습니다.
+- `/b`가 공통 게시판이고 `/b/write/obituary`, `/b/write/wedding`, `/b/write/opening`에서 텍스트 초안을 작성합니다. 이전 `/events`, `/o`와 상세 경로는 사용하지 않습니다.
+- 앞선 정적 검사는 `/home/runner/workspace/.worktrees/unified-posts-check`에서 `npm run check`, 변경된 테스트 소스의 `npm run check:tests`, Python AST 구문 확인으로 마쳤습니다. 아래 개발 활성화는 이 검사와 별도 실행입니다.
+- [DB 운영 런북](./docs/database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)에 따라 구조 기록과 의존 관계를 확인한 뒤 `scripts/unify-posts.sql`과 같은 버전의 앱을 적용했습니다. 이 SQL은 개발 DB에서 이미 실행됐으며 재실행하지 않습니다. 구 코드로 두 전용 테이블을 삭제하면 경조사 요청이 실패하므로 코드와 스키마를 함께 전환합니다.
+- `server/modules/events/writer/`의 Python 파일을 런타임에 포함하고 프로젝트 루트에서 서버를 실행합니다. Python 3.10+ 및 IANA `Asia/Seoul` 시간대 자료가 필요합니다. `.replit`의 `python-base-3.13` 모듈이 포함되어 있고 현재 개발 Python은 3.13.11입니다.
+- API 키는 Replit Secrets의 서버 전용 `OPENAI_API_KEY`에만 둡니다. 브라우저·`VITE_` 설정으로 노출하지 않습니다. 일반 텍스트·정정 해석은 필요한 정보만 OpenAI로 전달하며 `store: false`를 사용합니다. 기품 링크의 구조화된 정상 경로는 정적 추출·작성으로 처리합니다. OpenAI 실제 호출은 이번 작업에서 하지 않습니다.
+- API 구현 근거: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), 2026-11-09 확인.
+
+### 개발 적용 결과
+
+- 2026-11-09 03:17 KST: `/home/runner/workspace`를 `codex/unified-member-posts`의 `2855424` 기준으로 전환하고 변경·신규 파일 52개와 제거 파일 45개를 반영했습니다. 적용 당시 소스 manifest SHA-256은 `3193618721335b1c9c4ae961a459f6bd803b293fe9f15bdf3a0611ab10a8df7c`이며, 이후 실행 결과 문서만 갱신합니다.
+- Development `heliumdb` 전환 SQL을 한 트랜잭션으로 커밋했습니다. 새 연결의 metadata-only catalog에서 12개 테이블, posts의 컬럼 4개·CHECK 2개·partial UNIQUE index 1개, 구 테이블 2개 제거를 확인했습니다. 카테고리는 5→7건이고 나머지 테이블 건수는 보존됐습니다.
+- 03:21:53 KST: 기존 개발 서버가 정지돼 있고 5000번 포트가 비어 있는 상태에서 프로젝트 루트의 `npm run dev`로 재기동했습니다. npm PID `535`, 앱 PID `557`이며, 03:22:52 KST 새 SSH 연결에서도 실행·포트 유지가 확인됐습니다.
+- 시작 로그의 개발 DB 연결·session index·5000번 포트 listen을 확인했습니다. 쿠키 없는 loopback 요청은 `/` → 200 HTML, `/api/posts` → 401 JSON입니다. Python 3.13.11의 `Asia/Seoul` 시간대 자료도 확인했습니다. 이는 기동·접근 제한 확인이며 로그인·게시 기능 전체 결과가 아닙니다.
+- 구조 snapshot, 적용 manifest, SQL·catalog·서버 receipts는 개발 workspace의 `.superpowers/unified-posts-activation-20261108T181441Z/`에 보존했습니다. 운영 DB·Republish·실계정 QA·외부 API 호출과 GitHub push·PR·merge는 하지 않았습니다. `OPENAI_API_KEY` 설정이 남아 있습니다.
 
 ## 환경 구분
 

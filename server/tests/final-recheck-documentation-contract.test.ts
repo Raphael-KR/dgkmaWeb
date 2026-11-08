@@ -51,7 +51,7 @@ test("planning proposal is the single current product and development plan", asy
   assert.match(proposal, /기존 기능의 보완과 정리/);
   assert.match(proposal, /결정이 필요한 사항/);
   assert.match(proposal, /변경되거나 폐기된 방향/);
-  assert.match(proposal, /`community_events` 기반 네 유형/);
+  assert.match(proposal, /`posts.event_data` JSON 기반 부고·결혼·개원/);
   assert.match(proposal, /Supabase 클라이언트 로그인[\s\S]*방향 변경/);
   assert.doesNotMatch(proposal, /\*\*미구현\*\*: 통합 경조사 모델/);
 

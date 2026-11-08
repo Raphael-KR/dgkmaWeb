@@ -1,18 +1,91 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 구조 관찰은 2026-09-05 Development·Production에서 실행한 읽기 전용 catalog를 기준으로 한다. 양쪽 모두 앱 테이블 14개이며 이전 Development의 추가 객체 상태는 현재 관찰과 다르다. 이름 기준 구조 메타데이터는 같고 `users`·`posts`의 일부 컬럼 물리적 순서는 다르다. 과거 기준·해시는 이력으로 보존하며 catalog 확인을 실제 계정·데이터·기능 검증으로 확대하지 않는다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 관찰은 2026-11-09 게시글 통합 후 읽기 전용 catalog이며 12개 테이블이다. Production은 이번에 조회·변경하지 않았고 마지막 관찰은 2026-09-05의 14개 테이블이다. 아래 현재 개발 구조와 통합 전 이력을 구분하며 catalog 확인을 실제 계정·기능 검증으로 확대하지 않는다.
 
-### 게시글 통합 예정 구조 (2026-11-09)
+### 게시글 통합 구조 (2026-11-09)
 
-상태는 **정책 확정·스키마 미적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)이 아래 catalog 기준과 다른 부분은 구현 예정 변경이다. 이번에는 실제 DB 조회나 스키마·데이터 변경을 수행하지 않았다.
+상태는 **코드 구현·Development 스키마 적용, Production 미적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 2026-11-09 03:17:22 KST에 `scripts/unify-posts.sql`을 커밋했다. 03:21 KST 새 연결의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 아래 현재 개발 구조를 확인했다. 전환 SQL은 재실행하지 않는다. Production은 이번에 조회하지 않았으며 아래 과거 catalog와 구분한다.
 
-- 모든 게시물과 경조사 초안은 `posts`를 사용하고 분류는 `categories`를 사용한다. `community_events`·`obituaries`는 통합 구현에서 삭제하며 별도 경조사 상세 테이블로 대체하지 않는다.
+- 모든 게시물과 경조사 초안은 `posts`를 사용하고 분류는 `categories`를 사용한다. `community_events`·`obituaries`는 통합 코드와 Development에서 삭제했으며 별도 경조사 상세 테이블로 대체하지 않는다.
 - 기존 공지·자유·행사·소식에 `부고`·`경사` 카테고리를 추가한다. `경사` JSON의 유형은 결혼·개원만 허용하며 기타 유형은 제거한다. 부고·경사의 게시문 회원 호칭은 동문·회원·권리회원으로 통일한다.
-- 경조사 구조화 정보는 `posts` 안의 JSONB로 저장한다. 유형·스키마 버전·관련 동문·행사 정보·유형별 상세를 가진 JSON 계약으로 설계한다. 정확한 컬럼명·키·제약·인덱스는 구현 설계에서 정하고 이 문서의 사전과 함께 갱신한다.
+- 경조사 구조화 정보는 `posts` 안의 JSONB로 저장한다. 유형·스키마 버전·관련 동문·행사 정보·유형별 상세를 가진 JSON 계약으로 설계한다. `event_data` JSONB는 `schemaVersion: 1`, `eventType: obituary|wedding|opening`, `facts`, `questions`, `sources`를 가진다. `source_text` TEXT는 작성자의 입력 전용이고 게시 응답에서 제외한다. `revision` INTEGER NOT NULL DEFAULT 0은 저장·생성·게시의 낙관적 잠금 값이고, `published_at` TIMESTAMP는 경조사 게시 시각이다. 일반 글은 event_data/source_text가 NULL이다. JSON 유형 CHECK, revision >= 0 CHECK와 작성자·JSON 유형별 미게시 초안 partial UNIQUE index를 둔다.
 - 제목·본문·작성자·분류·게시 상태·시각은 공통 게시글 정보다. 작성자와 권한은 서버가 정하며 JSON·LLM 출력으로 대체하지 않는다. 경조사 본문은 구조화 사실에서 생성하고 입력 원문은 게시 응답과 분리한다. 초안은 필수 사실이 덜 채워진 상태를 수용한다.
 - 기존 경조사·레거시 부고 데이터와 상세 주소는 폐기한다. 마이그레이션·ID 매핑·레거시 조회 호환을 만들지 않는다. 기존 일반 게시글·댓글·명부와 Object Storage 파일은 이 폐기 범위에 포함하지 않는다.
 - `comments.post_id → posts.id` 관계는 공통으로 사용한다. 모든 게시글과 그 댓글·첨부·검색·메타데이터 읽기에 회원 전용 정책을 적용한다.
-- 아래 14-table catalog, ERD, 두 전용 테이블 사전과 기존 소유권 표는 통합 전 실제 구조 기록이다. 코드와 해당 환경의 스키마가 바뀌기 전에는 삭제 완료나 새 catalog 수치로 바꾸지 않는다. 실제 전환 절차는 [DB 운영 런북](./database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)을 따른다.
+- 아래 1~13절의 14-table catalog·ERD·테이블 사전·소유권 표는 통합 전 실제 구조의 이력이다. 현재 Development에는 아래 2026-11-09 catalog와 변경 객체 사전을 우선 적용한다. 실제 전환 결과와 복구 자료는 [DB 운영 런북](./database-operations.md#개발-db-전환-결과)을 따른다.
+
+#### 코드와 환경 적용 구분
+
+| 항목 | 2026-11-09 상태 |
+|---|---|
+| 코드 의도 | 11개 `pgTable` + runtime `session`; posts의 4개 컬럼·2개 CHECK·1개 partial UNIQUE 추가, 전용 테이블 2개 제거 |
+| 전환 SQL | `scripts/unify-posts.sql`; 개발 DB 이름 확인 후 한 트랜잭션, `DROP ... CASCADE` 없음 |
+| Development 관찰 | 전환 후 12개 테이블. 새 연결에서 컬럼·제약·인덱스·구 테이블 제거와 read-only catalog 완료 |
+| Production | 이번 작업에서 조회·변경하지 않음 |
+| 코드 확인 | Replit `npm run check`, `npm run check:tests`, writer Python 4개 AST 구문 확인 통과. 기능 실행 결과를 뜻하지 않음 |
+
+#### 구현 계약
+
+- `/api/posts/notices/drafts/:type`에서 본인 초안을 복구·생성한다. `/api/posts/notices/:id`는 원문 저장·삭제, 하위 `/generate`는 정적 추출→OpenAI Responses 구조화→회원 확인→정적 작성, `/publish`는 확인한 revision의 본문 게시다. 클라이언트는 자연어 원문과 revision만 보낸다.
+- 모든 변경은 세션 작성자와 `is_published=false` 및 revision을 확인한다. 원문 변경은 기존 미리보기를 지운다. 게시 직전 대상 회원과 정적 본문을 재확인한다. API가 생성한 JSON이나 권한 필드를 클라이언트가 덮어쓸 수 없다.
+- 부고는 프로젝트에 복제한 writer Python 원본 3개와 stdin 전용 bridge를 사용한다. 경사는 기존 스킬의 홈페이지 형식을 TypeScript 정적 작성기로 구현한다. 양식 필드 UI와 이전 API·상세 주소는 제거한다.
+- 계정 탈퇴 시 미게시 초안은 삭제하고 게시 글 작성자는 NULL로 처리한다. 입력 원문은 게시 시 지워 이후 재노출되지 않는다.
+
+#### 개발 DB catalog (2026-11-09)
+
+| 항목 | Development 현재 관찰 | Production 마지막 관찰 |
+|---|---|---|
+| 관찰일 | 2026-11-09 03:21 KST / 2026-11-08 18:21 UTC | 2026-09-05, 이번에는 조회하지 않음 |
+| 대상·버전 | `heliumdb`, PostgreSQL 16.10, `public`, READ ONLY | `neondb`, PostgreSQL 16.15 (과거 기록) |
+| tables / columns | 12 / 94 | 14 / 119 |
+| PK / FK / non-PK UNIQUE / CHECK | 12 / 8 / 5 / 4 | 14 / 10 / 6 / 2 |
+| indexes / sequences | 22 / 8 | 24 / 10 |
+| views / triggers / policies / routines / enums / domains | 모두 0 | 모두 0 (과거 기록) |
+| `community_events`, `obituaries` | 둘 다 없음 | 둘 다 존재 (과거 기록) |
+| posts 통합 객체 | 새 컬럼 4개, CHECK 2개, partial UNIQUE index 1개 | 당시 없음 |
+
+- 현재 테이블은 `alumni_database`, `alumni_name_aliases`, `categories`, `comments`, `event_parse_rate_limits`, `kakao_identity_terminations`, `kakao_oauth_states`, `payments`, `pending_registrations`, `posts`, `session`, `users`다. 코드의 11개 `pgTable`과 runtime `session`에 대응한다.
+- 사용한 catalog SQL SHA-256: `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f`; 이번 출력 SHA-256: `faecae6841f590e5e85ff0646c0ef8da691d518b3ce92affb0acbe7954dc9049`.
+- 근거: Replit 개발 workspace `.superpowers/unified-posts-activation-20261108T181441Z/after-catalog.txt`와 `after.json`. 활성화 당시 코드 기준은 `codex/unified-member-posts`, 정책 commit `2855424`와 미커밋 통합 구현이며 적용 manifest는 같은 경로에 보존했다. 새 코드의 기동 결과는 [Replit 운영 문서](../replit.md#개발-적용-결과)를 따른다.
+
+#### 현재 개발 변경 객체 사전
+
+`posts`의 기존 9개 컬럼·PK·FK 두 개는 유지하고 다음 객체를 추가했다. 나머지 존속 테이블의 구조는 변경하지 않았다.
+
+| 컬럼 | 타입 | NULL 허용 | 기본값 | identity / generated |
+|---|---|---|---|---|
+| `posts.event_data` | `jsonb` | 허용 | 없음 | 없음 / 없음 |
+| `posts.source_text` | `text` | 허용 | 없음 | 없음 / 없음 |
+| `posts.revision` | `integer` | 불가 | `0` | 없음 / 없음 |
+| `posts.published_at` | `timestamp without time zone` | 허용 | 없음 | 없음 / 없음 |
+
+- `posts_notice_type_check`: event_data가 NULL이거나 `schemaVersion = 1`과 `eventType = obituary|wedding|opening`이 모두 참이어야 한다. 필드 누락으로 판정이 NULL이 되면 허용하지 않는다. catalog의 validated는 true다.
+- `posts_revision_check`: `revision >= 0`; validated는 true다.
+- `posts_notice_draft_unique`: btree UNIQUE `(author_id, (event_data->>'eventType')) WHERE is_published = false AND event_data IS NOT NULL`; valid·ready·unique는 모두 true다. FK는 기존 `posts.author_id → users.id`, `posts.category_id → categories.id`를 유지한다. 작성자 필수와 JSON 상세 사실은 서버 계약이 강제한다.
+- `categories`에는 구조 변경 없이 활성 `obituary`(부고, 정렬 5), `celebration`(경사, 정렬 6)을 추가했다.
+- 제거 객체는 `community_events`·`obituaries`와 그 소유 시퀀스 두 개, PK 두 개, author FK 두 개, `community_events_legacy_obituary_id_unique` 및 관련 인덱스다. 다른 테이블의 incoming FK는 없었고 CASCADE 삭제를 사용하지 않았다.
+- 소유권: Community Content가 공통 `posts`·`categories`·`comments`를 관리한다. 경조사 모듈은 같은 `posts`의 작성자 전용 초안·JSON·게시를 처리하며 전용 물리 테이블은 `event_parse_rate_limits`만 유지한다. 다른 영역의 테이블 소유권은 통합 전 표와 같다.
+- 초안 생성은 작성자·유형별 advisory lock과 partial unique index를 사용하고 원문 저장·생성·게시는 revision으로 충돌을 판정한다. 게시 시 원문을 지우며 게시 응답에서 JSON·입력 원문을 제외한다. 계정 삭제는 미게시 초안을 삭제하고 게시 글의 작성자 연결만 해제한다.
+
+#### 현재 개발 ERD
+
+```mermaid
+erDiagram
+  users o|--o{ posts : author_id
+  users o|--o{ comments : author_id
+  users o|--o{ payments : user_id
+  users o|--o{ alumni_database : matched_user_id
+  alumni_database ||--o{ alumni_name_aliases : alumni_id
+  users ||--o| event_parse_rate_limits : user_id
+  categories o|--o{ posts : category_id
+  posts ||--o{ comments : post_id
+```
+
+현재 물리 FK 8개를 표시한다. 전체 환경을 새로 만드는 migration은 아니며, 기존 개발 구조의 전환은 `scripts/unify-posts.sql`로 한 번 수행했다. 아래 이력의 레거시 부고 이관 SQL은 통합 구현에서 제거했고 다시 사용하지 않는다.
+
+---
+
+**다음 1~13절은 통합 전 구조 이력이다.** 2026-07~09의 소스·catalog·테이블 사전·ERD·위험 기록을 보존하며 현재 Development 구조로 읽지 않는다. 현재 Development 기준은 위 2026-11-09 관찰과 변경 객체 사전이다. Production의 마지막 관찰에는 이 과거 구조가 해당하지만 현재 상태를 재조회한 결과는 아니다.
 
 ## 1. authority/verification metadata
 
@@ -296,4 +369,4 @@ registration/approval, account deletion, alumni claim/sync는 여러 owner의 �
 
 Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행한다. Production은 연결 문자열을 명시적으로 선택하고 `expected_database=neondb` safety gate, `READ ONLY`, `ROLLBACK`, completion marker를 모두 확인한다.
 
-체크리스트: 문서 14개 장의 고정 순서와 catalog 출력 18개 section의 고정 순서를 각각 확인하고, Production의 14 table row, 119 columns, 14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, zero-count category, RLS false 14를 재확인한다. Development는 앱 baseline 밖 객체를 앱 스키마로 오인하지 않고 별도 reconciliation한다. 재검증은 metadata-only이고 결과의 행·PII·Secret을 저장하지 않는다.
+현재 재검증에서는 선택한 환경·소스 버전과 catalog 객체의 이름·타입·기본값·제약·인덱스 정의를 대조한다. Development는 위 2026-11-09 통합 구조를 기준으로 하고, Production의 과거 14개 테이블 수치를 현재 관찰이나 고정 통과 조건으로 대신하지 않는다. metadata-only 결과에는 행·PII·Secret을 저장하지 않는다.

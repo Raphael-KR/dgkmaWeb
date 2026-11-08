@@ -4,10 +4,25 @@
 
 ## 게시글 통합 결정과 실행 범위 (2026-11-09)
 
+현재 사용자 요청은 **Replit 개발 DB 전환·통합 코드 적용·개발 서버 재시작**이다. 개발 서버를 잠시 멈춘 상태에서 준비된 같은 버전의 코드와 SQL을 함께 적용하고 `npm run dev`로 기동한다. GitHub 게시나 main 병합은 포함하지 않는다. 변경 전 schema-only snapshot과 기존 Git 기준·파일 digest를 개발 workspace의 Git 제외 경로 `.superpowers/`에 보존한다. 기존 두 전용 테이블의 테스트 행은 승인대로 폐기하며 데이터 이관·복원은 수행하지 않는다. 전환 SQL 실패 시 커밋되지 않은 트랜잭션은 종료하고, 성공한 변경의 원복은 자동 실행하지 않는다.
+
+
 - [확정 제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 통합 구현의 삭제 대상은 `community_events`·`obituaries` 두 테이블과 그 안의 기존 경조사·레거시 부고 데이터다. 새 저장 경로는 `posts`·`categories`와 `posts` 내부 JSONB다. PostgreSQL 데이터베이스 전체, 일반 게시글·댓글·명부 또는 Object Storage 파일 삭제를 뜻하지 않는다.
 - 사용자가 출시 전 데이터·상세 주소 폐기와 마이그레이션 불필요를 확정했다. 보존 이관·ID 매핑·옛 상세 주소 호환을 작업에 추가하지 않는다. 기존 `migrate-obituaries-to-community-events.sql`은 이 전환에 사용하지 않는다.
-- 현재 요청은 구현 전 정책 정리다. 이 문서 변경으로 SQL·초기화·테이블 삭제를 실행하지 않는다. 실제 개발 전환에서는 대상 DB와 의존 관계, 삭제 범위·순서와 복구 가능한 구조 기록을 준비한 뒤 확정된 범위에 적용한다. 무관한 객체를 함께 삭제하는 `DROP ... CASCADE`는 사용하지 않는다.
+- 2026-11-09 정책 선커밋 후 통합 구현 요청을 받았다. 개발 전환에서는 대상 DB와 의존 관계, 삭제 범위·순서와 복구 가능한 구조 기록을 준비한 뒤 확정된 범위에 적용한다. 무관한 객체를 함께 삭제하는 `DROP ... CASCADE`는 사용하지 않는다.
+- 전환 SQL은 `scripts/unify-posts.sql` 한 트랜잭션으로 posts 컬럼·제약·인덱스 추가 → 카테고리 추가 → 두 구 테이블 DROP 순서다. Development 구조 snapshot과 의존 관계·건수 미리보기 후 적용하며 일반 posts/comments와 다른 테이블의 건수는 보존한다. 실패 시 트랜잭션은 rollback된다. 성공 후에는 구 테스트 행 복원 없이 snapshot으로 구조만 복원할 수 있으나 자동 rollback은 하지 않는다.
+- 앞선 정적 검사 단계에서는 별도 checkout만 사용하고 기존 14개 테이블을 read-only로 확인했다. 이후 사용자 요청에 따라 아래 개발 활성화를 별도로 수행했다.
 - 운영 배포와 실계정 QA는 계속 보류한다. 개발 전환이 운영 DB 변경·Republish를 자동으로 시작하지 않는다. 새 환경별 적용 결과는 실제 실행 후 기록한다.
+
+### 개발 DB 전환 결과
+
+- 실행일: 2026-11-09 KST. 대상은 Replit `PG*` 기본 연결의 Development `heliumdb`이고 `REPLIT_DEPLOYMENT`가 운영 값이 아님을 확인했다. Production 연결은 선택하지 않았다.
+- 변경 전: `community_events`·`obituaries` 각 0건, 다른 테이블에서 두 테이블을 참조하는 FK 0개. 두 테이블의 author FK만 `users`를 참조했다. 카테고리 5건, 나머지 애플리케이션 테이블 각 0건이었다.
+- 복구 자료: `/home/runner/workspace/.superpowers/unified-posts-activation-20261108T181441Z/`에 `before-schema.sql`(schema-only, 19,948 bytes, SHA-256 `d6c7eab180dde0b21837ab78bafd69ac64f52ec93e5e17d91bf46ce5c24e65d8`), `before.json`, 적용 소스 manifest를 보존했다. 이전 checkout은 main `abff93e`, 전환 후보는 정책 commit `2855424`와 그 위의 검사 완료 구현 변경이다. 원복 실행은 하지 않았다.
+- 03:17:22 KST: `scripts/unify-posts.sql` 한 트랜잭션 COMMIT. `posts` 컬럼 4개·CHECK 2개·partial UNIQUE index 1개, 부고·경사 카테고리를 추가하고 두 구 테이블만 삭제했다. 이 SQL은 재실행용이 아니다.
+- 03:21 KST 새 연결: 구 테이블 없음, 새 컬럼의 타입·NULL·기본값, CHECK validated 및 unique index valid/ready를 확인했다. 카테고리는 7건이며 `obituary=부고`, `celebration=경사`가 활성 상태다. 일반 posts/comments·회원·명부 등 나머지 11개 테이블은 변경 전과 같은 각 0건이다.
+- canonical metadata-only catalog는 `heliumdb`·READ ONLY gate·ROLLBACK·completion marker로 종료했다. 관찰한 tables/columns/PK/FK/non-PK UNIQUE/CHECK/index/sequence는 `12/94/12/8/5/4/22/8`이다. 상세 구조는 [스키마 기준서](./database-schema.md#개발-db-catalog-2026-11-09)를 따른다.
+- SQL 결과는 `transition-output.txt`·`transition-receipt.json`, 새 연결 결과는 `after.json`·`after-catalog.txt`에 보존했다. 개발 서버 재기동 결과는 [Replit 운영 문서](../replit.md#개발-적용-결과)에 기록했다.
 
 ## 환경과 기준 상태
 

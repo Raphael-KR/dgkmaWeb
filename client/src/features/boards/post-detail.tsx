@@ -79,10 +79,9 @@ export default function PostDetail() {
   };
 
   useSeo({
-    title: post?.title || "게시글",
-    description: post?.content
-      ? post.content.replace(/\s+/g, " ").trim().slice(0, 150)
-      : "동국대학교한의과대학동문회 게시글을 확인합니다.",
+    title: "회원 게시글",
+    description: "로그인한 회원만 게시글을 확인할 수 있습니다.",
+    noIndex: true,
     path: postId ? `/post/${postId}` : undefined,
     type: "article",
   });
@@ -139,7 +138,7 @@ export default function PostDetail() {
                   {post.category?.displayName}
                 </Badge>
                 <span className="text-xs text-gray-500">
-                  {new Date(post.createdAt).toLocaleDateString('ko-KR', {
+                  {new Date(post.publishedAt || post.createdAt).toLocaleDateString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',

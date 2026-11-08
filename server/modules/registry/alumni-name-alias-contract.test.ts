@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("official alumni aliases use a separate constrained table and obituary-only lookup", async () => {
+test("official alumni aliases use a separate constrained table and notice proxy lookup", async () => {
   const [schema, storage, policy] = await Promise.all([
     readFile(new URL("../../db/schema/index.ts", import.meta.url), "utf8"),
     readFile(new URL("./storage.ts", import.meta.url), "utf8"),
-    readFile(new URL("../events/obituary-member-policy.ts", import.meta.url), "utf8"),
+    readFile(new URL("../events/event-member-policy.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(schema, /pgTable\("alumni_name_aliases"/);

@@ -19,7 +19,7 @@ const bytes = files.reduce((sum, file) => sum + statSync(root + file).size, 0);
 const gzip = files.reduce((sum, file) => sum + gzipSync(readFileSync(root + file)).length, 0);
 const routes = Object.entries(manifest).filter(([key, value]) =>
   key.startsWith("src/features/") && value.isDynamicEntry);
-assert.equal(routes.length, 23, "Every non-public-home screen should have a lazy entry");
+assert.equal(routes.length, 21, "Every non-public-home screen should have a lazy entry");
 for (const [key] of routes) assert.ok(!initial.has(key), `${key} leaked into initial JS`);
 assert.ok(bytes < 400_000, `Initial JS budget exceeded: ${bytes}`);
 for (const value of Object.values(manifest)) {
@@ -29,6 +29,6 @@ console.log(JSON.stringify({
   initialJsChunks: files.length, initialJsBytes: bytes, initialJsGzipBytes: gzip,
   lazyRouteEntries: routes.length,
   totalJsChunks: Object.values(manifest).filter(value => value.file.endsWith(".js")).length,
-  budgets: { initialJsBytes: 400_000, individualJsChunkBytes: 500_000, lazyRouteEntries: 23 },
+  budgets: { initialJsBytes: 400_000, individualJsChunkBytes: 500_000, lazyRouteEntries: 21 },
   measurementScope: "Build-time guard for initial and per-chunk JavaScript only; npm run measure:mobile compares browser requests, transfer bytes, and cold LCP.",
 }, null, 2));

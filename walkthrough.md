@@ -2,6 +2,24 @@
 
 이 문서는 별도로 요청된 기능·운영 점검에 참고할 절차와 과거 수행 기록을 보관합니다. 다음 기능 개발은 [제품·개발 통합 계획서](./planning_proposal.md)를 따릅니다. 아래 체크리스트는 일상 개발의 완료 조건이나 다음 작업 목록이 아닙니다.
 
+## 게시글·경조사 통합 개발 적용 (2026-11-09)
+
+- 사용자 요청 범위는 Replit 개발 DB 전환, 통합 코드 적용과 개발 서버 재시작이다. 운영 배포와 실계정 QA는 계속 보류했다.
+- 개발 workspace `/home/runner/workspace`를 `codex/unified-member-posts`, 정책 commit `2855424`와 미커밋 구현으로 전환했다. 적용한 변경·신규 파일 52개 SHA-256과 삭제 파일 45개를 확인했다. 앱 소스는 앞선 정적 검사 후보와 같아 같은 검사를 반복하지 않았다.
+- 삭제 대상 두 테이블은 각각 0건이고 incoming FK는 없었다. 변경 전 schema-only snapshot을 보존한 뒤 03:17:22 KST에 `scripts/unify-posts.sql`을 한 트랜잭션으로 커밋했다. 새 연결에서 posts 확장·구 테이블 제거·카테고리 5→7건·다른 테이블 건수 보존을 확인했다. 03:21 KST canonical read-only catalog는 12개 테이블과 completion marker를 확인했다.
+- 03:21:53 KST 정지 상태의 개발 서버를 루트에서 `npm run dev`로 재기동했다(npm PID 535, 앱 PID 557). 시작 로그의 개발 DB 연결·session index·5000번 포트를 확인했고, 03:22:52 KST 새 SSH 연결에서 프로세스와 포트 유지도 확인했다.
+- 쿠키 없는 loopback GET은 `/` 200 HTML, `/api/posts` 401 JSON이었다. 이는 기동과 회원 접근 제한만 확인한 결과다. 로그인·경조사 작성·게시, 실제 OpenAI 및 청첩장·부고 링크 호출, 브라우저·실계정 QA는 실행하지 않았다. `OPENAI_API_KEY`는 미설정이다.
+- 증거는 개발 workspace `.superpowers/unified-posts-activation-20261108T181441Z/`의 before/after schema metadata, source manifest, transition/server receipts에 보존했다. GitHub push·PR·merge, 운영 DB 변경과 Republish는 하지 않았다. 구조·적용 세부는 [DB 런북](./docs/database-operations.md#개발-db-전환-결과)과 [Replit 운영 문서](./replit.md#개발-적용-결과)를 따른다.
+
+## 게시글·경조사 통합 정적 확인 (2026-11-09, 개발 적용 전 이력)
+
+- 정책 커밋 `2855424` 후 `codex/unified-member-posts`에서 공통 posts·categories, JSON, 텍스트 작성·추가 질문·미리보기 게시와 회원 권한을 구현했다. 구현 변경은 아직 커밋·push하지 않았다.
+- Replit `/home/runner/workspace/.worktrees/unified-posts-check`에서 로컬 변경 파일 51개의 SHA-256 일치를 확인한 뒤 `npm run check`(187개 애플리케이션 파일의 타입·의존 경계), `npm run check:tests`를 통과했다. Python 작성기 4개는 AST 구문만 확인했고, 기존 문서 계약 6개는 파일 내용만 읽는 정적 확인으로 통과했다.
+- 개발 DB catalog는 `heliumdb`의 read-only gate·ROLLBACK·completion marker를 확인했다. 기존 테이블은 14개이고 `community_events`·`obituaries`가 남아 있다. 이는 전환 전 구조 관찰이며 새 스키마 적용이나 제품 동작 확인을 뜻하지 않는다.
+- 현재 Replit 서버용 `OPENAI_API_KEY`는 미설정이다. 실제 OpenAI·부고/청첩장 링크 호출, 제품 테스트, 브라우저·실계정 QA, DB 전환 SQL, 재시작·smoke, 운영 배포는 실행하지 않았다.
+- 실행 중인 개발 workspace는 main `abff93e`와 clean 상태를 유지한다. 통합 활성화 순서는 [Replit 운영 문서](./replit.md#통합-게시글-실행-준비-2026-11-09)와 [DB 런북](./docs/database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)을 따른다.
+
+
 ## 현재 적용 기준 (2026-11-08)
 
 - 개발 직후 점검은 변경 범위에 필요한 정적 검사로 최소화한다. 세부 기준은 [AGENTS.md](./AGENTS.md#개발-직후-점검)를 따른다.

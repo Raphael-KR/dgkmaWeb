@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { emptyNoticeFacts, type NoticeFacts } from "@shared/contracts/notices";
+import { runNoticeWriter } from "../notice-writer";
 import { fetchPublicJson } from "./public-page-fetcher";
 
 const GIPOOM_SOURCE_HOST = "bugo.gipoom.com";
@@ -200,4 +202,34 @@ export async function readGipoomPublicObituary(
   const parsed = gipoomResponseSchema.safeParse(response);
   if (!parsed.success) throw new Error("기품 공개 정보 형식을 확인할 수 없습니다");
   return renderSelectedFields(parsed.data);
+}
+
+// Website fetch remains bounded and SSRF-checked; upstream Python does selection only.
+export async function readGipoomNotice(rawUrl: string, signal?: AbortSignal): Promise<{ text: string; facts: NoticeFacts }> {
+  const source = sourceUrl(rawUrl);
+  if (!source) throw new Error("Unsupported public obituary URL");
+  const response = await fetchPublicJson(`${GIPOOM_API_ROOT}${decodeGipoomPublicId(source.pathname.slice(1))}`, undefined, signal);
+  const data = gipoomResponseSchema.parse(response);
+  const selected = await runNoticeWriter<{
+    member: { name: string | null; reverseType: string | null };
+    deceased: { name: string | null; age: number | null; deathDate?: string };
+    contact: { bank: string | null; accountNumber: string | null; accountHolder: string | null };
+    funeral: { funeralHome: string | null; room: string | null; floor: string | null; coffinOutDate: string | null; coffinOutTime: string | null; cemetery?: string; visitationDeclined?: boolean };
+  }>({ action: "extract", data, url: rawUrl });
+  const facts = emptyNoticeFacts();
+  Object.assign(facts, {
+    memberName: selected.member.name, relation: selected.member.reverseType?.replace(/상$/, "") ?? null,
+    deceasedName: selected.deceased.name, deceasedAge: selected.deceased.age ? String(selected.deceased.age) : null,
+    deathDate: selected.deceased.deathDate ?? null, date: selected.funeral.coffinOutDate, time: selected.funeral.coffinOutTime,
+    place: selected.funeral.funeralHome, room: selected.funeral.room, floor: selected.funeral.floor,
+    cemetery: selected.funeral.cemetery ?? null, visitationDeclined: selected.funeral.visitationDeclined === true,
+  });
+  if (facts.relation === "장인") facts.relation = "빙부";
+  if (facts.relation === "장모") facts.relation = "빙모";
+  const account = selected.contact;
+  if (account.bank && account.accountNumber && account.accountHolder) {
+    facts.accounts = [{ role: "member", label: "", bank: account.bank, number: account.accountNumber, holder: account.accountHolder }];
+  }
+  // A deceased person's phone cannot become the family contact automatically.
+  return { text: renderSelectedFields(data), facts };
 }
