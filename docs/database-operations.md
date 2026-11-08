@@ -2,6 +2,13 @@
 
 이 문서는 dgkmaWeb의 Development Database와 Production Database를 SSH에서 구분하여 조회·변경·검증하는 기준 절차다. 실제 접속 문자열, 비밀번호, 토큰은 이 문서나 Git에 기록하지 않는다.
 
+## 게시글 통합 결정과 실행 범위 (2026-11-09)
+
+- [확정 제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 통합 구현의 삭제 대상은 `community_events`·`obituaries` 두 테이블과 그 안의 기존 경조사·레거시 부고 데이터다. 새 저장 경로는 `posts`·`categories`와 `posts` 내부 JSONB다. PostgreSQL 데이터베이스 전체, 일반 게시글·댓글·명부 또는 Object Storage 파일 삭제를 뜻하지 않는다.
+- 사용자가 출시 전 데이터·상세 주소 폐기와 마이그레이션 불필요를 확정했다. 보존 이관·ID 매핑·옛 상세 주소 호환을 작업에 추가하지 않는다. 기존 `migrate-obituaries-to-community-events.sql`은 이 전환에 사용하지 않는다.
+- 현재 요청은 구현 전 정책 정리다. 이 문서 변경으로 SQL·초기화·테이블 삭제를 실행하지 않는다. 실제 개발 전환에서는 대상 DB와 의존 관계, 삭제 범위·순서와 복구 가능한 구조 기록을 준비한 뒤 확정된 범위에 적용한다. 무관한 객체를 함께 삭제하는 `DROP ... CASCADE`는 사용하지 않는다.
+- 운영 배포와 실계정 QA는 계속 보류한다. 개발 전환이 운영 DB 변경·Republish를 자동으로 시작하지 않는다. 새 환경별 적용 결과는 실제 실행 후 기록한다.
+
 ## 환경과 기준 상태
 
 | 구분 | Development Database | Production Database |

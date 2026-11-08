@@ -87,8 +87,16 @@ test("development uses minimal static checks and the plan tracks missing feature
   }
   assert.match(walkthrough, /## 현재 적용 기준/);
   assert.match(walkthrough, /운영 배포와 실계정 QA는 계속 보류/);
-  assert.match(proposal, /상세 입력은 등록 명령 이후/);
-  assert.match(proposal, /목록 필터 없이 전체 경조사/);
+  assert.match(proposal, /모든 `posts`는 회원 전용/);
+  assert.match(proposal, /구조화 정보는 `posts` 내부 JSON으로 저장/);
+  assert.match(proposal, /기존 경조사·부고의 상세 필드 입력 폼을 모두 제거/);
+  assert.match(proposal, /홈페이지 서버에서 OpenAI API를 호출/);
+  assert.match(proposal, /기존 경조사·레거시 부고 데이터와 상세 주소는 폐기/);
+  assert.match(proposal, /`부고`·`경사` 카테고리를 추가/);
+  assert.match(proposal, /`경사`의 JSON 유형은 `결혼`·`개원`만 사용/);
+  assert.match(proposal, /`기타` 유형은 제거/);
+  assert.match(proposal, /게시문 호칭은 부고·경사 모두 `동문·회원·권리회원`으로 통일/);
+  assert.doesNotMatch(proposal, /상세 입력은 등록 명령 이후/);
   assert.match(walkthrough, /등록 명령을 누르기 전에는 상세 필드와 미리보기가 표시되지 않/);
   assert.match(walkthrough, /목록 필터 없이 모든 유형의 경조사가 함께 표시/);
 });
