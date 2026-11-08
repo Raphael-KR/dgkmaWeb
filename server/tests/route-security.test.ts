@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
-import type { Category, Obituary, Post } from "@shared/schema";
+import type { Category, Obituary, Post, User } from "@shared/schema";
 import type { AdminUserLookup } from "../middleware/auth";
 import { AlumniSourceReadError, googleSheetsService } from "../integrations/google-sheets";
 import { registerRoutes } from "../routes";
@@ -245,6 +245,10 @@ test("obituary APIs require a member session", async (t) => {
   };
   let obituaryStorageCalls = 0;
   let createdObituaryInput: Parameters<typeof storage.createObituary>[0] | undefined;
+  t.mock.method(storage, "getUser", async () => ({
+    id: memberId, name: obituary.deceasedName, isAdmin: false,
+  } as User));
+  t.mock.method(storage, "getAlumniRecordByUserId", async () => undefined);
   t.mock.method(storage, "getObituaries", async () => {
     obituaryStorageCalls += 1;
     return [obituary];
@@ -314,11 +318,13 @@ test("obituary APIs require a member session", async (t) => {
         deceasedName: "홍길동",
         deceasedRelation: "부친",
         dateOfDeath: "2026-07-11",
+        relatedMemberName: obituary.deceasedName,
         authorId: 1,
       }),
     });
     assert.equal(memberCreate.status, 201);
     assert.equal(createdObituaryInput?.authorId, memberId);
+    assert.equal("relatedMemberName" in (createdObituaryInput ?? {}), false);
     assert.equal(obituaryStorageCalls, 3);
   } finally {
     await server.close();

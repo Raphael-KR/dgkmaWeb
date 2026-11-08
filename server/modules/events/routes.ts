@@ -13,12 +13,21 @@ import { readEventSources } from "./event-source-reader";
 import { normalizeCommunityEventSources, sanitizeStoredCommunityEventSources } from "./community-event-source-policy";
 import { EventSourcePolicyError } from "./event-source-policy";
 import { assembleTrustedObituary } from "./obituary-member-policy";
+import { normalizeMemberName, resolveEventMember } from "./event-member-policy";
+import { insertObituarySchema } from "@shared/contracts";
+import { getErrorType } from "../../lib/safe-logging";
 import type { RouteContext } from "../../lib/route-context";
 
 const eventParseRequestSchema = z.object({
   eventType: z.enum(COMMUNITY_EVENT_TYPES),
   input: z.string().min(1).max(20_000),
 }).strict();
+
+// Target metadata is authorization input, not a new legacy table column.
+const legacyObituaryRegistrationSchema = insertObituarySchema.extend({
+  relatedMemberName: z.string().trim().min(1),
+  sourceText: z.string().max(20_000).optional(),
+});
 
 export type RouteEventSourceReader = (
   input: string,
@@ -88,12 +97,28 @@ export function registerEventRoutes(
       if (!req.session?.userId) {
         return res.status(401).json({ message: "로그인이 필요합니다" });
       }
-      const obituary = await storage.createObituary({
-        ...req.body,
-        authorId: req.session.userId,
-      });
+      const { relatedMemberName, sourceText, ...data } = legacyObituaryRegistrationSchema.parse(req.body);
+      const member = await resolveEventMember({ relatedMemberName, sourceText }, req.session.userId, storage);
+      if (member.kind === "blocked") {
+        return res.status(400).json({ message: member.message, missingFields: member.missingFields });
+      }
+      if (data.deceasedRelation.trim() === "본인"
+        && normalizeMemberName(relatedMemberName) !== normalizeMemberName(data.deceasedName)) {
+        console.warn("Legacy self obituary denied", { memberMatchesDeceased: false });
+        return res.status(400).json({
+          message: "본인상은 동문 이름과 고인 이름이 같아야 합니다",
+          missingFields: ["deceasedName"],
+        });
+      }
+      const obituary = await storage.createObituary({ ...data, authorId: req.session.userId });
       res.status(201).json(obituary);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        const missingFields = error.issues.map((issue) => issue.path.join("."));
+        console.warn("Legacy obituary input rejected", { missingFields, issueCount: error.issues.length });
+        return res.status(400).json({ message: "부고 등록 정보를 확인해주세요", missingFields });
+      }
+      console.error("Legacy obituary registration failed", { errorType: getErrorType(error) });
       res.status(500).json({ message: "부고 등록에 실패했습니다" });
     }
   });
@@ -327,6 +352,11 @@ export function registerEventRoutes(
         if (data.eventType !== ownedDraft.eventType) {
           return res.status(400).json({ message: "잘못된 요청입니다" });
         }
+        const member = await resolveEventMember(data, userId, storage);
+        if (member.kind === "blocked") {
+          return res.status(400).json({ message: member.message, missingFields: member.missingFields });
+        }
+        data = { ...data, relatedMemberName: member.memberDisplayName };
       }
 
       const event = await storage.publishEvent(id, userId, data);

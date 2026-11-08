@@ -6,7 +6,7 @@ import {
   COMMUNITY_EVENT_TYPES,
   type CommunityEventDraftInput,
 } from "@shared/community-events";
-import type { CommunityEvent } from "@shared/schema";
+import type { CommunityEvent, User } from "@shared/schema";
 import type { AdminUserLookup } from "../../middleware/auth";
 import { registerRoutes } from "../../routes";
 import { storage } from "../../storage";
@@ -105,6 +105,11 @@ test("community event APIs enforce member sessions and do not expose source text
   let updatedDraft: Parameters<typeof storage.updateEventDraft>[2] | undefined;
   let publishedAuthorId: number | undefined;
   let publishedData: Parameters<typeof storage.publishEvent>[2] | undefined;
+
+  t.mock.method(storage, "getUser", async () => ({
+    id: memberId, name: draftPayload.relatedMemberName, isAdmin: false,
+  } as User));
+  t.mock.method(storage, "getAlumniRecordByUserId", async () => undefined);
 
   t.mock.method(storage, "getPublishedEvents", async (...[eventType]: Parameters<typeof storage.getPublishedEvents>) => {
     storageCalls += 1;
@@ -289,7 +294,7 @@ test("all community event types support draft, publish, and filtered list routes
       eventType: "wedding",
       title: "김동국 동문 자녀 결혼",
       eventDate: "2026-08-10",
-      relatedMemberName: "김동국",
+      relatedMemberName: "서버 회원",
       details: { memo: "결혼 안내" },
       sourceUrls: [],
     },
@@ -297,7 +302,7 @@ test("all community event types support draft, publish, and filtered list routes
       eventType: "opening",
       title: "김동국 동문 개원",
       eventDate: "2026-08-11",
-      relatedMemberName: "김동국",
+      relatedMemberName: "서버 회원",
       details: { memo: "개원 안내" },
       sourceUrls: [],
     },
@@ -305,7 +310,7 @@ test("all community event types support draft, publish, and filtered list routes
       eventType: "other",
       title: "김동국 동문 소식",
       eventDate: "2026-08-12",
-      relatedMemberName: "김동국",
+      relatedMemberName: "서버 회원",
       details: { memo: "기타 안내" },
       sourceUrls: [],
     },

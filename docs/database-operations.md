@@ -18,9 +18,11 @@ Google Sheets는 최종 전환 선언 전까지 명부 관리 원본이고 Postg
 로컬 Mac에서 다음 SSH 명령으로 Replit 개발 워크스페이스에 접속한다.
 
 ```bash
-ssh -i ~/.ssh/replit -p 22 <replit-user>@<replit-host>
+ssh -i ~/.ssh/replit -p 22 dc5e5541-525b-4ad6-b914-2d2db70cb4a9@dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev
 cd /home/runner/workspace
 ```
+
+2026-11-08 이전 개발 세션의 사용자 제공 명령을 확인한 뒤 이 명령으로 접속을 재검증했다. 사용자명은 Replit ID 전체이며 Mac 계정명이나 `runner`가 아니다. 개발 checkout의 HEAD·working tree와 Node/npm 버전만 확인했으며, 이 접속 검증에서 DB나 Secret 값을 조회하지 않았다. 호스트가 바뀌면 Replit의 SSH 접속 명령을 다시 확인한다.
 
 이 SSH는 Replit 개발 워크스페이스에 연결된다. autoscale 프로덕션 인스턴스의 셸이 아니다. 다만 개발 워크스페이스에 `PROD_DATABASE_URL`이 설정되어 있으면 SSH 프로세스가 그 URL을 명시적으로 선택해 Production Database에 직접 연결할 수 있다.
 
