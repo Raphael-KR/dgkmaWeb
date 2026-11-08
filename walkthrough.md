@@ -859,7 +859,7 @@ server/tests/final-recheck-documentation-contract.test.ts
 | `server/modules/events/obituary-member-policy.ts` | `b4035e9b46c4853026acfdb71f2a5c9511599ac6d8902b1c6cc3fba55de40532` |
 | `server/modules/events/routes.ts` | `87e1b2f845b897b78a23c0c7c3879ec6a2ae14106d722737ae7b3aa997daac9c` |
 
-Replit의 locale 경고와 npm 새 버전 안내는 검사 실패가 아니며 도구 설치·업데이트는 하지 않았다. 이 구현 검증 단계에서는 개발 워크스페이스의 소스 반영과 직접 라우트 실행·타입·빌드 검증까지 수행했다. 이 시점에는 개발 웹서버 재시작·commit·push·PR을 수행하지 않았으며 후속 실행은 아래에 구분해 기록한다. 인증 화면 조작·실계정 통합 QA·merge·Republish·운영 smoke check는 보류한다.
+Replit의 locale 경고와 npm 새 버전 안내는 검사 실패가 아니며 도구 설치·업데이트는 하지 않았다. 이 구현 검증 단계에서는 개발 워크스페이스의 소스 반영과 직접 라우트 실행·타입·빌드 검증까지 수행했다. 이 시점에는 개발 웹서버 재시작·commit·push·PR을 수행하지 않았으며 후속 실행은 아래에 구분해 기록한다. 당시 인증 화면 조작·실계정 통합 QA·merge·Republish·운영 smoke check는 보류했다.
 
 ### 개발 서버 재기동과 HTTP smoke check (2026-11-08)
 
@@ -877,4 +877,16 @@ Replit의 locale 경고와 npm 새 버전 안내는 검사 실패가 아니며 �
 | GET `/api/auth/me`, `/api/events`, `/api/obituaries`, `/api/alumni`, `/api/admin/pending-registrations` | 모두 `401`, JSON 오류 응답 확인 |
 | POST `/api/obituaries`, `/api/events/1/publish` (쿠키 없음, 빈 JSON) | 모두 `401`, 인증 단계에서 등록 차단 |
 
-시작 로그는 개발 워크스페이스의 Git 제외 경로 `node_modules/.cache/dgkma-dev/20261108T061406Z.log`에 보존했다. 앱 시작 시 기존 세션 테이블·인덱스 준비를 수행했고, smoke에서는 공개 카테고리 읽기와 비로그인 차단만 확인했다. 회원 로그인·등록 레코드 생성·직접 DB 변경 명령·외부 provider 호출은 수행하지 않았다. HTTP 검증은 화면 렌더링이나 실계정의 본인·관리자 등록 QA를 대신하지 않는다. merge·Republish·운영 smoke check·실계정 QA는 계속 보류한다.
+시작 로그는 개발 워크스페이스의 Git 제외 경로 `node_modules/.cache/dgkma-dev/20261108T061406Z.log`에 보존했다. 앱 시작 시 기존 세션 테이블·인덱스 준비를 수행했고, smoke에서는 공개 카테고리 읽기와 비로그인 차단만 확인했다. 회원 로그인·등록 레코드 생성·직접 DB 변경 명령·외부 provider 호출은 수행하지 않았다. HTTP 검증은 화면 렌더링이나 실계정의 본인·관리자 등록 QA를 대신하지 않는다. 당시 merge·Republish·운영 smoke check·실계정 QA는 보류했다.
+
+### PR #21 검토와 main 동기화 기준 (2026-11-08)
+
+- 목표: [PR #21](https://github.com/Raphael-KR/dgkmaWeb/pull/21)을 검토하고 문제가 없으면 `main`에 병합한다.
+- 범위: PR 변경 파일 10개와 관련 권한·입력·저장 계약을 검토하고, 로컬과 Replit 개발 checkout을 동기화한다. 사용자 소유 `.agents/skills/`는 보존한다.
+- 완료 조건: 검토한 PR head로 병합하고 GitHub `main`·로컬 `main`·Replit `main`의 커밋 및 트리 일치를 확인한다.
+- 제외 범위: 운영 배포·운영 smoke check·실계정 QA·DB 및 명부 변경은 수행하지 않는다.
+- 검증 기준: 아래 코드 검토와 동일 소스의 기존 Replit 검사 결과를 사용한다. 문서 변경에는 문서 계약 검사를 적용하고, 동기화 후 개발 서버 상태를 확인한다.
+
+검토한 구현 커밋은 `82e795b3265f5f91c0c0ce0de1c977f1a12314c7`, 당시 base는 `94e7be4af1207f54df6e50c4a653915fff1630d7`이다. 세션 사용자 기반 관리자 판정, 본인·대리 대상자 확인, 공식 별칭 검색의 중복 제거와 표시명 선택, 저장 전 차단, 레거시 허용 필드·작성자 고정, 초안 소유권·유형 및 게시 재시도, 개인정보 로그와 회귀 범위를 대조했다. 병합을 막는 결함은 발견하지 않았다. 코드 수정은 없으며 이번 후속 변경은 병합 승인과 검토 기록 문서에 한정한다.
+
+동일 구현에 대한 Replit 집중 회귀 75/75, 타입·테스트 타입·경계·빌드 통과 및 개발 HTTP smoke 12/12는 위 단계의 실행 근거로 유지한다. 이번 코드 검토에서 이를 새 실행 결과로 바꾸거나 실계정 QA로 확대하지 않는다. [GitHub 자동 코드 리뷰](https://github.com/Raphael-KR/dgkmaWeb/pull/21#issuecomment-6718149904)도 `82e795b`에 대해 지적사항 없이 완료됐다. 해당 커밋에 연결된 GitHub status checks와 PR Actions 실행은 없었으며 CI 통과로 표기하지 않는다. 병합 결과는 PR의 실제 병합 기록으로, 개발 동기화 결과는 최종 checkout·커밋·트리 검증으로 각각 확인한다.
