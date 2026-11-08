@@ -10,11 +10,11 @@
 | 작업 분야 | 기준 문서 | 담당 내용 |
 |---|---|---|
 | 작업 수행 | [AGENTS.md](./AGENTS.md) | 결정 반영, 실행 경계, 검증과 보고 |
-| 제품·개발 계획 | [planning_proposal.md](./planning_proposal.md) | 제품 목표, 확정 정책, 적용 상태, 우선순위와 완료 조건 |
+| 제품·개발 계획 | [planning_proposal.md](./planning_proposal.md) | 제품 목표, 확정 정책, 구현 범위와 남은 기능 개발 |
 | 개발·배포 운영 | [replit.md](./replit.md) | Replit 환경, 환경변수, 개발과 배포 절차 |
 | DB 구조 | [docs/database-schema.md](./docs/database-schema.md) | 테이블과 객체별 구조·무결성, catalog 검증 상태 |
 | DB 작업 | [docs/database-operations.md](./docs/database-operations.md) | 개발·운영 DB 선택, 변경, 백업·복구와 검증 |
-| 기능 검증 | [walkthrough.md](./walkthrough.md) | 실제 계정·화면·운영 회귀 절차와 날짜별 검증 기록 |
+| 별도 기능 점검·이력 | [walkthrough.md](./walkthrough.md) | 요청된 점검의 참고 절차와 과거 수행 기록. 일상 개발의 선행 과제가 아님 |
 
 [README.md](./README.md)는 문서 진입점이다. [CHANGELOG.md](./CHANGELOG.md)와 `docs/superpowers/`는 이력 자료이고, [roadmap.md](./roadmap.md)는 과거 링크의 연결을 유지하는 안내문이다. 이 문서들에 독립적인 현재 정책이나 실행 우선순위를 만들지 않는다.
 
@@ -34,8 +34,8 @@
 ## 런타임과 배포 경계
 
 - 환경별 주소와 접속·배포 절차는 [replit.md](./replit.md#환경-구분)를 따른다.
-- 구현과 반복 검증은 Replit 개발 워크스페이스와 개발 홈페이지를 기본으로 한다. 단순 확인을 위해 Republish하지 않는다.
-- 개발 홈페이지의 화면과 흐름은 전역 GUI 규칙에 따라 승인된 인앱 브라우저로 직접 확인한다. 개발 검증 후 운영 환경에서만 확인할 항목이 있으면 Republish를 요청한다. 프로덕션 smoke check는 Republish 후에만 수행한다.
+- 기능 구현과 필요한 정적 검사는 Replit 개발 워크스페이스를 기본으로 한다. 개발 직후 서버 재시작·브라우저 점검·smoke check·Republish를 자동으로 추가하지 않는다.
+- 화면·흐름 확인을 요청받으면 개발 홈페이지를 사용하고 전역 GUI 승인 규칙을 따른다. 운영 배포와 실계정 QA는 현재 보류하며, 명시적으로 요청된 배포의 프로덕션 smoke check는 Republish 후에 수행한다.
 - Replit SSH는 개발 워크스페이스와 Development Database에 연결되며 autoscale 프로덕션 인스턴스 셸이 아니다.
 - 로컬 Mac의 `node_modules`와 npm 도구 상태를 신뢰하지 않는다. 코드 검증이 필요하면 가능한 경우 Replit 개발 워크스페이스에서 수행한다.
 
@@ -77,13 +77,15 @@
 - 인증 라우트는 `req.session.userId`를 일관되게 사용하고 로그인 성공 후 응답 전에 세션을 저장한다. Replit 프록시를 위한 `app.set("trust proxy", 1)`을 유지한다.
 - 로그인 회원에게 `activityRegion`이 없으면 `/onboarding/region`으로 보낸다.
 
-## 검증
+## 개발 직후 점검
 
-- 변경 범위에 맞는 집중 테스트와 정적 검사를 먼저 실행한다. 전체 `npm test`는 영향 범위가 넓거나 배포 후보의 회귀 확인이 필요할 때 한 번 실행한다.
-- 타입·번들 또는 배포에 영향을 주는 변경은 Replit 개발 워크스페이스에서 `npm run check`와 `npm run build`를 실행한다.
-- `npm run db:push`는 Development Database의 스키마 변경을 검토한 경우에만 Replit에서 실행한다.
-- 화면과 사용자 흐름은 개발 홈페이지에서 먼저 확인한다. 배포 작업이 범위에 포함되면 Republish 후 `walkthrough.md`의 관련 항목으로 프로덕션 smoke check를 수행한다.
-- 지침·문서만 바꾸면 제품 테스트나 전체 테스트를 실행하지 않는다. 변경 문서의 링크·기준 간 정합성과 기존 문서 계약을 확인한다. 프로젝트에 instruction/policy lint가 있으면 실행한다. `git diff --check`로 형식을 확인한다.
+- 2026-11-08 사용자 결정에 따라 개발 직후 점검은 변경 범위에 필요한 정적 검사로 최소화한다. 다음 개발 작업은 계획서의 남은 기능을 기준으로 정한다.
+- 타입에 영향을 주는 코드 변경은 필요한 경우 Replit에서 `npm run check`를 실행한다. 테스트 코드의 타입을 바꾼 경우에만 `npm run check:tests`를 추가한다. 같은 소스의 통과한 검사를 반복하지 않는다.
+- 단위·통합·전체 회귀, 브라우저·모바일·실계정 QA, DB 시험, 서버 재시작과 smoke check를 기본 완료 조건에 붙이지 않는다. 별도 요청된 점검이나 구체적인 실행 오류를 해결하는 데 필요한 경우에만 해당 범위로 수행한다.
+- `npm run build`는 매 변경 뒤 실행하지 않는다. 번들·배포 산출물 자체를 다루는 작업에 필요한 경우에만 수행한다.
+- 지침·문서 변경은 내용·링크·기준 간 정합성과 `git diff --check`만 확인한다. 기존 문서 계약 검사가 있으면 파일 내용만 읽는 정적 확인 범위에서 적용하고, 바뀐 사용자 결정을 검사 기준에도 반영한다.
+- 계획서에는 검증·QA 대기표나 반복 점검 과제를 두지 않는다. `walkthrough.md`의 체크리스트와 과거 기록을 다음 개발 목표로 자동 전환하지 않는다.
+- `npm run db:push`와 직접 DB 변경은 정적 검사가 아니다. 요청된 스키마 작업에서만 DB 운영 런북을 따라 수행한다. 실제 데이터·외부 호출·GUI·운영 배포의 기존 승인 경계는 유지한다.
 
 ## 완료 보고
 
