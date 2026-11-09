@@ -72,6 +72,14 @@
 - `production-before-schema.sql`의 SHA-256은 `5a954bcbacde7543950dd8180867b81cf2e7cdf59f790fd3b5671373b5a20be4`다. metadata-only catalog는 READ ONLY gate·ROLLBACK·완료 marker를 확인했고 [스키마 기록](./database-schema.md#본문-jsonb-운영-전환-범위)을 따른다.
 - 19:33:46 KST 운영 전용 `--preview`는 대상 3건·변환 가능 3건·오류 0건이다. 공식 파싱·문서 스키마·Markdown 왕복 비교를 거쳤으며 원문을 출력하지 않았다. 이 단계는 READ ONLY이고 JSONB 전환이나 게시 완료가 아니다.
 
+### 본문 운영 전환 결과
+
+- 2026-11-09 병합 main `8e20b50d6866dae39a7f11941d9c9887152a6bcd`와 Replit의 439개 추적 파일·깨끗한 작업 트리를 확인한 뒤 운영 전용 `--apply`를 실행했다. 새 트랜잭션에서 `neondb`·기존 TEXT·posts 3건을 재확인하고 posts 배타 잠금 아래 원본을 보존했다.
+- 19:41:21 KST 본문 3건 변환·JSONB 타입 전환·CHECK 추가를 COMMIT했다. 변환 오류는 0건이고 DDL SHA-256은 `1ee031e579d0268bad9e44bfae42c792ef2f0a73859ef375aae9898493dd3ec1`이다. 원본 파일은 Replit `.superpowers/post-body-jsonb-release-20261109/posts-before-1794220880968.json`, SHA-256 `f06678f09edccdd85a22efc4899068178573addc5be2901f5158ba9526f2e79e`로 보존했다. 원문·개인정보·Secret을 출력하거나 Mac·Git으로 복제하지 않았다.
+- 19:41:23 KST 새 연결에서 변환 문서 3건과 본문 외 컬럼 전체, 검색용 텍스트 3건을 대조했다. 모든 public 테이블 건수는 전후 동일하며 명부 3,458건·회원/신청/별칭·인증 기록·첨부·댓글·경조사 사실 정보를 변경하지 않았다. 실제 회원 로그인·작성·게시 기능 QA를 수행한 결과는 아니다.
+- 19:41:38 KST metadata-only catalog와 schema snapshot을 확보했다. 차이는 content 타입과 본문 CHECK 추가뿐이며 [운영 catalog](./database-schema.md#본문-jsonb-운영-catalog와-적용-결과)를 따른다. preview/apply 결과는 `preview.json`·`apply.json`, 전후 구조·건수는 `production-before.json`·`production-after.json`과 각 catalog/snapshot 파일에 보존했다.
+- 19:41:49 KST 승인된 Replit 재게시를 요청했고 19:46:54 KST 성공, 19:47:18 KST 비로그인 HTTP·배포 자산 확인을 마쳤다. DB 전환부터 게시 성공 관찰까지 5분 33초였으며 그 사이 구 TEXT 앱과 JSONB의 호환을 보장하지 않았다. 실제 배포 완료 시각·장애 시간을 측정한 값은 아니다. 상세 결과는 [릴리스 기록](../replit.md#본문-jsonbcanonical-릴리스-2026-11-09)을 따른다. 개발 DB 재변환·서버 별도 재시작·실계정 QA·자동 원복은 실행하지 않았다.
+
 ## 이전 게시글 본문 서식 계약 (2026-11-09 이력)
 
 - 일반 게시글의 서식 입력은 마크다운으로 변환해 기존 `posts.content` TEXT에 저장한다. 기존 텍스트와 경조사 본문은 공통 표시기를 적용하며 행을 변환하지 않는다.

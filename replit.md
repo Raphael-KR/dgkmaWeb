@@ -310,7 +310,7 @@
 - `server/vite.ts`의 정적 파일 자동 index 응답을 끄고 기존 HTML·SEO 처리로 넘기므로 루트도 최초 HTML에 canonical을 넣는 경로를 사용한다. 개발 HTML 처리도 같은 서버 SEO 함수를 유지한다. 회원 홈에는 기존 `useSeo`를 연결해 다른 화면에서 `/`로 돌아올 때 이전 페이지의 canonical이 남지 않게 했다.
 - 라우트·공통 메뉴·공개 홈 파일은 변경하지 않았다. 회원·비회원 화면 분기와 `/about` 하위 페이지의 내용·경로, 기존 리다이렉트 및 회원 접근 정책도 유지했다. 운영에서 관찰한 이전 canonical 누락 기록은 이 개발 코드 수정과 구분한다.
 - 17:40:43 KST Replit Node `v20.20.0`에서 `npm run check`가 통과했다. TypeScript와 앱 소스 199개의 모듈 경계·runtime cycle 검사 결과이며 locale 안내는 경고다. 변경 전 파일·동기화 해시·결과는 로컬·Replit `.superpowers/canonical-home-20261109/`에 보존한다.
-- 현재 변경은 로컬·Replit 개발 코드에만 있으며 커밋·push·PR·병합·Republish와 서버 재시작은 수행하지 않았다. HTTP 응답·브라우저·실계정 QA를 실행하지 않았으므로 실제 HTML 응답 확인이나 운영 적용 완료로 표현하지 않는다.
+- 이 개발 단계에서는 로컬·Replit 개발 코드만 반영했고 커밋·push·PR·병합·Republish와 서버 재시작은 수행하지 않았다. 당시 HTTP 응답·브라우저·실계정 QA도 실행하지 않았다. 이후 승인된 운영 적용과 최초 HTML 응답 결과는 [본문 JSONB·canonical 릴리스](#본문-jsonbcanonical-릴리스-2026-11-09)에 기록한다.
 
 ### 본문 Tiptap JSONB 전환 (2026-11-09)
 
@@ -351,6 +351,15 @@
 
 - 2026-11-09 Replit Node `v20.20.0`에서 운영 전용 실행 코드를 포함한 `npm run check`와 릴리스 빌드가 통과했다. 앱 소스 204개의 타입·모듈 경계·runtime cycle, 초기 JS 350,012 bytes·지연 화면 22개와 기존 개별 청크 한도를 확인했다. 앱의 기존 단축키·게시 등 사용자 흐름을 새로 실행한 결과는 아니다.
 - 운영 전환 전 schema snapshot과 전체 catalog를 확보했다. 기존 운영 posts 3건 모두 변환 preview를 통과했고 오류는 0건이다. 실제 apply는 Git 통합과 Replit 후보 준비 후 수행한다. 상세 건수·해시는 [DB 사전 기록](./docs/database-operations.md#본문-운영-전환-사전-결과)을 따른다.
+
+#### 본문 JSONB 릴리스 완료 결과
+
+- 2026-11-09 기존 미커밋분과 운영 전환 실행 코드·문서 36개 파일을 `6cf9fd70632443a3ecd3a62deb04a6b794170917`로 커밋·push했다. [PR #26](https://github.com/Raphael-KR/dgkmaWeb/pull/26)의 원격 diff와 로컬 후보가 같음을 확인하고 main `8e20b50d6866dae39a7f11941d9c9887152a6bcd`에 병합했다. PR에 등록된 CI status·workflow 실행은 없었으며 Replit의 실제 정적 검사·빌드 결과를 사용했다.
+- 로컬·Replit main을 같은 병합 커밋으로 맞추고 Replit의 439개 추적 파일과 깨끗한 작업 트리를 확인했다. 운영 `posts` 3건을 보존한 뒤 19:41:21 KST JSONB로 전환했고 오류는 0건이다. 새 연결의 문서·본문 외 필드·검색용 텍스트·테이블별 건수와 catalog는 [운영 전환 결과](./docs/database-operations.md#본문-운영-전환-결과)를 따른다.
+- 19:41:49 KST Republish를 요청했으며 19:46:54 KST `success`를 확인했다. 운영 주소는 `https://dgkma.org`, deployment ID는 `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`다. DB 전환부터 게시 성공을 관찰할 때까지 5분 33초였으며 실제 전환 완료 시각이나 전체 장애 시간을 측정한 값은 아니다. 그 사이 구 TEXT 앱과 JSONB의 호환을 보장하지 않았다.
+- 19:47:18 KST 비로그인 HTTP smoke를 통과했다. `/`·`/about`·소개·역대회장·역사관 5개 페이지가 HTTP 200과 후보 진입 파일을 응답했다. 최초 HTML의 `/`·`/about` canonical은 `https://dgkma.org/`, 나머지 3개는 각자의 주소였다. `/api/posts`·`/api/categories`는 401 JSON이며 본문·편집기·검색·공개 홈을 포함한 배포 자산 18개의 SHA-256이 후보 빌드와 일치했다.
+- Replit이 생성한 `Published your App` 커밋은 `7c9efc5744650df2956315d286c9da4e125cec64`이며 트리는 병합 후보와 동일하다. 이 커밋을 보존하고 완료 기록만 후속 main에 반영한다. 후속 문서 전용 변경은 재게시하지 않으며 배포 코드와 Git 완료 기록의 시점을 구분한다.
+- `candidate.json`·`publish-status.json`·`production-http-smoke.json`·`git-release.json`과 검사 출력은 ignored `.superpowers/post-body-jsonb-release-20261109/`에 둔다. 운영 원본 행 백업은 Replit에만 보존한다. 브라우저 붙여넣기·단축키·한글 입력·클립보드·게시/검색 흐름과 실계정 QA는 수행하지 않았다. 개발 서버 별도 재시작·OpenAI/공개 링크 수집 호출·자동 원복도 실행하지 않았다.
 
 ## GitHub 동기화
 
