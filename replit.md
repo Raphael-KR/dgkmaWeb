@@ -446,6 +446,14 @@
 - 회원·게시글 저장소와 수집/LLM은 메모리 대역이며 DB 모듈이 번들에 포함되지 않음을 확인했다. 테스트 프로세스에는 PATH·NODE_ENV·TZ만 전달하고 외부 fetch는 금지했다. HTTP 인증 미들웨어·브라우저·실계정·실제 DB/외부 수집은 이 결과의 확인 범위가 아니다.
 - 21:41:56 KST 추가 테스트 lint, 21:42:14 KST 테스트 타입 검사, 21:40:43 KST 배포 빌드가 통과했다. 테스트 대역은 실제 Express와 같은 JSON 직렬화를 하도록 수정한 뒤 재확인했다. 앱의 기존 타입·모듈 경계 검사와 ESLint 통과 결과를 재사용하고 테스트 코드만 바뀐 뒤 빌드는 반복하지 않았다. 증거는 ignored `.superpowers/notice-url-release-20261109/`에 보존한다.
 
+#### URL 정정 릴리스 완료 결과
+
+- 2026-11-09 URL 수정·확인 코드·문서를 `76ba48d737c0edb085f2c95d5c4a95ff8a6cda6e`로 커밋하고, ESLint `0cf6a9d`와 기존 Replit 게시 이력을 포함해 push했다. [PR #28](https://github.com/Raphael-KR/dgkmaWeb/pull/28)의 41개 파일 변경이 로컬 후보와 일치함을 확인하고 main `b276334a14665b3a396d199c7f9a3e0c9055d19c`에 병합했다. 등록된 GitHub CI 실행·미해결 리뷰는 없었으며 Replit의 실제 검사 결과를 사용했다.
+- 로컬·Replit main의 소스 448개 파일을 대조했다. Replit 기존 변경은 동일 후보임을 확인한 뒤 stash `d160414447d14f970277bdfa6f6f4d8370f99017`로 보존하고 fast-forward했다. DB 스키마·데이터 변경은 없었다.
+- `publish_app` 재게시의 `building → running → promoting → success` 전환을 관찰했고 21:53:21 KST `https://dgkma.org`의 배포 성공을 확인했다. 21:54:15 KST 비로그인 smoke 26건이 통과했다. 공개 페이지 5개의 HTTP·제목·canonical, 회원 API 5개의 401 JSON, 정적 자산 16개의 SHA-256 일치를 확인했다.
+- Replit 게시 커밋 `a75f4d830d40e11b71762bfd36cc249f215bd3b5`의 트리는 병합 후보와 같은 `1fe18b36f0089fe46eeb2019b241d3cc22880df2`다. 이 커밋을 보존하고 완료 문서만 후속 main에 반영한다. 문서 기록 때문에 추가 재게시하지 않는다.
+- URL 교체 동작 확인은 위의 Replit 메모리 대역 18개 사례이며, 운영 점검은 비로그인 HTTP·자산 범위다. 실계정 QA·실제 게시글 정정·DB 변경·OpenAI/외부 수집 호출·개발 서버 별도 재시작·자동 원복은 하지 않았다. 실행 근거는 ignored `.superpowers/notice-url-release-20261109/`의 테스트·Git·배포·smoke 기록에 보존한다.
+
 ## GitHub 동기화
 
 GitHub의 `main` 브랜치를 공유 소스 기준으로 사용합니다.
