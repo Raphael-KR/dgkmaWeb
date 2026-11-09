@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { LoginModal } from "@/features/auth";
+import { LoginModal, useAuth } from "@/features/auth";
 import { PublicLayout } from "@/app/layout/public-layout";
 import { useSeo } from "@/lib/seo";
 import {
   BookOpen, Users2, GraduationCap, HandHeart, Network, Sparkles,
   FileText, UserPlus, Wallet, Heart, Megaphone, Info, LogIn,
-  Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight,
+  Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight, Award, Image,
 } from "lucide-react";
 import { SiteLogo } from "@/components/site-brand";
 import { SITE_NAME, SITE_SHORT_NAME } from "@shared/site";
@@ -59,6 +59,8 @@ const orgItems = [
 
 const quickLinks = [
   { to: "/about/intro", icon: Info, title: "동문회 소개", desc: "인사말 · 연혁 · 사업 · 조직" },
+  { to: "/about/presidents", icon: Award, title: "역대회장", desc: "동문회를 이끌어 온 발자취" },
+  { to: "/about/heritage", icon: Image, title: "역사관", desc: "활동 사진 · 역사 자료 · 주요 행사" },
   { to: "/about/bylaws", icon: FileText, title: "회칙", desc: "동문회 정관 및 규정" },
   { to: "/about/join", icon: UserPlus, title: "회원 가입", desc: "가입 안내 및 절차" },
   { to: "/about/dues", icon: Wallet, title: "2026 회비 안내", desc: "회비 납부 및 납부자 혜택" },
@@ -68,11 +70,13 @@ const quickLinks = [
 
 export function PublicHome() {
   const [loginOpen, setLoginOpen] = useState(false);
+  const [location] = useLocation();
+  const { user } = useAuth();
 
   useSeo({
     title: SITE_NAME,
     description: "모교 기여, 장학, 동문 모임, 경조사 안내",
-    path: "/",
+    path: location,
   });
 
   useEffect(() => {
@@ -99,13 +103,15 @@ export function PublicHome() {
               학술·교류·후학 지원·경조사를 통해 평생 동행합니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
-              <Button
-                size="lg"
-                variant="kakao"
-                onClick={() => setLoginOpen(true)}
-              >
-                <LogIn size={18} className="mr-2" /> 카카오로 로그인
-              </Button>
+              {user ? (
+                <Button asChild size="lg" variant="onBrandOutline">
+                  <Link href="/"><Users size={18} /> 커뮤니티로 이동</Link>
+                </Button>
+              ) : (
+                <Button size="lg" variant="kakao" onClick={() => setLoginOpen(true)}>
+                  <LogIn size={18} className="mr-2" /> 카카오로 로그인
+                </Button>
+              )}
               <Link href="/about/join">
                 <Button
                   size="lg"
@@ -332,7 +338,7 @@ export function PublicHome() {
             })}
           </div>
           <div className="text-center">
-            <Link href="/officers">
+            <Link href="/about/executives">
               <Button size="lg" className="tp-bg-green text-white hover:opacity-90 font-bold">
                 <Building2 size={18} className="mr-2" />
                 제22대 임원 명단 보기
@@ -386,15 +392,19 @@ export function PublicHome() {
             동문 여러분의 참여를 기다립니다
           </h2>
           <p className="text-white/85 mb-6 leading-relaxed">
-            카카오 로그인 한 번이면 게시판·동문 명부·회비 납부까지 한번에 이용할 수 있습니다.
+            {user
+              ? "회원 커뮤니티에서 동문 소식을 나누고 게시판과 동문 명부를 이용해 보세요."
+              : "카카오 로그인 한 번이면 게시판·동문 명부·회비 납부까지 한번에 이용할 수 있습니다."}
           </p>
-          <Button
-            size="lg"
-            variant="kakao"
-            onClick={() => setLoginOpen(true)}
-          >
-            <LogIn size={18} className="mr-2" /> 카카오로 시작하기
-          </Button>
+          {user ? (
+            <Button asChild size="lg" variant="onBrandOutline">
+              <Link href="/"><Users size={18} /> 커뮤니티로 이동</Link>
+            </Button>
+          ) : (
+            <Button size="lg" variant="kakao" onClick={() => setLoginOpen(true)}>
+              <LogIn size={18} className="mr-2" /> 카카오로 시작하기
+            </Button>
+          )}
         </div>
       </section>
 

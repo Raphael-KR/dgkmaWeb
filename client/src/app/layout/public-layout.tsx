@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, Menu, X, LogIn, LogOut, User } from "lucide-react";
+import { ChevronDown, Menu, X, LogIn, LogOut, User, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoginModal, useAuth } from "@/features/auth";
 import { SITE_NAME } from "@shared/site";
@@ -29,12 +29,16 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="theme-public min-h-screen flex flex-col">
       <SiteHeader
+        homeHref="/about"
         navigationLabel="공개 메뉴"
         actions={
           <>
             <div className="hidden items-center gap-2 md:flex">
               {user ? (
                 <>
+                  <Button asChild size="sm" variant="onBrand">
+                    <Link href="/"><Users size={16} /> 커뮤니티</Link>
+                  </Button>
                   <span className="flex max-w-[8rem] items-center gap-1 text-sm text-white/90">
                     <User size={14} className="shrink-0" aria-hidden="true" />
                     <span className="truncate">{user.name}님</span>
@@ -89,7 +93,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           <div className="fixed top-0 right-0 bottom-0 w-72 max-w-[80vw] bg-white z-50 shadow-xl flex flex-col">
             <div className="site-brand-surface p-4">
               <div className="flex items-center gap-2">
-                <SiteBrand onClick={() => setDrawerOpen(false)} />
+                <SiteBrand homeHref="/about" onClick={() => setDrawerOpen(false)} />
                 <Button variant="onBrand" size="icon" className="shrink-0" onClick={() => setDrawerOpen(false)} aria-label="닫기">
                   <X size={20} />
                 </Button>
@@ -97,6 +101,11 @@ export function PublicLayout({ children }: { children: ReactNode }) {
               {user && <p className="mt-3 truncate text-sm text-white/90">{user.name}님</p>}
             </div>
             <nav className="flex-1 p-2 overflow-y-auto">
+              {user && (
+                <Link href="/" onClick={() => setDrawerOpen(false)} className="site-menu-link">
+                  커뮤니티로 이동
+                </Link>
+              )}
               {publicNavItems.map((item) => {
                 const active = isPublicNavActive(location, item);
                 return (

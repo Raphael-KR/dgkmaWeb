@@ -77,19 +77,22 @@ test("lazy routing preserves public, member and administrator access", async () 
   assert.match(await render("/", member), /screen:home\/home/);
   assert.doesNotMatch(await render("/", null, true), /screen:/);
   const publicRoutes = {
+    "/about": "public-home",
     "/login": "auth/login", "/kakao-callback": "auth/kakao-callback",
     "/onboarding/region": "auth/onboarding/region", "/terms": "legal/terms", "/privacy": "legal/privacy",
     "/about/intro": "about/intro", "/about/executives": "about/executives",
+    "/about/presidents": "about/presidents", "/about/heritage": "about/heritage",
     "/about/bylaws": "about/bylaws", "/about/bylaws/regulations": "about/regulations",
     "/about/join": "about/join", "/about/dues": "about/dues", "/about/condolence": "about/condolence",
   };
   for (const [path, screen] of Object.entries(publicRoutes)) {
     assert.ok((await render(path, null)).includes(`screen:${screen}`), path);
+    assert.ok((await render(path, member)).includes(`screen:${screen}`), path);
   }
   const memberRoutes = {
     "/b": "boards/boards", "/p/123": "boards/post-detail", "/post/123": "boards/post-detail",
     "/directory": "directory/directory", "/profile": "profile/profile",
-    "/heritage": "heritage/heritage", "/search": "search/search",
+    "/search": "search/search",
     "/b/write/obituary": "events/notice-composer",
   };
   for (const [path, screen] of Object.entries(memberRoutes)) {
@@ -104,15 +107,15 @@ test("lazy routing preserves public, member and administrator access", async () 
   assert.match(await render("/admin", { isAdmin: true }), /screen:admin\/admin/);
 });
 
-test("public legacy redirects remain and retired notice URLs are absent", () => {
+test("public legacy redirects remain and retired URLs are absent", () => {
   const source = readFileSync("client/src/app/routing/router.tsx", "utf8");
   for (const [path, target] of Object.entries({
-    "/about": "/heritage", "/info": "/heritage", "/history": "/heritage",
+    "/info": "/about", "/history": "/about/intro",
     "/executives": "/about/executives", "/officers": "/about/executives", "/bylaws": "/about/bylaws",
   })) {
     assert.ok(source.includes(`path="${path}" component={() => { window.location.href = '${target}'`));
   }
-  assert.doesNotMatch(source, /path="\/(?:o|events)(?:\/|")/);
+  assert.doesNotMatch(source, /path="\/(?:o|events|heritage)(?:\/|")/);
 
 });
 
