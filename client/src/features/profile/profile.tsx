@@ -14,7 +14,7 @@ import { ProfileEditDialog } from "./components/profile-edit-dialog";
 import { SettingsDialog } from "./components/settings-dialog";
 import { DeleteAccountDialog } from "./components/delete-account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { MembershipStatus } from "@shared/contracts";
+import type { MembershipStatus, PaymentSummary } from "@shared/contracts";
 
 export default function Profile() {
   const { user, logout } = useAuth();
@@ -29,7 +29,7 @@ export default function Profile() {
     setDeleteAccountOpen(true);
   };
 
-  const { data: payments, isLoading: paymentsLoading } = useQuery({
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery<PaymentSummary[]>({
     queryKey: ["/api/payments/user", user?.id],
     queryFn: async () => {
       const response = await fetch(`/api/payments/user/${user?.id}`, { credentials: "include" });
@@ -203,12 +203,12 @@ export default function Profile() {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {payments?.slice(0, 3).map((payment: any) => (
+                    {payments?.slice(0, 3).map((payment) => (
                       <div key={payment.id} className="flex items-center justify-between p-2 border rounded text-sm">
                         <div>
                           <p className="font-medium">{payment.year}년 {payment.type}</p>
                           <p className="text-xs text-gray-600">
-                            {new Date(payment.createdAt).toLocaleDateString()}
+                            {new Date(payment.createdAt || "").toLocaleDateString()}
                           </p>
                         </div>
                         <div className="text-right">

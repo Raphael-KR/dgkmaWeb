@@ -213,7 +213,6 @@ test("development PostgreSQL rejection purges the whole identity and blocks an o
     "select clock_timestamp() - interval '1 second' as started_at",
   );
   const oauthStartedAt = started.rows[0].started_at;
-  let selectedId = 0;
   let unlinkCalls = 0;
   let releaseUnlink: (() => void) | undefined;
   let markUnlinkEntered: (() => void) | undefined;
@@ -258,7 +257,7 @@ test("development PostgreSQL rejection purges the whole identity and blocks an o
         userData(sameEmailKakaoId, email.toUpperCase()),
       ],
     );
-    selectedId = inserted.rows[0].id;
+    const selectedId = inserted.rows[0].id;
     await pool.query(
       `insert into users (kakao_id, email, name, is_verified)
        values ($1, $2, '거절 전 승격', true)`,

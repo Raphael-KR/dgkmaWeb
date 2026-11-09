@@ -1300,7 +1300,7 @@ test("transactional phone race creates or refreshes a pending review", async () 
 });
 
 test("admin approval phone conflict returns 409 without changing pending status", async () => {
-  let pendingStatus = "pending";
+  const pendingStatus = "pending";
   const adminUser = { ...createdUser, id: 1, isAdmin: true };
   const server = await startServer({
     getUserForAdmin: async () => adminUser,

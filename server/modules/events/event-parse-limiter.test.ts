@@ -28,7 +28,7 @@ async function listen(app: express.Express) {
 
 function sessionUser(app: express.Express) {
   app.use((req, _res, next) => {
-    (req as any).session = { userId: 7 };
+    req.session = { userId: 7 } as typeof req.session;
     next();
   });
 }

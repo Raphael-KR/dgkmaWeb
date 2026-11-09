@@ -5,7 +5,7 @@ import { useAuth } from "@/features/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -14,7 +14,7 @@ import { PostExcerpt } from "@/components/post-body";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertPostSchema, type Category, type InsertPost } from "@shared/contracts";
+import { insertPostSchema, type Category, type InsertPost, type PostWithCategory } from "@shared/contracts";
 import { isSelectablePostCategory, isNoticeCategory } from "@shared/category-policy";
 import { Plus, ImagePlus, X, Loader2, HeartHandshake, ArrowUpRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
@@ -70,7 +70,7 @@ export default function Boards() {
     enabled: !!user,
   });
 
-  const { data: posts, isLoading: postsLoading } = useQuery({
+  const { data: posts, isLoading: postsLoading } = useQuery<PostWithCategory[]>({
     queryKey: ["/api/posts", selectedCategory === "all" ? undefined : selectedCategory, showHidden ? "hidden" : "visible"],
     queryFn: async () => {
       const base = showHidden ? "/api/posts/hidden" : "/api/posts";
@@ -141,10 +141,10 @@ export default function Boards() {
   });
 
   const onSubmitPost = (data: InsertPost) => {
-    if (!bodyValid) return;
+    if (!bodyValid || !user) return;
     createPostMutation.mutate({
       ...data,
-      authorId: user?.id!,
+      authorId: user.id,
       imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     });
   };
@@ -377,15 +377,15 @@ export default function Boards() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {posts?.map((post: any) => (
+                  {posts?.map((post) => (
                     <Link key={post.id} href={`/p/${post.id}`} className="group flex min-w-0 flex-col rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:p-5">
                       <div className="mb-3 flex flex-wrap items-center gap-2">
-                        <Badge variant={post.category.badgeVariant as any}>
+                        <Badge variant={post.category.badgeVariant as BadgeProps["variant"]}>
                           {post.category.displayName}
                         </Badge>
                         {post.isHidden && <Badge variant="secondary">가린 글</Badge>}
-                        <time className="text-xs text-gray-500" dateTime={post.publishedAt || post.createdAt}>
-                          {new Date(post.publishedAt || post.createdAt).toLocaleDateString("ko-KR")}
+                        <time className="text-xs text-gray-500" dateTime={post.publishedAt || post.createdAt || undefined}>
+                          {new Date(post.publishedAt || post.createdAt || "").toLocaleDateString("ko-KR")}
                         </time>
                       </div>
                       <h3 className="mb-2 line-clamp-2 break-words font-bold text-gray-800 group-hover:text-kakao-orange md:text-lg">

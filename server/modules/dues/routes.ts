@@ -40,6 +40,7 @@ export function registerPaymentRoutes(app: Express, { requireAdmin }: RouteConte
       const payments = await storage.getPaymentsByUser(targetUserId);
       res.json(payments);
     } catch (error) {
+      console.error("Failed to fetch payments", { errorType: getErrorType(error) });
       res.status(500).json({ message: "Failed to fetch payments" });
     }
   });

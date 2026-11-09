@@ -39,6 +39,7 @@ export function registerContentRoutes(app: Express): void {
       const categories = await storage.getCategories();
       res.json(categories);
     } catch (error) {
+      console.error("Failed to fetch categories", { errorType: getErrorType(error) });
       res.status(500).json({ message: "Failed to fetch categories" });
     }
   });
@@ -76,6 +77,7 @@ export function registerContentRoutes(app: Express): void {
       );
       res.json(posts);
     } catch (error) {
+      console.error("Failed to fetch posts", { errorType: getErrorType(error) });
       res.status(500).json({ message: "Failed to fetch posts" });
     }
   });
@@ -212,6 +214,7 @@ export function registerContentRoutes(app: Express): void {
       const list = await storage.getCommentsByPost(postId);
       res.json(list);
     } catch (error) {
+      console.error("Failed to fetch comments", { errorType: getErrorType(error) });
       res.status(500).json({ message: "댓글을 불러오지 못했습니다" });
     }
   });
@@ -270,6 +273,7 @@ export function registerContentRoutes(app: Express): void {
       await storage.deleteComment(id);
       res.status(204).end();
     } catch (error) {
+      console.error("Failed to delete comment", { errorType: getErrorType(error) });
       res.status(500).json({ message: "댓글 삭제에 실패했습니다" });
     }
   });

@@ -46,7 +46,7 @@ export default function KakaoCallback() {
                 dest = stored;
               }
               sessionStorage.removeItem("auth:returnTo");
-            } catch {}
+            } catch { /* Storage can be unavailable; continue with the default return path. */ }
             setLocation(dest);
           }
         } else if (result.status === "requiresApproval") {

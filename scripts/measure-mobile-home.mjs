@@ -293,7 +293,7 @@ async function measureMemberTransition(socket) {
       bodyText: document.body.innerText.slice(0, 500),
       link: document.querySelector('a[href="/b"]')?.outerHTML ?? null
     })`);
-    throw new Error(`${error.message}; after click: ${JSON.stringify(state)}`);
+    throw new Error(`${error.message}; after click: ${JSON.stringify(state)}`, { cause: error });
   }
   const transitionMs = await evaluate(socket, `performance.now() - ${startedAt}`);
   await waitForNetworkIdle(socket);

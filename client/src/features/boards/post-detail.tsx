@@ -4,7 +4,7 @@ import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@/features/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ArrowLeft, MessageSquare, Send, Trash2 } from "lucide-react";
@@ -159,7 +159,7 @@ export default function PostDetail() {
             {/* 헤더 정보 */}
             <div className="mb-4">
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge variant={post.category?.badgeVariant as any}>
+                <Badge variant={post.category?.badgeVariant as BadgeProps["variant"]}>
                   {post.category?.displayName}
                 </Badge>
                 {post.isHidden && <Badge variant="secondary">가린 글 · 작성자/관리자만 열람</Badge>}
