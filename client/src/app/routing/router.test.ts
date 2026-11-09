@@ -11,7 +11,7 @@ test("lazy routing preserves public, member and administrator access", async () 
   const screens = new Map<string, string>();
   const root = resolve("client/src/features");
   for (const feature of readdirSync(root)) {
-    const entry = resolve(root, feature, feature === "events" ? "index.tsx" : "index.ts");
+    const entry = resolve(root, feature, "index.ts");
     const source = readFileSync(entry, "utf8");
     for (const match of source.matchAll(/import\("(.+?)"\)/g)) {
       screens.set(resolve(dirname(entry), `${match[1]}.tsx`), `${feature}/${match[1].slice(2)}`);
@@ -90,7 +90,7 @@ test("lazy routing preserves public, member and administrator access", async () 
     "/b": "boards/boards", "/p/123": "boards/post-detail", "/post/123": "boards/post-detail",
     "/directory": "directory/directory", "/profile": "profile/profile",
     "/heritage": "heritage/heritage", "/search": "search/search",
-    "/events": "events/page", "/events/123": "events/detail", "/o/123": "events/obituary/detail",
+    "/b/write/obituary": "events/notice-composer",
   };
   for (const [path, screen] of Object.entries(memberRoutes)) {
     const anonymous = await render(path, null);
@@ -104,7 +104,7 @@ test("lazy routing preserves public, member and administrator access", async () 
   assert.match(await render("/admin", { isAdmin: true }), /screen:admin\/admin/);
 });
 
-test("legacy redirects retain targets, compose query and replacement behavior", () => {
+test("public legacy redirects remain and retired notice URLs are absent", () => {
   const source = readFileSync("client/src/app/routing/router.tsx", "utf8");
   for (const [path, target] of Object.entries({
     "/about": "/heritage", "/info": "/heritage", "/history": "/heritage",
@@ -112,9 +112,8 @@ test("legacy redirects retain targets, compose query and replacement behavior", 
   })) {
     assert.ok(source.includes(`path="${path}" component={() => { window.location.href = '${target}'`));
   }
-  assert.match(source, /path="\/o\/new".*to="\/events\?type=obituary&compose=1" replace/);
-  assert.match(source, /path="\/o".*to="\/events\?type=obituary" replace/);
-  assert.ok(source.indexOf('path="/o/new"') < source.indexOf('path="/o/:id"'));
+  assert.doesNotMatch(source, /path="\/(?:o|events)(?:\/|")/);
+
 });
 
 test("pending screens show status; failed screens offer an explicit full reload", async () => {

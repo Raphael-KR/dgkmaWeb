@@ -268,6 +268,7 @@ export function registerObjectStorageRoutes(app: Express): void {
       if (!req.session?.userId) {
         return res.status(401).json({ error: "로그인이 필요합니다" });
       }
+      res.set("Cache-Control", "private, no-store");
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {

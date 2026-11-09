@@ -79,7 +79,7 @@ export function createRouteContext(dependencies: RouteDependencies = {}) {
   const readSources = dependencies.readEventSources ?? createDefaultEventSourceReader();
   const eventParseLimiter = dependencies.eventParseLimiter
     ?? createEventParseLimiter({ windowMs: 60_000, max: 10 });
-  const eventParseTimeoutMs = dependencies.eventParseTimeoutMs ?? 15_000;
+  const eventParseTimeoutMs = dependencies.eventParseTimeoutMs ?? 60_000;
 
   return {
     requireAdmin, getKakaoOAuthConfig, kakaoFetch, kakaoAuthStorage,

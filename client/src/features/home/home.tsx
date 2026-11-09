@@ -15,6 +15,7 @@ import { MembershipBadge } from "@/components/membership-badge";
 import { KAKAO_CHANNEL_URL } from "@/lib/config";
 import type { MembershipStatus } from "@shared/contracts";
 import { isBirthdayToday } from "@shared/birthday";
+import { PostExcerpt } from "@/components/post-body";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -213,15 +214,13 @@ export default function Home() {
                           {post.category.displayName}
                         </Badge>
                         <span className="text-xs text-gray-500">
-                          {new Date(post.createdAt).toLocaleDateString()}
+                          {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                       <h4 className="font-medium text-gray-800 mb-1 line-clamp-2">
                         {post.title}
                       </h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {post.content.substring(0, 100)}...
-                      </p>
+                      <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-2" />
                     </div>
                   </div>
                 </div>
@@ -238,7 +237,7 @@ export default function Home() {
 
         <Button
           className="mb-6 w-full bg-kakao-yellow text-kakao-brown font-bold hover:bg-yellow-400"
-          onClick={() => setLocation("/events")}
+          onClick={() => setLocation("/b")}
           aria-label="경조사 페이지로 이동"
         >
           <HeartHandshake size={18} className="mr-2" />

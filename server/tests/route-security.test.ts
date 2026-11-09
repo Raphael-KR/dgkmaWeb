@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
-import type { Category, Obituary, Post } from "@shared/schema";
+import type { Category, Post, User } from "@shared/schema";
 import type { AdminUserLookup } from "../middleware/auth";
 import { AlumniSourceReadError, googleSheetsService } from "../integrations/google-sheets";
 import { registerRoutes } from "../routes";
@@ -46,25 +46,6 @@ test("payment creation requires an administrator", async () => {
   const source = await readRouteSource();
 
   assert.match(source, /app\.post\("\/api\/payments", requireAdmin,/);
-});
-
-test("community event routes share the member guard and preserve draft route ordering", async () => {
-  const source = await readRouteSource();
-  const guardIndex = source.indexOf('app.use("/api/events", requireAuthenticated)');
-  const routeOrder = [
-    'app.get("/api/events/drafts/latest"',
-    'app.post("/api/events/drafts"',
-    'app.patch("/api/events/drafts/:id"',
-    'app.delete("/api/events/drafts/:id"',
-    'app.post("/api/events/:id/preview"',
-    'app.post("/api/events/:id/publish"',
-    'app.get("/api/events"',
-    'app.get("/api/events/:id"',
-  ].map((route) => source.indexOf(route));
-
-  assert.ok(guardIndex >= 0);
-  assert.ok(routeOrder.every((index) => index > guardIndex));
-  assert.deepEqual([...routeOrder].sort((a, b) => a - b), routeOrder);
 });
 
 async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
@@ -227,102 +208,18 @@ test("Google Sheets connection failures return a fixed Korean response without t
   }
 });
 
-test("obituary APIs require a member session", async (t) => {
-  const memberId = 2_147_483_646;
-  const obituary: Obituary = {
-    id: 1,
-    title: "부고",
-    deceasedName: "홍길동",
-    deceasedRelation: "부친",
-    dateOfDeath: "2026-07-11",
-    funeralHome: "동국장례식장",
-    jangji: "",
-    bankAccount: "",
-    chiefMourner: "",
-    contactNumber: "",
-    authorId: memberId,
-    createdAt: new Date("2026-07-11T00:00:00Z"),
-  };
-  let obituaryStorageCalls = 0;
-  let createdObituaryInput: Parameters<typeof storage.createObituary>[0] | undefined;
-  t.mock.method(storage, "getObituaries", async () => {
-    obituaryStorageCalls += 1;
-    return [obituary];
-  });
-  t.mock.method(storage, "getObituary", async () => {
-    obituaryStorageCalls += 1;
-    return obituary;
-  });
-  t.mock.method(storage, "createObituary", async (...[data]: Parameters<typeof storage.createObituary>) => {
-    obituaryStorageCalls += 1;
-    createdObituaryInput = data;
-    return { ...obituary, ...data };
-  });
+test("post and notice endpoints require a member session before storage access", async () => {
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
-
   try {
-    const anonymousList = await fetch(`${server.baseUrl}/api/obituaries`);
-    assert.equal(anonymousList.status, 401);
-
-    const anonymousDetail = await fetch(`${server.baseUrl}/api/obituaries/1`);
-    assert.equal(anonymousDetail.status, 401);
-
-    const anonymousParse = await fetch(`${server.baseUrl}/api/obituary/parse`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: "故 홍길동" }),
-    });
-    assert.equal(anonymousParse.status, 401);
-
-    const anonymousCreate = await fetch(`${server.baseUrl}/api/obituaries`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-    });
-    assert.equal(anonymousCreate.status, 401);
-    assert.equal(obituaryStorageCalls, 0);
-
-    const memberParse = await fetch(`${server.baseUrl}/api/obituary/parse`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-test-user-id": String(memberId),
-      },
-      body: JSON.stringify({ text: "故 홍길동" }),
-    });
-    assert.equal(memberParse.status, 200);
-
-    const memberList = await fetch(`${server.baseUrl}/api/obituaries`, {
-      headers: { "x-test-user-id": String(memberId) },
-    });
-    assert.equal(memberList.status, 200);
-    assert.equal((await memberList.json()).length, 1);
-
-    const memberDetail = await fetch(`${server.baseUrl}/api/obituaries/1`, {
-      headers: { "x-test-user-id": String(memberId) },
-    });
-    assert.equal(memberDetail.status, 200);
-
-    const memberCreate = await fetch(`${server.baseUrl}/api/obituaries`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-test-user-id": String(memberId),
-      },
-      body: JSON.stringify({
-        title: "새 부고",
-        deceasedName: "홍길동",
-        deceasedRelation: "부친",
-        dateOfDeath: "2026-07-11",
-        authorId: 1,
-      }),
-    });
-    assert.equal(memberCreate.status, 201);
-    assert.equal(createdObituaryInput?.authorId, memberId);
-    assert.equal(obituaryStorageCalls, 3);
-  } finally {
-    await server.close();
-  }
+    for (const [method, path] of [
+      ["GET", "/api/posts"], ["GET", "/api/posts/search?q=notice"], ["GET", "/api/posts/1"],
+      ["GET", "/api/posts/1/comments"], ["POST", "/api/posts/notices/drafts/obituary"],
+      ["POST", "/api/posts/notices/1/generate"], ["POST", "/api/posts/notices/1/publish"],
+    ]) {
+      const response = await fetch(`${server.baseUrl}${path}`, { method });
+      assert.equal(response.status, 401, path);
+    }
+  } finally { await server.close(); }
 });
 
 test("post creation enforces the approved category policy before writing", async (t) => {
@@ -343,6 +240,8 @@ test("post creation enforces the approved category policy before writing", async
     [2, category(2, "all")],
     [3, category(3, "free", false)],
     [4, category(4, "market")],
+    [5, category(5, "obituary")],
+    [6, category(6, "celebration")],
   ]);
   const createdPosts: Parameters<typeof storage.createPost>[0][] = [];
   t.mock.method(storage, "getCategory", async (id: number) => categories.get(id));
@@ -356,6 +255,7 @@ test("post creation enforces the approved category policy before writing", async
       authorId: data.authorId ?? null,
       isPublished: data.isPublished ?? true,
       imageUrls: data.imageUrls ?? null,
+      eventData: null, sourceText: null, revision: 0, publishedAt: null,
       createdAt: new Date("2026-07-11T00:00:00Z"),
       updatedAt: new Date("2026-07-11T00:00:00Z"),
     } satisfies Post;
@@ -378,6 +278,8 @@ test("post creation enforces the approved category policy before writing", async
       { categoryId: 2 },
       { categoryId: 3 },
       { categoryId: 4 },
+      { categoryId: 5 },
+      { categoryId: 6 },
     ]) {
       const response = await request(body);
       assert.equal(response.status, 400);

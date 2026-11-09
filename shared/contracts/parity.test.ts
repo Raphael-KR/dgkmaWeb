@@ -82,20 +82,10 @@ test("browser comment validation matches server messages, limits and stripping",
 });
 
 test("handwritten validators remain shared with server compatibility exports", () => {
-  assert.equal(compatibility.insertObituarySchema, contracts.insertObituarySchema);
   assert.equal(compatibility.updateProfileSchema, contracts.updateProfileSchema);
   assert.equal(compatibility.activityRegionSchema, contracts.activityRegionSchema);
   assert.equal(compatibility.PENDING_REGISTRATION_CONFLICT_REASONS,
     contracts.PENDING_REGISTRATION_CONFLICT_REASONS);
-  const obituary = contracts.insertObituarySchema.parse({
-    title: "부고", deceasedName: "김동문", deceasedRelation: "부친",
-    dateOfDeath: "2026-01-01", authorId: 99,
-  });
-  assert.deepEqual(obituary, {
-    title: "부고", deceasedName: "김동문", deceasedRelation: "부친",
-    dateOfDeath: "2026-01-01", funeralHome: "", jangji: "", bankAccount: "",
-    chiefMourner: "", contactNumber: "",
-  });
   assert.equal(contracts.REGION_OPTIONS.length, 18);
   assert.equal(contracts.ANNUAL_DUES, 50000);
 });
@@ -155,12 +145,11 @@ type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends
   (<T>() => T extends B ? 1 : 2) ? true : false;
 const typeParity: [
-  Equal<contracts.InsertPost, persistence.InsertPost>,
+  Equal<contracts.InsertPost, z.infer<typeof persistence.insertPostSchema>>,
   Equal<contracts.InsertComment, persistence.InsertComment>,
   Equal<contracts.Category, JsonDates<persistence.Category>>,
-  Equal<contracts.Post, JsonDates<persistence.Post>>,
+  Equal<contracts.Post, JsonDates<Omit<persistence.Post, "eventData" | "sourceText" | "revision">>>,
   Equal<contracts.Comment, JsonDates<persistence.Comment>>,
-  Equal<contracts.Obituary, JsonDates<persistence.Obituary>>,
   Equal<contracts.ClientUser, persistence.ClientUser>,
-] = [true, true, true, true, true, true, true];
+] = [true, true, true, true, true, true];
 void typeParity;

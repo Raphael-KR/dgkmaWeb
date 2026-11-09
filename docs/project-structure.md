@@ -17,7 +17,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `pages/boards`, `post-detail` | `features/boards` | 게시글·댓글·첨부 |
 | `pages/directory` | `features/directory` | 권한 범위 내 명부 |
 | `pages/profile`, profile 컴포넌트 | `features/profile` | 프로필·납부내역·회원상태 |
-| `pages/events`, `pages/obituary`, event draft 훅 | `features/events` | 등록·목록·상세·초안 조정·레거시 부고 |
+| `pages/events`, `pages/obituary`, event draft 훅 | `features/events` | 부고·결혼·개원 텍스트 초안·미리보기·게시; 목록·상세는 boards |
 | `pages/admin`, `admin-alumni-sync-state` | `features/admin` | 승인·거절·명부 동기화 UI/상태 |
 | `pages/search` | `features/search` | 게시글·명부 검색 |
 | `pages/terms`, `privacy` | `features/legal` | 법적 고지 |
@@ -60,10 +60,9 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 `/`, `/login`, `/kakao-callback`, `/onboarding/region`, `/terms`, `/privacy`,
 `/about/intro`, `/about/executives`, `/about/bylaws`, `/about/bylaws/regulations`,
 `/about/join`, `/about/dues`, `/about/condolence`, `/admin`, `/b`, `/directory`,
-`/profile`, `/heritage`, `/search`, `/p/:id`, `/post/:id`, `/o/:id`,
-`/events`, `/events/:id`를 유지한다.
+`/profile`, `/heritage`, `/search`, `/p/:id`, `/post/:id`를 유지한다.
+통합 정책에 따라 `/b/write/:type`를 추가하고 `/o`, `/events`와 그 하위 경로는 제거한다.
 
-- `/o/new → /events?type=obituary&compose=1`, `/o → /events?type=obituary` (replace)
 - `/about`, `/info`, `/history → /heritage`
 - `/executives`, `/officers → /about/executives`; `/bylaws → /about/bylaws`
 - 회원의 활동지역 미입력 시 `/onboarding/region` 이동, 관리자 진입 제한을 유지한다.
@@ -74,9 +73,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 |---|---|
 | identity | GET `/api/auth/callback`, POST `/api/auth/logout`, GET `/api/auth/kakao/start`, POST `/api/auth/kakao/authorize`, POST `/api/users/activity-region`, GET `/api/auth/me`, PATCH/DELETE `/api/users/me` |
 | dues 회원상태 | GET `/api/membership/status` |
+| events | 인증된 `/api/posts/notices`: POST `/drafts/:type`, PATCH/DELETE `/:id`, POST `/:id/generate`(호출 제한), POST `/:id/publish`. content보다 먼저 등록 |
 | content | GET/POST `/api/categories`, GET `/api/posts`, GET `/api/posts/search` **이후** GET `/api/posts/:id`, POST `/api/posts`, GET/POST `/api/posts/:postId/comments`, DELETE `/api/comments/:id` |
-| events | `/api/obituary`, `/api/obituaries` 인증 middleware; POST `/api/obituary/parse`, GET/POST `/api/obituaries`, GET `/api/obituaries/:id`; POST `/api/events/parse`에 인증+호출 제한; `/api/events` 인증 middleware |
-| events 상세 | GET `/api/events/drafts/latest`, POST `/api/events/drafts`, PATCH/DELETE `/api/events/drafts/:id`, POST `/api/events/:id/preview`, POST `/api/events/:id/publish`, GET `/api/events`, GET `/api/events/:id` |
 | registry | GET `/api/alumni` |
 | dues 납부 | GET `/api/payments/user/:userId`, POST `/api/payments` 관리자 보호 |
 | registry 관리자 | `/api/admin` 관리자 middleware, GET `/pending-registrations`, PATCH `/pending-registrations/:id`, POST `/sync-alumni/preview`, POST `/sync-alumni`, GET `/sync-progress`, GET `/test-google-sheets` (모두 `/api/admin` 접두사) |
@@ -93,14 +91,12 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
   `["/api/posts", postId]`, `["/api/posts", postId, "comments"]`
 - search: `["/api/posts/search", searchTerm]`, `["/api/alumni", searchTerm]`
 - directory: `["/api/alumni"]`
-- events: `["/api/events"]`, `["/api/events", id]`,
-  `["/api/events/drafts/latest", eventType]`; 게시 후 목록 무효화·초안 cache 제거
-- legacy: `["/api/obituaries"]`, `["/api/obituaries", id]`
+- events: 작성자 초안은 직렬 요청과 revision으로 관리; 게시 후 `/api/posts` 목록 무효화 및 입력 초기화
 - profile: `["/api/payments/user", userId]`, `["/api/membership/status"]`
 - admin: `["/api/admin/pending-registrations"]`, `["/api/admin/test-google-sheets"]`;
   승인/동기화 뒤 기존 cache invalidation 유지
 
-`attached_assets`, `client/public`, `/objects/*`, SEO 경로를 변경하지 않는다.
+`attached_assets`, `client/public` 파일은 보존한다. `/objects/*`는 회원 전용·no-store이고 게시글 SEO는 내용을 포함하지 않는 공통 메타데이터다.
 Vite 산출물은 `dist/public`, 서버 번들은 `dist/index.js`; `server/vite.ts`의 실행 위치별
 정적 파일 처리와 `server/seo.ts`를 유지한다.
 

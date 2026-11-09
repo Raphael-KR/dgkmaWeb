@@ -12,3 +12,9 @@ Keep the public home and auth state infrastructure eager; defer the other screen
 **Why:** A missing hashed chunk must reach the browser as a real asset failure so the lazy-route boundary can show recovery UI; wildcard-mounted paths are not reliable inputs for this classification.
 
 **Why:** Chromium can observe platform-injected external scripts alongside app requests; matching failures without checking their origin can make route-recovery tests fail for unrelated network errors.
+
+For failures to download the HTML entry module, keep the recovery shell and its same-origin module-script error listener in the HTML itself, before the module runs; reload only after an explicit user action.
+
+**Why:** A React error boundary cannot render if React's entry module never downloads.
+
+**How to apply:** Keep this shell self-contained and visible without application CSS or React. Test a real entry-script 404, verify no automatic reload loop, and confirm the user's reload gets the current HTML.

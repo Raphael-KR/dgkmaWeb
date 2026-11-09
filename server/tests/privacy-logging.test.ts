@@ -8,6 +8,7 @@ const protectedFiles = [
   "integrations/google-sheets.ts",
   "storage.ts",
   "modules/identity/registration-support.ts",
+  "modules/events/event-member-policy.ts",
   ...["identity", "registry", "content", "events", "dues"]
     .flatMap((domain) => [`modules/${domain}/routes.ts`, `modules/${domain}/storage.ts`]),
 ];

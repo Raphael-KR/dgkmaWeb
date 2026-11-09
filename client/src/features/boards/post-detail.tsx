@@ -13,6 +13,7 @@ import { useSeo } from "@/lib/seo";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Comment } from "@shared/contracts";
+import { PostBody } from "@/components/post-body";
 
 type CommentWithAuthor = Comment & { author: { id: number; name: string } | null };
 
@@ -79,10 +80,9 @@ export default function PostDetail() {
   };
 
   useSeo({
-    title: post?.title || "게시글",
-    description: post?.content
-      ? post.content.replace(/\s+/g, " ").trim().slice(0, 150)
-      : "동국대학교한의과대학동문회 게시글을 확인합니다.",
+    title: "회원 게시글",
+    description: "로그인한 회원만 게시글을 확인할 수 있습니다.",
+    noIndex: true,
     path: postId ? `/post/${postId}` : undefined,
     type: "article",
   });
@@ -139,7 +139,7 @@ export default function PostDetail() {
                   {post.category?.displayName}
                 </Badge>
                 <span className="text-xs text-gray-500">
-                  {new Date(post.createdAt).toLocaleDateString('ko-KR', {
+                  {new Date(post.publishedAt || post.createdAt).toLocaleDateString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -163,11 +163,7 @@ export default function PostDetail() {
             <hr className="mb-6" />
 
             {/* 본문 내용 */}
-            <div className="prose prose-sm max-w-none">
-              <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                {post.content}
-              </div>
-            </div>
+            <PostBody content={post.content} />
 
             {/* 첨부 이미지 */}
             {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (

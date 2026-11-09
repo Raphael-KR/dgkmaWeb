@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -10,24 +10,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { PostExcerpt } from "@/components/post-body";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/contracts";
-import { isSelectablePostCategory } from "@shared/category-policy";
+import { isSelectablePostCategory, isNoticeCategory } from "@shared/category-policy";
 import { Plus, ImagePlus, X, Loader2, HeartHandshake } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { trackEvent } from "@/lib/analytics";
 import { useLocation } from "wouter";
 import { useUpload } from "@/hooks/use-upload";
 
+const PostBodyEditor = lazy(() => import("@/components/post-body-editor").then(module => ({ default: module.PostBodyEditor })));
+
 export default function Boards() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(() => new URLSearchParams(window.location.search).get("category") || "all");
   const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +76,7 @@ export default function Boards() {
         ? "/api/posts"
         : `/api/posts?category=${encodeURIComponent(selectedCategory)}`;
       const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("게시글을 불러오지 못했습니다.");
       return response.json();
     },
     enabled: !!user,
@@ -161,11 +164,11 @@ export default function Boards() {
                 size="sm"
                 variant="outline"
                 className="shrink-0"
-                onClick={() => setLocation("/events")}
-                aria-label="경조사 페이지로 이동"
+                onClick={() => setLocation("/b/write/obituary")}
+                aria-label="부고·경사 작성"
               >
                 <HeartHandshake size={16} className="mr-1" />
-                경조사
+                부고·경사
               </Button>
 
               {/* 글쓰기 버튼 */}
@@ -185,7 +188,7 @@ export default function Boards() {
                     글쓰기
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-w-sm mx-4">
+              <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>새 게시글 작성</DialogTitle>
                 </DialogHeader>
@@ -209,7 +212,7 @@ export default function Boards() {
                             </FormControl>
                             <SelectContent>
                               {(categories as Category[])
-                                .filter(isSelectablePostCategory)
+                                .filter((category) => isSelectablePostCategory(category) && !isNoticeCategory(category.name))
                                 .map((category: Category) => (
                                   <SelectItem key={category.id} value={category.id.toString()}>
                                     {category.displayName}
@@ -242,13 +245,11 @@ export default function Boards() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>내용</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="게시글 내용을 입력하세요"
-                              className="min-h-[120px]"
-                              {...field}
-                            />
-                          </FormControl>
+                          <Suspense fallback={<div role="status" className="min-h-48 py-8 text-center text-sm text-gray-500">편집기를 불러오는 중입니다.</div>}>
+                            <FormControl>
+                              <PostBodyEditor {...field} />
+                            </FormControl>
+                          </Suspense>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -366,15 +367,13 @@ export default function Boards() {
                               {post.category.displayName}
                             </Badge>
                             <span className="text-xs text-gray-500">
-                              {new Date(post.createdAt).toLocaleDateString()}
+                              {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                             </span>
                           </div>
                           <h3 className="font-bold text-gray-800 mb-2 line-clamp-2">
                             {post.title}
                           </h3>
-                          <p className="text-sm text-gray-600 line-clamp-3 mb-3">
-                            {post.content}
-                          </p>
+                          <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-3 mb-3" />
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-gray-500">
                               작성자: 관리자

@@ -94,13 +94,19 @@ export function serveStatic(
     );
   }
 
-  app.use(express.static(resolvedDistPath));
+  app.use(express.static(resolvedDistPath, {
+    setHeaders: (res, filePath) => {
+      if (path.basename(filePath) === "index.html") {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }));
 
   app.use("*", rejectUnknownApiPath);
 
   // Never return the SPA document for a missing script/style/media request.
-  // Browsers need a real missing-asset response so lazy imports fail cleanly
-  // and route-level recovery can show its reload action.
+  // Entry-script failures need a real 404 so the HTML startup recovery can
+  // appear; lazy imports need the same response for route-level recovery.
   app.use("*", (req, res, next) => {
     const pathname = req.originalUrl.split("?", 1)[0];
     if (/\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(pathname)) {
@@ -118,7 +124,12 @@ export function serveStatic(
         "utf-8",
       );
       const page = await injectSeo(req, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      res.status(200)
+        .set({
+          "Content-Type": "text/html",
+          "Cache-Control": "no-cache",
+        })
+        .end(page);
     } catch (error) {
       next(error);
     }

@@ -199,7 +199,7 @@ export function requestPublicAddress(
   });
 }
 
-async function resolvePublicAddress(
+export async function resolvePublicAddress(
   url: URL,
   lookup: typeof dns.promises.lookup,
   signal?: AbortSignal,

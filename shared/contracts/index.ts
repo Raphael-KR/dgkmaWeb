@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export * from "./community-events";
+export * from "./notices";
 export * from "./alumni-sync";
 
 export const PENDING_REGISTRATION_CONFLICT_REASONS = [
@@ -65,6 +65,7 @@ export type Post = {
   imageUrls: string[] | null;
   createdAt: string | null;
   updatedAt: string | null;
+  publishedAt: string | null;
 };
 
 export type Comment = {
@@ -72,21 +73,6 @@ export type Comment = {
   postId: number;
   authorId: number | null;
   content: string;
-  createdAt: string | null;
-};
-
-export type Obituary = {
-  id: number;
-  title: string;
-  deceasedName: string;
-  deceasedRelation: string;
-  dateOfDeath: string;
-  funeralHome: string | null;
-  jangji: string | null;
-  bankAccount: string | null;
-  chiefMourner: string | null;
-  contactNumber: string | null;
-  authorId: number | null;
   createdAt: string | null;
 };
 
@@ -123,19 +109,6 @@ export const insertCommentSchema = z.object({
     .max(1000, "댓글은 1000자 이내로 입력해주세요"),
 });
 export type InsertComment = z.infer<typeof insertCommentSchema>;
-
-export const insertObituarySchema = z.object({
-  title: z.string().min(1, "제목을 입력해주세요"),
-  deceasedName: z.string().min(1, "고인의 성함을 입력해주세요"),
-  deceasedRelation: z.string().min(1),
-  dateOfDeath: z.string().min(1, "별세일을 입력해주세요"),
-  funeralHome: z.string().optional().default(""),
-  jangji: z.string().optional().default(""),
-  bankAccount: z.string().optional().default(""),
-  chiefMourner: z.string().optional().default(""),
-  contactNumber: z.string().optional().default(""),
-});
-export type InsertObituary = z.infer<typeof insertObituarySchema>;
 
 // 활동 지역(시/도) 18개 — 온보딩·프로필 편집·서버 검증에서 공통 사용.
 export const REGION_OPTIONS = [

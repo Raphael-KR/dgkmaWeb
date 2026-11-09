@@ -1,3 +1,4 @@
+import type { NoticeFacts, NoticeType } from "@shared/contracts/notices";
 import {
   assertSafeSourceUrl,
   EventSourcePolicyError,
@@ -8,8 +9,11 @@ import { extractPublicPageText } from "../../integrations/public-sources/public-
 import {
   isGipoomPublicObituaryUrl,
   readGipoomPublicObituary,
+  readGipoomNotice,
 } from "../../integrations/public-sources/gipoom-public-api";
 import { parseObituaryEventSource } from "./obituary-parser";
+import { collectPublicNotice, CollectionUnavailableError } from '../../integrations/public-sources/notice-collector';
+import type { CollectionResult, FieldEvidence, RuleStore } from '../../integrations/public-sources/collection-contract';
 
 const SOURCE_MESSAGES = {
   fetched: "링크 내용을 불러왔습니다.",
@@ -20,20 +24,24 @@ const SOURCE_MESSAGES = {
 export type EventSourceStatus = {
   url: string;
   status: "fetched" | "unavailable" | "blocked";
-  method?: "provider-api" | "static-html";
+  method?: "provider-api" | CollectionResult['method'];
+  diagnostics?: CollectionResult['diagnostics'];
   message?: string;
 };
 
 export type EventSourceReadResult = {
   combinedText: string;
+  structuredObituary?: NoticeFacts;
   urls: string[];
   sources: EventSourceStatus[];
+  evidence?: FieldEvidence[];
 };
 
 export type EventSourceReaderDependencies = {
   fetchPage?: (url: string, signal?: AbortSignal) => Promise<PublicPageResult>;
   readProviderSource?: (url: string, signal?: AbortSignal) => Promise<string | undefined>;
   extractText?: (page: PublicPageResult) => string;
+  ruleStore?: RuleStore;
 };
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -70,17 +78,20 @@ export async function readEventSources(
   input: string,
   dependencies: EventSourceReaderDependencies = {},
   signal?: AbortSignal,
+  noticeType: NoticeType = "obituary",
 ): Promise<EventSourceReadResult> {
   throwIfAborted(signal);
   const urls = extractEventSourceUrls(input);
-  const fetchPage = dependencies.fetchPage ?? fetchPublicPage;
+  const fetchPage = dependencies.fetchPage ?? ((url, requestSignal) => fetchPublicPage(url, {}, requestSignal));
   const readProviderSource = dependencies.readProviderSource ?? (async (url, requestSignal) =>
-    isGipoomPublicObituaryUrl(url)
+    noticeType === "obituary" && isGipoomPublicObituaryUrl(url)
       ? readGipoomPublicObituary(url, undefined, requestSignal)
       : undefined);
   const extractText = dependencies.extractText ?? extractPublicPageText;
   const textParts = [withoutSourceUrls(input, urls)].filter(Boolean);
   const sources: EventSourceStatus[] = [];
+  const evidence: FieldEvidence[] = [];
+  let structuredObituary: NoticeFacts | undefined;
 
   for (const url of urls) {
     throwIfAborted(signal);
@@ -88,25 +99,44 @@ export async function readEventSources(
       assertSafeSourceUrl(url);
       let extracted = "";
       let method: EventSourceStatus["method"];
+      let diagnostics: CollectionResult['diagnostics'] | undefined;
       try {
-        extracted = normalizeSourceText(await readProviderSource(url, signal) ?? "");
+        if (noticeType === "obituary" && !dependencies.readProviderSource && isGipoomPublicObituaryUrl(url)) {
+          const provider = await readGipoomNotice(url, signal);
+          extracted = normalizeSourceText(provider.text);
+          structuredObituary = provider.facts;
+          const collectedAt = new Date().toISOString();
+          for (const [field,value] of Object.entries(provider.facts)) {
+            if (typeof value === 'string' && value) evidence.push({field,value,url,locator:'provider:'+field,kind:'api',collectedAt});
+          }
+        } else extracted = normalizeSourceText(await readProviderSource(url, signal) ?? "");
         if (extracted) method = "provider-api";
       } catch {
         throwIfAborted(signal);
         // A provider adapter is an optimization; the existing page readers remain the fallback.
       }
       if (!extracted) {
-        const page = await fetchPage(url, signal);
-        extracted = normalizeSourceText(extractText(page));
-        if (extracted) method = "static-html";
+        if (dependencies.fetchPage || dependencies.extractText || dependencies.readProviderSource) {
+          // Keep injected readers free of database/browser side effects.
+          const page = await fetchPage(url, signal);
+          extracted = normalizeSourceText(extractText(page));
+          if (extracted) method = "static-html";
+        } else {
+          const store = dependencies.ruleStore ?? (await import('./collection-rule-store')).collectionRuleStore;
+          const collected = await collectPublicNotice(url, store, signal, noticeType);
+          extracted = normalizeSourceText(collected.text);
+          method = collected.method; diagnostics = collected.diagnostics;
+          evidence.push(...collected.evidence);
+          evidence.push({field:'sourceText',value:extracted,url,locator:'collected-text',kind:method==='ocr'?'ocr':method==='browser'?'rendered':method==='static-html'?'html':'api',collectedAt:new Date().toISOString()});
+        }
       }
       if (hasUnavailableSourceEvidence(extracted)) throw new Error("unavailable public source");
-      if (isGipoomPublicObituaryUrl(url) && !hasCompleteObituaryEvidence(extracted)) {
+      if (noticeType === "obituary" && isGipoomPublicObituaryUrl(url) && !structuredObituary && !hasCompleteObituaryEvidence(extracted)) {
         throw new Error("incomplete public obituary source");
       }
       if (!extracted) throw new Error("empty public page");
       textParts.push(extracted);
-      sources.push({ url, status: "fetched", method, message: SOURCE_MESSAGES.fetched });
+      sources.push({ url, status: "fetched", method, diagnostics, message: SOURCE_MESSAGES.fetched });
     } catch (error) {
       throwIfAborted(signal);
       const blocked = error instanceof EventSourcePolicyError;
@@ -114,13 +144,16 @@ export async function readEventSources(
         url,
         status: blocked ? "blocked" : "unavailable",
         message: blocked ? SOURCE_MESSAGES.blocked : SOURCE_MESSAGES.unavailable,
+        diagnostics: error instanceof CollectionUnavailableError ? error.diagnostics : undefined,
       });
     }
   }
 
   return {
     combinedText: textParts.join("\n"),
+    structuredObituary: urls.length === 1 && sources[0]?.status === "fetched" ? structuredObituary : undefined,
     urls,
     sources,
+    evidence,
   };
 }
