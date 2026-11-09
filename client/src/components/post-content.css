@@ -32,3 +32,11 @@
   outline: none;
 }
 .post-editor .tiptap p:last-child { margin-bottom: 0; }
+
+@media (min-width: 768px) {
+  .post-editor .tiptap {
+    min-height: 320px;
+    padding: 1rem;
+    font-size: 1rem;
+  }
+}

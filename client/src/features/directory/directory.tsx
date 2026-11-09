@@ -51,18 +51,20 @@ export default function Directory() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <div className="max-w-md mx-auto px-4 pb-20">
-        <div className="py-4">
-          <h1 className="text-xl font-bold kakao-brown mb-2">동문록</h1>
+      <div className="member-container">
+        <div>
+          <h1 className="mb-2 text-xl font-bold kakao-brown md:text-3xl">동문록</h1>
           <p className="text-sm text-gray-500 mb-6">
             같은 기수 또는 같은 지역 동문을 볼 수 있어요.
           </p>
 
+          <div className="mb-6 grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_18rem]">
           {/* Search */}
-          <div className="relative mb-6">
+          <div className="relative min-w-0">
             <Search className="absolute left-3 top-3 text-gray-400" size={20} />
             <Input
               placeholder="이름 또는 기수로 검색"
+              aria-label="동문 이름 또는 기수 검색"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -71,7 +73,7 @@ export default function Directory() {
           </div>
 
           {/* Statistics */}
-          <Card className="shadow-sm mb-6">
+          <Card className="shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -86,10 +88,11 @@ export default function Directory() {
               </div>
             </CardContent>
           </Card>
+          </div>
 
           {/* 본문 상태별 렌더링 */}
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {[0, 1, 2].map((i) => (
                 <Card key={i} className="shadow-sm">
                   <CardContent className="p-4">
@@ -130,18 +133,18 @@ export default function Directory() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredAlumni.map((person) => (
-                <Card key={person.id} className="shadow-sm">
+                <Card key={person.id} className="min-w-0 shadow-sm">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200">
                           <span className="font-bold text-gray-600">
                             {person.name.charAt(0)}
                           </span>
                         </div>
-                        <div>
+                        <div className="min-w-0 [overflow-wrap:anywhere]">
                           <p className="font-bold">
                             {person.name}
                             {person.position && (
@@ -157,7 +160,7 @@ export default function Directory() {
                         </div>
                       </div>
                       {person.isMatched && (
-                        <Badge variant="default">회원</Badge>
+                        <Badge variant="default" className="shrink-0">회원</Badge>
                       )}
                     </div>
                   </CardContent>
@@ -167,7 +170,7 @@ export default function Directory() {
           )}
 
           {/* Join KakaoTalk Group */}
-          <Card className="shadow-sm mt-6 bg-gradient-to-r from-yellow-50 to-yellow-100">
+          <Card className="mx-auto mt-6 bg-gradient-to-r from-yellow-50 to-yellow-100 shadow-sm md:max-w-xl">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 kakao rounded-2xl mx-auto mb-4 flex items-center justify-center">
                 <svg className="kakao-brown" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">

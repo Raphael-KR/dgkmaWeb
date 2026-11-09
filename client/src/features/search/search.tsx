@@ -80,9 +80,9 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <div className="max-w-md mx-auto px-4 pb-20 pt-6">
+      <div className="member-container">
         {/* 뒤로가기 버튼 */}
-        <div className="py-4">
+        <div>
           <Button
             variant="ghost"
             size="sm"
@@ -93,13 +93,16 @@ export default function SearchPage() {
             뒤로가기
           </Button>
 
+          <h1 className="mb-6 text-xl font-bold text-gray-900 md:text-3xl">커뮤니티 검색</h1>
+
           {/* 검색 입력 */}
-          <form onSubmit={handleSearch} className="mb-6">
+          <form onSubmit={handleSearch} className="mb-6 md:max-w-3xl">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <Input
                 type="text"
                 placeholder="게시글, 동문 이름, 졸업년도 검색..."
+                aria-label="게시글과 동문 검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-3 text-base"
@@ -109,7 +112,7 @@ export default function SearchPage() {
           </form>
 
           {/* 탭 메뉴 */}
-          <div className="flex space-x-1 mb-6 bg-gray-100 rounded-lg p-1">
+          <div className="mb-6 flex space-x-1 rounded-lg bg-gray-100 p-1 md:max-w-lg">
             <button
               onClick={() => setActiveTab("all")}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeTab === "all"
@@ -168,19 +171,19 @@ export default function SearchPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {/* 게시글 결과 */}
               {(activeTab === "all" || activeTab === "posts") && posts?.map((post: any) => (
                 <Card
                   key={`post-${post.id}`}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  className="min-w-0 cursor-pointer transition-shadow hover:shadow-md"
                   onClick={() => setLocation(`/b?category=${post.category.name}`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start space-x-3">
                       <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <Badge variant={post.category.badgeVariant as any}>
                             {post.category.displayName}
                           </Badge>
@@ -188,10 +191,10 @@ export default function SearchPage() {
                             {new Date(post.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <h4 className="font-medium text-gray-800 mb-1 line-clamp-2">
+                        <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800">
                           {post.title}
                         </h4>
-                        <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-2" />
+                        <PostExcerpt content={post.content} className="line-clamp-2 text-sm text-gray-600 [overflow-wrap:anywhere]" />
                       </div>
                     </div>
                   </CardContent>
@@ -202,18 +205,18 @@ export default function SearchPage() {
               {(activeTab === "all" || activeTab === "alumni") && filteredAlumni?.map((person) => (
                 <Card
                   key={`alumni-${person.id}`}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  className="min-w-0 cursor-pointer transition-shadow hover:shadow-md"
                   onClick={() => setLocation("/directory")}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-kakao-yellow rounded-full flex items-center justify-center">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-kakao-yellow">
                           <span className="text-kakao-brown font-bold">
                             {person.name.charAt(0)}
                           </span>
                         </div>
-                        <div>
+                        <div className="min-w-0 [overflow-wrap:anywhere]">
                           <h4 className="font-medium text-gray-800">
                             {person.name}
                             {person.position && (
@@ -228,7 +231,7 @@ export default function SearchPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex shrink-0 items-center gap-2">
                         {person.isMatched && (
                           <Badge className="bg-green-100 text-green-800">회원</Badge>
                         )}
