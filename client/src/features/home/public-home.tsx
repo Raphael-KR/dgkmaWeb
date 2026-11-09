@@ -10,7 +10,8 @@ import {
   FileText, UserPlus, Wallet, Heart, Megaphone, Info, LogIn,
   Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight,
 } from "lucide-react";
-import symbolLogo from "@assets/public-home/symbol-logo.svg";
+import { SiteLogo } from "@/components/site-brand";
+import { SITE_NAME, SITE_SHORT_NAME } from "@shared/site";
 import communityLogoSvg from "@assets/public-home/community-logo-white.svg?raw";
 
 const programs = [
@@ -69,7 +70,7 @@ export function PublicHome() {
   const [loginOpen, setLoginOpen] = useState(false);
 
   useSeo({
-    title: "동국대학교한의과대학동문회",
+    title: SITE_NAME,
     description: "모교 기여, 장학, 동문 모임, 경조사 안내",
     path: "/",
   });
@@ -88,7 +89,7 @@ export function PublicHome() {
               DGKMA · DONGGUK KOREAN MEDICINE ALUMNI
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-4">
-              <span className="block">동국대학교한의과대학동문회</span>
+              <span className="block">{SITE_NAME}</span>
               <span className="tp-text-gold block mt-1">홈페이지에 오신 것을 환영합니다</span>
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed mb-6 max-w-xl mx-auto lg:mx-0">
@@ -100,7 +101,7 @@ export function PublicHome() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
               <Button
                 size="lg"
-                className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400 font-bold"
+                variant="kakao"
                 onClick={() => setLoginOpen(true)}
               >
                 <LogIn size={18} className="mr-2" /> 카카오로 로그인
@@ -108,8 +109,8 @@ export function PublicHome() {
               <Link href="/about/join">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto bg-transparent border-white/40 text-white hover:bg-white/10"
+                  variant="onBrandOutline"
+                  className="w-full sm:w-auto"
                 >
                   회원가입 안내
                 </Button>
@@ -117,9 +118,7 @@ export function PublicHome() {
             </div>
           </div>
           <div className="flex-shrink-0 order-1 lg:order-2">
-            <div className="w-40 h-40 sm:w-52 sm:h-52 lg:w-64 lg:h-64 rounded-full bg-white/95 p-6 sm:p-8 shadow-2xl">
-              <img src={symbolLogo} alt="동국대학교한의과대학동문회" className="w-full h-full object-contain" />
-            </div>
+            <SiteLogo size="hero" />
           </div>
         </div>
       </section>
@@ -190,7 +189,7 @@ export function PublicHome() {
                 <div>
                   <div className="text-xs text-gray-500">한글</div>
                   <div className="font-bold tp-text-green-dark">
-                    동국대학교한의과대학동문회 <span className="text-sm font-normal text-gray-600">(약칭: 동국한의동문회)</span>
+                    {SITE_NAME} <span className="text-sm font-normal text-gray-600">(약칭: {SITE_SHORT_NAME})</span>
                   </div>
                 </div>
                 <div>
@@ -391,7 +390,7 @@ export function PublicHome() {
           </p>
           <Button
             size="lg"
-            className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400 font-bold"
+            variant="kakao"
             onClick={() => setLoginOpen(true)}
           >
             <LogIn size={18} className="mr-2" /> 카카오로 시작하기

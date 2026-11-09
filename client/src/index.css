@@ -14,15 +14,15 @@
   --card-foreground: hsl(0, 0%, 16.9%);
   --border: hsl(28, 12%, 88%);
   --input: hsl(28, 12%, 88%);
-  --primary: hsl(31, 100%, 43%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(13, 73%, 47%);
-  --secondary-foreground: hsl(0, 0%, 100%);
-  --accent: hsl(43, 100%, 46%);
-  --accent-foreground: hsl(0, 0%, 16.9%);
+  --primary: var(--dg-primary);
+  --primary-foreground: var(--dg-white);
+  --secondary: var(--dg-secondary);
+  --secondary-foreground: var(--dg-white);
+  --accent: var(--dg-accent);
+  --accent-foreground: var(--dg-neutral-dark);
   --destructive: hsl(0, 65%, 47%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --ring: hsl(13, 73%, 47%);
+  --ring: var(--dg-secondary);
   --radius: 0.5rem;
 
   /* DGKMA Design System Tokens */
@@ -45,7 +45,18 @@
   /* Kakao (브랜드 가이드 준수, 변경 금지) */
   --kakao: #FEE500;
   --kakao-brown: #191919;
+
+  /* 공개·회원 화면의 공통 레이아웃 */
+  --site-content-max: 80rem;
+  --site-mobile-max: 28rem;
+  --site-gutter: 1rem;
+  --site-header-offset: 8.5rem;
 }
+
+/* :root 기본값과 같은 레이어에서 선언해 Tailwind 출력 순서에 덮이지 않게 한다. */
+@screen md { :root { --site-gutter: 1.5rem; } }
+@screen lg { :root { --site-gutter: 2rem; } }
+@screen xl { :root { --site-header-offset: 6rem; } }
 
 .dark {
   --background: hsl(0, 0%, 16.9%);
@@ -58,15 +69,8 @@
   --card-foreground: hsl(0, 0%, 98%);
   --border: hsl(0, 0%, 22%);
   --input: hsl(0, 0%, 22%);
-  --primary: hsl(31, 100%, 43%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(13, 73%, 47%);
-  --secondary-foreground: hsl(0, 0%, 100%);
-  --accent: hsl(43, 100%, 46%);
-  --accent-foreground: hsl(0, 0%, 16.9%);
   --destructive: hsl(0, 65%, 47%);
   --destructive-foreground: hsl(0, 0%, 100%);
-  --ring: hsl(13, 73%, 47%);
   --radius: 0.5rem;
 }
 
@@ -85,8 +89,81 @@
 }
 
 @layer components {
+  .site-container,
   .member-container {
-    @apply mx-auto w-full max-w-md px-4 pb-20 pt-4 md:max-w-7xl md:px-6 md:py-8 lg:px-8;
+    @apply mx-auto w-full;
+    max-width: var(--site-content-max);
+    padding-inline: var(--site-gutter);
+  }
+
+  .member-container {
+    @apply pb-20 pt-4 md:py-8;
+    max-width: var(--site-mobile-max);
+  }
+
+  .site-brand-surface {
+    background-color: var(--dg-brand-bg-dark);
+    color: var(--dg-white);
+  }
+
+  .site-brand {
+    @apply flex min-w-0 items-center gap-2 rounded-sm sm:gap-3;
+  }
+
+  .site-brand__name {
+    @apply min-w-0 text-sm font-bold leading-tight sm:text-base;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .site-logo {
+    @apply shrink-0 rounded-full object-contain;
+    background-color: var(--dg-white);
+  }
+
+  .site-logo--header { @apply h-9 w-9 p-1 sm:h-10 sm:w-10; }
+  .site-logo--auth { @apply h-20 w-20 p-2; }
+  .site-logo--hero { @apply h-40 w-40 p-6 shadow-2xl sm:h-52 sm:w-52 sm:p-8 lg:h-64 lg:w-64; }
+
+  .site-header { @apply sticky top-0 z-40 shadow-md; }
+  .site-header__inner { @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3; }
+  .site-header__actions { @apply flex shrink-0 items-center justify-end gap-1 sm:gap-2; }
+  .site-header__nav { @apply col-span-2 hidden flex-wrap items-center justify-center gap-1 border-t border-white/20 pt-2 md:flex; }
+  .site-header-action { @apply bg-transparent text-white/90 hover:bg-white/10 hover:text-white; }
+  .site-header-action--outline { @apply border-white/40; }
+
+  .site-nav-link {
+    @apply flex min-h-10 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-white/10;
+  }
+
+  .site-menu-link { @apply block rounded-md px-4 py-3 text-sm font-medium text-foreground hover:bg-muted; }
+  .site-nav-link[aria-current="page"],
+  .site-menu-link[aria-current="page"] {
+    background-color: var(--dg-accent);
+    color: var(--dg-neutral-dark);
+  }
+
+  .site-brand:focus-visible,
+  .site-nav-link:focus-visible,
+  .site-menu-link:focus-visible,
+  .site-bottom-link:focus-visible { @apply outline outline-2 outline-offset-2 outline-current; }
+
+  .site-bottom-navigation { @apply fixed inset-x-0 bottom-0 z-40 border-t border-white/20 md:hidden; }
+  .site-bottom-navigation__inner { @apply mx-auto flex; max-width: var(--site-mobile-max); }
+  .site-bottom-link { @apply flex h-auto flex-1 flex-col items-center justify-center space-y-1 px-2 py-3 text-white/70 transition-colors hover:bg-white/10 hover:text-white; }
+  .site-bottom-link[aria-current="page"] { color: var(--dg-accent); }
+
+  .site-scroll-target { scroll-margin-top: var(--site-header-offset); }
+  .member-sticky-panel { @apply lg:sticky; top: var(--site-header-offset); }
+
+  @screen md {
+    .member-container { max-width: var(--site-content-max); }
+  }
+
+  @screen xl {
+    .site-header__inner { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .site-header__actions { @apply col-start-3 row-start-1; }
+    .site-header__nav { @apply col-span-1 col-start-2 row-start-1 border-0 pt-0; }
   }
 }
 

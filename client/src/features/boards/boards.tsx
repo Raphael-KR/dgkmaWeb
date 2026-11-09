@@ -341,7 +341,7 @@ export default function Boards() {
           </div>
 
           <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-            <nav aria-label="게시판 카테고리" className="mb-5 flex gap-2 overflow-x-auto pb-2 lg:sticky lg:top-24 lg:mb-0 lg:block lg:space-y-1 lg:rounded-xl lg:border lg:bg-white lg:p-3">
+            <nav aria-label="게시판 카테고리" className="mb-5 flex gap-2 overflow-x-auto pb-2 member-sticky-panel lg:mb-0 lg:block lg:space-y-1 lg:rounded-xl lg:border lg:bg-white lg:p-3">
               <h2 className="hidden px-3 py-2 text-xs font-semibold text-gray-500 lg:block">카테고리</h2>
               {boardCategories.map((category) => (
                 <button key={category.name} type="button" aria-pressed={selectedCategory === category.name}
