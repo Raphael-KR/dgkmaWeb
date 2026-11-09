@@ -1,14 +1,17 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 관찰은 2026-11-09 05:04 KST 수집 규칙 추가 후 읽기 전용 catalog이며 13개 테이블이다. Production은 2026-11-09 12:56 KST 추가 구조 적용 후 canonical metadata-only catalog를 확인했으며 구 테이블을 유지한 15개 테이블이다. 아래 현재 구조와 통합 전 이력을 구분하며 catalog 확인을 실제 계정·기능 검증으로 확대하지 않는다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 05:04 KST 수집 규칙 추가 후 catalog이며 13개 테이블이다. Production은 2026-11-09 13:25 KST 재게시·구 테이블 제거 후 canonical metadata-only catalog를 확인했으며 같은 13개 테이블·102개 컬럼이다. 아래 현재 구조와 통합 전 이력을 구분하며 catalog 확인을 실제 계정·기능 검증으로 확대하지 않는다.
 
-### 운영 릴리스 구조 (2026-11-09, 추가 구조 적용)
+### 운영 릴리스 구조 (2026-11-09)
 
-- 운영 `neondb`는 posts 통합 구조·수집 규칙 테이블과 구 `community_events`·`obituaries`가 함께 있는 15-table 중간 상태다. 두 구 테이블은 각각 0건이며 incoming FK는 0개다. 새 코드 배포 확인 후 삭제하는 순서를 유지한다.
+- 운영 `neondb`는 posts 통합 구조·수집 규칙을 포함한 13-table 최종 구조다. 아래 12:56 기록은 구 테이블을 유지했던 15-table 중간 상태이며 실제 삭제는 [웹 게시 절차](./database-operations.md#웹-게시의-구-테이블-제거-절차)로 마쳤다.
 - 12:56 KST `scripts/release-posts-additive.sql`을 커밋했다. 아래 개발 계약과 같은 posts 컬럼 4개·CHECK 2개·partial UNIQUE 1개, `source_collection_rules`의 8개 컬럼·PK·UNIQUE·CHECK 2개·시퀀스를 추가했다. 카테고리 seed는 구조 변경과 구분해 5→7건으로 확인했고 기존 나머지 테이블 건수는 보존했다.
-- `scripts/release-posts-cleanup.sql`은 새 배포 확인 후 두 구 테이블과 소유 시퀀스·제약만 제거한다. 2026-11-09 사용자가 운영 DB 전환과 두 빈 테이블 삭제를 승인했다. 승인·SQL 준비는 물리 DB 적용이나 전체 catalog 재검증을 뜻하지 않는다. [운영 적용 순서](./database-operations.md#최신-변경-릴리스-준비-2026-11-09)를 따른다.
+- `scripts/release-posts-cleanup.sql`은 준비한 수동 제거 경로이며 실행하지 않았다. 사용자가 승인한 두 빈 테이블 삭제는 Replit이 검토 화면에 제시한 두 문장의 마이그레이션으로 적용됐다. 일반 테이블이나 다른 객체 삭제로 범위를 확대하지 않았으며 [운영 완료 결과](./database-operations.md#운영-전환-완료-결과)를 따른다.
 - 12:43 KST 적용 전 catalog는 `14/119/14/10/6/2/24/10`이었다. 출력 SHA-256은 `45ed6417e03fdd8c6ade05ea72aac7b5fec226932c91c20d88ba2b70b947bec1`이며 Replit `.superpowers/release-20261109/production-before-catalog.txt`에 보존한 이력이다.
-- 12:56 KST 적용 후 catalog: tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `15/131/15/10/7/6/27/11`. view·trigger·policy·routine·enum·domain은 0개이며 모든 public 테이블의 RLS는 비활성이다. 새 연결에서 `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `1883ff1b398b00a56d58914c245cf7569d2aca87cf516b6e2dd60b692f40879a`이며 `.superpowers/release-20261109/production-after-additive-catalog.txt`에 있다. Republish와 구 테이블 제거는 아직 수행하지 않았다.
+- 12:56 KST 추가 구조 적용 직후 catalog는 tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `15/131/15/10/7/6/27/11`이었다. view·trigger·policy·routine·enum·domain은 0개이며 모든 public 테이블의 RLS는 비활성이었다. 새 연결에서 `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `1883ff1b398b00a56d58914c245cf7569d2aca87cf516b6e2dd60b692f40879a`이며 `.superpowers/release-20261109/production-after-additive-catalog.txt`에 있다. 당시에는 Republish와 구 테이블 제거 전이었다.
+- 13:18 KST 웹 삭제 승인 직전, 두 구 테이블과 행 타입의 의존 객체를 추가로 확인했다. 외부 incoming FK는 없고 `pg_depend` 결과는 테이블 소유·내부 객체(`a`·`i`)뿐이다. 이 확인은 전체 catalog 재수집이 아니며, Replit 생성 SQL 두 문장의 실효 삭제 범위가 승인한 두 테이블·소유 객체를 넘지 않는다는 근거다. 실제 삭제 후 전체 catalog를 별도로 기록한다.
+- 13:25 KST 최종 catalog는 `13/102/13/8/6/6/24/9`이며 view·trigger·policy·routine·enum·domain은 0개, RLS는 모두 비활성이다. 대상 `neondb`·READ ONLY gate·ROLLBACK·완료 marker를 확인했다. 추가 구조 적용 후 catalog와 비교한 차이는 두 구 테이블의 컬럼·제약·인덱스·소유 시퀀스 제거뿐이며 존속 객체의 변경·추가 누락은 없었다.
+- 최종 SQL digest는 `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f`, 출력 digest는 `50b2f6f8676b7ad37a6a1ebd15e596255450f5db5c23f8a1430c6a4cfbf3c60c`다. 근거 파일은 Replit `.superpowers/release-20261109/production-after-web-publish-catalog.txt`이며 객체 기준은 아래 현재 개발 계약과 같다. 아래 과거 표의 Production 미적용 표시는 해당 개발 작업 시점의 이력이다.
 
 ### 공개 링크 수집 규칙 (2026-11-09 개발 적용)
 

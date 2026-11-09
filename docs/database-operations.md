@@ -9,17 +9,32 @@
 - 12:35 KST 적용 전 운영은 구 테이블 2개가 포함된 14-table 구조였다. `community_events`·`obituaries`는 각각 0건이고 incoming FK는 없었다. posts는 기존 9개 컬럼이며 통합 컬럼과 `source_collection_rules`는 없었다. 일반 posts/comments도 0건이었다. 나머지 기존 테이블은 보존 대상으로 기록했다. 실제 적용 후 상태는 아래 결과를 따른다.
 - 후보 SQL은 추가 구조 `scripts/release-posts-additive.sql`과 배포 후 제거 `scripts/release-posts-cleanup.sql`로 나눈다. 두 파일은 Production `neondb`만 허용하며 앱 시작·빌드에서 실행하지 않는다. 개발용 두 SQL의 대상 제한은 변경하지 않는다.
 - 적용 전 schema-only snapshot과 테이블별 건수·의존 관계를 기록한다. 명시 승인 후 첫 SQL의 posts 컬럼·제약·인덱스, 수집 규칙 테이블, 부고·경사 카테고리를 한 트랜잭션으로 적용한다. 새 연결 확인 후 Republish한다. 구 앱이 제공되는 동안에는 구 테이블을 유지한다.
-- 새 배포의 비로그인 HTTP 확인 후, 별도 삭제 승인이 포함된 경우에만 둘째 SQL로 구 테이블 2개를 제거한다. 재확인 시 행이 늘었거나 참조 관계가 달라졌으면 삭제하지 않고 실제 차이를 보고한다. `CASCADE`·일반 posts/comments·명부 삭제는 하지 않는다.
-- 단계별 새 연결의 구조·건수 및 canonical metadata-only catalog로 결과를 기록한다. 원본 보존은 원복 허가가 아니며 성공한 변경을 자동 되돌리지 않는다. 증거는 Replit `.superpowers/release-20261109/`에 둔다. 현재 추가 구조 SQL은 적용했고 구 테이블 제거·Republish·실계정 QA는 미실행이다.
-- 12:43 KST `production-before-schema.sql` 19,953 bytes를 Replit 내 비공개 작업 경로에 보존했다. SHA-256은 `f37b6e986f11887258e149f2b9a432b7625bd63a69a946a66aa94abc3181efc2`다. 구 테이블은 0건이므로 행 원문을 백업하지 않았다. 전체 metadata-only catalog도 READ ONLY gate·ROLLBACK·완료 marker로 종료했고 [구조 기록](./database-schema.md#운영-릴리스-구조-2026-11-09-추가-구조-적용)에 반영했다.
+- 수동 절차는 새 배포의 비로그인 HTTP 확인 후, 별도 삭제 승인이 포함된 경우에만 둘째 SQL로 구 테이블 2개를 제거한다. 재확인 시 행이 늘었거나 참조 관계가 달라졌으면 삭제하지 않고 실제 차이를 보고한다. 수동 SQL의 `CASCADE`·일반 posts/comments·명부 삭제는 하지 않는다. 이번 Replit 웹 게시가 요구한 두 빈 테이블 삭제는 아래의 한정된 플랫폼 절차를 따른다.
+- 단계별 새 연결의 구조·건수 및 canonical metadata-only catalog로 결과를 기록한다. 원본 보존은 원복 허가가 아니며 성공한 변경을 자동 되돌리지 않는다. 증거는 Replit `.superpowers/release-20261109/`에 둔다. 현재 추가 구조·구 테이블 제거·Republish를 완료했고 실계정 QA는 계속 보류한다.
+- 12:43 KST `production-before-schema.sql` 19,953 bytes를 Replit 내 비공개 작업 경로에 보존했다. SHA-256은 `f37b6e986f11887258e149f2b9a432b7625bd63a69a946a66aa94abc3181efc2`다. 구 테이블은 0건이므로 행 원문을 백업하지 않았다. 전체 metadata-only catalog도 READ ONLY gate·ROLLBACK·완료 marker로 종료했고 [구조 기록](./database-schema.md#운영-릴리스-구조-2026-11-09)에 반영했다.
 
 ### 운영 추가 구조 적용 결과
 
 - 2026-11-09 12:56 KST, main `f54177bfe877e40354f961045b65e3f238abed1f`의 `scripts/release-posts-additive.sql`을 Production `neondb`에 적용했다. SQL SHA-256은 `926479c120d01b0e5e9d47230fb1b779baecd5625841dbfdc530ff7eacd17afa`다. Replit Secret을 해당 psql 프로세스에만 명시 전달했으며 개발 PG 기본값과 Secrets는 변경하지 않았다.
 - 직전 대상·테이블별 건수·의존 관계를 다시 확인하고 `production-before-additive-schema.sql`을 보존했다. snapshot SHA-256은 `546e83bcf40a7e74d0fa4337ec4ca02f8a520976e4549851ee5c6baa1071555b`다. psql은 한 트랜잭션의 COMMIT과 exit 0으로 종료했다.
 - 새 연결에서 posts 컬럼 4개·CHECK 2개·partial UNIQUE, 규칙 테이블과 카테고리를 확인했다. 카테고리만 5→7건이고 그 외 기존 테이블 건수는 변경되지 않았다. 신규 `source_collection_rules`는 0건이다. 두 구 테이블은 각각 0건으로 유지했으며 `release-posts-cleanup.sql`은 실행하지 않았다.
-- 전체 metadata-only catalog는 15개 테이블·131개 컬럼이며 새 연결의 대상·READ ONLY·ROLLBACK·completion marker를 확인했다. 정확한 객체와 digest는 [구조 기준서](./database-schema.md#운영-릴리스-구조-2026-11-09-추가-구조-적용)를 따른다. `production-additive-receipt.json`, 전후 집계 JSON, SQL 출력과 catalog를 같은 비공개 작업 경로에 보존했다.
-- 이후 `publish_app`은 웹의 DB 스키마 검토가 필요하다는 오류를 반환했고 새 배포를 시작하지 않았다. 사용자의 웹 검토·배포 승인은 받았으며 현재 브라우저 로그인을 기다린다. 기존 코드가 제공되는 동안 구 테이블을 유지하고, 새 배포·비로그인 HTTP 확인 후 승인된 삭제 단계를 진행한다. 명부 재동기화·실계정 QA·자동 원복은 수행하지 않았다.
+- 이 단계의 전체 metadata-only catalog는 15개 테이블·131개 컬럼이며 새 연결의 대상·READ ONLY·ROLLBACK·completion marker를 확인했다. 정확한 객체와 digest는 [구조 기준서](./database-schema.md#운영-릴리스-구조-2026-11-09)를 따른다. `production-additive-receipt.json`, 전후 집계 JSON, SQL 출력과 catalog를 같은 비공개 작업 경로에 보존했다.
+- 이후 `publish_app`은 웹의 DB 스키마 검토가 필요하다는 오류를 반환했고 새 배포를 시작하지 않았다. 사용자가 웹 검토·배포를 승인하고 브라우저 로그인을 마친 뒤 아래의 플랫폼 적용 절차로 계속했다. 명부 재동기화·실계정 QA·자동 원복은 수행하지 않았다.
+
+### 웹 게시의 구 테이블 제거 절차
+
+- 로그인 후 시작한 웹 Republish는 DB 승인 단계에서 멈췄으며 생성 SQL은 `DROP TABLE "community_events" CASCADE;`와 `DROP TABLE "obituaries" CASCADE;` 두 문장이다. 다른 테이블·행의 변경이나 개발 DB 전체 복사는 선택하지 않았다.
+- 2026-11-09 13:18 KST `neondb`·READ ONLY를 다시 확인했다. 두 테이블 각각 0건, 외부 incoming FK 0개이며 `pg_depend`와 테이블 행 타입에 대한 의존 관계는 해당 테이블의 자동 소유·내부 객체(`a`·`i`)뿐이다. public view·materialized view·routine·사용자 trigger는 모두 0개다. 앞선 집계의 기존 테이블 건수도 그대로다.
+- 적용 직전 구조 snapshot `production-before-web-approval-schema.sql`의 SHA-256은 `44655eff6bd954ac96d6bbef9d1af9cd6d762b27d0e283e2a5468e2bab613f61`이다. `production-before-web-approval.json`에는 대상·건수·객체 의존 관계를 남겼다. 모두 Replit `.superpowers/release-20261109/`에 있으며 행 원문·Secret은 없다.
+- 이미 승인된 두 빈 테이블 제거의 실효 범위를 유지하므로, 이번에만 검토한 두 문장을 Replit Publishing에서 승인한다. Replit은 빌드 완료 뒤 새 버전 전환 전에 마이그레이션하며 비호환 구 앱을 잠시 중지할 수 있다. 기존 수동 cleanup 순서를 이 플랫폼 적용으로 대체한다. 이는 일반적인 `CASCADE` 허용이나 삭제 범위 확대가 아니다.
+- 배포 후 새 운영 연결에서 두 테이블과 소유 객체 제거, 나머지 테이블 건수 보존, 전체 catalog를 확인한다. 플랫폼에서 삭제가 끝나면 `release-posts-cleanup.sql`은 실행하지 않는다. 실제 적용 전에는 이 절의 검토·승인을 삭제 완료로 표시하지 않는다.
+
+### 운영 전환 완료 결과
+
+- 2026-11-09 13:25 KST Replit 재게시 success 이후 새 운영 연결에서 `current_database()=neondb`·READ ONLY를 확인했다. `community_events`·`obituaries`와 소유 객체가 제거됐으며 수동 cleanup SQL은 실행하지 않았다.
+- 존속 테이블의 건수는 적용 직전 집계와 모두 일치한다. 명부는 3,458건, 카테고리는 추가 단계에서 만든 7건, 수집 규칙은 0건이다. 일반 게시글·댓글·회원·명부·기존 인증 기록의 행 변경을 하지 않았다.
+- 최종 전체 catalog는 `13/102/13/8/6/6/24/9`(tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences)이며 출력 SHA-256은 `50b2f6f8676b7ad37a6a1ebd15e596255450f5db5c23f8a1430c6a4cfbf3c60c`다. 추가 구조 적용 후 catalog와 비교한 차이는 승인된 두 구 테이블 및 소유 객체의 제거뿐이었다. READ ONLY gate·ROLLBACK·완료 marker를 확인했다.
+- 구조 snapshot `production-after-web-publish-schema.sql`의 SHA-256은 `b10b764347f0640ce3afbe2d03294b805753eee6b506fb691aa90bd4a099a2b2`다. 새 연결 집계·catalog·HTTP 결과와 `release-completion.json`을 같은 작업 경로에 보존했다. 운영 Secret 값과 행 원문은 보존하지 않았다.
 
 ## 게시글 본문 서식 계약 (2026-11-09)
 
