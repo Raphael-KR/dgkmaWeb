@@ -139,7 +139,7 @@ export default function Profile() {
           </Card>
 
           {/* Payment Status */}
-          <Card className="min-w-0 scroll-mt-32 shadow-sm md:col-start-2 md:row-span-2 md:row-start-2 lg:scroll-mt-24" id="payment-section">
+          <Card className="min-w-0 site-scroll-target shadow-sm md:col-start-2 md:row-span-2 md:row-start-2" id="payment-section">
             <CardHeader>
               <CardTitle className="text-lg">회비 관리</CardTitle>
             </CardHeader>

@@ -57,9 +57,9 @@ export default function Home() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
           <p className="text-gray-600 mb-6">동문회 서비스를 이용하려면 로그인해주세요.</p>
-          <Link href="/login" className="bg-kakao-yellow text-kakao-brown px-6 py-3 rounded-lg font-medium hover:bg-yellow-400 transition-colors">
-            카카오 로그인
-          </Link>
+          <Button variant="kakao" asChild>
+            <Link href="/login">카카오 로그인</Link>
+          </Button>
         </div>
       </div>
     );
@@ -194,7 +194,7 @@ export default function Home() {
         </Card>
 
         {/* Recent Posts Section */}
-        <Card className="min-w-0 scroll-mt-32 shadow-sm md:col-start-2 md:row-span-3 md:row-start-1 lg:scroll-mt-24" id="recent-posts-section">
+        <Card className="min-w-0 site-scroll-target shadow-sm md:col-start-2 md:row-span-3 md:row-start-1" id="recent-posts-section">
           <div className="p-6 border-b border-gray-100">
             <h3 className="text-lg font-bold text-gray-800">최근 게시글</h3>
           </div>

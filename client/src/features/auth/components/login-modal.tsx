@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { kakaoLogin } from "../lib/auth";
 import { trackEvent } from "@/lib/analytics";
-import { GraduationCap } from "lucide-react";
+import { SiteLogo } from "@/components/site-brand";
 
 interface LoginModalProps {
   open: boolean;
@@ -30,9 +30,7 @@ export function LoginModal({ open, onOpenChange, returnTo, reason }: LoginModalP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm sm:max-w-md">
         <DialogHeader>
-          <div className="w-14 h-14 rounded-2xl bg-kakao-yellow mx-auto mb-3 flex items-center justify-center">
-            <GraduationCap className="text-kakao-brown" size={28} />
-          </div>
+          <SiteLogo size="auth" className="mx-auto mb-3" />
           <DialogTitle className="text-center text-lg">로그인이 필요합니다</DialogTitle>
           <DialogDescription className="text-center">
             {reason || "동문 전용 메뉴입니다. 카카오 계정으로 로그인해 주세요."}
@@ -40,7 +38,8 @@ export function LoginModal({ open, onOpenChange, returnTo, reason }: LoginModalP
         </DialogHeader>
         <div className="space-y-3 pt-2">
           <Button
-            className="w-full bg-kakao-yellow text-kakao-brown font-bold py-5 hover:bg-yellow-400"
+            variant="kakao"
+            className="w-full py-5"
             onClick={handleLogin}
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">

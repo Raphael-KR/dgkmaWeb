@@ -1,43 +1,21 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, Menu, X, GraduationCap, LogIn, LogOut, User } from "lucide-react";
+import { ChevronDown, Menu, X, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoginModal, useAuth } from "@/features/auth";
-import symbolLogo from "@assets/public-home/symbol-logo.svg";
-
-type NavItem = {
-  path: string;
-  label: string;
-  gated?: boolean;
-  children?: { path: string; label: string }[];
-};
-
-const publicNav: NavItem[] = [
-  { path: "/", label: "홈" },
-  { path: "/about/intro", label: "소개" },
-  { path: "/about/executives", label: "임원명단" },
-  {
-    path: "/about/bylaws",
-    label: "회칙",
-    children: [
-      { path: "/about/bylaws", label: "회칙" },
-      { path: "/about/bylaws/regulations", label: "규정" },
-    ],
-  },
-  { path: "/about/join", label: "회원가입" },
-  { path: "/about/dues", label: "회비" },
-  { path: "/about/condolence", label: "경조사" },
-  { path: "/b", label: "공지", gated: true },
-];
+import { SITE_NAME } from "@shared/site";
+import { SiteBrand } from "@/components/site-brand";
+import { SiteHeader } from "./site-header";
+import { isPublicNavActive, publicNavItems, type PublicNavItem } from "./nav-items";
 
 export function PublicLayout({ children }: { children: ReactNode }) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const { user, logout } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingTarget, setPendingTarget] = useState<string | null>(null);
 
-  const handleNavClick = (e: React.MouseEvent, item: NavItem) => {
+  const handleNavClick = (e: React.MouseEvent, item: PublicNavItem) => {
     if (item.gated && !user) {
       e.preventDefault();
       setPendingTarget(item.path);
@@ -50,126 +28,84 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="theme-public min-h-screen flex flex-col">
-      <header className="tp-bg-green-dark text-white sticky top-0 z-40 shadow-md">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <img src={symbolLogo} alt="동국한의동문회 로고" className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-full p-1 flex-shrink-0" />
-            <div className="text-sm sm:text-base font-bold leading-tight truncate">
-              동국대학교한의과대학동문회
-            </div>
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-1 lg:gap-1">
-            {publicNav.map((item) => {
-              const active = location === item.path || item.children?.some((child) => child.path === location);
-              if (item.children) {
-                return (
-                  <div key={item.path} className="relative group">
-                    <Link
-                      href={item.path}
-                      className={`px-2 lg:px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
-                        active ? "tp-bg-gold tp-text-green-dark" : "text-white/90 hover:bg-white/10"
-                      }`}
-                    >
-                      {item.label}
-                      <ChevronDown size={14} aria-hidden="true" />
-                    </Link>
-                    <div className="absolute left-0 top-full pt-1 hidden group-hover:block group-focus-within:block">
-                      <div className="w-32 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.path}
-                            href={child.path}
-                            className={`block rounded px-3 py-2 text-sm ${
-                              location === child.path
-                                ? "tp-bg-gold tp-text-green-dark font-semibold"
-                                : "tp-text-green hover:bg-gray-100"
-                            }`}
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  onClick={(e) => handleNavClick(e, item)}
-                  className={`px-2 lg:px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    active ? "tp-bg-gold tp-text-green-dark" : "text-white/90 hover:bg-white/10"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-            {user ? (
-              <>
-                <span className="text-sm text-white/90 max-w-[8rem] truncate flex items-center gap-1">
-                  <User size={14} /> {user.name}님
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-transparent border-white/40 text-white hover:bg-white/10"
-                  onClick={() => logout()}
-                >
-                  <LogOut size={14} className="mr-1" /> 로그아웃
+      <SiteHeader
+        navigationLabel="공개 메뉴"
+        actions={
+          <>
+            <div className="hidden items-center gap-2 md:flex">
+              {user ? (
+                <>
+                  <span className="flex max-w-[8rem] items-center gap-1 text-sm text-white/90">
+                    <User size={14} className="shrink-0" aria-hidden="true" />
+                    <span className="truncate">{user.name}님</span>
+                  </span>
+                  <Button size="sm" variant="onBrandOutline" onClick={() => logout()}>
+                    <LogOut size={14} /> 로그아웃
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="kakao" onClick={() => setLoginOpen(true)}>
+                  <LogIn size={16} /> 카카오 로그인
                 </Button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400 font-bold"
-                onClick={() => setLoginOpen(true)}
-              >
-                <LogIn size={16} className="mr-1" /> 카카오 로그인
-              </Button>
-            )}
-          </div>
-
-          <button
-            className="md:hidden p-2 text-white"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="메뉴 열기"
-          >
-            <Menu size={24} />
-          </button>
-        </div>
-      </header>
+              )}
+            </div>
+            <Button variant="onBrand" size="icon" className="md:hidden" onClick={() => setDrawerOpen(true)} aria-label="메뉴 열기">
+              <Menu size={24} />
+            </Button>
+          </>
+        }
+        navigation={publicNavItems.map((item) => {
+          const active = isPublicNavActive(location, item);
+          if (item.children) {
+            return (
+              <div key={item.path} className="group relative">
+                <Link href={item.path} className="site-nav-link" aria-current={active ? "page" : undefined}>
+                  {item.label}<ChevronDown size={14} aria-hidden="true" />
+                </Link>
+                <div className="absolute left-0 top-full hidden pt-1 group-hover:block group-focus-within:block">
+                  <div className="w-32 rounded-md border border-border bg-background p-1 shadow-lg">
+                    {item.children.map((child) => (
+                      <Link key={child.path} href={child.path} className="site-menu-link" aria-current={location === child.path ? "page" : undefined}>
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <Link key={item.path} href={item.path} onClick={(e) => handleNavClick(e, item)} className="site-nav-link" aria-current={active ? "page" : undefined}>
+              {item.label}
+            </Link>
+          );
+        })}
+      />
 
       {/* Mobile drawer */}
       {drawerOpen && (
         <>
           <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setDrawerOpen(false)} />
           <div className="fixed top-0 right-0 bottom-0 w-72 max-w-[80vw] bg-white z-50 shadow-xl flex flex-col">
-            <div className="tp-bg-green-dark text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <GraduationCap size={20} className="flex-shrink-0" />
-                <span className="font-bold truncate">{user ? `${user.name}님` : "동국한의동문회"}</span>
+            <div className="site-brand-surface p-4">
+              <div className="flex items-center gap-2">
+                <SiteBrand onClick={() => setDrawerOpen(false)} />
+                <Button variant="onBrand" size="icon" className="shrink-0" onClick={() => setDrawerOpen(false)} aria-label="닫기">
+                  <X size={20} />
+                </Button>
               </div>
-              <button onClick={() => setDrawerOpen(false)} aria-label="닫기" className="p-1">
-                <X size={20} />
-              </button>
+              {user && <p className="mt-3 truncate text-sm text-white/90">{user.name}님</p>}
             </div>
             <nav className="flex-1 p-2 overflow-y-auto">
-              {publicNav.map((item) => {
-                const active = location === item.path || item.children?.some((child) => child.path === location);
+              {publicNavItems.map((item) => {
+                const active = isPublicNavActive(location, item);
                 return (
                   <div key={item.path}>
                     <Link
                       href={item.path}
                       onClick={(e) => handleNavClick(e, item)}
-                      className={`block px-4 py-3 rounded-md text-sm font-medium ${
-                        active ? "tp-bg-gold tp-text-green-dark" : "tp-text-green hover:bg-gray-100"
-                      }`}
+                      className="site-menu-link"
+                      aria-current={active ? "page" : undefined}
                     >
                       {item.label}
                       {item.gated && !user && <span className="ml-2 text-xs text-gray-400">로그인 필요</span>}
@@ -181,11 +117,8 @@ export function PublicLayout({ children }: { children: ReactNode }) {
                             key={child.path}
                             href={child.path}
                             onClick={() => setDrawerOpen(false)}
-                            className={`block rounded-md px-4 py-2.5 text-sm ${
-                              location === child.path
-                                ? "font-semibold tp-text-gold-dark bg-amber-50"
-                                : "text-gray-600 hover:bg-gray-100"
-                            }`}
+                            className="site-menu-link"
+                            aria-current={location === child.path ? "page" : undefined}
                           >
                             {child.label}
                           </Link>
@@ -210,7 +143,8 @@ export function PublicLayout({ children }: { children: ReactNode }) {
                 </Button>
               ) : (
                 <Button
-                  className="w-full bg-kakao-yellow text-kakao-brown hover:bg-yellow-400 font-bold"
+                  variant="kakao"
+                  className="w-full"
                   onClick={() => {
                     setDrawerOpen(false);
                     setLoginOpen(true);
@@ -226,12 +160,12 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
       <main className="flex-1 pb-16 md:pb-0">{children}</main>
 
-      <footer className="tp-bg-green-dark text-white/80 py-8 px-4 mt-12">
-        <div className="max-w-6xl mx-auto text-sm space-y-3">
-          <div className="font-bold tp-text-gold text-base">동국대학교한의과대학동문회</div>
+      <footer className="site-brand-surface py-8 mt-12">
+        <div className="site-container text-sm space-y-3">
+          <div className="font-bold tp-text-gold text-base">{SITE_NAME}</div>
           <dl className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-white/85">
             <dt className="text-white/60">단체명</dt>
-            <dd>동국대학교한의과대학동문회</dd>
+            <dd>{SITE_NAME}</dd>
             <dt className="text-white/60">대표자</dt>
             <dd>최윤용</dd>
             <dt className="text-white/60">고유번호</dt>
@@ -244,7 +178,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             </dd>
           </dl>
           <div className="text-xs text-white/60 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
-            <div>© 동국대학교한의과대학동문회 · All Rights Reserved.</div>
+            <div>© {SITE_NAME} · All Rights Reserved.</div>
             <div>
               <Link href="/terms" className="hover:underline">서비스 이용약관</Link>
               <span className="mx-2">·</span>

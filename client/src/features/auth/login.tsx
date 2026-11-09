@@ -4,7 +4,8 @@ import { useAuth } from "./hooks/use-auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { GraduationCap } from "lucide-react";
+import { SiteLogo } from "@/components/site-brand";
+import { SITE_NAME } from "@shared/site";
 import { kakaoLogin } from "./lib/auth";
 
 export default function Login() {
@@ -36,18 +37,17 @@ export default function Login() {
         <Card className="shadow-sm">
           <CardContent className="p-6">
             <div className="text-center">
-              <div className="w-20 h-20 kakao rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                <GraduationCap className="text-kakao-brown text-2xl" size={32} />
-              </div>
-              <h2 className="text-xl font-bold kakao-brown mb-2">
-                동국대학교한의과대학동문회에 오신 것을 환영합니다
+              <SiteLogo size="auth" className="mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-foreground mb-2">
+                {SITE_NAME}에 오신 것을 환영합니다
               </h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 동문 여러분과의 소통과 네트워킹을 위한 통합 플랫폼입니다.
               </p>
 
               <Button 
-                className="w-full kakao font-bold py-4 px-6 rounded-xl mb-3 flex items-center justify-center space-x-3 transition-all hover:bg-yellow-400"
+                variant="kakao"
+                className="w-full py-4 px-6 rounded-xl mb-3"
                 onClick={handleKakaoLogin}
                 disabled={isLoading}
               >

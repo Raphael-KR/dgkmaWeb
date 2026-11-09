@@ -1,4 +1,33 @@
-import { Home, Users, User, Info, MessageSquare } from "lucide-react";
+import { Home, Users, User, Info, MessageSquare, Shield } from "lucide-react";
+
+export type PublicNavItem = {
+  path: string;
+  label: string;
+  gated?: boolean;
+  children?: { path: string; label: string }[];
+};
+
+export const publicNavItems: PublicNavItem[] = [
+  { path: "/", label: "홈" },
+  { path: "/about/intro", label: "소개" },
+  { path: "/about/executives", label: "임원명단" },
+  {
+    path: "/about/bylaws",
+    label: "회칙",
+    children: [
+      { path: "/about/bylaws", label: "회칙" },
+      { path: "/about/bylaws/regulations", label: "규정" },
+    ],
+  },
+  { path: "/about/join", label: "회원가입" },
+  { path: "/about/dues", label: "회비" },
+  { path: "/about/condolence", label: "경조사" },
+  { path: "/b", label: "공지", gated: true },
+];
+
+export function isPublicNavActive(location: string, item: PublicNavItem) {
+  return location === item.path || !!item.children?.some((child) => child.path === location);
+}
 
 export const memberNavItems = [
   { path: "/", icon: Home, label: "홈", gated: false },
@@ -7,6 +36,8 @@ export const memberNavItems = [
   { path: "/directory", icon: Users, label: "명부", gated: true },
   { path: "/profile", icon: User, label: "내정보", gated: true },
 ];
+
+export const adminNavItem = { path: "/admin", icon: Shield, label: "관리자", gated: true };
 
 export function isMemberNavActive(location: string, path: string) {
   if (path === "/b") {
