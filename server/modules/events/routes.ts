@@ -1,3 +1,5 @@
+import { emptyPostDocument, postDocumentText } from "@shared/contracts/post-document";
+import { postDocumentFromMarkdown, postDocumentsEqual } from "@shared/editor/post-document";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { NOTICE_TYPES, noticeRevisionSchema, noticeTextSchema, type NoticeType } from "@shared/contracts/notices";
@@ -42,7 +44,7 @@ export function registerEventRoutes(app: Express, { eventParseLimiter, eventPars
       const draft = await ownDraft(req, res);
       if (!draft?.eventData) return;
       const saved = await storage.saveNotice(draft.id, req.session.userId!, input.revision, {
-        sourceText: input.sourceText, title: "", content: "",
+        sourceText: input.sourceText, title: "", content: emptyPostDocument(),
         eventData: { ...draft.eventData, facts: null, questions: [], sources: [], fieldSources: {} },
       });
       if (!saved) return conflict(res);
@@ -72,7 +74,7 @@ export function registerEventRoutes(app: Express, { eventParseLimiter, eventPars
       const data = { ...draft.eventData, facts, sources: sources.sources, fieldSources: noticeFieldSources(facts,draft.sourceText,sources.evidence) };
       const rendered = await renderNotice(data, draft.sourceText, req.session.userId!, storage);
       const saved = await storage.saveNotice(draft.id, req.session.userId!, revision, {
-        title: rendered.title, content: rendered.content, eventData: { ...data, questions: rendered.questions },
+        title: rendered.title, content: postDocumentFromMarkdown(rendered.content), eventData: { ...data, questions: rendered.questions },
       });
       if (!saved) return conflict(res);
       res.json(saved);
@@ -85,9 +87,9 @@ export function registerEventRoutes(app: Express, { eventParseLimiter, eventPars
       if (!draft?.eventData) return res.status(404).json({ message: "초안을 찾을 수 없습니다." });
       if (draft.isPublished && draft.revision === revision + 1) return res.json({ id: draft.id });
       if (draft.isPublished || draft.revision !== revision) return conflict(res);
-      if (!draft.content || !draft.title || draft.eventData.questions.length) return res.status(422).json({ message: "필요한 정보를 보완하고 미리보기를 확인해 주세요." });
+      if (!postDocumentText(draft.content) || !draft.title || draft.eventData.questions.length) return res.status(422).json({ message: "필요한 정보를 보완하고 미리보기를 확인해 주세요." });
       const rendered = await renderNotice(draft.eventData, draft.sourceText ?? "", req.session.userId!, storage);
-      if (rendered.questions.length || rendered.content !== draft.content || rendered.title !== draft.title) {
+      if (rendered.questions.length || !postDocumentsEqual(postDocumentFromMarkdown(rendered.content), draft.content) || rendered.title !== draft.title) {
         return res.status(409).json({ message: "회원 정보나 작성 내용이 변경되었습니다. 미리보기를 다시 생성하고 확인해 주세요." });
       }
       const post = await storage.publishNotice(draft.id, req.session.userId!, revision);

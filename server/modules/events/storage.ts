@@ -1,3 +1,4 @@
+import { emptyPostDocument, type PostDocument } from "@shared/contracts/post-document";
 import { posts, categories, type Post } from "../../db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
@@ -18,7 +19,7 @@ export class EventsStorage implements EventsStorageContract {
       ));
       if (!category) throw new Error("Notice category unavailable");
       const [draft] = await tx.insert(posts).values({
-        title: "", content: "", authorId, categoryId: category.id, isPublished: false,
+        title: "", content: emptyPostDocument(), authorId, categoryId: category.id, isPublished: false,
         sourceText: "", eventData: { schemaVersion: 1, eventType: type, facts: null, questions: [], sources: [] },
       }).returning();
       return draft;
@@ -29,7 +30,7 @@ export class EventsStorage implements EventsStorageContract {
     return row?.eventData ? row : undefined;
   }
   async saveNotice(id: number, authorId: number, revision: number, data: {
-    sourceText?: string; eventData: NoticeData; title: string; content: string;
+    sourceText?: string; eventData: NoticeData; title: string; content: PostDocument;
   }): Promise<Post | undefined> {
     const [row] = await db.update(posts).set({ ...data, revision: sql`${posts.revision} + 1`, updatedAt: new Date() })
       .where(and(eq(posts.id, id), eq(posts.authorId, authorId), eq(posts.revision, revision), eq(posts.isPublished, false)))

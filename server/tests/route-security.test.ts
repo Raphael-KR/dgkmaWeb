@@ -269,7 +269,7 @@ test("post creation enforces the approved category policy before writing", async
         "content-type": "application/json",
         "x-test-user-id": String(memberId),
       },
-      body: JSON.stringify({ title: "제목", content: "내용", ...body }),
+      body: JSON.stringify({ title: "제목", content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }] }, ...body }),
     });
 
     for (const body of [

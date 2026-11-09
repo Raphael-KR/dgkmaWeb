@@ -170,6 +170,8 @@
 
 ### 게시글 본문 서식 (2026-11-09 개발 코드 적용)
 
+이 절은 Markdown TEXT 본문의 이전 구현·릴리스 이력이다. 현재 개발 본문 계약은 [본문 Tiptap JSONB 전환](#본문-tiptap-jsonb-전환-2026-11-09)을 따른다.
+
 - 목표: 굵게·기울임·취소선·두 종류 목록·링크·H1~H4와 HTML/마크다운 입력·복사를 지원한다.
 - 범위: 일반 글 작성기의 Tiptap 서식/마크다운 모드, 텍스트 선택 시에만 보이는 도구, 공통 본문 표시와 목록 요약. 기존 회원 접근·경조사 생성/게시 정책을 유지한다.
 - 완료 조건: 지원 서식과 모드 전환·HTML 붙여넣기/복사·마크다운 복사 코드를 Replit 개발에 적용하고 타입·경계·문서 정적 검사 결과를 기록한다.
@@ -265,7 +267,7 @@
 - 완료 조건: 변경 코드를 Replit 개발 워크스페이스와 로컬에 반영하고 공통 경로·메뉴 참조 및 필요한 정적 검사 결과를 남긴다. 실제 역대회장 명단·역사 자료는 확인된 원본을 받은 뒤 별도로 채운다.
 - 개발 단계 제외: DB·Secrets 변경, 실제 자료 수집·이관, 서버 재시작·브라우저·실계정 QA, commit·push·PR·병합·Republish. 이후 사용자가 아래 공개 메뉴 릴리스를 별도로 요청했다.
 - 확인: 현재 Git 상태와 대상 파일을 확인하고 문서를 먼저 반영한다. Replit에서 `npm run check`, 변경된 테스트 소스의 타입 검사, 문서 정적 계약과 `git diff --check`만 수행한다. 빌드·전체 테스트·외부 서비스 호출은 추가하지 않는다.
-- 적용 상태: 로컬·Replit 개발 코드 반영 완료. 후속 사용자 요청에 따라 아래 범위로 Git 통합과 운영 릴리스를 준비한다.
+- 적용 상태: 로컬·Replit 개발 코드 반영 후 사용자 요청에 따라 아래 범위로 Git 통합과 운영 릴리스를 완료했다. 실제 자료 수집·이관과 실계정 QA는 수행하지 않았다.
 
 #### 공개 메뉴 개발 적용 결과
 
@@ -282,6 +284,73 @@
 - 완료 조건: Git 통합과 게시 성공 뒤 `/about`·신규 공개 페이지의 비로그인 응답, 보호 API의 비로그인 차단과 배포 자산의 후보 일치를 확인하고 결과를 기록한다.
 - 제외: DB·Secrets 변경, 실제 자료 수집·이관, 새 기능 개발, 개발 서버 별도 재시작, 브라우저·실계정 QA·회원 화면 조작·OpenAI/수집 호출·자동 원복. ignored 실행 기록과 사용자 자료를 임의로 커밋하거나 정리하지 않는다.
 - 확인: 기존 타입·모듈 경계·테스트 타입·구문 검사와 해시가 같은 소스는 결과를 재사용한다. Replit에서 릴리스 빌드, 변경 문서 정적 계약과 `git diff --check`를 수행하고 게시 후 HTTP·정적 자산만 확인한다.
+
+#### 공개 메뉴 릴리스 완료 결과
+
+- 2026-11-09 확인된 미커밋 24개 경로를 `6a5812a624f443a648dec8df35d641e68207c04e`로 커밋하고 `codex/public-about`을 push했다. [PR #25](https://github.com/Raphael-KR/dgkmaWeb/pull/25)의 원격 변경 내용이 로컬 후보와 일치하고 충돌이 없음을 확인해 main에 병합했다. 병합 커밋은 `0a4787d9a58373fa525bc2d67e454d7736b24efb`다. 기존 Replit 게시 커밋 `3c9c3e6`도 이력에 보존했다.
+- 16:55 KST Replit Node `v20.20.0`에서 릴리스 빌드, 문서 정적 계약 6개와 `git diff --check`가 통과했다. 초기 JS 349,793 bytes·지연 화면 22개로 기존 번들 한도를 충족했다. 16:12 KST 타입·모듈 경계·테스트 타입·구문 검사는 동일 소스 해시의 결과를 재사용했다. 16:58:49 KST PR 자동 코드 리뷰는 지적 사항 없이 완료됐으며, 등록된 GitHub commit status·workflow run은 없으므로 CI 통과로 표현하지 않는다.
+- 17:02:03 KST 로컬·GitHub·Replit main을 `0a4787d`로 맞췄다. Replit 추적 파일 430개가 대상 Git blob과 일치하고 작업 트리가 깨끗함을 확인했다. index와 대상 tree를 대조한 뒤 HEAD를 자손 커밋으로 전진했다.
+- 17:02:13 KST Replit 커넥터 `publish_app`으로 재게시를 요청했고 `pending → running → success`를 관찰했다. 17:08:38 KST `https://dgkma.org` 게시 성공을 확인했다. deployment ID는 `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`이며 배포 버전은 아래 자산 대조로 확인했다.
+- 17:09:02 KST Replit에서 비로그인 GET `/about`·`/about/intro`·`/about/presidents`·`/about/heritage`의 200 HTML, 제목·canonical·후보 초기 JS를 확인했다. 옛 `/heritage`는 SPA HTML 응답이 200이지만 서버 메타데이터는 찾을 수 없는 페이지이며, 실제 브라우저 이동이나 HTTP 404를 확인한 것으로 표현하지 않는다. `/api/posts`·`/api/categories`는 401 JSON이며 JS 5개·CSS 1개·공식 로고 SVG 1개가 모두 200이고 후보 SHA-256과 일치했다.
+- 최초 HTTP 검사에서 추가 대상 `/`의 canonical 조건 하나가 실패했다. 17:11:18 KST 재조회와 소스 대조로 기존 `express.static`이 SEO 주입 전에 루트 HTML을 반환하며, 이번 변경 전후의 처리 코드·템플릿과 빌드에 canonical이 없음을 확인했다. 운영 루트 HTML은 Replit 삽입 스크립트 외에 빌드와 같고 후보 초기 JS를 참조한다. 이번 메뉴 릴리스 범위의 응답·자산 확인은 충족했지만 기존 루트 canonical 누락을 수정하거나 최초 검사가 전부 통과한 것으로 기록하지 않는다.
+- Replit이 만든 `99e1affe50113f1ab65e8f9346d57d9c3993e302` (`Published your App`)는 병합 후보와 tree가 같은 빈 게시 기록이며 main 이력에 보존한다. 이후 완료 문서 커밋은 배포 소스와 구분하고 문서만 바꾼 뒤 다시 Republish하지 않는다.
+- 근거는 로컬·Replit `.superpowers/about-menu-release-20261109/`의 후보·빌드·Git 기록, 게시 커밋 bundle, `production-http-smoke.json`과 `production-http-smoke-assessment.json`에 보존한다. 게시 상태 전환은 로컬 `publish-status.json`에 기록했다. DB·Secrets 변경 명령, 개발 서버 별도 재시작, 브라우저·실계정 QA·회원 기능 조작·OpenAI/수집 호출은 실행하지 않았다. 역대회장·역사관의 실제 명단·자료와 앨범 상세는 준비 중이다.
+
+### 공개 홈 canonical 통일 (2026-11-09)
+
+- 목표: `/`·`/about`의 검색용 대표 주소를 사용자 확정값 `https://dgkma.org/`로 통일하고 루트 최초 HTML의 canonical 누락을 수정한다. [제품 정책](./planning_proposal.md#공개-홈-검색-대표-주소-2026-11-09)을 따른다.
+- 범위: `shared/site.ts`의 공통 주소 생성, 서버 SEO와 정적 HTML 전달 순서, 클라이언트 SEO와 회원 홈 복귀 시 메타데이터 갱신. `/about` 하위 페이지는 기존 origin과 각자의 경로를 유지한다. 개발 환경의 `/`·`/about`도 확정된 공개 대표 주소를 사용하며 Secrets·환경변수를 바꾸지 않는다.
+- 완료 조건: 로컬·Replit 개발 코드가 일치하고 서버·클라이언트가 같은 canonical 생성 함수를 사용한다. 서버 최초 루트 HTML도 SEO 주입을 거치며 로그인 여부·화면 분기·동문회 메뉴·리다이렉트는 변경하지 않는다.
+- 제외: 운영 배포, commit·push·PR·main 병합, DB·Secrets 변경, 서버 재시작, HTTP·브라우저·실계정 QA와 외부 기능 호출. 직전 공개 메뉴 릴리스의 완료 기록을 이번 canonical 변경의 운영 적용으로 사용하지 않는다.
+- 확인: Replit의 `npm run check`, 파일 내용만 읽는 기존 문서 정적 계약과 `git diff --check`로 최소화한다. 테스트 소스·배포 산출물을 변경하지 않으므로 테스트 타입 검사·빌드·실행형 테스트는 추가하지 않는다.
+
+#### 공개 홈 canonical 개발 적용 결과
+
+- 2026-11-09 로컬·Replit의 `main` 기준 `7e5a9a4d799e8217625bc051c135e1942797f264`에서 코드 5개와 기준 문서 2개를 수정했다. `shared/site.ts`의 `siteCanonicalUrl`을 서버·클라이언트 SEO가 함께 사용하고 canonical·`og:url`에 같은 결과를 넣는다. `/`·`/about`만 고정된 공개 대표 주소로 묶으며 하위 페이지의 경로는 보존한다.
+- `server/vite.ts`의 정적 파일 자동 index 응답을 끄고 기존 HTML·SEO 처리로 넘기므로 루트도 최초 HTML에 canonical을 넣는 경로를 사용한다. 개발 HTML 처리도 같은 서버 SEO 함수를 유지한다. 회원 홈에는 기존 `useSeo`를 연결해 다른 화면에서 `/`로 돌아올 때 이전 페이지의 canonical이 남지 않게 했다.
+- 라우트·공통 메뉴·공개 홈 파일은 변경하지 않았다. 회원·비회원 화면 분기와 `/about` 하위 페이지의 내용·경로, 기존 리다이렉트 및 회원 접근 정책도 유지했다. 운영에서 관찰한 이전 canonical 누락 기록은 이 개발 코드 수정과 구분한다.
+- 17:40:43 KST Replit Node `v20.20.0`에서 `npm run check`가 통과했다. TypeScript와 앱 소스 199개의 모듈 경계·runtime cycle 검사 결과이며 locale 안내는 경고다. 변경 전 파일·동기화 해시·결과는 로컬·Replit `.superpowers/canonical-home-20261109/`에 보존한다.
+- 현재 변경은 로컬·Replit 개발 코드에만 있으며 커밋·push·PR·병합·Republish와 서버 재시작은 수행하지 않았다. HTTP 응답·브라우저·실계정 QA를 실행하지 않았으므로 실제 HTML 응답 확인이나 운영 적용 완료로 표현하지 않는다.
+
+### 본문 Tiptap JSONB 전환 (2026-11-09)
+
+- 목표: 기존 무료 편집기에서 HTML·Markdown·서식을 입력하고 표준 Tiptap JSON을 본문 정본으로 저장·복원·표시한다.
+- 범위: 공통 문서 스키마·링크 정책, 선택 도구, 공식 변환·표시 API, 게시글/경조사 DTO·생성·미리보기·저장·검색, Development `posts.content` JSONB 전환. 기존 canonical 미커밋 변경은 보존한다.
+- 완료 조건: 코드와 기준 문서가 일치하고 개발 DB 원문 보존·기존 본문 변환·새 연결의 결과·catalog가 확인된다. `event_data`·회원 권한·첨부·작성자 확인 후 게시를 유지한다.
+- 제외: 운영 DB·배포·실계정 QA·실제 외부 기능 호출·AI/공동 편집·유료 패키지·공식 소스 수정·Git 게시·자동 원복. 서버 재시작·브라우저 점검을 기본 완료 조건에 추가하지 않는다.
+- 확인: Replit의 필요한 타입·모듈 경계·변경 테스트 타입·문서 정적 검사와 `git diff --check`만 수행한다. 요청된 DB 보존·전환·새 연결 대조·metadata-only catalog는 별도 DB 작업으로 기록한다.
+
+#### 공식 구현과 호환성 기준
+
+- 기존 Tiptap core/react/pm/starter-kit/markdown/bubble-menu `3.33.0`과 같은 버전의 무료 `@tiptap/static-renderer`를 사용한다. [StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit), [MarkdownManager](https://tiptap.dev/docs/editor/markdown/api/markdown-manager), [Static Renderer](https://tiptap.dev/docs/editor/api/utilities/static-renderer)의 공개 API를 재사용한다. 공식 패키지와 단축키는 수정하지 않는다.
+- 서비스 정의는 H1~H4 범위·기존 안전 링크 설정·JSON 입력 제한·일반 텍스트 추출, HTML 소스/Markdown 붙여넣기 연결, 선택 도구 UI와 Markdown 손실 안내다. StarterKit의 기본 코드·밑줄·인용·구분선·목록·실행 취소/다시 실행을 사용하고 별도 키 조합·사용자 정의 노드/마크는 추가하지 않는다.
+- `StarterKit.configure({ trailingNode: false })`로 자동 끝 문단 삽입만 끈다. 공식 기본 플러그인은 본문을 바꾸지 않는 포커스 전환 트랜잭션에서도 끝 문단을 추가할 수 있어, JSON을 열거나 Markdown 보기로 전환하는 동작의 원본 보존 계약과 맞지 않는다. 공식 설정을 사용하며 기본 명령·단축키는 유지한다. 업데이트 시에도 비편집 동작의 문서 변경 여부를 확인한다.
+- 업데이트 시 패키지 버전을 함께 맞추고 JSON 노드/마크·기본 속성, `getSchema`·`nodeFromJSON/check`·Markdown parse/serialize·React 정적 표시, 기본 단축키·선택 도구 포커스, HTML 스키마 처리·링크 제한과 Markdown 왕복 손실 판정을 확인한다. Markdown 기능은 공식 Beta 계약이므로 미지원 문서를 조용히 축소하지 않는다.
+- Markdown 보기·복사는 JSON을 보존한다. 왕복이 같은 문서일 때만 바로 수정할 수 있고, 다르면 읽기 전용 변환본과 손실 안내를 제공한다. `변환본으로 편집`을 선택해도 실제 입력 변경 전까지 원본을 유지한다. 새 Markdown 입력에서 실패하면 마지막 유효 JSON을 보존하고 게시를 막아 수정 내용을 모르게 잃지 않게 한다.
+- 지원 밖 Markdown 표·작업 목록·이미지·임의 HTML 구문은 조용히 삭제하지 않고 입력 오류로 알린다. 밑줄은 공식 Underline 토크나이저와 `<u>` 직렬화를 사용한다. HTML 붙여넣기는 공통 스키마로 처리하며 본문 내 이미지 대신 기존 첨부 기능을 유지한다. 빈 문단·목록 속성 등 Markdown 왕복으로 달라지는 구조는 위 손실 판정 대상이다.
+
+#### 본문 JSONB 개발 적용 결과
+
+- 2026-11-09 로컬·Replit `main`의 `7e5a9a4d799e8217625bc051c135e1942797f264` 위에 구현했다. 기존 canonical 변경 7개 파일을 보존했다. 개발 코드·의존성·문서의 반영이며 commit·push·PR·병합·Republish는 수행하지 않았다.
+- `shared/contracts/post-document.ts`는 JSON DTO·일반 텍스트 변환, `shared/editor/post-document.ts`는 공식 스키마·Markdown 변환·깊은 입력 검사·손실 판정을 담당한다. 기존 편집기 UI는 공식 명령·BubbleMenu를 사용하고 저장 API·회원 권한·첨부 업로드는 기존 기능 모듈에 유지했다. 패키지 원본 수정·포크·사용자 정의 키맵/확장은 없다.
+- 본문/경조사 DTO와 저장·복원·미리보기·상세는 같은 JSON을 사용한다. 표시기는 공식 Static Renderer, 목록은 text 노드의 파생값, 서버 검색은 같은 순서·줄 경계의 JSONB 텍스트 추출을 사용한다. 경조사 사실 JSON과 원문 입력·등록 권한·재생성 비교·작성자 확인 후 게시를 유지했다.
+- 19:06:32 KST Development `heliumdb.posts.content`를 JSONB로 전환했다. 기존 posts 0건·변환 0건·오류 0건이며 다른 테이블 건수와 데이터 구조를 보존했다. 원본 보존·새 연결 확인·19:07 catalog는 [DB 운영 기록](./docs/database-operations.md#본문-jsonb-개발-적용-기록)에 적었다.
+- Replit에서 기존 테스트 입력을 JSON으로 맞춘 뒤 `npm run check:tests`를 통과했다. 최종 JSON 입력 검사와 자동 문단 삽입 설정 보완을 포함한 `npm run check`는 19:19:19 KST 통과했으며 타입·모듈 경계·runtime cycle은 앱 소스 204개를 확인했다. 최초 마이그레이션 Map 반복문 타입 오류는 수정했고 locale 안내는 경고다. 19:11:23 KST 파일만 읽는 기존 문서 계약 6개, 19:11:24 KST `git diff --check`도 통과했다.
+- 소스 백업·동기화 해시와 실제 검사 출력은 Replit `.superpowers/post-body-jsonb-20261109/`의 `before/`, `source-manifest.json`, `final-static-checks.json`, `final-static-*.log`, `json-validation-static.json`·`.log`, `schema-config-static.json`·`.log`에 둔다. 원문 행 보존 파일은 Replit에서만 유지하고 최종 파일 일치·권한·Git 상태는 별도 `completion.json`에 기록한다.
+- 미실행 범위: 비어 있지 않은 기존 행의 실제 변환, 브라우저의 붙여넣기·선택 도구·기본 단축키·한글 입력·클립보드·Markdown 왕복·게시/검색 흐름. 전체/단위/통합 시험·빌드·서버 재시작·HTTP smoke·운영 DB·배포·실계정 QA는 수행하지 않았다. 정적 검사와 빈 개발 DB의 전환 결과를 이 사용자 흐름의 성공으로 확대하지 않는다.
+
+### 본문 JSONB·canonical 릴리스 (2026-11-09)
+
+- 목표: 본문 JSONB 편집기와 공개 홈 canonical 수정, 확인된 기타 미커밋분을 main에 통합하고 운영에 릴리스한다.
+- 범위: 사용자 승인에 따른 커밋·push·PR 생성·검토·main 병합, 로컬·Replit main 동기화, Production 본문 보존·JSONB 전환과 Republish. 앞선 개발 단계의 운영 제외는 이번 승인으로 해당 릴리스 범위에서 해제한다.
+- 완료 조건: 동일 후보의 Git 통합·운영 DB 전환·게시 성공, 새 운영 연결의 catalog·보존 결과와 비로그인 HTTP·후보 자산 일치를 확인한다. `/`·`/about` canonical은 `https://dgkma.org/`, `/about` 하위는 각자 주소를 확인한다.
+- 제외: 실계정 QA·회원 게시 시험·명부 동기화·OpenAI/공개 링크 수집 호출·개발 DB 재전환·개발 서버 별도 재시작·자동 원복·Secrets 값 노출. ignored 백업·실행 기록은 커밋하지 않는다.
+- 확인: 같은 해시의 개발 정적 결과는 재사용한다. 운영 전환 실행 코드에 필요한 타입 검사와 배포 빌드·문서 정적 검사·diff를 추가한다. 운영 DB는 [본문 운영 전환 런북](./docs/database-operations.md#본문-jsonb-운영-릴리스-2026-11-09)을 따른다. 운영 전환 직후 새 코드를 재게시하며 구 코드와 JSONB의 호환되지 않는 기간을 완료로 표시하지 않는다.
+
+#### 본문 JSONB 릴리스 준비 결과
+
+- 2026-11-09 Replit Node `v20.20.0`에서 운영 전용 실행 코드를 포함한 `npm run check`와 릴리스 빌드가 통과했다. 앱 소스 204개의 타입·모듈 경계·runtime cycle, 초기 JS 350,012 bytes·지연 화면 22개와 기존 개별 청크 한도를 확인했다. 앱의 기존 단축키·게시 등 사용자 흐름을 새로 실행한 결과는 아니다.
+- 운영 전환 전 schema snapshot과 전체 catalog를 확보했다. 기존 운영 posts 3건 모두 변환 preview를 통과했고 오류는 0건이다. 실제 apply는 Git 통합과 Replit 후보 준비 후 수행한다. 상세 건수·해시는 [DB 사전 기록](./docs/database-operations.md#본문-운영-전환-사전-결과)을 따른다.
 
 ## GitHub 동기화
 
