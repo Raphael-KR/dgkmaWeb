@@ -2,6 +2,8 @@ import { lazy } from "react";
 
 export const AboutIntro = lazy(() => import("./intro"));
 export const AboutExecutives = lazy(() => import("./executives"));
+export const AboutPresidents = lazy(() => import("./presidents"));
+export const AboutHeritage = lazy(() => import("./heritage"));
 export const AboutBylaws = lazy(() => import("./bylaws"));
 export const AboutRegulations = lazy(() => import("./regulations"));
 export const AboutJoin = lazy(() => import("./join"));

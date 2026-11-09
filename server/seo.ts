@@ -19,6 +19,10 @@ const STATIC_SEO: Record<string, SeoMeta> = {
     title: SITE_NAME,
     description: "모교 기여, 장학, 동문 모임, 경조사 안내",
   },
+  "/about": {
+    title: SITE_NAME,
+    description: "모교 기여, 장학, 동문 모임, 경조사 안내",
+  },
   "/login": {
     title: "로그인",
     description: `${SITE_NAME} 회원 전용 서비스에 로그인합니다.`,
@@ -46,6 +50,14 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   "/about/executives": {
     title: "임원 명단",
     description: `${SITE_NAME} 임원진과 조직 구성을 소개합니다.`,
+  },
+  "/about/presidents": {
+    title: "역대회장",
+    description: `${SITE_NAME} 역대회장 안내입니다.`,
+  },
+  "/about/heritage": {
+    title: "역사관",
+    description: `${SITE_NAME}의 활동, 역사 자료와 주요 행사를 담는 역사관입니다.`,
   },
   "/about/bylaws": {
     title: "동문회 회칙",
@@ -78,10 +90,6 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   "/profile": {
     title: "내 정보",
     description: `${SITE_NAME} 회원 정보를 확인하고 관리합니다.`,
-  },
-  "/heritage": {
-    title: "동문회 역사와 회칙",
-    description: `${SITE_NAME}의 연혁, 역대 회장, 조직, 회칙을 확인합니다.`,
   },
   "/search": {
     title: "검색",
