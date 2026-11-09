@@ -6,6 +6,14 @@ export const SITE_DESCRIPTION =
 export const SITE_KEYWORDS =
   `${SITE_SHORT_NAME}, ${SITE_NAME}, 동국한의대, 동문회, 한의과대학 동문`;
 export const SITE_IMAGE = "/og-image.png";
+export const SITE_HOME_CANONICAL_URL = "https://dgkma.org/";
+
+export function siteCanonicalUrl(pathname: string, origin: string) {
+  const path = pathname.split(/[?#]/, 1)[0] || "/";
+  return path === "/" || path === "/about"
+    ? SITE_HOME_CANONICAL_URL
+    : `${origin.replace(/\/$/, "")}${path}`;
+}
 
 export function siteTitle(title: string) {
   return title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`;

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import {
   SITE_NAME, SITE_DESCRIPTION as DEFAULT_DESCRIPTION, SITE_KEYWORDS as DEFAULT_KEYWORDS,
-  SITE_IMAGE as DEFAULT_IMAGE, siteTitle,
+  SITE_IMAGE as DEFAULT_IMAGE, siteTitle, siteCanonicalUrl,
 } from "@shared/site";
 
 export interface SeoOptions {
@@ -51,7 +51,7 @@ export function applySeo(opts: SeoOptions) {
   const path =
     opts.path ??
     (typeof window !== "undefined" ? window.location.pathname : "/");
-  const url = origin ? `${origin}${path}` : path;
+  const url = siteCanonicalUrl(path, origin);
   const image = opts.image
     ? opts.image.startsWith("http")
       ? opts.image

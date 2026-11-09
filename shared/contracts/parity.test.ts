@@ -26,7 +26,7 @@ function assertValidationParity(
 }
 
 test("browser post validation preserves persistence input boundaries and stripping", () => {
-  const base = { title: "동문 소식", content: "내용" };
+  const base = { title: "동문 소식", content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }] } };
   const inputs: unknown[] = [
     undefined, null, [], {}, base,
     { title: "", content: "" },
@@ -61,7 +61,7 @@ test("browser post validation preserves persistence input boundaries and strippi
 test("post attachment arrays preserve existing element string coercion", () => {
   const input = {
     title: "동문 소식",
-    content: "내용",
+    content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }] },
     imageUrls: ["/image.jpg", 1, null, false, { path: "/other.jpg" }, ["nested"], undefined],
   };
   const expected = persistence.insertPostSchema.parse(input);

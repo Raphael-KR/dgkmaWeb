@@ -1,17 +1,18 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import StarterKit from "@tiptap/starter-kit";
-import { Markdown } from "@tiptap/markdown";
-import { Bold, Italic, Strikethrough, List, ListOrdered, Link2, Unlink } from "lucide-react";
+import { postEditorExtensions, normalizePostDocument, postDocumentFromMarkdown, postDocumentMarkdown, postDocumentsEqual, markdownProjection } from "@shared/editor/post-document";
+import type { PostDocument } from "@shared/contracts/post-document";
+import { Bold, Italic, Strikethrough, List, ListOrdered, Link2, Unlink, Underline, Code, SquareCode, Quote, Minus, Pilcrow, Undo2, Redo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { enteredPostLink, safePostLink } from "@/lib/post-content";
+import { enteredPostLink } from "@/lib/post-content";
 import "./post-content.css";
 
 type Props = {
-  value: string;
-  onChange: (markdown: string) => void;
+  value: PostDocument;
+  onChange: (document: PostDocument) => void;
+  onValidityChange?: (valid: boolean) => void;
   onBlur?: () => void;
   id?: string;
   name?: string;
@@ -20,10 +21,16 @@ type Props = {
 };
 
 export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEditor(
-  { value, onChange, onBlur, id, name, "aria-describedby": descriptionId, "aria-invalid": invalid }, ref,
+  { value, onChange, onValidityChange, onBlur, id, name, "aria-describedby": descriptionId, "aria-invalid": invalid }, ref,
 ) {
   const [mode, setMode] = useState<"visual" | "markdown">("visual");
-  const [source, setSource] = useState(value);
+  const [source, setSource] = useState("");
+  const [sourceError, setSourceError] = useState("");
+  const [lossless, setLossless] = useState(true);
+  const [allowConversion, setAllowConversion] = useState(false);
+  const markdownBase = useRef<{ document: PostDocument; source: string } | null>(null);
+  const validity = useRef(onValidityChange);
+  validity.current = onValidityChange;
   const [linkEditing, setLinkEditing] = useState(false);
   const [linkValue, setLinkValue] = useState("");
   const [linkError, setLinkError] = useState("");
@@ -37,39 +44,38 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
   change.current = onChange;
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4] },
-        blockquote: false, code: false, codeBlock: false, horizontalRule: false, underline: false,
-        link: {
-          openOnClick: false,
-          defaultProtocol: "https",
-          isAllowedUri: (url) => Boolean(safePostLink(url)),
-          HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
-        },
-      }),
-      Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
-    ],
+    extensions: postEditorExtensions,
     content: value,
-    contentType: "markdown",
     editorProps: {
       attributes: { class: "post-body text-sm text-gray-800", role: "textbox", "aria-label": "게시글 내용", "aria-multiline": "true" },
       handlePaste: (_view, event) => {
-        // Rich clipboard HTML uses Tiptap's schema parser; text accepts Markdown or copied HTML source.
-        if (event.clipboardData?.getData("text/html")) return false;
+        if (event.clipboardData?.getData("text/html") || editorRef.current?.isActive("codeBlock")) return false;
         const pasted = event.clipboardData?.getData("text/plain");
         if (!pasted || !editorRef.current) return false;
-        event.preventDefault();
-        const html = /^\s*<(?:p|div|h[1-4]|strong|b|em|i|s|del|ol|ul|li|a|br)\b/i.test(pasted);
-        return editorRef.current.commands.insertContent(pasted, { contentType: html ? "html" : "markdown" });
+        const html = /^\s*<(?:p|div|h[1-4]|strong|b|u|em|i|s|del|ol|ul|li|a|br|pre|code|blockquote|hr)\b/i.test(pasted);
+        try {
+          const content = html ? pasted : postDocumentFromMarkdown(pasted);
+          event.preventDefault();
+          return editorRef.current.commands.insertContent(content, { contentType: html ? "html" : "json" });
+        } catch {
+          event.preventDefault();
+          setCopyStatus("붙여넣을 내용에 지원하지 않는 서식이 있습니다. 원문을 확인해 주세요.");
+          return true;
+        }
       },
     },
     onUpdate: ({ editor: current }) => {
-      const markdown = current.isEmpty ? "" : current.getMarkdown();
-      emitted.current = markdown;
-      setSource(markdown);
-      setCopyStatus("");
-      change.current(markdown);
+      try {
+        const document = normalizePostDocument(current.getJSON());
+        emitted.current = document;
+        setSourceError("");
+        setCopyStatus("");
+        validity.current?.(true);
+        change.current(document);
+      } catch {
+        setSourceError("본문의 크기와 지원 서식을 확인해 주세요. 마지막 유효 본문을 유지합니다.");
+        validity.current?.(false);
+      }
     },
     onSelectionUpdate: () => { setLinkEditing(false); setLinkError(""); },
   });
@@ -78,6 +84,8 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
     editor,
     selector: ({ editor: current }) => current ? {
       empty: current.isEmpty,
+      underline: current.isActive("underline"), code: current.isActive("code"),
+      codeBlock: current.isActive("codeBlock"), quote: current.isActive("blockquote"),
       bold: current.isActive("bold"), italic: current.isActive("italic"), strike: current.isActive("strike"),
       bullet: current.isActive("bulletList"), ordered: current.isActive("orderedList"), link: current.isActive("link"),
       heading: [1, 2, 3, 4].find((level) => current.isActive("heading", { level })),
@@ -86,12 +94,21 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
 
   useImperativeHandle(ref, () => mode === "markdown" ? sourceInput.current! : editor?.view.dom ?? container.current!, [editor, mode]);
   useEffect(() => {
-    if (!editor || value === emitted.current) return;
-    editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
+    if (!editor || postDocumentsEqual(value, emitted.current)) return;
+    editor.commands.setContent(value, { emitUpdate: false });
     emitted.current = value;
-    setSource(value);
+    setSourceError("");
+    validity.current?.(true);
+    if (mode === "markdown") {
+      const projection = markdownProjection(value);
+      setSource(projection.source);
+      setLossless(projection.lossless);
+      setAllowConversion(false);
+      markdownBase.current = { document: value, source: projection.source };
+    }
     setCopyStatus("");
-  }, [editor, value]);
+  }, [editor, value, mode]);
+  useEffect(() => { validity.current?.(true); }, []);
   useEffect(() => {
     if (!editor) return;
     const element = editor.view.dom;
@@ -101,20 +118,43 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
     element.setAttribute("aria-invalid", String(invalid ?? false));
   }, [editor, id, mode, descriptionId, invalid]);
 
-  const editSource = (text: string) => {
+  const commitDocument = (document: PostDocument) => {
     if (!editor) return;
+    editor.commands.setContent(document, { emitUpdate: false });
+    emitted.current = document;
+    change.current(document);
+    setSourceError("");
+    validity.current?.(true);
+  };
+  const editSource = (text: string) => {
+    if (!editor || !lossless && !allowConversion) return;
     setSource(text);
     setCopyStatus("");
-    editor.commands.setContent(text, { contentType: "markdown", emitUpdate: false });
-    const markdown = editor.isEmpty ? "" : editor.getMarkdown();
-    emitted.current = markdown;
-    change.current(markdown);
+    try {
+      commitDocument(text === markdownBase.current?.source
+        ? markdownBase.current.document : postDocumentFromMarkdown(text));
+    } catch {
+      setSourceError("지원하지 않는 Markdown 서식이 있습니다. 내용을 수정하거나 변경을 취소해 주세요. 게시 전 마지막 유효 본문이 보존됩니다.");
+      validity.current?.(false);
+    }
   };
   const switchMode = (next: typeof mode) => {
-    if (next === mode || !editor) return;
-    if (next === "markdown") setSource(editor.getMarkdown());
+    if (next === mode || !editor || sourceError) return;
+    if (next === "markdown") {
+      const document = normalizePostDocument(editor.getJSON());
+      const projection = markdownProjection(document);
+      markdownBase.current = { document, source: projection.source };
+      setSource(projection.source);
+      setLossless(projection.lossless);
+      setAllowConversion(false);
+      editor.commands.blur();
+    }
     setLinkEditing(false);
     setMode(next);
+  };
+  const cancelMarkdown = () => {
+    if (markdownBase.current) commitDocument(markdownBase.current.document);
+    setMode("visual");
   };
   const applyLink = () => {
     if (!editor) return;
@@ -133,7 +173,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
           "text/plain": new Blob([editor.getText()], { type: "text/plain" }),
         })]);
       } else {
-        await navigator.clipboard.writeText(format === "html" ? editor.getHTML() : editor.getMarkdown());
+        await navigator.clipboard.writeText(format === "html" ? editor.getHTML() : postDocumentMarkdown(normalizePostDocument(editor.getJSON())));
       }
       setCopyStatus(format === "html" ? "HTML로 복사했습니다." : "마크다운으로 복사했습니다.");
     } catch (error) {
@@ -155,8 +195,8 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
         <Button type="button" size="sm" variant={mode === "markdown" ? "secondary" : "ghost"} aria-pressed={mode === "markdown"} disabled={!editor} onClick={() => switchMode("markdown")}>마크다운</Button>
       </div>
       <div className="flex gap-1">
-        <Button type="button" size="sm" variant="ghost" disabled={!editor || state?.empty} onClick={() => void copy("html")}>HTML 복사</Button>
-        <Button type="button" size="sm" variant="ghost" disabled={!editor || state?.empty} onClick={() => void copy("markdown")}>MD 복사</Button>
+        <Button type="button" size="sm" variant="ghost" disabled={!editor || state?.empty || Boolean(sourceError)} onClick={() => void copy("html")}>HTML 복사</Button>
+        <Button type="button" size="sm" variant="ghost" disabled={!editor || state?.empty || Boolean(sourceError)} onClick={() => void copy("markdown")}>MD 복사</Button>
       </div>
     </div>
     <p className="text-xs text-muted-foreground">HTML 서식을 붙여 넣거나 마크다운으로 작성하세요. 글자를 선택하면 서식 도구가 나타납니다.</p>
@@ -164,8 +204,17 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
       {state?.empty && <span className="pointer-events-none absolute left-3 top-3 text-sm text-muted-foreground">게시글 내용을 입력하세요</span>}
       <EditorContent editor={editor} />
     </div>
-    {mode === "markdown" && <Textarea ref={sourceInput} id={id} name={name} value={source} aria-label="게시글 마크다운 내용" aria-describedby={descriptionId} aria-invalid={invalid}
+    {mode === "markdown" && !lossless && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm" role="status">
+      <p>일부 서식은 Markdown으로 그대로 표현할 수 없습니다. 보기와 복사는 원본을 유지합니다. 변환본을 수정하면 표현되지 않는 서식이 사라질 수 있습니다.</p>
+      {!allowConversion && <div className="mt-2 flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={() => setMode("visual")}>서식 편집 계속</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => setAllowConversion(true)}>변환본으로 편집</Button>
+      </div>}
+    </div>}
+    {mode === "markdown" && <Textarea ref={sourceInput} id={id} name={name} value={source} readOnly={!lossless && !allowConversion} aria-label="게시글 마크다운 내용" aria-describedby={descriptionId} aria-invalid={invalid}
       onChange={(event) => editSource(event.target.value)} className="min-h-[180px] font-mono text-sm md:min-h-[320px] md:text-base" placeholder="마크다운 내용을 입력하세요" />}
+    {sourceError && <p role="alert" className="text-sm text-red-700">{sourceError}</p>}
+    {mode === "markdown" && <Button type="button" size="sm" variant="ghost" onClick={cancelMarkdown}>마크다운 변경 취소</Button>}
     {editor && mode === "visual" && <BubbleMenu editor={editor} updateDelay={0} appendTo={() => container.current!} className="z-[60]"
       options={{ placement: "top", offset: 8, flip: true, shift: true }}
       shouldShow={({ editor: current, state: currentState, from, to }) => current.isEditable && !currentState.selection.empty && Boolean(currentState.doc.textBetween(from, to).trim()) && (current.isFocused || Boolean(toolbar.current?.contains(document.activeElement)))}>
@@ -174,6 +223,14 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
           {tool("굵게", state?.bold, () => editor.chain().focus().toggleBold().run(), <Bold size={16} />)}
           {tool("기울임", state?.italic, () => editor.chain().focus().toggleItalic().run(), <Italic size={16} />)}
           {tool("취소선", state?.strike, () => editor.chain().focus().toggleStrike().run(), <Strikethrough size={16} />)}
+          {tool("밑줄", state?.underline, () => editor.chain().focus().toggleUnderline().run(), <Underline size={16} />)}
+          {tool("인라인 코드", state?.code, () => editor.chain().focus().toggleCode().run(), <Code size={16} />)}
+          {tool("코드 블록", state?.codeBlock, () => editor.chain().focus().toggleCodeBlock().run(), <SquareCode size={16} />)}
+          {tool("인용", state?.quote, () => editor.chain().focus().toggleBlockquote().run(), <Quote size={16} />)}
+          {tool("구분선", false, () => editor.chain().focus().setHorizontalRule().run(), <Minus size={16} />)}
+          {tool("일반 문단", false, () => editor.chain().focus().setParagraph().run(), <Pilcrow size={16} />)}
+          {tool("실행 취소", false, () => editor.chain().focus().undo().run(), <Undo2 size={16} />)}
+          {tool("다시 실행", false, () => editor.chain().focus().redo().run(), <Redo2 size={16} />)}
           {tool("번호 목록", state?.ordered, () => editor.chain().focus().toggleOrderedList().run(), <ListOrdered size={16} />)}
           {tool("글머리기호 목록", state?.bullet, () => editor.chain().focus().toggleBulletList().run(), <List size={16} />)}
           {tool("링크", state?.link, () => { setLinkValue(String(editor.getAttributes("link").href ?? "")); setLinkError(""); setLinkEditing((open) => !open); }, <Link2 size={16} />)}

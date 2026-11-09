@@ -16,11 +16,15 @@ import { KAKAO_CHANNEL_URL } from "@/lib/config";
 import type { MembershipStatus } from "@shared/contracts";
 import { isBirthdayToday } from "@shared/birthday";
 import { PostExcerpt } from "@/components/post-body";
+import { useSeo } from "@/lib/seo";
+import { SITE_NAME } from "@shared/site";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
+
+  useSeo({ title: SITE_NAME, path: "/" });
 
   // 페이지 로드 시 최상단으로 스크롤
   useEffect(() => {

@@ -2,7 +2,7 @@ import type { Request } from "express";
 
 import {
   SITE_NAME, SITE_DESCRIPTION as DEFAULT_DESCRIPTION, SITE_KEYWORDS as DEFAULT_KEYWORDS,
-  SITE_IMAGE as DEFAULT_IMAGE, siteTitle,
+  SITE_IMAGE as DEFAULT_IMAGE, siteTitle, siteCanonicalUrl,
 } from "@shared/site";
 
 type SeoMeta = {
@@ -176,7 +176,7 @@ export async function injectSeo(req: Request, html: string) {
   const title = siteTitle(meta.title);
   const description = meta.description || DEFAULT_DESCRIPTION;
   const keywords = meta.keywords || DEFAULT_KEYWORDS;
-  const url = `${origin}${pathname}`;
+  const url = siteCanonicalUrl(pathname, origin);
   const imagePath = meta.image || DEFAULT_IMAGE;
   const image = imagePath.startsWith("http") ? imagePath : `${origin}${imagePath}`;
   const type = meta.type || "website";

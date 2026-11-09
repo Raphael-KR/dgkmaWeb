@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { postDocumentSchema, type PostDocument } from "./post-document";
+export * from "./post-document";
 
 export * from "./notices";
 export * from "./alumni-sync";
@@ -58,7 +60,7 @@ export type Category = {
 export type Post = {
   id: number;
   title: string;
-  content: string;
+  content: PostDocument;
   categoryId: number | null;
   authorId: number | null;
   isPublished: boolean | null;
@@ -91,7 +93,7 @@ export type AdminPendingRegistrationUpdateResult =
 const pgIntegerSchema = z.number().min(-2147483648).max(2147483647).int();
 export const insertPostSchema = z.object({
   title: z.string(),
-  content: z.string(),
+  content: postDocumentSchema,
   categoryId: pgIntegerSchema.nullable().optional(),
   authorId: pgIntegerSchema.nullable().optional(),
   isPublished: z.boolean().nullable().optional(),

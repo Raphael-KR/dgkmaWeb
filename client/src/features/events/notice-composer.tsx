@@ -1,3 +1,4 @@
+import { postDocumentText } from "@shared/contracts/post-document";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -133,14 +134,14 @@ function Composer({ type }: { type: NoticeType }) {
             <h2 className="font-semibold">이 내용만 더 알려주세요</h2>
             <ul className="list-disc space-y-1 pl-5 [overflow-wrap:anywhere]">{draft.eventData.questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
           </section>}
-          {previewCurrent && (draft.content || draft.eventData.questions.length > 0) && <div className="space-y-2 border-t pt-5">
+          {previewCurrent && (postDocumentText(draft.content) || draft.eventData.questions.length > 0) && <div className="space-y-2 border-t pt-5">
             <label className="block space-y-2"><span className="font-medium">추가 답변 또는 정정</span><Textarea value={answer} maxLength={20000 - text.length} disabled={busy} onChange={(event) => { setAnswer(event.target.value); setConfirmed(false); }} placeholder="필요한 내용만 짧게 적어 주세요." /></label>
             <Button variant="outline" disabled={busy || !answer.trim() || text.length + answer.length + 12 > 20000} onClick={() => { edit(`${text}\n\n추가 답변·정정: ${answer.trim()}`); setAnswer(""); void generate(); }}>반영하여 다시 작성</Button>
           </div>}
         </div>
         <section className="min-w-0 space-y-5 rounded-xl border bg-white p-4 md:p-6" aria-labelledby="notice-preview-title">
           <h2 id="notice-preview-title" className="border-b pb-4 text-lg font-semibold">게시 미리보기</h2>
-          {previewCurrent && draft.content ? <>
+          {previewCurrent && postDocumentText(draft.content) ? <>
             <h3 className="break-words text-lg font-bold md:text-xl">{draft.title}</h3>
             <PostBody content={draft.content} className="md:text-base" />
             <div className="space-y-4 border-t pt-5">

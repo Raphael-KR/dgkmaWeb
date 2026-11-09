@@ -95,6 +95,8 @@ export function serveStatic(
   }
 
   app.use(express.static(resolvedDistPath, {
+    // 루트 HTML도 아래 SEO 처리를 거쳐 canonical을 포함한다.
+    index: false,
     setHeaders: (res, filePath) => {
       if (path.basename(filePath) === "index.html") {
         res.setHeader("Cache-Control", "no-cache");

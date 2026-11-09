@@ -40,3 +40,10 @@
     font-size: 1rem;
   }
 }
+
+.post-body u { text-decoration: underline; }
+.post-body code { border-radius: .25rem; background: #f1f5f9; padding: .1em .3em; font-family: ui-monospace, monospace; }
+.post-body pre { overflow-x: auto; margin: 1em 0; padding: 1rem; border-radius: .5rem; background: #0f172a; color: #f8fafc; white-space: pre; }
+.post-body pre code { background: transparent; color: inherit; padding: 0; }
+.post-body blockquote { margin: 1em 0; padding-left: 1rem; border-left: 3px solid #cbd5e1; color: #475569; }
+.post-body hr { margin: 1.5em 0; border-top: 1px solid #cbd5e1; }
