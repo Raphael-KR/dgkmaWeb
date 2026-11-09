@@ -21,7 +21,7 @@ export function LoginModal({ open, onOpenChange, returnTo, reason }: LoginModalP
     if (returnTo) {
       try {
         sessionStorage.setItem("auth:returnTo", returnTo);
-      } catch {}
+      } catch { /* Storage can be unavailable; continue with the default return path. */ }
     }
     kakaoLogin();
   };

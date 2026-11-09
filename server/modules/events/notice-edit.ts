@@ -77,8 +77,12 @@ export function registerNoticeEditRoutes(app: Express, { eventParseLimiter, even
           fieldSources[key] = original.fieldSources[key];
         }
       }
-      const data: NoticeData = { ...original, facts, fieldSources,
-        sources: Array.from(new Map([...original.sources, ...sources.sources].map(source => [source.url, source])).values()) };
+      const correctedUrls = new Set(sources.sources.map(source => source.url));
+      const data: NoticeData = {
+        ...original, facts, fieldSources,
+        // Render corrected links first and retain other sources as supporting evidence.
+        sources: [...sources.sources, ...original.sources.filter(source => !correctedUrls.has(source.url))],
+      };
       const rendered = await renderNotice(data, contextInput, req.session.userId!, storage);
       data.questions = rendered.questions;
       const preview: NoticeEditPreview = {

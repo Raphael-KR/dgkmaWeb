@@ -74,6 +74,17 @@ export type Post = {
   publishedAt: string | null;
 };
 
+export type PostWithCategory = Post & { category: Category };
+
+export type PaymentSummary = {
+  id: number;
+  year: number;
+  type: string;
+  amount: number;
+  status: string | null;
+  createdAt: string | null;
+};
+
 export type Comment = {
   id: number;
   postId: number;

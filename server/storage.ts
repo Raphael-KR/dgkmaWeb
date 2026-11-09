@@ -30,8 +30,12 @@ export type { CommentWithAuthor } from "./modules/content/storage-contract";
 // getPaymentsByUser. Copying descriptors keeps shared `this`, method identity,
 // writability/configurability and non-enumerability, without domain constructors
 // or per-instance wrappers. Transactions remain wholly inside their domain method.
-export interface DatabaseStorage extends IStorage, RegistryStorage {}
-export class DatabaseStorage {}
+export type DatabaseStorage = IStorage & RegistryStorage;
+// The prototype descriptors below supply this constructor's full contract.
+export const DatabaseStorage = class DatabaseStorage {} as {
+  new(): DatabaseStorage;
+  prototype: DatabaseStorage;
+};
 
 for (const DomainStorage of [
   IdentityStorage, RegistryStorage, ContentStorage, EventsStorage, DuesStorage,

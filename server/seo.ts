@@ -114,15 +114,6 @@ function stripQueryAndHash(url: string) {
   return url.split("?")[0]?.split("#")[0] || "/";
 }
 
-function plainText(value: string) {
-  return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function excerpt(value: string, maxLength = 150) {
-  const text = plainText(value);
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
-}
-
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")

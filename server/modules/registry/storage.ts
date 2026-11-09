@@ -76,7 +76,7 @@ function parsePendingUserData(
     data.conflictReason !== undefined
     && (
       typeof data.conflictReason !== "string"
-      || !PENDING_REGISTRATION_CONFLICT_REASONS.includes(data.conflictReason as any)
+      || !PENDING_REGISTRATION_CONFLICT_REASONS.some(reason => reason === data.conflictReason)
     )
   ) return undefined;
   const conflictReason = (data.conflictReason ?? "not_found") as PendingRegistrationUserData["conflictReason"];
@@ -271,7 +271,7 @@ export class RegistryStorage implements RegistryStorageContract {
     return uniqueAlumniMatch(alumni);
   }
 
-  async findAlumniByNameAndGeneration(name: string, generation: string): Promise<any | undefined> {
+  async findAlumniByNameAndGeneration(name: string, generation: string): Promise<AlumniRecord | undefined> {
     // 로컬 데이터베이스에서만 검색 (Google Sheets 중복 체크는 여기서 하지 않음)
     const [alumni] = await db.select().from(alumniDatabase)
       .where(and(eq(alumniDatabase.name, name), eq(alumniDatabase.generation, generation)));
@@ -285,7 +285,7 @@ export class RegistryStorage implements RegistryStorageContract {
   }
 
   // 휴대전화번호로 동문 찾기 (고유키)
-  async findAlumniByMobile(mobile: string): Promise<any | undefined> {
+  async findAlumniByMobile(mobile: string): Promise<AlumniRecord | undefined> {
     if (!mobile || mobile.trim() === '') {
       return undefined;
     }
