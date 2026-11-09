@@ -248,6 +248,16 @@
 - 제외: DB·Secrets 변경, 새 기능 개발, 개발 서버 별도 재시작, 실계정 QA·회원 화면 조작·OpenAI/수집 기능 호출·자동 원복. 기존 ignored 실행 기록과 사용자 자료를 임의로 커밋하거나 정리하지 않는다.
 - 확인: 개발 완료 소스와 해시가 같은 타입·모듈 경계·CSS 검사 결과는 재사용한다. Replit에서 릴리스 빌드, 변경된 문서의 정적 계약과 `git diff --check`를 확인하고 게시 후 공개 페이지·정적 자산 및 보호 API의 비로그인 응답만 점검한다.
 
+#### 공통 표시 릴리스 완료 결과
+
+- 2026-11-09 확인된 미커밋 21개 파일을 `4ce29253afc2f09d419cf1333481d583048f817a`로 커밋하고 `codex/shared-brand` 브랜치를 push했다. [PR #24](https://github.com/Raphael-KR/dgkmaWeb/pull/24)의 전체 diff가 로컬 후보와 동일하고 충돌이 없음을 확인해 main에 병합했다. 병합 커밋은 `7a8215c380e97285cebb45d57f2b9ba26d65cd43`다. 별도의 추가 미커밋 파일은 없었다.
+- 14:45 KST Replit 릴리스 빌드와 문서 계약 6개, `git diff --check`가 통과했다. 초기 JS 348,387 bytes·지연 화면 21개로 기존 번들 한도를 충족했다. TypeScript·모듈 경계는 14:38 KST, 최종 CSS는 14:39 KST 통과 소스와 해시가 일치해 재사용했다. GitHub에 등록된 commit status는 없었으며 원격 CI 통과로 표현하지 않는다.
+- 14:49 KST 로컬·GitHub·Replit main을 `7a8215c`로 맞췄다. Replit 추적 파일 436개가 해당 Git blob과 일치하고 작업 트리가 깨끗함을 확인했다. 이미 적용된 파일을 덮어쓰지 않고, index와 대상 tree의 일치를 확인한 후 HEAD만 자손 커밋으로 전진했다.
+- 14:50 KST Replit 커넥터 `publish_app`으로 재게시를 요청했다. 관찰한 상태는 `pending → running → promoting → success`이며 14:54:49 KST `https://dgkma.org` 게시 성공을 확인했다. deployment ID는 `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`다. 동일 deployment ID만으로 버전을 판정하지 않고 다음 자산 대조 결과로 이번 후보를 확인했다.
+- 14:55:14 KST Replit에서 비로그인 GET `/`·`/about/intro`·`/b`의 200 HTML과 `/api/posts`·`/api/categories`의 401 JSON을 확인했다. 초기 화면·로그인·홈·게시판·내 정보의 JS 5개, CSS 2개, 공식 로고 SVG 1개가 모두 200이며 후보 SHA-256과 일치했다. HTML 3개도 후보 초기 JS `index-BZqs-OTM.js`를 참조한다.
+- Replit이 만든 `81f5b0894e8474a8aa414e443b6fd09ec9f89963` (`Published your App`)는 병합 후보와 tree가 같은 빈 게시 기록이며 main 이력에 보존했다. 이후 완료 문서 커밋은 실제 배포 소스와 구분하고 문서만 바꾼 뒤 다시 Republish하지 않는다.
+- 근거는 로컬·Replit `.superpowers/shared-brand-release-20261109/`의 후보·빌드 검사 기록, 게시 기록 bundle과 `production-http-smoke.json`에 보존한다. 게시 상태 전환은 로컬 `publish-status.json`에 기록했다. DB·Secrets 변경 명령, 개발 서버 별도 재시작, 실계정 QA·회원 화면 조작·OpenAI/수집 기능 호출은 실행하지 않았다. HTTP·자산 확인은 실제 반응형 화면 배치와 회원 기능 조작을 확인한 결과가 아니다.
+
 ## GitHub 동기화
 
 GitHub의 `main` 브랜치를 공유 소스 기준으로 사용합니다.
