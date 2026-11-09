@@ -87,7 +87,9 @@ test("development uses minimal static checks and the plan tracks missing feature
   }
   assert.match(walkthrough, /## 현재 적용 기준/);
   assert.match(walkthrough, /실계정 QA는 계속 보류/);
-  assert.match(replit, /최신 변경 릴리스 \(2026-11-09\)/);
+  assert.match(replit, /## 현재 적용 상태/);
+  assert.match(replit, /PR #28 main 병합/);
+  assert.match(replit, /docs\/history\/replit-2026-11-09\.md/);
   assert.match(proposal, /모든 `posts`는 회원 전용/);
   assert.match(proposal, /구조화 정보는 `posts` 내부 JSON으로 저장/);
   assert.match(proposal, /기존 경조사·부고의 상세 필드 입력 폼을 모두 제거/);
@@ -98,8 +100,9 @@ test("development uses minimal static checks and the plan tracks missing feature
   assert.match(proposal, /`기타` 유형은 제거/);
   assert.match(proposal, /게시문 호칭은 부고·경사 모두 `동문·회원·권리회원`으로 통일/);
   assert.doesNotMatch(proposal, /상세 입력은 등록 명령 이후/);
-  assert.match(walkthrough, /등록 명령을 누르기 전에는 상세 필드와 미리보기가 표시되지 않/);
-  assert.match(walkthrough, /목록 필터 없이 모든 유형의 경조사가 함께 표시/);
+  assert.match(walkthrough, /짧은 텍스트·링크 → JSON → 필요한 질문 → 미리보기 → 작성자 확인 후 게시/);
+  assert.match(walkthrough, /상세 폼과 `\/events`·`\/o`는 제거/);
+  assert.match(walkthrough, /## 과거 수행 기록/);
 });
 
 test("privacy policy and approved design record the pending rejection destruction contract", async () => {
@@ -117,13 +120,17 @@ test("privacy policy and approved design record the pending rejection destructio
   }
 });
 
-test("termination marker purpose, retention, admin-key scope, and production schema order are documented", async () => {
-  const [agents, replit, privacy, design, plan] = await Promise.all([
+test("termination contract and scoped DB operations are separate from historical migrations", async () => {
+  const [agents, replit, privacy, design, plan, schema, operations, memo, drizzle] = await Promise.all([
     read("AGENTS.md"),
     read("replit.md"),
     read("client/src/features/legal/privacy.tsx"),
     read("docs/superpowers/specs/2026-07-12-kakao-consent-and-account-deletion-design.md"),
     read("docs/superpowers/plans/2026-07-12-kakao-consent-and-account-deletion.md"),
+    read("docs/database-schema.md"),
+    read("docs/database-operations.md"),
+    read(".agents/memory/drizzle-push-session-table.md"),
+    read("drizzle.config.ts"),
   ]);
 
   for (const document of [agents, replit]) {
@@ -138,12 +145,15 @@ test("termination marker purpose, retention, admin-key scope, and production sch
     assert.match(document, /종료 이후 새로 시작한 OAuth/);
   }
 
-  const productionSchema = replit.slice(replit.indexOf("프로덕션 선행 additive 스키마 순서"));
-  const stateTable = productionSchema.indexOf("kakao_oauth_states");
-  const startedAtColumn = productionSchema.indexOf("kakao_oauth_states.started_at");
-  const markerTable = productionSchema.indexOf("kakao_identity_terminations", startedAtColumn);
-  const republish = productionSchema.indexOf("Republish", markerTable);
-  assert.ok(stateTable >= 0 && stateTable <= startedAtColumn);
-  assert.ok(startedAtColumn < markerTable);
-  assert.ok(markerTable < republish);
+  assert.match(schema, /### TABLE_ROW: kakao_oauth_states[\s\S]*`started_at`/);
+  assert.match(schema, /### TABLE_ROW: kakao_identity_terminations/);
+  assert.match(schema, /identity별 최신 marker 1건/);
+  assert.match(operations, /## 개발 변경/);
+  assert.match(operations, /## 운영 변경/);
+  assert.match(operations, /운영 DB 변경이 승인된 작업에만/);
+  assert.match(operations, /완료된 작업을 찾는 색인[\s\S]*재실행 지시가 아니다/);
+  assert.doesNotMatch(replit, /프로덕션 선행 additive 스키마 순서/);
+  for (const document of [replit, memo, drizzle]) {
+    assert.match(document, /tablesFilter: \["!session"\]/);
+  }
 });

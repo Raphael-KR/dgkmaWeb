@@ -5,6 +5,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 제품 정책은 `planning_proposal.md`, 환경은 `replit.md`, DB는 기존
 `database-schema.md`/`database-operations.md`가 계속 기준이다.
 
+2026-11-09 main `d7184ca`의 코드에 맞춘 현재 구조다. 과거 이동·점검 결과는 [구조 개편 이력](./structure-validation.md)과 [개발·릴리스 이력](./history/replit-2026-11-09.md)에 보존한다.
+
 ## 소유권과 이동표
 
 | 기존 위치 | 현재 소유 위치 | 책임 |
@@ -17,7 +19,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `pages/directory` | `features/directory` | 권한 범위 내 명부 |
 | `pages/profile`, profile 컴포넌트 | `features/profile` | 프로필·납부내역·회원상태 |
 | `pages/events`, `pages/obituary`, event draft 훅 | `features/events` | 부고·결혼·개원 텍스트 초안·미리보기·게시; 목록·상세는 boards |
-| `pages/admin`, `admin-alumni-sync-state` | `features/admin` | 승인·거절·명부 동기화 UI/상태 |
+| `pages/admin`, `admin-alumni-sync-state` | `features/admin` | 승인·거절·명부 동기화, 게시글·가린 글 관리 연결. 통계는 준비 중 |
 | `pages/search` | `features/search` | 게시글·명부 검색 |
 | `pages/terms`, `privacy` | `features/legal` | 법적 고지 |
 | `server/routes.ts` | `server/modules/*/routes.ts` | 도메인별 HTTP 처리; 기존 파일은 순서대로 등록 |
@@ -60,7 +62,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 `/about`, `/about/intro`, `/about/executives`, `/about/presidents`, `/about/heritage`,
 `/about/bylaws`, `/about/bylaws/regulations`,
 `/about/join`, `/about/dues`, `/about/condolence`, `/admin`, `/b`, `/directory`,
-`/profile`, `/search`, `/p/:id`, `/post/:id`를 제공한다.
+`/profile`, `/search`, `/p/:id`, `/post/:id`, `/p/:id/edit`를 제공한다.
 통합 정책에 따라 `/b/write/:type`를 추가하고 `/o`, `/events`와 그 하위 경로는 제거한다.
 
 - `/about`은 로그인 여부와 관계없이 기존 공개 홈 랜딩페이지를 직접 표시한다. `/heritage` 화면·라우트는 제거한다.
@@ -74,21 +76,22 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 |---|---|
 | identity | GET `/api/auth/callback`, POST `/api/auth/logout`, GET `/api/auth/kakao/start`, POST `/api/auth/kakao/authorize`, POST `/api/users/activity-region`, GET `/api/auth/me`, PATCH/DELETE `/api/users/me` |
 | dues 회원상태 | GET `/api/membership/status` |
-| events | 인증된 `/api/posts/notices`: POST `/drafts/:type`, PATCH/DELETE `/:id`, POST `/:id/generate`(호출 제한), POST `/:id/publish`. content보다 먼저 등록 |
-| content | GET/POST `/api/categories`, GET `/api/posts`, GET `/api/posts/search` **이후** GET `/api/posts/:id`, POST `/api/posts`, GET/POST `/api/posts/:postId/comments`, DELETE `/api/comments/:id` |
+| events | 인증된 `/api/posts/notices`: POST `/drafts/:type`, PATCH/DELETE `/:id`, POST `/:id/generate`(호출 제한), POST `/:id/publish`, POST `/:id/edit-preview`, PATCH `/:id/edit`. content보다 먼저 등록 |
+| content | 모든 `/api/posts`·`/api/categories`·`/api/comments`에 회원 인증. GET/POST `/api/categories`, GET/POST `/api/posts`, GET `/api/posts/search`·`/api/posts/hidden`을 동적 상세보다 먼저 등록. GET/PATCH/DELETE `/api/posts/:id`, PATCH `/api/posts/:id/visibility`, GET/POST `/api/posts/:postId/comments`, DELETE `/api/comments/:id` |
 | registry | GET `/api/alumni` |
 | dues 납부 | GET `/api/payments/user/:userId`, POST `/api/payments` 관리자 보호 |
 | registry 관리자 | `/api/admin` 관리자 middleware, GET `/pending-registrations`, PATCH `/pending-registrations/:id`, POST `/sync-alumni/preview`, POST `/sync-alumni`, GET `/sync-progress`, GET `/test-google-sheets` (모두 `/api/admin` 접두사) |
 | object storage | PUT `/api/uploads/:uploadToken`, POST `/api/uploads/request-url`, GET `/objects/:objectPath(*)` |
 
-기존 응답 코드·오류 본문·허용 필드·관리자/작성자 검증은 도메인별 라우트 테스트가 기준이다.
+권한·제품 계약은 계획서, 실제 경로·응답은 도메인별 라우트 코드와 계약을 함께 확인한다. 테스트의 과거 통과를 현재 실계정 동작 확인으로 대신하지 않는다.
+일반 글 수정·삭제는 작성자만, 가리기/다시 표시하기는 관리자만 처리한다. 경조사 정정은 기존 초안 API와 별도 서명 미리보기·확인 흐름이다.
 `ClientUser`, 관리자 pending DTO, 최소 명부 DTO는 원문 사용자·신청·연락처를 대신 노출하지 않는다.
 회원 경조사 목록/상세에는 `sourceText`를 포함하지 않는다.
 
 ### 캐시와 정적 자산
 
 - auth: `/api/auth/me`는 AuthProvider의 직접 fetch/상태 관리로 유지한다 (Query cache로 전환하지 않음).
-- boards: `["/api/categories"]`, `["/api/posts", category 또는 undefined]`,
+- boards: `["/api/categories"]`, `["/api/posts", category 또는 undefined, "hidden" 또는 "visible"]`,
   `["/api/posts", postId]`, `["/api/posts", postId, "comments"]`
 - search: `["/api/posts/search", searchTerm]`, `["/api/alumni", searchTerm]`
 - directory: `["/api/alumni"]`
@@ -109,6 +112,10 @@ Vite 산출물은 `dist/public`, 서버 번들은 `dist/index.js`; `server/vite.
 DB-only 행 보존을 유지한다. 테스트는 실제 Google Sheets 적용이나 Kakao unlink를 하지 않는다.
 Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nosniff를 유지한다.
 
+## 본문·공통 표시
+
+본문 JSON 계약은 `shared/contracts/post-document.ts`, 공식 스키마·변환은 `shared/editor/post-document.ts`, 편집 UI·표시는 `client/src/components/post-body-editor.tsx`·`post-body.tsx`가 담당한다. 저장·권한·첨부는 feature와 서버 모듈에 둔다. 경조사 사실 JSON과 본문 JSON을 합치지 않는다. 사이트 이름·canonical은 `shared/site.ts`, 메뉴는 `client/src/app/layout/nav-items.ts`의 공통 정의를 사용한다.
+
 ## 파일명·테스트 규칙과 명령
 
 - 신규 파일은 `kebab-case.ts(x)`. 기존 생성 UI와 `ObjectUploader.tsx`,
@@ -127,11 +134,11 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 동적으로 계산한 import 문자열, DI의 의미적 의존성, HTTP 권한을 증명하지 않는다.
 개발 직후에는 필요한 정적 검사만 수행한다. 별도로 요청된 라우트 실행 점검과 구분하며 스키마·실데이터 변경은 이 작업에 포함하지 않는다.
 
-## 삭제하지 않은 검토 후보
+## 보존 파일과 제거된 경로
 
-레거시 `features/events/obituary/create.tsx`/`list.tsx`, 기존 호환 shared export와
-미사용 추정 패키지는 사용처를 별도 확인하기 전 보존한다.
+기존 호환 shared export와 미사용 추정 패키지는 사용처를 별도 확인하기 전 보존한다.
+레거시 `features/events/obituary/create.tsx`·`list.tsx`와 옛 `/o`·`/events`는 게시글 통합에서 제거됐다. 현재 보존 대상으로 나열하지 않는다.
 `features/heritage/info.tsx`를 포함한 기존 heritage 화면은 2026-11-09 공개 메뉴 통합 범위에서 제거했다.
 `attached_assets`나 sandbox를 정리 대상으로 취급하지 않는다.
 
-검증 결과와 실제 계정 UI의 미확인 범위는 [구조 개편 검증 기록](structure-validation.md)에 기록한다.
+구조 개편 당시 결과는 [구조 개편 검증 기록](structure-validation.md), 후속 변경의 실제 확인 범위는 [릴리스 이력](./history/replit-2026-11-09.md)을 따른다.
