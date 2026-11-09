@@ -1,13 +1,14 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 관찰은 2026-11-09 05:04 KST 수집 규칙 추가 후 읽기 전용 catalog이며 13개 테이블이다. Production은 2026-11-09 12:43 KST 릴리스 준비에서 canonical metadata-only catalog를 다시 확인했으며 구 테이블을 포함한 14개 테이블이다. 아래 현재 개발 구조와 통합 전 이력을 구분하며 catalog 확인을 실제 계정·기능 검증으로 확대하지 않는다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 관찰은 2026-11-09 05:04 KST 수집 규칙 추가 후 읽기 전용 catalog이며 13개 테이블이다. Production은 2026-11-09 12:56 KST 추가 구조 적용 후 canonical metadata-only catalog를 확인했으며 구 테이블을 유지한 15개 테이블이다. 아래 현재 구조와 통합 전 이력을 구분하며 catalog 확인을 실제 계정·기능 검증으로 확대하지 않는다.
 
-### 운영 릴리스 후보 구조 (2026-11-09, 미적용)
+### 운영 릴리스 구조 (2026-11-09, 추가 구조 적용)
 
-- 운영 `neondb`는 구 `community_events`·`obituaries`를 포함한 14개 테이블이며 posts 통합 컬럼·수집 규칙 테이블이 없다. 두 구 테이블의 incoming FK는 0개다.
-- `scripts/release-posts-additive.sql`은 아래 개발 계약과 같은 posts 컬럼 4개·CHECK 2개·partial UNIQUE 1개, `source_collection_rules`의 8개 컬럼·PK·UNIQUE·CHECK 2개·시퀀스를 추가하는 후보이다. 카테고리 seed는 같은 명시 SQL에 포함하되 구조 변경과 구분해 건수를 확인한다.
+- 운영 `neondb`는 posts 통합 구조·수집 규칙 테이블과 구 `community_events`·`obituaries`가 함께 있는 15-table 중간 상태다. 두 구 테이블은 각각 0건이며 incoming FK는 0개다. 새 코드 배포 확인 후 삭제하는 순서를 유지한다.
+- 12:56 KST `scripts/release-posts-additive.sql`을 커밋했다. 아래 개발 계약과 같은 posts 컬럼 4개·CHECK 2개·partial UNIQUE 1개, `source_collection_rules`의 8개 컬럼·PK·UNIQUE·CHECK 2개·시퀀스를 추가했다. 카테고리 seed는 구조 변경과 구분해 5→7건으로 확인했고 기존 나머지 테이블 건수는 보존했다.
 - `scripts/release-posts-cleanup.sql`은 새 배포 확인 후 두 구 테이블과 소유 시퀀스·제약만 제거한다. 2026-11-09 사용자가 운영 DB 전환과 두 빈 테이블 삭제를 승인했다. 승인·SQL 준비는 물리 DB 적용이나 전체 catalog 재검증을 뜻하지 않는다. [운영 적용 순서](./database-operations.md#최신-변경-릴리스-준비-2026-11-09)를 따른다.
-- 12:43 KST 운영 catalog: tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `14/119/14/10/6/2/24/10`. view·trigger·policy·routine·enum·domain은 0개다. `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `45ed6417e03fdd8c6ade05ea72aac7b5fec226932c91c20d88ba2b70b947bec1`이며 Replit `.superpowers/release-20261109/production-before-catalog.txt`에 있다. 이번 릴리스의 적용 전 구조 관찰이며 DDL은 실행하지 않았다.
+- 12:43 KST 적용 전 catalog는 `14/119/14/10/6/2/24/10`이었다. 출력 SHA-256은 `45ed6417e03fdd8c6ade05ea72aac7b5fec226932c91c20d88ba2b70b947bec1`이며 Replit `.superpowers/release-20261109/production-before-catalog.txt`에 보존한 이력이다.
+- 12:56 KST 적용 후 catalog: tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `15/131/15/10/7/6/27/11`. view·trigger·policy·routine·enum·domain은 0개이며 모든 public 테이블의 RLS는 비활성이다. 새 연결에서 `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `1883ff1b398b00a56d58914c245cf7569d2aca87cf516b6e2dd60b692f40879a`이며 `.superpowers/release-20261109/production-after-additive-catalog.txt`에 있다. Republish와 구 테이블 제거는 아직 수행하지 않았다.
 
 ### 공개 링크 수집 규칙 (2026-11-09 개발 적용)
 
@@ -51,7 +52,7 @@
 
 ### 게시글 통합 구조 (2026-11-09)
 
-상태는 **코드 구현·Development 스키마 적용, Production 미적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 2026-11-09 03:17:22 KST에 `scripts/unify-posts.sql`을 커밋했다. 03:21 KST 새 연결의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 아래 현재 개발 구조를 확인했다. 전환 SQL은 재실행하지 않는다. Production은 이번에 조회하지 않았으며 아래 과거 catalog와 구분한다.
+최초 개발 전환 이력은 **코드 구현·Development 스키마 적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 2026-11-09 03:17:22 KST에 `scripts/unify-posts.sql`을 커밋했다. 03:21 KST 새 연결의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 아래 개발 구조를 확인했다. 전환 SQL은 재실행하지 않는다. 당시 Production은 조회하지 않았으며 이후 운영 추가 구조 적용은 위 최신 기록을 따른다.
 
 - 모든 게시물과 경조사 초안은 `posts`를 사용하고 분류는 `categories`를 사용한다. `community_events`·`obituaries`는 통합 코드와 Development에서 삭제했으며 별도 경조사 상세 테이블로 대체하지 않는다.
 - 기존 공지·자유·행사·소식에 `부고`·`경사` 카테고리를 추가한다. `경사` JSON의 유형은 결혼·개원만 허용하며 기타 유형은 제거한다. 부고·경사의 게시문 회원 호칭은 동문·회원·권리회원으로 통일한다.

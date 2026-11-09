@@ -2,7 +2,7 @@
 
 이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전, 현재 상태와 개발 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
-2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 Replit 개발 환경에 적용했습니다. 운영 DB와 배포는 변경하지 않았습니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 03:51 KST 키 반영 후 개발 서버를 재시작했습니다. 같은 날 04:18 KST 요청된 실제 호출에서 모델 `gpt-6-luna`와 HTTP 200을 확인했으나, 제공된 부고 링크의 본문 추출 실패로 완성 문안은 생성되지 않았습니다. 키 값은 출력하지 않았으며 상세 범위는 [실제 부고 작성 점검](./walkthrough.md#실제-모델과-부고-작성-점검-2026-11-09)을 따릅니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 Replit 개발 환경에 적용했습니다. 최신 후보는 PR #22로 main에 병합했고 운영 DB에는 추가 구조를 적용했습니다. 새 코드 Republish와 구 테이블 제거는 아직 완료하지 않았으며 [릴리스 진행 기록](#릴리스-진행-기록)을 따릅니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 03:51 KST 키 반영 후 개발 서버를 재시작했습니다. 같은 날 04:18 KST 요청된 실제 호출에서 모델 `gpt-6-luna`와 HTTP 200을 확인했으나, 제공된 부고 링크의 본문 추출 실패로 완성 문안은 생성되지 않았습니다. 키 값은 출력하지 않았으며 상세 범위는 [실제 부고 작성 점검](./walkthrough.md#실제-모델과-부고-작성-점검-2026-11-09)을 따릅니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
 
 ## 통합 게시글 실행 준비 (2026-11-09)
 
@@ -16,7 +16,7 @@
 
 ### 코드와 실행 조건
 
-- 정책 선커밋: `2855424`; 구현 브랜치: `codex/unified-member-posts`. 통합 구현은 아직 GitHub에 게시하지 않았습니다.
+- 최초 개발 적용 당시 정책 선커밋은 `2855424`, 구현 브랜치는 `codex/unified-member-posts`였습니다. 이후 GitHub main 통합은 아래 릴리스 기록과 구분합니다.
 - `/b`가 공통 게시판이고 `/b/write/obituary`, `/b/write/wedding`, `/b/write/opening`에서 텍스트 초안을 작성합니다. 이전 `/events`, `/o`와 상세 경로는 사용하지 않습니다.
 - 앞선 정적 검사는 `/home/runner/workspace/.worktrees/unified-posts-check`에서 `npm run check`, 변경된 테스트 소스의 `npm run check:tests`, Python AST 구문 확인으로 마쳤습니다. 아래 개발 활성화는 이 검사와 별도 실행입니다.
 - [DB 운영 런북](./docs/database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)에 따라 구조 기록과 의존 관계를 확인한 뒤 `scripts/unify-posts.sql`과 같은 버전의 앱을 적용했습니다. 이 SQL은 개발 DB에서 이미 실행됐으며 재실행하지 않습니다. 구 코드로 두 전용 테이블을 삭제하면 경조사 요청이 실패하므로 코드와 스키마를 함께 전환합니다.
@@ -84,7 +84,15 @@
 - 2026-11-09 12:43 KST Replit의 최종 타입·경계 검사와 배포 빌드가 통과했다. 문서 정적 계약 6개는 12:41 KST 통과했다. 게시판 청크는 약 12kB, 편집기 약 289kB, 편집 엔진 약 233kB다. 초기 JS 350,638 bytes와 지연 화면 21개가 기존 한도를 충족한다.
 - 로컬·Replit 전체 소스 대조에서 발견한 차이는 `member-labels.ts` 끝의 빈 줄과 Replit에 빠진 과거 점검 문서였다. 원격 원본을 보존한 뒤 로컬과 맞췄다. 릴리스 수정 전 430개 파일의 해시와 변경 파일 백업은 `.superpowers/release-20261109/`에 보존했다.
 - `.replit` 반영 중 SSH 연결이 종료돼 완료 증거가 없는 검사는 새 연결에서 수행했다. 새 셸 PATH의 Nix Chromium은 125.0.6422.141이다. 이전 수집 실행에 사용한 `/repl/tools/bin/chromium` 155.0.8059.79와 다르며, 이번에는 새 실행 파일의 페이지 수집·OCR이나 운영 브라우저 가용성을 확인하지 않았다. 서버 재시작 명령은 실행하지 않았다.
-- Production은 읽기 전용 구조·건수와 schema-only snapshot만 확보했다. SQL 적용·명부 동기화·OpenAI/공개 링크 재호출·Republish·운영 HTTP 점검·실계정 QA는 실행하지 않았다. 릴리스 완료를 뜻하지 않는다.
+- 12:43 KST 후보 준비 단계에서는 Production의 읽기 전용 구조·건수와 schema-only snapshot만 확보했다. 이후 승인된 Git 통합과 운영 추가 구조 적용 결과는 아래에 기록한다. 이 준비 단계에는 명부 동기화·OpenAI/공개 링크 재호출·Republish·운영 HTTP 점검·실계정 QA를 실행하지 않았다.
+
+#### 릴리스 진행 기록
+
+- 2026-11-09 [PR #22](https://github.com/Raphael-KR/dgkmaWeb/pull/22)를 병합했다. 병합 commit은 `f54177bfe877e40354f961045b65e3f238abed1f`이며 기능 후보 `5b19e86`과 승인 문서 `ad8361a`를 포함한다. 로컬·Replit의 main을 같은 commit으로 동기화했고 12:54 KST Replit의 추적 파일 432개가 Git blob과 일치하며 작업 트리가 깨끗한 것을 확인했다.
+- 12:56 KST Production `neondb`에 `release-posts-additive.sql`을 한 트랜잭션으로 적용했다. posts 통합 컬럼·제약·인덱스, 수집 규칙 테이블과 부고·경사 카테고리를 추가했다. 카테고리만 5→7건으로 늘었고 기존 나머지 테이블 건수는 보존했다. 새 연결의 전체 catalog는 15개 테이블·131개 컬럼이며, 두 빈 구 테이블은 유지했다. 상세 증거는 [DB 운영 기록](./docs/database-operations.md#운영-추가-구조-적용-결과)에 둔다.
+- 12:58 KST Replit 커넥터 `publish_app`은 DB 스키마 변경에 대한 웹 검토가 필요하다는 `INVALID_ARGUMENT`를 반환했고 새 배포를 시작하지 않았다. 같은 호출을 반복하거나 다른 배포 API로 검토를 우회하지 않는다. 사용자는 이어 Replit 웹 검토·배포 조작을 승인했다.
+- CLI 경로 확인 결과 현재 개발 workspace의 `replit --help`에는 publish/deploy 명령이 없었다. 이는 이 설치의 명령 목록 확인이며 모든 CLI에서 재게시가 불가능하다는 뜻은 아니다. 승인된 웹 검토는 `ego-browser` CLI로 열었으나 Replit 로그아웃 상태여서 로그인 화면을 사용자에게 넘겼다.
+- 마지막 배포 조회는 기존 deployment `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`의 success를 반환했다. 이는 새 후보의 배포 성공이 아니다. 새 코드 Republish·운영 HTTP 확인·구 테이블 삭제는 미완료이며 실계정 QA는 계속 보류한다. Git·DB·배포 시도 receipt는 Replit `.superpowers/release-20261109/`에 보존한다.
 
 ### 공개 링크 범용 수집 (2026-11-09 결정)
 
