@@ -4,6 +4,7 @@
 
 ## 최신 변경 릴리스 준비 (2026-11-09)
 
+- 사용자 승인: 후보 `5b19e86`의 push·PR 생성·main 병합과 운영 DB 전환을 명시 승인했다. 이 전환은 아래 추가 구조 SQL과 빈 `community_events`·`obituaries` 삭제 SQL을 포함한다. 일반 게시글·회원·명부는 보존하고 명부 재동기화·실계정 QA·자동 원복은 포함하지 않는다.
 - 12:35 KST 릴리스 요청에 필요한 운영 사전 확인을 `PROD_DATABASE_URL`로 명시 선택해 `BEGIN READ ONLY`에서 수행했다. 읽기 전용 URL은 없었으며 `current_database()=neondb`, `transaction_read_only=on`을 확인했다. 행 원문과 Secret은 조회·출력하지 않았다.
 - 현재 운영은 구 테이블 2개가 포함된 14-table 구조다. `community_events`·`obituaries`는 각각 0건이고 incoming FK는 없다. posts는 기존 9개 컬럼이며 통합 컬럼과 `source_collection_rules`는 없다. 일반 posts/comments도 0건이다. 나머지 기존 테이블은 보존 대상으로 기록했고 변경하지 않았다.
 - 후보 SQL은 추가 구조 `scripts/release-posts-additive.sql`과 배포 후 제거 `scripts/release-posts-cleanup.sql`로 나눈다. 두 파일은 Production `neondb`만 허용하며 앱 시작·빌드에서 실행하지 않는다. 개발용 두 SQL의 대상 제한은 변경하지 않는다.

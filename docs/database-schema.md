@@ -6,7 +6,7 @@
 
 - 운영 `neondb`는 구 `community_events`·`obituaries`를 포함한 14개 테이블이며 posts 통합 컬럼·수집 규칙 테이블이 없다. 두 구 테이블의 incoming FK는 0개다.
 - `scripts/release-posts-additive.sql`은 아래 개발 계약과 같은 posts 컬럼 4개·CHECK 2개·partial UNIQUE 1개, `source_collection_rules`의 8개 컬럼·PK·UNIQUE·CHECK 2개·시퀀스를 추가하는 후보이다. 카테고리 seed는 같은 명시 SQL에 포함하되 구조 변경과 구분해 건수를 확인한다.
-- `scripts/release-posts-cleanup.sql`은 새 배포 확인 후 두 구 테이블과 소유 시퀀스·제약만 제거하는 후보이다. 별도 삭제 승인 전에는 실행하지 않는다. SQL 준비는 물리 DB 적용이나 전체 catalog 재검증을 뜻하지 않는다. [운영 적용 순서](./database-operations.md#최신-변경-릴리스-준비-2026-11-09)를 따른다.
+- `scripts/release-posts-cleanup.sql`은 새 배포 확인 후 두 구 테이블과 소유 시퀀스·제약만 제거한다. 2026-11-09 사용자가 운영 DB 전환과 두 빈 테이블 삭제를 승인했다. 승인·SQL 준비는 물리 DB 적용이나 전체 catalog 재검증을 뜻하지 않는다. [운영 적용 순서](./database-operations.md#최신-변경-릴리스-준비-2026-11-09)를 따른다.
 - 12:43 KST 운영 catalog: tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `14/119/14/10/6/2/24/10`. view·trigger·policy·routine·enum·domain은 0개다. `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `45ed6417e03fdd8c6ade05ea72aac7b5fec226932c91c20d88ba2b70b947bec1`이며 Replit `.superpowers/release-20261109/production-before-catalog.txt`에 있다. 이번 릴리스의 적용 전 구조 관찰이며 DDL은 실행하지 않았다.
 
 ### 공개 링크 수집 규칙 (2026-11-09 개발 적용)

@@ -70,14 +70,14 @@
 ### 최신 변경 릴리스 (2026-11-09)
 
 - 목표: 게시판 통합, 공개 링크 수집·규칙 저장, 결혼·개원 보완과 본문 서식의 현재 후보를 릴리스한다.
-- 범위: 로컬·Replit 소스 대조, 배포 빌드, 운영 DB의 읽기 전용 구조·건수 확인, 배포 후보와 전환 SQL 준비. GitHub main 병합과 운영 구 테이블 삭제는 전역·DB 지침의 별도 명시 승인 경계를 따른다.
+- 범위: 로컬·Replit 소스 대조, 배포 빌드, GitHub push·PR 생성·main 병합, 운영 DB 전환과 Republish. 사용자는 후보 `5b19e86`의 push·PR 생성·main 병합과 운영 DB 전환을 명시 승인했다. 운영 전환에는 사전 확인한 빈 `community_events`·`obituaries` 제거가 포함된다.
 - 완료 조건: 승인된 Git 통합·운영 스키마 전환 뒤 같은 후보를 Republish하고 비로그인 HTTP 응답과 정적 자산을 확인한다. 준비만 끝난 상태를 릴리스 완료로 표시하지 않는다.
 - 제외: 실계정 QA, 명부 재동기화, 실제 OpenAI·외부 경조사 수집 호출, 자동 원복은 하지 않는다. 기존 일반 게시글·댓글·명부와 사용자 자료를 보존한다.
 - 확인: 같은 소스의 기존 정적 결과를 재사용하고, 이번에는 릴리스 산출물 빌드와 변경된 배포 설정의 정적 확인을 추가한다. 운영 DB는 사전 구조 기록·영향 미리보기·승인된 SQL·새 연결 확인 순서로 처리한다.
 
 릴리스 빌드에서 게시판 청크 약 533kB가 기존 500,000-byte 한도를 초과했다. 본문 편집기는 글쓰기 창을 열 때 불러오도록 분리하고 ProseMirror 엔진을 별도 청크로 나눠 같은 한도로 다시 빌드했다. 수집 브라우저는 `.replit`의 Nix `chromium` 패키지로 런타임 의존성을 명시하고, `COLLECTOR_CHROMIUM_PATH` 또는 설치된 PATH의 실행 파일을 사용한다. 개발 도구 전용 `/repl/tools` 경로가 운영에도 있다고 가정하지 않는다. 설정 계약은 [Replit 공식 구성 문서](https://docs.replit.com/features/project-setup/configuration)를 따른다.
 
-운영 DB의 추가 구조는 `scripts/release-posts-additive.sql`, 구 테이블 제거는 `scripts/release-posts-cleanup.sql`로 분리해 준비한다. 승인 후 추가 구조 → 새 코드 Republish·비로그인 확인 → 구 테이블 제거 순서로 적용한다. 적용 전까지 두 SQL은 실행하지 않은 후보이며 기존 개발 전환 SQL을 운영에서 우회 실행하지 않는다.
+운영 DB의 추가 구조는 `scripts/release-posts-additive.sql`, 구 테이블 제거는 `scripts/release-posts-cleanup.sql`로 분리한다. 2026-11-09 사용자 승인에 따라 추가 구조 → 새 코드 Republish·비로그인 확인 → 구 테이블 제거 순서로 적용한다. 승인 기록과 실제 실행 결과를 구분하며 기존 개발 전환 SQL을 운영에서 우회 실행하지 않는다.
 
 #### 릴리스 후보 확인 결과
 
