@@ -27,6 +27,8 @@
 
 현재는 남은 기능을 개발하는 단계입니다. Replit 개발 워크스페이스에서 구현하고 개발 직후 점검은 필요한 정적 검사로 최소화합니다. 실행 명령과 환경변수는 [replit.md](./replit.md), 별도로 요청된 기능 점검의 참고 절차와 과거 기록은 [walkthrough.md](./walkthrough.md)에서 확인합니다. 운영 배포와 실계정 QA는 보류 중입니다.
 
+2026-11-09 게시글·경조사를 회원 전용 `posts`·`categories`와 JSON으로 통합했습니다. 기존 상세 폼은 텍스트·OpenAI API 기반 작성으로 바꾸고, 경조사 데이터·상세 주소는 이관 없이 폐기했습니다. 정책은 `2855424`로 선커밋했으며, 통합 구현은 `codex/unified-member-posts` 브랜치에서 관리합니다. Replit 개발 DB 전환과 통합 코드 적용·서버 기동을 마쳤습니다. 이후 사용자가 추가한 `OPENAI_API_KEY`를 개발 서버 재시작으로 반영했으며, 키 존재 여부만 확인하고 실제 OpenAI 호출은 수행하지 않았습니다. 운영 DB·배포는 변경하지 않았습니다. 세부 기준은 [통합 정책](./planning_proposal.md#게시글과-경조사-통합), 적용 기록은 [Replit 운영 문서](./replit.md#개발-적용-결과)를 따릅니다.
+
 ## 목적별 기준 문서
 
 이 문서는 프로젝트와 문서를 찾는 진입점입니다. 기준 문서의 적용과 변경 절차는 [AGENTS.md](./AGENTS.md)를 따릅니다.
@@ -42,7 +44,7 @@
 | **최우선 DB 구조 기준**: 테이블·컬럼·객체·관계·무결성과 catalog 재검증 | [docs/database-schema.md](./docs/database-schema.md) |
 | 개발·운영 DB 선택, 직접 연결, 변경·백업·복구·검증과 Secret 수명 관리 | [docs/database-operations.md](./docs/database-operations.md) |
 | 별도로 요청된 개발·운영 점검의 참고 절차와 과거 기록 | [walkthrough.md](./walkthrough.md) |
-| 부고 필수 정보, 표준 게시문, 초안·검증 규칙 | [docs/obituary-writing-guide.md](./docs/obituary-writing-guide.md) |
+| 통합 전 부고 작성 지침과 새 작성 스킬 기준으로의 전환 | [docs/obituary-writing-guide.md](./docs/obituary-writing-guide.md) |
 
 ## 변경·설계 이력
 

@@ -1,6 +1,140 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 구조 관찰은 2026-09-05 Development·Production에서 실행한 읽기 전용 catalog를 기준으로 한다. 양쪽 모두 앱 테이블 14개이며 이전 Development의 추가 객체 상태는 현재 관찰과 다르다. 이름 기준 구조 메타데이터는 같고 `users`·`posts`의 일부 컬럼 물리적 순서는 다르다. 과거 기준·해시는 이력으로 보존하며 catalog 확인을 실제 계정·데이터·기능 검증으로 확대하지 않는다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 관찰은 2026-11-09 05:04 KST 수집 규칙 추가 후 읽기 전용 catalog이며 13개 테이블이다. Production은 2026-11-09 12:43 KST 릴리스 준비에서 canonical metadata-only catalog를 다시 확인했으며 구 테이블을 포함한 14개 테이블이다. 아래 현재 개발 구조와 통합 전 이력을 구분하며 catalog 확인을 실제 계정·기능 검증으로 확대하지 않는다.
+
+### 운영 릴리스 후보 구조 (2026-11-09, 미적용)
+
+- 운영 `neondb`는 구 `community_events`·`obituaries`를 포함한 14개 테이블이며 posts 통합 컬럼·수집 규칙 테이블이 없다. 두 구 테이블의 incoming FK는 0개다.
+- `scripts/release-posts-additive.sql`은 아래 개발 계약과 같은 posts 컬럼 4개·CHECK 2개·partial UNIQUE 1개, `source_collection_rules`의 8개 컬럼·PK·UNIQUE·CHECK 2개·시퀀스를 추가하는 후보이다. 카테고리 seed는 같은 명시 SQL에 포함하되 구조 변경과 구분해 건수를 확인한다.
+- `scripts/release-posts-cleanup.sql`은 새 배포 확인 후 두 구 테이블과 소유 시퀀스·제약만 제거한다. 2026-11-09 사용자가 운영 DB 전환과 두 빈 테이블 삭제를 승인했다. 승인·SQL 준비는 물리 DB 적용이나 전체 catalog 재검증을 뜻하지 않는다. [운영 적용 순서](./database-operations.md#최신-변경-릴리스-준비-2026-11-09)를 따른다.
+- 12:43 KST 운영 catalog: tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `14/119/14/10/6/2/24/10`. view·trigger·policy·routine·enum·domain은 0개다. `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `45ed6417e03fdd8c6ade05ea72aac7b5fec226932c91c20d88ba2b70b947bec1`이며 Replit `.superpowers/release-20261109/production-before-catalog.txt`에 있다. 이번 릴리스의 적용 전 구조 관찰이며 DDL은 실행하지 않았다.
+
+### 공개 링크 수집 규칙 (2026-11-09 개발 적용)
+
+- 새 전용 테이블 `source_collection_rules`는 게시글·명부·회원과 FK로 연결하지 않는다. 소유자는 경조사 수집 모듈이며 앱 서버만 조회·갱신한다. 브라우저에는 DB 접속정보를 주지 않는다.
+- 컬럼: `id serial PRIMARY KEY`, `domain text NOT NULL`, `page_pattern text NOT NULL`, `rule jsonb NOT NULL`, `version integer NOT NULL DEFAULT 1`, `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()`, `last_success_at timestamptz NOT NULL`.
+- 제약: `(domain, page_pattern)` UNIQUE, version 양수, rule은 object이며 `schemaVersion=1`. PK와 unique btree index, serial sequence를 사용한다. 새 FK·trigger·routine·RLS 정책은 만들지 않는다.
+- JSON 계약: 적용 도메인·페이지 주소 패턴, API 주소 템플릿·HTTP 메서드, URL에서 ID를 얻는 방법과 허용된 변환, 응답 경로별 공통 사실 매핑·구조 조건을 기록한다. 임의 실행 코드·개별 원문·ID 실값·개인정보·쿠키·토큰은 허용하지 않는다. 구조와 실제 사실 수집을 확인한 규칙만 upsert하며 성공 시각을 갱신한다.
+- 기존 `posts.event_data` JSON에는 선택적인 필드별 출처를 추가한다. 기존 JSON과 호환되며 물리 컬럼 변경은 없다. 원문 값은 처리 메모리에서만 사용하고 규칙 테이블에 넣지 않는다.
+- additive SQL `scripts/add-source-collection-rules.sql`을 05:04 KST 개발 DB에만 적용했다. 기존 12개 테이블과 명부 3,458건을 보존했다. 아래의 03:21 catalog는 이 변경 전 이력이며 이 절의 새 catalog를 현재 기준으로 사용한다.
+
+| 최신 Development catalog | 2026-11-09 05:04 KST |
+|---|---|
+| 대상 | `heliumdb`, PostgreSQL 16.10, `public`, READ ONLY |
+| tables / columns | 13 / 102 |
+| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 6 / 6 |
+| indexes / sequences | 24 / 9 |
+| views / triggers / policies / routines / enums / domains | 모두 0 |
+| RLS | 모든 public 테이블 비활성, 새 정책 없음 |
+| 코드 대응 | 12개 `pgTable` + runtime `session` |
+
+- 이전 통합 테이블 12개에 `source_collection_rules`만 추가했다. 새 8개 컬럼은 모두 NOT NULL이며 id는 `source_collection_rules_id_seq`, version은 1, created_at/updated_at은 now()를 기본값으로 쓴다. last_success_at에는 기본값을 두지 않고 성공한 수집에서 앱이 설정한다.
+- 제약 이름은 `source_collection_rules_pkey`, `source_collection_rules_domain_pattern_unique`, `source_collection_rules_version_check`, `source_collection_rules_json_check`다. 모두 validated이고 PK/UNIQUE의 btree index는 valid·ready다. 삭제·참조 동작, FK·trigger·routine 추가는 없다.
+- JSONB는 `schemaVersion`, `domain`, `pagePattern`, `id.source/key/transform`, `request.method/urlTemplate`, `fields[].field/path`, `shape[].path/type`를 가진다. 앱은 strict schema와 허용 필드·공개 주소를 검사한다. 현재 GET 및 identity/base64url 변환만 지원하며 실제 개인정보 값과 ID는 template/path에 저장하지 않는다. 동일 `(domain,page_pattern)` upsert 시 version+1, updated_at/last_success_at을 갱신하고 재사용 성공은 last_success_at만 갱신한다.
+- catalog SQL digest는 기존 `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f`, 이번 출력 digest는 `5d5fa59ebd65c7e344bff3e245cd1dbf8f0ca28749a64b64963cd85307c5693b`다. Replit `.superpowers/collector-20261109/after-catalog.txt`의 gate·ROLLBACK·completion marker를 확인했다. 자세한 적용·보존 기록은 [운영 런북](./database-operations.md#적용-기록)을 따른다.
+
+### 경사 수집 JSON 계약 확장 (2026-11-09)
+
+- `source_collection_rules.rule`의 schemaVersion은 1을 유지하고 선택 키 `noticeTypes`에 `obituary|wedding|opening` 지원 유형을 저장한다. 키가 없는 직전 규칙은 읽기 시 부고 전용으로 해석하며 행을 일괄 갱신하지 않는다. 새 규칙은 실제 추출한 유형을 기록하고 해당 유형의 필수 근거·응답 구조를 충족할 때만 저장·재사용한다.
+- 필드 매핑에 신랑·신부, 양측 부모, 결혼 관계, 예식 장소·주소, 식사·주차·화환 안내와 개원 일시·한의원명을 구분한다. 회원 신원·등급·등록 권한은 규칙이나 외부 응답으로 판정하지 않는다. 기존 응답 경로·타입 조건·ID 템플릿·민감 값 미저장 계약을 유지한다.
+- URL 식별자는 기존 숫자/긴 opaque ID 선택을 우선하고 없으면 영문·숫자·`_`·`-`의 3~100자 청첩장 slug를 허용한다. `invitationId`, `cardId`, `uid` query도 지원한다. API에서 같은 식별자로 확인한 경우만 `{id}`로 치환하며 개별 값은 저장하지 않는다. 익명 GET 재조회·응답 구조·유형별 사실 조건과 공개 주소 제한을 계속 적용한다.
+- `posts.event_data.facts`에는 선택적인 `groomName`, `brideName`, `weddingPartyRole`, `childAdmissionYear`, `childGraduationClass`, `address`, `meal`, `parking`, `flowerPolicy`를 추가한다. 기존 JSON의 키 누락은 허용한다. `childAlumniInfo`와 `childMemberType`은 호환 입력으로만 두며 자녀 표시명·학번·졸업기수·회원 호칭은 서버 명부에서 다시 확인한다.
+- 물리 컬럼·제약·인덱스·시퀀스·FK·RLS·runtime DDL은 바꾸지 않는다. 새 테이블이나 JSON 데이터 마이그레이션이 필요하지 않으며 05:04 catalog는 직전 물리 구조 관찰 이력으로 유지한다.
+- 적용 상태: 2026-11-09 Replit 개발 코드에 계약 확장을 반영하고 타입·경계 검사를 통과했다. 이번 읽기 전용 확인에서 `heliumdb`의 기존 규칙은 1개이고 `noticeTypes` 보유 행은 0개였다. 전체 catalog를 다시 수집하지 않았으며 새 경사 규칙의 실제 저장·재사용은 실행하지 않았다.
+
+### 게시글 본문 표현 계약 (2026-11-09)
+
+- `posts.content`의 물리 타입은 기존 TEXT를 유지한다. 일반 글 서식 편집기의 저장 값은 마크다운이며 지원 서식은 굵게·기울임·취소선·번호/글머리기호 목록·링크·H1~H4다. HTML 붙여넣기는 편집기에서 지원 서식으로 변환한다.
+- 기존 일반 텍스트·경조사 정적 생성 본문도 공통 표시기로 읽는다. 기존 행을 다시 쓰거나 별도 HTML/JSON 본문 컬럼·형식 플래그를 추가하지 않는다. 입력 HTML의 스크립트·임의 속성·외부 삽입 콘텐츠는 본문 실행 대상으로 삼지 않는다.
+- API의 `content: string`, 회원 전용 접근과 경조사 구조화 사실·게시 전 재생성 비교는 유지한다. DDL·migration·catalog 변경은 없다.
+- 2026-11-09 Replit 개발 코드에 입력·표시 계약을 적용하고 타입·경계 정적 검사를 통과했다. 이번에는 DB에 연결하지 않았으며 실제 게시글 저장·조회 시험이나 catalog 재수집을 수행하지 않았다.
+
+### 게시글 통합 구조 (2026-11-09)
+
+상태는 **코드 구현·Development 스키마 적용, Production 미적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 2026-11-09 03:17:22 KST에 `scripts/unify-posts.sql`을 커밋했다. 03:21 KST 새 연결의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 아래 현재 개발 구조를 확인했다. 전환 SQL은 재실행하지 않는다. Production은 이번에 조회하지 않았으며 아래 과거 catalog와 구분한다.
+
+- 모든 게시물과 경조사 초안은 `posts`를 사용하고 분류는 `categories`를 사용한다. `community_events`·`obituaries`는 통합 코드와 Development에서 삭제했으며 별도 경조사 상세 테이블로 대체하지 않는다.
+- 기존 공지·자유·행사·소식에 `부고`·`경사` 카테고리를 추가한다. `경사` JSON의 유형은 결혼·개원만 허용하며 기타 유형은 제거한다. 부고·경사의 게시문 회원 호칭은 동문·회원·권리회원으로 통일한다.
+- 경조사 구조화 정보는 `posts` 안의 JSONB로 저장한다. 유형·스키마 버전·관련 동문·행사 정보·유형별 상세를 가진 JSON 계약으로 설계한다. `event_data` JSONB는 `schemaVersion: 1`, `eventType: obituary|wedding|opening`, `facts`, `questions`, `sources`를 가진다. `source_text` TEXT는 작성자의 입력 전용이고 게시 응답에서 제외한다. `revision` INTEGER NOT NULL DEFAULT 0은 저장·생성·게시의 낙관적 잠금 값이고, `published_at` TIMESTAMP는 경조사 게시 시각이다. 일반 글은 event_data/source_text가 NULL이다. JSON 유형 CHECK, revision >= 0 CHECK와 작성자·JSON 유형별 미게시 초안 partial UNIQUE index를 둔다.
+- 제목·본문·작성자·분류·게시 상태·시각은 공통 게시글 정보다. 작성자와 권한은 서버가 정하며 JSON·LLM 출력으로 대체하지 않는다. 경조사 본문은 구조화 사실에서 생성하고 입력 원문은 게시 응답과 분리한다. 초안은 필수 사실이 덜 채워진 상태를 수용한다.
+- 기존 경조사·레거시 부고 데이터와 상세 주소는 폐기한다. 마이그레이션·ID 매핑·레거시 조회 호환을 만들지 않는다. 기존 일반 게시글·댓글·명부와 Object Storage 파일은 이 폐기 범위에 포함하지 않는다.
+- `comments.post_id → posts.id` 관계는 공통으로 사용한다. 모든 게시글과 그 댓글·첨부·검색·메타데이터 읽기에 회원 전용 정책을 적용한다.
+- 아래 1~13절의 14-table catalog·ERD·테이블 사전·소유권 표는 통합 전 실제 구조의 이력이다. 현재 Development에는 아래 2026-11-09 catalog와 변경 객체 사전을 우선 적용한다. 실제 전환 결과와 복구 자료는 [DB 운영 런북](./database-operations.md#개발-db-전환-결과)을 따른다.
+
+#### 코드와 환경 적용 구분
+
+이 표와 다음 03:21 catalog는 수집 규칙 추가 전 게시글 통합 시점의 기록이다. 현재 총 객체 수와 수집 규칙 테이블은 위 05:04 catalog를 우선한다.
+
+| 항목 | 2026-11-09 상태 |
+|---|---|
+| 코드 의도 | 11개 `pgTable` + runtime `session`; posts의 4개 컬럼·2개 CHECK·1개 partial UNIQUE 추가, 전용 테이블 2개 제거 |
+| 전환 SQL | `scripts/unify-posts.sql`; 개발 DB 이름 확인 후 한 트랜잭션, `DROP ... CASCADE` 없음 |
+| Development 관찰 | 전환 후 12개 테이블. 새 연결에서 컬럼·제약·인덱스·구 테이블 제거와 read-only catalog 완료 |
+| Production | 이번 작업에서 조회·변경하지 않음 |
+| 코드 확인 | Replit `npm run check`, `npm run check:tests`, writer Python 4개 AST 구문 확인 통과. 기능 실행 결과를 뜻하지 않음 |
+
+#### 구현 계약
+
+- `/api/posts/notices/drafts/:type`에서 본인 초안을 복구·생성한다. `/api/posts/notices/:id`는 원문 저장·삭제, 하위 `/generate`는 정적 추출→OpenAI Responses 구조화→회원 확인→정적 작성, `/publish`는 확인한 revision의 본문 게시다. 클라이언트는 자연어 원문과 revision만 보낸다.
+- 모든 변경은 세션 작성자와 `is_published=false` 및 revision을 확인한다. 원문 변경은 기존 미리보기를 지운다. 게시 직전 대상 회원과 정적 본문을 재확인한다. API가 생성한 JSON이나 권한 필드를 클라이언트가 덮어쓸 수 없다.
+- 부고는 프로젝트에 복제한 writer Python 원본 3개와 stdin 전용 bridge를 사용한다. 경사는 기존 스킬의 홈페이지 형식을 TypeScript 정적 작성기로 구현한다. 양식 필드 UI와 이전 API·상세 주소는 제거한다.
+- 계정 탈퇴 시 미게시 초안은 삭제하고 게시 글 작성자는 NULL로 처리한다. 입력 원문은 게시 시 지워 이후 재노출되지 않는다.
+
+#### 개발 DB catalog (2026-11-09)
+
+| 항목 | Development 03:21 관찰 이력 | Production 마지막 관찰 |
+|---|---|---|
+| 관찰일 | 2026-11-09 03:21 KST / 2026-11-08 18:21 UTC | 2026-09-05, 이번에는 조회하지 않음 |
+| 대상·버전 | `heliumdb`, PostgreSQL 16.10, `public`, READ ONLY | `neondb`, PostgreSQL 16.15 (과거 기록) |
+| tables / columns | 12 / 94 | 14 / 119 |
+| PK / FK / non-PK UNIQUE / CHECK | 12 / 8 / 5 / 4 | 14 / 10 / 6 / 2 |
+| indexes / sequences | 22 / 8 | 24 / 10 |
+| views / triggers / policies / routines / enums / domains | 모두 0 | 모두 0 (과거 기록) |
+| `community_events`, `obituaries` | 둘 다 없음 | 둘 다 존재 (과거 기록) |
+| posts 통합 객체 | 새 컬럼 4개, CHECK 2개, partial UNIQUE index 1개 | 당시 없음 |
+
+- 통합 직후 테이블은 `alumni_database`, `alumni_name_aliases`, `categories`, `comments`, `event_parse_rate_limits`, `kakao_identity_terminations`, `kakao_oauth_states`, `payments`, `pending_registrations`, `posts`, `session`, `users`였다. 당시 코드의 11개 `pgTable`과 runtime `session`에 대응하며 현재는 위 수집 규칙 테이블이 추가됐다.
+- 사용한 catalog SQL SHA-256: `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f`; 이번 출력 SHA-256: `faecae6841f590e5e85ff0646c0ef8da691d518b3ce92affb0acbe7954dc9049`.
+- 근거: Replit 개발 workspace `.superpowers/unified-posts-activation-20261108T181441Z/after-catalog.txt`와 `after.json`. 활성화 당시 코드 기준은 `codex/unified-member-posts`, 정책 commit `2855424`와 미커밋 통합 구현이며 적용 manifest는 같은 경로에 보존했다. 새 코드의 기동 결과는 [Replit 운영 문서](../replit.md#개발-적용-결과)를 따른다.
+
+#### 현재 개발 변경 객체 사전
+
+`posts`의 기존 9개 컬럼·PK·FK 두 개는 유지하고 다음 객체를 추가했다. 나머지 존속 테이블의 구조는 변경하지 않았다.
+
+| 컬럼 | 타입 | NULL 허용 | 기본값 | identity / generated |
+|---|---|---|---|---|
+| `posts.event_data` | `jsonb` | 허용 | 없음 | 없음 / 없음 |
+| `posts.source_text` | `text` | 허용 | 없음 | 없음 / 없음 |
+| `posts.revision` | `integer` | 불가 | `0` | 없음 / 없음 |
+| `posts.published_at` | `timestamp without time zone` | 허용 | 없음 | 없음 / 없음 |
+
+- `posts_notice_type_check`: event_data가 NULL이거나 `schemaVersion = 1`과 `eventType = obituary|wedding|opening`이 모두 참이어야 한다. 필드 누락으로 판정이 NULL이 되면 허용하지 않는다. catalog의 validated는 true다.
+- `posts_revision_check`: `revision >= 0`; validated는 true다.
+- `posts_notice_draft_unique`: btree UNIQUE `(author_id, (event_data->>'eventType')) WHERE is_published = false AND event_data IS NOT NULL`; valid·ready·unique는 모두 true다. FK는 기존 `posts.author_id → users.id`, `posts.category_id → categories.id`를 유지한다. 작성자 필수와 JSON 상세 사실은 서버 계약이 강제한다.
+- `categories`에는 구조 변경 없이 활성 `obituary`(부고, 정렬 5), `celebration`(경사, 정렬 6)을 추가했다.
+- 제거 객체는 `community_events`·`obituaries`와 그 소유 시퀀스 두 개, PK 두 개, author FK 두 개, `community_events_legacy_obituary_id_unique` 및 관련 인덱스다. 다른 테이블의 incoming FK는 없었고 CASCADE 삭제를 사용하지 않았다.
+- 소유권: Community Content가 공통 `posts`·`categories`·`comments`를 관리한다. 경조사 모듈은 같은 `posts`의 작성자 전용 초안·JSON·게시와 `event_parse_rate_limits`를 처리한다. 05:04 추가한 `source_collection_rules`도 이 모듈이 소유하되 게시글과 FK로 연결하지 않는다. 다른 영역의 테이블 소유권은 통합 전 표와 같다.
+- 초안 생성은 작성자·유형별 advisory lock과 partial unique index를 사용하고 원문 저장·생성·게시는 revision으로 충돌을 판정한다. 게시 시 원문을 지우며 게시 응답에서 JSON·입력 원문을 제외한다. 계정 삭제는 미게시 초안을 삭제하고 게시 글의 작성자 연결만 해제한다.
+
+#### 현재 개발 ERD
+
+```mermaid
+erDiagram
+  users o|--o{ posts : author_id
+  users o|--o{ comments : author_id
+  users o|--o{ payments : user_id
+  users o|--o{ alumni_database : matched_user_id
+  alumni_database ||--o{ alumni_name_aliases : alumni_id
+  users ||--o| event_parse_rate_limits : user_id
+  categories o|--o{ posts : category_id
+  posts ||--o{ comments : post_id
+```
+
+현재 물리 FK 8개를 표시한다. 전체 환경을 새로 만드는 migration은 아니며, 기존 개발 구조의 전환은 `scripts/unify-posts.sql`로 한 번 수행했다. 아래 이력의 레거시 부고 이관 SQL은 통합 구현에서 제거했고 다시 사용하지 않는다.
+
+---
+
+**다음 1~13절은 통합 전 구조 이력이다.** 2026-07~09의 소스·catalog·테이블 사전·ERD·위험 기록을 보존하며 현재 Development 구조로 읽지 않는다. 현재 Development 기준은 위 2026-11-09 관찰과 변경 객체 사전이다. Production의 마지막 관찰에는 이 과거 구조가 해당하지만 현재 상태를 재조회한 결과는 아니다.
 
 ## 1. authority/verification metadata
 
@@ -284,4 +418,4 @@ registration/approval, account deletion, alumni claim/sync는 여러 owner의 �
 
 Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행한다. Production은 연결 문자열을 명시적으로 선택하고 `expected_database=neondb` safety gate, `READ ONLY`, `ROLLBACK`, completion marker를 모두 확인한다.
 
-체크리스트: 문서 14개 장의 고정 순서와 catalog 출력 18개 section의 고정 순서를 각각 확인하고, Production의 14 table row, 119 columns, 14 PK/10 FK/6 non-PK UNIQUE constraints/24 indexes/10 sequences, zero-count category, RLS false 14를 재확인한다. Development는 앱 baseline 밖 객체를 앱 스키마로 오인하지 않고 별도 reconciliation한다. 재검증은 metadata-only이고 결과의 행·PII·Secret을 저장하지 않는다.
+현재 재검증에서는 선택한 환경·소스 버전과 catalog 객체의 이름·타입·기본값·제약·인덱스 정의를 대조한다. Development는 위 2026-11-09 통합 구조를 기준으로 하고, Production의 과거 14개 테이블 수치를 현재 관찰이나 고정 통과 조건으로 대신하지 않는다. metadata-only 결과에는 행·PII·Secret을 저장하지 않는다.

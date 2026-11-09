@@ -1,5 +1,4 @@
 import type { Request } from "express";
-import { storage } from "./storage";
 
 const SITE_NAME = "동국대학교한의과대학동문회";
 const DEFAULT_DESCRIPTION =
@@ -137,36 +136,8 @@ function getOrigin(req: Request) {
 }
 
 async function getRouteSeo(pathname: string): Promise<SeoMeta> {
-  if (/^\/events\/\d+$/.test(pathname)) {
-    return {
-      title: "경조사 상세",
-      description: "동국대학교한의과대학동문회 회원 경조사 상세 내용을 확인합니다.",
-      type: "article",
-      noIndex: true,
-    };
-  }
-
-  const postMatch = pathname.match(/^\/(?:post|p)\/(\d+)$/);
-  if (postMatch) {
-    try {
-      const post = await storage.getPost(Number(postMatch[1]));
-      if (post?.isPublished !== false) {
-        return {
-          title: post?.title || "게시글",
-          description: post?.content
-            ? excerpt(post.content)
-            : "동국대학교한의과대학동문회 게시글을 확인합니다.",
-          type: "article",
-        };
-      }
-    } catch (error) {
-      console.error("Failed to build post OG metadata:", error);
-    }
-    return {
-      title: "게시글",
-      description: "동국대학교한의과대학동문회 게시글을 확인합니다.",
-      type: "article",
-    };
+  if (/^\/(?:post|p|o|events|b)(?:\/|$)/.test(pathname) || pathname === "/b" || pathname === "/search") {
+    return { title: "회원 게시판", description: "로그인한 회원만 게시글을 확인할 수 있습니다.", noIndex: true };
   }
 
   return (

@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect, useLocation } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { RouteBoundary } from "./route-boundary";
 import { AuthGate, useAuth, Login, KakaoCallback, OnboardingRegion } from "@/features/auth";
 import { Home, PublicHome } from "@/features/home";
@@ -7,7 +7,7 @@ import { Boards, PostDetail } from "@/features/boards";
 import { Directory } from "@/features/directory";
 import { Profile } from "@/features/profile";
 import { HeritagePage } from "@/features/heritage";
-import CommunityEventsPage, { CommunityEventDetail, ObituaryDetail } from "@/features/events";
+import { NoticeComposer } from "@/features/events";
 import { Search } from "@/features/search";
 import { Terms, Privacy } from "@/features/legal";
 import {
@@ -75,17 +75,7 @@ export function Router() {
       <Route path="/post/:id">
         <AuthGate><PostDetail /></AuthGate>
       </Route>
-      <Route path="/o/new" component={() => <Redirect to="/events?type=obituary&compose=1" replace />} />
-      <Route path="/o" component={() => <Redirect to="/events?type=obituary" replace />} />
-      <Route path="/o/:id">
-        <AuthGate><ObituaryDetail /></AuthGate>
-      </Route>
-      <Route path="/events">
-        <AuthGate><CommunityEventsPage /></AuthGate>
-      </Route>
-      <Route path="/events/:id">
-        <AuthGate><CommunityEventDetail /></AuthGate>
-      </Route>
+      <Route path="/b/write/:type"><AuthGate><NoticeComposer /></AuthGate></Route>
 
       {/* Redirect old routes to /heritage */}
       <Route path="/about" component={() => { window.location.href = '/heritage'; return null; }} />

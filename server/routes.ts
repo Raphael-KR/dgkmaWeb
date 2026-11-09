@@ -21,8 +21,8 @@ export async function registerRoutes(
   // search/draft routes before parameter routes.
   registerIdentityRoutes(app, context);
   registerMembershipRoutes(app);
-  registerContentRoutes(app);
   registerEventRoutes(app, context);
+  registerContentRoutes(app);
   registerDirectoryRoutes(app);
   registerPaymentRoutes(app, context);
   registerRegistryAdminRoutes(app, context);

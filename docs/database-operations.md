@@ -2,6 +2,105 @@
 
 이 문서는 dgkmaWeb의 Development Database와 Production Database를 SSH에서 구분하여 조회·변경·검증하는 기준 절차다. 실제 접속 문자열, 비밀번호, 토큰은 이 문서나 Git에 기록하지 않는다.
 
+## 최신 변경 릴리스 준비 (2026-11-09)
+
+- 사용자 승인: 후보 `5b19e86`의 push·PR 생성·main 병합과 운영 DB 전환을 명시 승인했다. 이 전환은 아래 추가 구조 SQL과 빈 `community_events`·`obituaries` 삭제 SQL을 포함한다. 일반 게시글·회원·명부는 보존하고 명부 재동기화·실계정 QA·자동 원복은 포함하지 않는다.
+- 12:35 KST 릴리스 요청에 필요한 운영 사전 확인을 `PROD_DATABASE_URL`로 명시 선택해 `BEGIN READ ONLY`에서 수행했다. 읽기 전용 URL은 없었으며 `current_database()=neondb`, `transaction_read_only=on`을 확인했다. 행 원문과 Secret은 조회·출력하지 않았다.
+- 현재 운영은 구 테이블 2개가 포함된 14-table 구조다. `community_events`·`obituaries`는 각각 0건이고 incoming FK는 없다. posts는 기존 9개 컬럼이며 통합 컬럼과 `source_collection_rules`는 없다. 일반 posts/comments도 0건이다. 나머지 기존 테이블은 보존 대상으로 기록했고 변경하지 않았다.
+- 후보 SQL은 추가 구조 `scripts/release-posts-additive.sql`과 배포 후 제거 `scripts/release-posts-cleanup.sql`로 나눈다. 두 파일은 Production `neondb`만 허용하며 앱 시작·빌드에서 실행하지 않는다. 개발용 두 SQL의 대상 제한은 변경하지 않는다.
+- 적용 전 schema-only snapshot과 테이블별 건수·의존 관계를 기록한다. 명시 승인 후 첫 SQL의 posts 컬럼·제약·인덱스, 수집 규칙 테이블, 부고·경사 카테고리를 한 트랜잭션으로 적용한다. 새 연결 확인 후 Republish한다. 구 앱이 제공되는 동안에는 구 테이블을 유지한다.
+- 새 배포의 비로그인 HTTP 확인 후, 별도 삭제 승인이 포함된 경우에만 둘째 SQL로 구 테이블 2개를 제거한다. 재확인 시 행이 늘었거나 참조 관계가 달라졌으면 삭제하지 않고 실제 차이를 보고한다. `CASCADE`·일반 posts/comments·명부 삭제는 하지 않는다.
+- 단계별 새 연결의 구조·건수 및 canonical metadata-only catalog로 결과를 기록한다. 원본 보존은 원복 허가가 아니며 성공한 변경을 자동 되돌리지 않는다. 준비 증거는 Replit `.superpowers/release-20261109/`에 둔다. 현재 SQL 적용·Republish·실계정 QA는 미실행이다.
+- 12:43 KST `production-before-schema.sql` 19,953 bytes를 Replit 내 비공개 작업 경로에 보존했다. SHA-256은 `f37b6e986f11887258e149f2b9a432b7625bd63a69a946a66aa94abc3181efc2`다. 구 테이블은 0건이므로 행 원문을 백업하지 않았다. 전체 metadata-only catalog도 READ ONLY gate·ROLLBACK·완료 marker로 종료했고 [구조 기록](./database-schema.md#운영-릴리스-후보-구조-2026-11-09-미적용)에 반영했다.
+
+## 게시글 본문 서식 계약 (2026-11-09)
+
+- 일반 게시글의 서식 입력은 마크다운으로 변환해 기존 `posts.content` TEXT에 저장한다. 기존 텍스트와 경조사 본문은 공통 표시기를 적용하며 행을 변환하지 않는다.
+- 이번 작업에는 DB 접속·DDL·`db:push`·데이터 마이그레이션이 필요하지 않다. 코드·의존성·문서만 Replit 개발에 반영하고 필요한 정적 검사로 확인한다. 물리 catalog는 이전 관찰 이력을 유지한다.
+- 2026-11-09 Replit 개발에 코드·문서·lockfile 15개를 적용하고 타입·경계 정적 검사를 통과했다. DB 접속·DDL·행 변경·catalog 재수집은 수행하지 않았다.
+- 운영 DB·운영 배포·실계정 QA·게시 시험은 수행하지 않았다. 적용 파일과 정적 검사·미실행 범위는 [Replit 본문 서식 기록](../replit.md#게시글-본문-서식-2026-11-09-개발-코드-적용)을 따른다.
+
+## 결혼·개원 수집 계약 보완 (2026-11-09)
+
+- 기존 `source_collection_rules`와 `posts.event_data`의 JSON 계약을 호환 확장한다. `noticeTypes`가 없는 기존 수집 규칙은 앱에서 부고 전용으로 해석하고, 경사는 해당 유형으로 새로 성공한 규칙만 사용한다. 새 경사 사실 키가 없는 기존 초안도 읽을 수 있게 한다.
+- 이번 구현에는 DDL·`db:push`·행 초기화·일괄 JSON 변환이 필요하지 않다. 직전 개발 규칙과 명부 데이터를 보존한다. 새로운 규칙 upsert는 이후 승인된 실제 수집 요청에서 기존 저장소를 통해 이루어진다.
+- Replit의 직전 manifest·규칙 저장/재사용 receipt와 개발 DB 이름·규칙 메타데이터만 대조하고, 코드·문서 적용 후 필요한 정적 검사를 수행한다. 원문·개인정보·Secret을 읽거나 출력하지 않는다. 운영 DB·배포·실계정 QA·실제 경사/부고 링크 호출은 이번 범위가 아니다.
+
+### 적용 기록
+
+- 2026-11-09 Replit 개발 환경의 기본 `PG*` 연결로 `BEGIN READ ONLY`에서 `current_database()`와 규칙 전체/`noticeTypes` 키 보유 건수만 조회한 뒤 `ROLLBACK`했다. 대상은 `heliumdb`, 규칙은 1건, 유형 키 보유는 0건이었다. 규칙 원문과 명부 행은 조회하지 않았다.
+- 직전 수집기 24개 파일의 manifest와 실제 소스가 일치했다. 기존 소스를 `.superpowers/celebration-20261109/before-source.tar.gz`에 보존하고 변경 전 해시를 대조한 뒤 이번 코드·문서 18개를 적용했다. 최종 코드의 Replit 타입·경계 검사는 05:54 KST 통과했다.
+- 이번 작업의 SQL은 위 읽기 전용 조회뿐이다. DDL·`db:push`·규칙 upsert·성공 시각 갱신·명부/게시글 변경·JSON 일괄 변환은 실행하지 않았다. 물리 구조가 같으므로 05:04의 metadata-only catalog를 이력으로 유지하고 불필요한 전체 재수집을 하지 않았다.
+- 결혼·개원 규칙 저장·재사용은 코드로 연결했으나 실제 경사 링크 호출은 수행하지 않았다. 유형별 확인/미실행 범위와 증거 파일은 [Replit 적용 기록](../replit.md#결혼개원-보완-2026-11-09-개발-코드-적용)을 따른다. 운영 DB·배포·실계정 QA는 계속 보류한다.
+
+## 공개 링크 수집 규칙 개발 적용 (2026-11-09)
+
+- 목표: 범용 경조사 수집과 PostgreSQL 규칙 저장·재사용을 Replit 개발 환경에 적용한다.
+- 범위: 개발 workspace, `heliumdb`, 새 `source_collection_rules` 테이블과 프로젝트에 포함된 수집 코드·브라우저/OCR 의존성. 개별 부고와 명부를 규칙에 복제하지 않는다.
+- 완료 조건: 네 기준 문서 선반영, additive SQL·스키마 일치, 개발 타입/경계 검사, 사용자 지정 링크의 수집·규칙 저장·다음 요청 재사용을 각각 확인한다. 미확인 경로를 분리한다.
+- 제외: 운영 DB·배포·실계정 QA·게시·OpenAI 문안 생성·전체 회귀·무관한 레코드 변경·GitHub 게시.
+- 절차: 개발 DB 이름·새 테이블 존재 여부·기존 테이블별 건수 확인 → schema-only snapshot → `scripts/add-source-collection-rules.sql` 한 트랜잭션 → 새 연결의 객체·건수 대조 및 metadata-only catalog → 수집만 실행. Secret·개인정보·수집 원문을 증거 파일에 저장하지 않는다.
+
+규칙의 저장·조회·구조 확인·upsert는 앱 서버가 수행한다. 저장된 API 주소에도 공개 주소·리다이렉트·응답 검사를 적용하며 규칙 불일치 시 재탐색한다. 성공한 원본 변경의 자동 원복이나 기존 테이블 삭제는 수행하지 않는다. 실제 적용 시간·소스·catalog·정적 검사·수집 경로의 관찰 결과는 실행 후 이 절에 기록한다.
+
+### 적용 기록
+
+- 2026-11-09 05:04 KST Replit 기본 `PG*` 연결이 `heliumdb`이고 운영 배포 환경이 아님을 확인했다. 변경 전 테이블 12개, 새 테이블 없음, 명부 3,458건·카테고리 7건·그 밖의 기존 테이블 각 0건이었다.
+- `.superpowers/collector-20261109/before-schema.sql`에 schema-only snapshot 17,122 bytes를 저장했다. SHA-256은 `f81c7bfdb3264f132c1a0703d679d1d49509786d89ac47d3c55416823c57d19b`다. 기존 소스는 `before-source.tar.gz`·`before-source.json`으로 보존했다. 애플리케이션 원문이나 개인정보를 snapshot에 포함하지 않았다.
+- `scripts/add-source-collection-rules.sql`을 한 트랜잭션으로 COMMIT했다. 추가한 테이블 1개 외에 기존 객체를 바꾸거나 행을 삭제하지 않았다. 새 연결에서 8개 컬럼, PK·UNIQUE·CHECK 2개와 valid index 2개, serial sequence를 확인했다.
+- metadata-only catalog는 `heliumdb`·READ ONLY gate·ROLLBACK·completion marker로 완료했다. tables/columns/PK/FK/non-PK UNIQUE/CHECK/index/sequence는 `13/102/13/8/6/6/24/9`다. 출력 SHA-256은 `5d5fa59ebd65c7e344bff3e245cd1dbf8f0ca28749a64b64963cd85307c5693b`이고 `after-catalog.txt`에 보존했다.
+- 05:13 KST 실제 공개 링크 수집에서 규칙 1개를 저장했다. 05:18 KST 별도 프로세스에서 그 규칙으로 원본 API를 다시 읽고 마지막 성공 시각을 갱신했다. 규칙 버전 1을 유지했으며 개별 부고 ID·수집 개인정보·인증 필드 미포함을 확인했다. 다른 페이지 ID 적용과 규칙 불일치 재탐색은 이번에 실행하지 않았다.
+- 05:19 KST 새 연결에서 규칙 1건, 명부 3,458건·카테고리 7건·나머지 기존 테이블 각 0건을 재확인했다. 기존 데이터 건수는 모두 보존됐다. 정적 검사·실제 수집 경로·미수행 경로는 [Replit 적용 기록](../replit.md#개발-수집-적용-결과-2026-11-09)에 구분했다.
+- 실행 증거는 같은 디렉터리의 `before-counts.json`, `schema-apply.txt`, `after-counts.json`, `collection-discovery.json`, `collection-reuse.json`, `receipt.json`에 저장했다. 적용 소스·lockfile digest는 `source-manifest.json`을 따른다. 운영 DB·운영 배포·실계정 QA·서버 재시작·GitHub 게시를 수행하지 않았다.
+
+## 개발 명부 최신 동기화 (2026-11-09)
+
+- 목표: 사용자 요청에 따라 Google Sheets의 최신 동문 명부를 기존 동기화 기능으로 Replit Development Database에 반영한다.
+- 범위: `/home/runner/workspace`, 기본 `PG*` 연결의 `heliumdb.alumni_database`, `RegistryStorage.previewAlumniSync`와 `applyAlumniSync`를 사용한다. Google Sheets는 읽기만 한다.
+- 완료 조건: 적용 결과의 추가·수정·변경 없음·오류 건수와 새 연결의 저장 결과를 대조한다. 오류 레코드는 사용자가 요청한 핸드폰번호로 이 대화에서 보고하고 문서·증거 파일에는 번호를 보존하지 않는다.
+- 제외 범위: 운영 DB·운영 배포·실계정 QA·서버 재시작·원본 명부 수정·GitHub 게시를 수행하지 않는다.
+- 확인: 개발 DB 이름과 변경 전 건수, 원본 미리보기·fingerprint, 기존 트랜잭션 적용 결과와 새 연결의 필수값·중복·회원 연결 상태를 확인한다. 제품 코드 변경이나 별도 회귀 검사를 기본으로 추가하지 않는다.
+
+### 최초 미리보기의 오류 이력
+
+- 04:23 KST Replit의 기존 Google Sheets 서비스와 명부 동기화 함수를 실행했다. 필요한 Secrets 3개의 존재만 확인했으며 값은 출력하지 않았다. 실행 코드 4개 파일은 로컬 구현과 SHA-256이 일치했다.
+- 대상은 `heliumdb`이며 변경 전 명부·회원·별칭·회원 연결·명부 필수값 누락은 각각 0건이었다. 원본 3,458건 중 전화번호 형식 오류 3건, 중복 충돌 0건이 확인됐다.
+- 현재 동기화는 `010` 형식으로 정규화되는 번호만 허용한다. 오류는 `011` 1건과 `017` 2건이며 원본 행 450·1440·1590이다. 원본에 없는 번호를 추정하거나 수정하지 않았다.
+- 최초 미리보기는 `blocked=true`, `INVALID_MOBILE=3`, `sourceFingerprint=null`을 반환했다. 이때 기존 정책에 따라 apply를 실행하지 않았으며 추가·수정은 0건이었다. 정상 3,455건도 이 단계에서는 반영하지 않았다.
+- 사용자는 Google Sheets의 오류 3건을 수정한 뒤 전체 반영하는 방식을 선택했고, 이후 원본 수정 완료와 재동기화를 요청했다. 오류 행을 제외한 부분 반영이나 기존 전화번호 검사 변경은 하지 않았다. Codex가 원본 번호를 추정해 수정하지 않았다.
+- 원문 없는 실행 증거는 Replit `.superpowers/alumni-sync-20261108T192332Z/preview.json`에 보존했다. 이 결과는 명부 적용 완료나 새 연결의 사후 대조 완료를 뜻하지 않는다.
+
+### 원본 수정 후 전체 적용 결과
+
+- 2026-11-09 04:31 KST Replit `/home/runner/workspace`에서 기존 `RegistryStorage.previewAlumniSync`와 `applyAlumniSync`를 실행했다. 기본 `PG*` 대상 `heliumdb`를 확인했으며 실행 코드 4개 파일은 앞선 후보와 일치했다. 제품 코드와 스키마는 변경하지 않았다.
+- 변경 전 명부는 0건이었다. 새 Google Sheets 미리보기는 원본 3,458건·추가 3,458건·수정 0건·변경 없음 0건·충돌 0건·오류 0건, `blocked=false`를 반환했다.
+- 04:31:40 KST 기존 advisory lock·원본 재조회·동일 fingerprint 확인을 거쳐 한 트랜잭션으로 추가 3,458건을 커밋했다. 적용 결과의 수정·변경 없음·오류는 각각 0건이다. Google Sheets 읽기는 미리보기와 적용 시 각 1회이며 원본을 변경하지 않았다.
+- 커밋 후 별도 연결에서 명부 총 3,458건을 확인했다. 적용 시 읽은 원본과 12개 관리 필드를 대조한 결과 3,458건 모두 동일하고 추가·수정 필요는 0건이었다. 필수값 누락·잘못된 전화번호·전화번호 중복·끊어진 회원 연결은 모두 0건이었다. 회원·별칭·명부의 회원 연결은 변경 전과 같은 각각 0건이다.
+- 개인정보 없는 실행 증거는 Replit `.superpowers/alumni-sync-20261108T193130Z/receipt.json`에 보존했다. 상태는 `verified`, SHA-256은 `38118c9e1bc7cd85597ef3da53146b3fa5ee5b06e6cb9df54601856287983555`다. 오류 레코드는 없어 보고할 핸드폰번호도 없다.
+- 운영 DB 변경·운영 배포·실계정 QA·서버 재시작·GitHub 게시를 수행하지 않았다. 이 기록은 개발 명부 동기화와 데이터 대조 결과이며 로그인 기능 전체의 확인 결과는 아니다.
+
+## 게시글 통합 결정과 실행 범위 (2026-11-09)
+
+현재 사용자 요청은 **Replit 개발 DB 전환·통합 코드 적용·개발 서버 재시작**이다. 개발 서버를 잠시 멈춘 상태에서 준비된 같은 버전의 코드와 SQL을 함께 적용하고 `npm run dev`로 기동한다. GitHub 게시나 main 병합은 포함하지 않는다. 변경 전 schema-only snapshot과 기존 Git 기준·파일 digest를 개발 workspace의 Git 제외 경로 `.superpowers/`에 보존한다. 기존 두 전용 테이블의 테스트 행은 승인대로 폐기하며 데이터 이관·복원은 수행하지 않는다. 전환 SQL 실패 시 커밋되지 않은 트랜잭션은 종료하고, 성공한 변경의 원복은 자동 실행하지 않는다.
+
+
+- [확정 제품 정책](../planning_proposal.md#게시글과-경조사-통합)에 따라 통합 구현의 삭제 대상은 `community_events`·`obituaries` 두 테이블과 그 안의 기존 경조사·레거시 부고 데이터다. 새 저장 경로는 `posts`·`categories`와 `posts` 내부 JSONB다. PostgreSQL 데이터베이스 전체, 일반 게시글·댓글·명부 또는 Object Storage 파일 삭제를 뜻하지 않는다.
+- 사용자가 출시 전 데이터·상세 주소 폐기와 마이그레이션 불필요를 확정했다. 보존 이관·ID 매핑·옛 상세 주소 호환을 작업에 추가하지 않는다. 기존 `migrate-obituaries-to-community-events.sql`은 이 전환에 사용하지 않는다.
+- 2026-11-09 정책 선커밋 후 통합 구현 요청을 받았다. 개발 전환에서는 대상 DB와 의존 관계, 삭제 범위·순서와 복구 가능한 구조 기록을 준비한 뒤 확정된 범위에 적용한다. 무관한 객체를 함께 삭제하는 `DROP ... CASCADE`는 사용하지 않는다.
+- 전환 SQL은 `scripts/unify-posts.sql` 한 트랜잭션으로 posts 컬럼·제약·인덱스 추가 → 카테고리 추가 → 두 구 테이블 DROP 순서다. Development 구조 snapshot과 의존 관계·건수 미리보기 후 적용하며 일반 posts/comments와 다른 테이블의 건수는 보존한다. 실패 시 트랜잭션은 rollback된다. 성공 후에는 구 테스트 행 복원 없이 snapshot으로 구조만 복원할 수 있으나 자동 rollback은 하지 않는다.
+- 앞선 정적 검사 단계에서는 별도 checkout만 사용하고 기존 14개 테이블을 read-only로 확인했다. 이후 사용자 요청에 따라 아래 개발 활성화를 별도로 수행했다.
+- 운영 배포와 실계정 QA는 계속 보류한다. 개발 전환이 운영 DB 변경·Republish를 자동으로 시작하지 않는다. 새 환경별 적용 결과는 실제 실행 후 기록한다.
+
+### 개발 DB 전환 결과
+
+- 실행일: 2026-11-09 KST. 대상은 Replit `PG*` 기본 연결의 Development `heliumdb`이고 `REPLIT_DEPLOYMENT`가 운영 값이 아님을 확인했다. Production 연결은 선택하지 않았다.
+- 변경 전: `community_events`·`obituaries` 각 0건, 다른 테이블에서 두 테이블을 참조하는 FK 0개. 두 테이블의 author FK만 `users`를 참조했다. 카테고리 5건, 나머지 애플리케이션 테이블 각 0건이었다.
+- 복구 자료: `/home/runner/workspace/.superpowers/unified-posts-activation-20261108T181441Z/`에 `before-schema.sql`(schema-only, 19,948 bytes, SHA-256 `d6c7eab180dde0b21837ab78bafd69ac64f52ec93e5e17d91bf46ce5c24e65d8`), `before.json`, 적용 소스 manifest를 보존했다. 이전 checkout은 main `abff93e`, 전환 후보는 정책 commit `2855424`와 그 위의 검사 완료 구현 변경이다. 원복 실행은 하지 않았다.
+- 03:17:22 KST: `scripts/unify-posts.sql` 한 트랜잭션 COMMIT. `posts` 컬럼 4개·CHECK 2개·partial UNIQUE index 1개, 부고·경사 카테고리를 추가하고 두 구 테이블만 삭제했다. 이 SQL은 재실행용이 아니다.
+- 03:21 KST 새 연결: 구 테이블 없음, 새 컬럼의 타입·NULL·기본값, CHECK validated 및 unique index valid/ready를 확인했다. 카테고리는 7건이며 `obituary=부고`, `celebration=경사`가 활성 상태다. 일반 posts/comments·회원·명부 등 나머지 11개 테이블은 변경 전과 같은 각 0건이다.
+- canonical metadata-only catalog는 `heliumdb`·READ ONLY gate·ROLLBACK·completion marker로 종료했다. 관찰한 tables/columns/PK/FK/non-PK UNIQUE/CHECK/index/sequence는 `12/94/12/8/5/4/22/8`이다. 상세 구조는 [스키마 기준서](./database-schema.md#개발-db-catalog-2026-11-09)를 따른다.
+- SQL 결과는 `transition-output.txt`·`transition-receipt.json`, 새 연결 결과는 `after.json`·`after-catalog.txt`에 보존했다. 개발 서버 재기동 결과는 [Replit 운영 문서](../replit.md#개발-적용-결과)에 기록했다.
+
 ## 환경과 기준 상태
 
 | 구분 | Development Database | Production Database |

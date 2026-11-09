@@ -1,4 +1,4 @@
-export const POST_CATEGORY_NAMES = ["notice", "free", "event", "news"] as const;
+export const POST_CATEGORY_NAMES = ["notice", "free", "event", "news", "obituary", "celebration"] as const;
 
 const POST_CATEGORY_NAME_SET = new Set<string>(POST_CATEGORY_NAMES);
 
@@ -12,3 +12,5 @@ export function isSelectablePostCategory(
 ): boolean {
   return category?.isActive === true && POST_CATEGORY_NAME_SET.has(category.name);
 }
+
+export const isNoticeCategory = (name: string) => name === "obituary" || name === "celebration";

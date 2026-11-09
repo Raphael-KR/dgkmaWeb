@@ -2,9 +2,9 @@ import {
   users, posts, categories, comments,
   type Post, type InsertPost, type Category, type InsertCategory, type Comment,
 } from "@shared/schema";
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import type { CommentWithAuthor, ContentStorageContract } from "./storage-contract";
+import type { CommentWithAuthor, ContentStorageContract, PublishedPost } from "./storage-contract";
 
 export class ContentStorage implements ContentStorageContract {
   async getCategories(): Promise<Category[]> {
@@ -41,7 +41,7 @@ export class ContentStorage implements ContentStorageContract {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async getPosts(categoryName?: string, limit = 50): Promise<(Post & { category: Category })[]> {
+  async getPosts(categoryName?: string, limit = 50): Promise<(PublishedPost & { category: Category })[]> {
     const baseCondition = eq(posts.isPublished, true);
     const whereCondition = categoryName && categoryName !== 'all'
       ? and(baseCondition, eq(categories.name, categoryName))
@@ -57,16 +57,17 @@ export class ContentStorage implements ContentStorageContract {
       imageUrls: posts.imageUrls,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
+      publishedAt: posts.publishedAt,
       category: categories
     })
     .from(posts)
     .innerJoin(categories, eq(posts.categoryId, categories.id))
     .where(whereCondition)
-    .orderBy(desc(posts.createdAt))
+    .orderBy(desc(sql`coalesce(${posts.publishedAt}, ${posts.createdAt})`))
     .limit(limit);
   }
 
-  async getPost(id: number): Promise<(Post & { category: Category }) | undefined> {
+  async getPost(id: number): Promise<(PublishedPost & { category: Category }) | undefined> {
     const [result] = await db.select({
       id: posts.id,
       title: posts.title,
@@ -77,11 +78,12 @@ export class ContentStorage implements ContentStorageContract {
       imageUrls: posts.imageUrls,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
+      publishedAt: posts.publishedAt,
       category: categories
     })
     .from(posts)
     .innerJoin(categories, eq(posts.categoryId, categories.id))
-    .where(eq(posts.id, id));
+    .where(and(eq(posts.id, id), eq(posts.isPublished, true)));
 
     return result || undefined;
   }
@@ -100,7 +102,7 @@ export class ContentStorage implements ContentStorageContract {
   }
 
   async deletePost(id: number): Promise<boolean> {
-    const result = await db.delete(posts).where(eq(posts.id, id));
+    const result = await db.delete(posts).where(and(eq(posts.id, id), eq(posts.isPublished, true)));
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -143,7 +145,7 @@ export class ContentStorage implements ContentStorageContract {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async searchPosts(query: string): Promise<(Post & { category: Category })[]> {
+  async searchPosts(query: string): Promise<(PublishedPost & { category: Category })[]> {
     const searchTerm = `%${query}%`;
     return await db.select({
       id: posts.id,
@@ -155,6 +157,7 @@ export class ContentStorage implements ContentStorageContract {
       imageUrls: posts.imageUrls,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
+      publishedAt: posts.publishedAt,
       category: categories
     })
     .from(posts)
@@ -168,7 +171,7 @@ export class ContentStorage implements ContentStorageContract {
         )
       )
     )
-    .orderBy(desc(posts.createdAt))
+    .orderBy(desc(sql`coalesce(${posts.publishedAt}, ${posts.createdAt})`))
     .limit(20);
   }
 }

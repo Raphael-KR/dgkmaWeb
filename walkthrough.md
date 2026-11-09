@@ -2,13 +2,50 @@
 
 이 문서는 별도로 요청된 기능·운영 점검에 참고할 절차와 과거 수행 기록을 보관합니다. 다음 기능 개발은 [제품·개발 통합 계획서](./planning_proposal.md)를 따릅니다. 아래 체크리스트는 일상 개발의 완료 조건이나 다음 작업 목록이 아닙니다.
 
+## 실제 모델과 부고 작성 점검 (2026-11-09)
+
+- 사용자 요청에 따라 04:17~04:19 KST Replit 개발 workspace `/home/runner/workspace`에서 제공된 입력·공개 부고 링크로 실제 추출과 정적 작성기를 점검했다. 앱 PID 859의 키 존재 여부와 모델 설정만 확인하고 같은 설정을 별도 CLI 프로세스에 전달했다. 로그인·인증 라우트·회원 명부 판정은 실행하지 않았다.
+- 적용 모델은 `gpt-6-luna`이며 `OPENAI_NOTICE_MODEL`은 미설정이었다. 기존 `extractNoticeFacts`의 Responses API 호출 1회가 HTTP 200, `status=completed`, 응답 `model=gpt-6-luna`를 반환했다. 토큰 사용량은 입력 1,105·출력 259·합계 1,364였다. API 키는 출력하거나 기록하지 않았다.
+- 실행한 추출기·링크 수집기·문안 생성기·Python 연결 코드의 SHA-256이 로컬 구현 commit `b004959`와 일치했다. 원격 Git HEAD는 정책 commit `2855424`이며 구현은 미커밋 적용 상태였다. 이번 점검에서 제품 코드를 수정하지 않았다.
+- 제공자 `preed.gaonprime.com`은 JavaScript 앱 셸 HTML 1,679 bytes를 반환했다. 기존 공개 페이지 추출기의 본문은 0자였고, `readEventSources`는 `unavailable`로 판정했다. 실제 페이지 종료 여부를 확인한 것은 아니다. OpenAI 요청에는 원래 입력·URL도 포함됐지만 링크 본문에서 추가 정보를 얻지 못했고, `publicSourceText`에는 URL을 제외한 사용자 입력 26자만 포함됐다.
+- AI는 대상 이름·학번·본인상 관계·고인 이름만 반환했고 향년·발인일·빈소·유가족 성함·연락처는 null이었다. `questions`는 빈 배열이었다. 사용자 제공 학번·기수·호칭과 실제 추출 결과를 정적 Python 작성기에 전달했으나 필수 정보 누락으로 exit 1과 `부고 정보의 날짜·연락처·회원 표기를 다시 확인해 주세요.`를 반환했다. 완성된 부고문은 없으며 작성 성공으로 판정하지 않는다.
+- 결과: API 키·모델의 실제 호출은 성공했고, 이 제공자의 링크 내용 수집과 최종 문안 생성은 실패했다. 해당 제공자의 공개 자료 추출 경로 보완이 필요하다. 인증·명부 조회를 포함한 홈페이지 전체 흐름의 결과는 아니다.
+- 실행 증거: Replit `.superpowers/obituary-live-check-20261108T191851Z/receipt.json`, SHA-256 `e1d3b0593fcc5a71d17003bca74140c6b932c90d5cd0834f8eb8173570c4f892`. 원문·연락처·계좌·API 키는 증거 파일에 보존하지 않았다. DB 쓰기·게시·서버 재시작·운영 배포·실계정 QA·GitHub 게시를 수행하지 않았다.
+
+## API 키 반영과 개발 서버 재시작 (2026-11-09)
+
+- 사용자가 Replit Secrets에 키를 추가한 뒤 값 노출 없는 설정 확인과 개발 서버 재시작을 요청했다. 03:50 KST 새 SSH 환경의 키 존재는 true, 기존 앱 PID 557에서는 false였다.
+- 기존 개발 프로세스 그룹 535를 종료하고 포트 해제 후 03:51:10 KST 같은 소스의 `npm run dev`를 기동했다. 새 npm PID 837, 앱 PID 859에서 키 존재 true와 개발 환경을 확인했다. 키 값·길이·접두어·해시를 출력하거나 기록하지 않았다.
+- 시작 로그의 개발 DB 연결·session index·5000번 포트와 쿠키 없는 loopback GET `/` 200 HTML, `/api/posts` 401 JSON을 확인했다. 실제 OpenAI 호출·실계정 QA·운영 배포는 수행하지 않았다. 키 설정과 생성 성공은 별개다.
+- 실행 증거는 Replit 개발 workspace `.superpowers/openai-key-restart-20261108T185109Z/`에 보존했다. 상세 기록은 [Replit 운영 문서](./replit.md#api-키-반영과-개발-서버-재시작)를 따른다.
+
+## 게시글·경조사 통합 개발 적용 (2026-11-09, API 키 반영 전 이력)
+
+- 사용자 요청 범위는 Replit 개발 DB 전환, 통합 코드 적용과 개발 서버 재시작이다. 운영 배포와 실계정 QA는 계속 보류했다.
+- 개발 workspace `/home/runner/workspace`를 `codex/unified-member-posts`, 정책 commit `2855424`와 미커밋 구현으로 전환했다. 적용한 변경·신규 파일 52개 SHA-256과 삭제 파일 45개를 확인했다. 앱 소스는 앞선 정적 검사 후보와 같아 같은 검사를 반복하지 않았다.
+- 삭제 대상 두 테이블은 각각 0건이고 incoming FK는 없었다. 변경 전 schema-only snapshot을 보존한 뒤 03:17:22 KST에 `scripts/unify-posts.sql`을 한 트랜잭션으로 커밋했다. 새 연결에서 posts 확장·구 테이블 제거·카테고리 5→7건·다른 테이블 건수 보존을 확인했다. 03:21 KST canonical read-only catalog는 12개 테이블과 completion marker를 확인했다.
+- 03:21:53 KST 정지 상태의 개발 서버를 루트에서 `npm run dev`로 재기동했다(npm PID 535, 앱 PID 557). 시작 로그의 개발 DB 연결·session index·5000번 포트를 확인했고, 03:22:52 KST 새 SSH 연결에서 프로세스와 포트 유지도 확인했다.
+- 쿠키 없는 loopback GET은 `/` 200 HTML, `/api/posts` 401 JSON이었다. 이는 기동과 회원 접근 제한만 확인한 결과다. 로그인·경조사 작성·게시, 실제 OpenAI 및 청첩장·부고 링크 호출, 브라우저·실계정 QA는 실행하지 않았다. `OPENAI_API_KEY`는 미설정이다.
+- 증거는 개발 workspace `.superpowers/unified-posts-activation-20261108T181441Z/`의 before/after schema metadata, source manifest, transition/server receipts에 보존했다. GitHub push·PR·merge, 운영 DB 변경과 Republish는 하지 않았다. 구조·적용 세부는 [DB 런북](./docs/database-operations.md#개발-db-전환-결과)과 [Replit 운영 문서](./replit.md#개발-적용-결과)를 따른다.
+
+## 게시글·경조사 통합 정적 확인 (2026-11-09, 개발 적용 전 이력)
+
+- 정책 커밋 `2855424` 후 `codex/unified-member-posts`에서 공통 posts·categories, JSON, 텍스트 작성·추가 질문·미리보기 게시와 회원 권한을 구현했다. 구현 변경은 아직 커밋·push하지 않았다.
+- Replit `/home/runner/workspace/.worktrees/unified-posts-check`에서 로컬 변경 파일 51개의 SHA-256 일치를 확인한 뒤 `npm run check`(187개 애플리케이션 파일의 타입·의존 경계), `npm run check:tests`를 통과했다. Python 작성기 4개는 AST 구문만 확인했고, 기존 문서 계약 6개는 파일 내용만 읽는 정적 확인으로 통과했다.
+- 개발 DB catalog는 `heliumdb`의 read-only gate·ROLLBACK·completion marker를 확인했다. 기존 테이블은 14개이고 `community_events`·`obituaries`가 남아 있다. 이는 전환 전 구조 관찰이며 새 스키마 적용이나 제품 동작 확인을 뜻하지 않는다.
+- 현재 Replit 서버용 `OPENAI_API_KEY`는 미설정이다. 실제 OpenAI·부고/청첩장 링크 호출, 제품 테스트, 브라우저·실계정 QA, DB 전환 SQL, 재시작·smoke, 운영 배포는 실행하지 않았다.
+- 실행 중인 개발 workspace는 main `abff93e`와 clean 상태를 유지한다. 통합 활성화 순서는 [Replit 운영 문서](./replit.md#통합-게시글-실행-준비-2026-11-09)와 [DB 런북](./docs/database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)을 따른다.
+
+
 ## 현재 적용 기준 (2026-11-08)
 
 - 개발 직후 점검은 변경 범위에 필요한 정적 검사로 최소화한다. 세부 기준은 [AGENTS.md](./AGENTS.md#개발-직후-점검)를 따른다.
 - 자동화·DB·브라우저·모바일 시험, 서버 재시작과 smoke check를 매 개발 작업 뒤에 붙이지 않는다. 별도 요청된 점검이나 구체적인 실행 오류 해결에 필요한 범위에서만 아래 절차를 참조한다.
-- 운영 배포와 실계정 QA는 계속 보류한다. 이 문서의 항목을 수행하기 위한 계정 준비·GUI 사용·Republish를 자동 요청하지 않는다.
+- 2026-11-09 요청된 최신 변경 릴리스는 [Replit 운영 문서](./replit.md#최신-변경-릴리스-2026-11-09)를 따른다. 실계정 QA는 계속 보류한다. 이 문서의 항목을 수행하기 위한 계정 준비·GUI 사용·Republish를 자동 요청하지 않는다.
 - 날짜가 있는 기록은 당시 환경·버전·수행 범위의 이력이다. 아래 미체크 항목을 현재 기능 개발의 대기 과제로 전환하지 않는다.
 - 이 기준은 앞서 사용한 전체 회귀·통합 QA 중심의 개발 순서를 대체한다. 과거 실행 결과는 당시 기록으로 유지한다.
+
+2026-11-09 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)을 확정했다. 모든 게시글의 회원 전용 접근, `posts`·`categories`와 JSON 저장, 기존 상세 폼 제거와 텍스트·OpenAI API 작성, 경조사 데이터·옛 상세 주소 폐기가 대상이다. 아직 코드·DB에는 미적용이며, 아래 공개 게시글 API·상세 폼·레거시 호환 항목은 통합 전 절차와 이력으로만 읽는다.
 
 ## 별도 점검을 요청한 경우
 

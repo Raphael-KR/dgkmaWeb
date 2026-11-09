@@ -1,4 +1,4 @@
-import type { CommunityEventDraftInput, ObituaryDetails } from "@shared/community-events";
+import type { ParsedObituaryDraft, ObituaryDetails } from "./obituary-parser-types";
 import { extractEventSourceUrls } from "./event-source-policy";
 
 export interface ParsedObituary {
@@ -13,7 +13,7 @@ export interface ParsedObituary {
   familyContactName?: string;
 }
 
-type ObituaryDraft = Extract<CommunityEventDraftInput, { eventType: "obituary" }>;
+type ObituaryDraft = Extract<ParsedObituaryDraft, { eventType: "obituary" }>;
 
 export type ParsedObituaryEventSource = {
   draft: ObituaryDraft;
