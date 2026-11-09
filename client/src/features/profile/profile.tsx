@@ -51,14 +51,7 @@ export default function Profile() {
       setTimeout(() => {
         const element = document.getElementById('payment-section');
         if (element) {
-          const elementPosition = element.offsetTop;
-          const headerHeight = 80; // 헤더 높이 (대략)
-          const offsetPosition = elementPosition - headerHeight;
-          
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: 'smooth'
-          });
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }, 100);
     } else {
@@ -84,12 +77,14 @@ export default function Profile() {
     <div className="min-h-screen bg-kakao-gray">
 
       
-      <div className="max-w-md mx-auto px-4 pb-20">
-        <div className="py-4">
-          <h1 className="text-xl font-bold kakao-brown mb-6">내 정보</h1>
+      <div className="member-container">
+        <div>
+          <h1 className="mb-6 text-xl font-bold kakao-brown md:text-3xl">내 정보</h1>
+
+          <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[18rem_minmax(0,1fr)] lg:grid-cols-[20rem_minmax(0,1fr)]">
           
           {/* Profile Card */}
-          <Card className="shadow-sm mb-6">
+          <Card className="min-w-0 shadow-sm md:col-start-1 md:row-start-1">
             <CardHeader className="text-center">
               <Avatar className="w-20 h-20 mx-auto mb-4">
                 {user.profileImage && (
@@ -99,7 +94,7 @@ export default function Profile() {
                   {user.name?.charAt(0) || "?"}
                 </AvatarFallback>
               </Avatar>
-              <CardTitle className="text-xl">{user.name}</CardTitle>
+              <CardTitle className="break-words text-xl">{user.name}</CardTitle>
               <p className="text-gray-600">
                 {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
               </p>
@@ -113,11 +108,11 @@ export default function Profile() {
           </Card>
 
           {/* Account Info */}
-          <Card className="shadow-sm mb-6">
+          <Card className="min-w-0 shadow-sm md:col-start-2 md:row-start-1">
             <CardHeader>
               <CardTitle className="text-lg">계정 정보</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="grid grid-cols-1 gap-4 [overflow-wrap:anywhere] lg:grid-cols-2">
               <div>
                 <p className="text-sm text-gray-600 mb-1">이메일</p>
                 <p className="font-medium">{user.email}</p>
@@ -144,7 +139,7 @@ export default function Profile() {
           </Card>
 
           {/* Payment Status */}
-          <Card className="shadow-sm mb-6" id="payment-section">
+          <Card className="min-w-0 scroll-mt-32 shadow-sm md:col-start-2 md:row-span-2 md:row-start-2 lg:scroll-mt-24" id="payment-section">
             <CardHeader>
               <CardTitle className="text-lg">회비 관리</CardTitle>
             </CardHeader>
@@ -241,7 +236,7 @@ export default function Profile() {
           </Card>
 
           {/* Actions */}
-          <Card className="shadow-sm mb-6">
+          <Card className="min-w-0 shadow-sm md:col-start-1 md:row-start-2">
             <CardContent className="p-4 space-y-2">
               <Button
                 variant="ghost"
@@ -278,7 +273,7 @@ export default function Profile() {
           </Card>
 
           {/* Logout */}
-          <Card className="shadow-sm">
+          <Card className="min-w-0 shadow-sm md:col-start-1 md:row-start-3">
             <CardContent className="p-4">
               <Button 
                 variant="ghost" 
@@ -292,9 +287,10 @@ export default function Profile() {
           </Card>
 
           {/* App Info */}
-          <div className="text-center mt-8 text-gray-500">
+          <div className="mt-2 text-center text-gray-500 md:col-span-2">
             <p className="text-sm">동국한의동문회</p>
             <p className="text-xs">v1.0.0</p>
+          </div>
           </div>
         </div>
       </div>

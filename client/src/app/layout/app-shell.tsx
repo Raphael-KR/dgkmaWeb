@@ -23,7 +23,7 @@ export function AppShell() {
   const showBottomNav = !hideBottomNav;
 
   return (
-    <div className={`min-h-screen ${showMemberChrome ? "bg-gray-50 pb-16" : ""}`}>
+    <div className={`min-h-screen ${showMemberChrome ? "bg-gray-50 pb-16 md:pb-0" : ""}`}>
       {showMemberChrome && (
         <>
           <AppHeader />
