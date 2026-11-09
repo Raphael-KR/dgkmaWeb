@@ -25,6 +25,12 @@
 - 기존 코드는 새 컬럼을 사용하지 않으므로 추가 구조를 먼저 적용한 뒤 병합된 코드로 Republish한다. 성공한 변경은 자동 원복하지 않는다. 실계정 QA·실제 게시글 변경·Object Storage 변경·명부 재동기화는 계속 제외한다.
 - 20:25:34 KST 사전 조회는 읽기 전용 URL이 없어 `PROD_DATABASE_URL`을 READ ONLY로 제한했다. `neondb`, 본문 JSONB·문서 CHECK, `is_hidden` 부재를 확인했다. posts 3건·comments 0건·명부 3,458건과 모든 테이블 건수, 기존 posts digest를 원문 없이 기록했다. 변경 전 schema snapshot·catalog는 같은 비공개 작업 경로에 보존했고 당시 DDL은 실행하지 않았다.
 
+### 게시글 가리기 운영 적용 결과
+
+- 2026-11-09 20:30:31 KST main `a4039bedc6f1f77062c3ce7bfdf62bb60784fa27`의 운영 전용 SQL을 COMMIT했다. 실행 직전 새 READ ONLY 연결에서 대상 `neondb`·컬럼 부재·전체 건수·posts digest가 보존 기준과 같음을 확인했다. SQL SHA-256은 `be25a889894af272fa589a06688f506488322e6f70a2b0010fa299ec13600eba`이며 DB 이름 gate·lock/statement timeout을 적용했다.
+- 20:30:35 KST 새 연결에서 boolean·NOT NULL·false 기본값을 확인했다. posts 3건 전부 false, comments 0건이며 기존 게시글 값의 digest와 전체 13개 테이블 건수가 동일하다. 본문 JSONB·문서 CHECK와 나머지 객체를 유지했다. 새 catalog에서 컬럼 하나만 추가됐음을 확인했으며 [스키마 기록](./database-schema.md#게시글-관리-추가-계약-2026-11-09)에 반영했다.
+- Replit `.superpowers/post-management-release-20261109/`의 `production-immediate-before.json`, `schema-apply.json`·`.log`, `production-before/after.json`과 전후 schema/catalog를 근거로 한다. Secret은 해당 프로세스에만 전달하고 값·행 원문은 기록하지 않았다. 개발 DB·실제 글 내용/가림 값·Object Storage는 변경하지 않았으며 자동 원복하지 않았다.
+
 ## 최신 변경 릴리스 준비 (2026-11-09)
 
 - 사용자 승인: 후보 `5b19e86`의 push·PR 생성·main 병합과 운영 DB 전환을 명시 승인했다. 이 전환은 아래 추가 구조 SQL과 빈 `community_events`·`obituaries` 삭제 SQL을 포함한다. 일반 게시글·회원·명부는 보존하고 명부 재동기화·실계정 QA·자동 원복은 포함하지 않는다.

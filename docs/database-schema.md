@@ -1,6 +1,6 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 20:09 KST 가리기 컬럼 추가 후 catalog이며 13개 테이블·103개 컬럼이다. Production은 20:25 KST 릴리스 사전 조회에서 13개 테이블·102개 컬럼과 가림 컬럼 부재를 확인했다. 운영 컬럼 적용 전후 상태를 구분해 아래에 기록한다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 20:09 KST, Production은 20:30 KST 가리기 컬럼 추가 후 catalog이며 모두 13개 테이블·103개 컬럼이다. 운영 컬럼 적용 전후 상태를 구분해 아래에 기록한다.
 
 ### 게시글 관리 추가 계약 (2026-11-09)
 
@@ -13,6 +13,8 @@
 - 같은 시각 metadata-only catalog는 tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences `13/103/13/8/6/7/24/9`다. READ ONLY gate·ROLLBACK·완료 marker를 확인했고 차이는 `posts.is_hidden` 컬럼 한 개뿐이다. view·trigger·policy·routine·enum·domain 0개, RLS 모두 비활성을 유지한다.
 - catalog SHA-256은 `453a1924708cc258dec6385be2f461753813747d8ee2a7226f63dd47c2c11e5a`, schema snapshot은 `f6b63b83be2de88e510c88cf6a010987bd67ef2f8d09dfa2e569adbb0f6095fb`다. Replit `.superpowers/post-management-20261109/development-after-catalog.txt`·`development-after.json`·`development-after-schema.sql`을 근거로 한다. 이 개발 단계에서는 운영 DB를 조회·변경하지 않았다.
 - 운영 릴리스 사전 조회: 20:25:34 KST `neondb`·PostgreSQL 16.15·READ ONLY에서 `13/102/13/8/6/7/24/9`를 확인했다. 본문 JSONB NOT NULL·문서 CHECK는 유지되고 `is_hidden`은 없다. catalog SHA-256 `20a089c1f0b4cfb8bf9fc98d2277c6fd0b6de99ebe451b1690abece58e2e5460`, schema snapshot SHA-256 `ba5949b53db20876b8568748e8ab5bdec5718cbc5eb8ba43dbd8b93201bc15d9`이며 `.superpowers/post-management-release-20261109/production-before*`에 보존했다.
+- 운영 적용 결과: 20:30:31 KST `neondb`에 `posts.is_hidden boolean NOT NULL DEFAULT false`를 추가했다. 20:30:35 KST 새 READ ONLY 연결의 catalog는 `13/103/13/8/6/7/24/9`이며 유일한 차이는 새 컬럼이다. 나머지 객체·RLS·본문 JSONB 문서 CHECK는 동일하다. 기존 게시글 3건은 모두 false이고 기존 값의 digest와 전체 테이블 건수를 보존했다.
+- 운영 적용 후 catalog SHA-256 `27588cbda434da037691dbf79f754ed8956b5b01fdc082a83227f3479eed8262`, schema snapshot SHA-256 `b47524e4018d022f86803465aa4adf62bbe7495843368b3d5fb8fe98cf6be15f`다. `.superpowers/post-management-release-20261109/production-after.json`·`production-after-catalog.txt`·`production-after-schema.sql`에 대상·READ ONLY gate·ROLLBACK·완료 marker와 차이를 기록했다.
 
 ### 운영 릴리스 구조 (2026-11-09)
 

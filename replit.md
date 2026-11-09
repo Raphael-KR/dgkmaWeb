@@ -388,6 +388,16 @@
 - 실계정 QA·실제 글 수정/삭제/가리기·첨부 업로드/삭제·OpenAI/수집 호출·개발 서버 별도 재시작·자동 원복은 수행하지 않는다.
 - 20:25:54 KST Replit 릴리스 빌드를 통과했다. 애플리케이션 코드는 20:14의 타입·경계 검사 및 기존 테스트 타입 검사 당시 해시와 같다. 문서 검사에서 계획서의 QA 표기를 지적해 기능 계획 중심 표현으로 수정했으며 최종 문서 확인 결과는 릴리스 기록으로 남긴다.
 
+#### 게시글 관리 릴리스 완료 결과
+
+- 2026-11-09 변경 파일 30개를 `2b6dcb5fec37d0773a6743e9d94628b03e9b991d`로 커밋·push하고 [PR #27](https://github.com/Raphael-KR/dgkmaWeb/pull/27)을 생성했다. GitHub diff가 로컬 후보와 일치함을 대조하고 병합 가능 상태에서 `a4039bedc6f1f77062c3ce7bfdf62bb60784fa27`로 main에 병합했다. 확인한 GitHub commit status·PR workflow·리뷰·미해결 review thread 목록은 비어 있었으며 CI 통과로 표시하지 않는다.
+- 로컬과 Replit main을 병합 커밋에 맞췄다. Replit의 dirty 파일을 해시로 대조하고 Git bundle을 보존한 뒤 전체 트리가 병합 후보와 동일함을 확인하여 fast-forward했다. 20:25:54 KST 릴리스 빌드, 20:27:21 KST 수정 후 문서 계약 6건과 `git diff --check`를 통과했다. 애플리케이션 소스의 통과한 타입·경계 검사와 기존 테스트 타입 검사는 해시 일치를 확인해 재사용했다.
+- 20:30:31 KST 운영 `posts.is_hidden`을 추가하고 새 연결에서 기존 게시글 3건·전체 테이블 건수·기존 값의 digest와 JSONB 본문 보존을 확인했다. 세 글은 모두 false이며 [운영 적용 기록](./docs/database-operations.md#게시글-가리기-운영-적용-결과)을 따른다. 실제 글 가리기·수정·삭제를 시험한 결과는 아니다.
+- Replit `publish_app`으로 재게시하여 20:35:24 KST `get_publish_status=success`와 `https://dgkma.org`를 확인했다. 배포 ID는 `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`다. 이 시각은 성공 상태를 관찰한 시각이다.
+- 20:35:49 KST 비로그인 HTTP smoke 26건을 통과했다. 공개 페이지 5개의 200·제목·canonical·진입 파일, `/api/posts`·`/api/posts/hidden`·`/api/posts/1`·`/api/posts/1/comments`·`/api/categories`의 401 JSON, 수정·정정·상세·게시판·관리자·편집기 등을 포함한 자산 16개의 SHA-256 일치를 확인했다. 실계정 권한 분기와 실제 변경 동작을 실행한 결과로 확대하지 않는다.
+- Replit 게시 커밋 `a05999afd64fb8170cd430dac6bd2b9b57ded8cb`의 트리 `4004aa1b1a1fbdc6b5de208830fec2890d6a3f3f`는 병합 후보와 동일하다. 이 커밋을 보존하고 완료 기록만 후속 main에 반영한다. 문서 전용 후속 변경은 재게시하지 않는다.
+- 근거는 ignored `.superpowers/post-management-release-20261109/`의 Git·배포·빌드·문서 검사·DB metadata·smoke 기록이다. 실계정 QA·브라우저 조작·실제 게시글 변경·OpenAI/수집 호출·첨부 업로드/삭제·개발 서버 별도 재시작·자동 원복은 수행하지 않았다.
+
 ## GitHub 동기화
 
 GitHub의 `main` 브랜치를 공유 소스 기준으로 사용합니다.
