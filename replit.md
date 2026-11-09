@@ -2,7 +2,7 @@
 
 이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전, 현재 상태와 개발 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
-2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 Replit 개발 환경에 적용했습니다. 최신 후보는 PR #22로 main에 병합했고 운영 DB에는 추가 구조를 적용했습니다. 새 코드 Republish와 구 테이블 제거는 아직 완료하지 않았으며 [릴리스 진행 기록](#릴리스-진행-기록)을 따릅니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 03:51 KST 키 반영 후 개발 서버를 재시작했습니다. 같은 날 04:18 KST 요청된 실제 호출에서 모델 `gpt-6-luna`와 HTTP 200을 확인했으나, 제공된 부고 링크의 본문 추출 실패로 완성 문안은 생성되지 않았습니다. 키 값은 출력하지 않았으며 상세 범위는 [실제 부고 작성 점검](./walkthrough.md#실제-모델과-부고-작성-점검-2026-11-09)을 따릅니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)의 코드와 스키마를 개발·운영 환경에 적용했습니다. 최신 후보는 PR #22로 main에 병합했고, 13:25 KST 새 코드 Republish·운영 DB 전환·비로그인 HTTP 확인을 마쳤습니다. 실제 적용과 확인 범위는 [릴리스 완료 결과](#릴리스-완료-결과)를 따릅니다. `posts`·`categories`와 JSON을 사용하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 03:51 KST 키 반영 후 개발 서버를 재시작했습니다. 같은 날 04:18 KST 요청된 실제 호출에서 모델 `gpt-6-luna`와 HTTP 200을 확인했으나, 제공된 부고 링크의 본문 추출 실패로 완성 문안은 생성되지 않았습니다. 키 값은 출력하지 않았으며 상세 범위는 [실제 부고 작성 점검](./walkthrough.md#실제-모델과-부고-작성-점검-2026-11-09)을 따릅니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
 
 ## 통합 게시글 실행 준비 (2026-11-09)
 
@@ -77,7 +77,7 @@
 
 릴리스 빌드에서 게시판 청크 약 533kB가 기존 500,000-byte 한도를 초과했다. 본문 편집기는 글쓰기 창을 열 때 불러오도록 분리하고 ProseMirror 엔진을 별도 청크로 나눠 같은 한도로 다시 빌드했다. 수집 브라우저는 `.replit`의 Nix `chromium` 패키지로 런타임 의존성을 명시하고, `COLLECTOR_CHROMIUM_PATH` 또는 설치된 PATH의 실행 파일을 사용한다. 개발 도구 전용 `/repl/tools` 경로가 운영에도 있다고 가정하지 않는다. 설정 계약은 [Replit 공식 구성 문서](https://docs.replit.com/features/project-setup/configuration)를 따른다.
 
-운영 DB의 추가 구조는 `scripts/release-posts-additive.sql`, 구 테이블 제거는 `scripts/release-posts-cleanup.sql`로 분리한다. 2026-11-09 사용자 승인에 따라 추가 구조 → 새 코드 Republish·비로그인 확인 → 구 테이블 제거 순서로 적용한다. 승인 기록과 실제 실행 결과를 구분하며 기존 개발 전환 SQL을 운영에서 우회 실행하지 않는다.
+운영 DB의 추가 구조는 `scripts/release-posts-additive.sql`, 수동 구 테이블 제거는 `scripts/release-posts-cleanup.sql`로 분리한다. 최초 계획은 추가 구조 → 새 코드 Republish·비로그인 확인 → 구 테이블 제거였다. 실제 Publishing이 구 테이블 삭제 승인을 배포 전에 요구하므로, 아래 웹 DB 검토 절차에 따라 승인된 두 빈 테이블만 Replit의 배포 마이그레이션으로 제거한다. 기존 개발 전환 SQL이나 별도 API로 검토를 우회하지 않는다.
 
 #### 릴리스 후보 확인 결과
 
@@ -91,8 +91,24 @@
 - 2026-11-09 [PR #22](https://github.com/Raphael-KR/dgkmaWeb/pull/22)를 병합했다. 병합 commit은 `f54177bfe877e40354f961045b65e3f238abed1f`이며 기능 후보 `5b19e86`과 승인 문서 `ad8361a`를 포함한다. 로컬·Replit의 main을 같은 commit으로 동기화했고 12:54 KST Replit의 추적 파일 432개가 Git blob과 일치하며 작업 트리가 깨끗한 것을 확인했다.
 - 12:56 KST Production `neondb`에 `release-posts-additive.sql`을 한 트랜잭션으로 적용했다. posts 통합 컬럼·제약·인덱스, 수집 규칙 테이블과 부고·경사 카테고리를 추가했다. 카테고리만 5→7건으로 늘었고 기존 나머지 테이블 건수는 보존했다. 새 연결의 전체 catalog는 15개 테이블·131개 컬럼이며, 두 빈 구 테이블은 유지했다. 상세 증거는 [DB 운영 기록](./docs/database-operations.md#운영-추가-구조-적용-결과)에 둔다.
 - 12:58 KST Replit 커넥터 `publish_app`은 DB 스키마 변경에 대한 웹 검토가 필요하다는 `INVALID_ARGUMENT`를 반환했고 새 배포를 시작하지 않았다. 같은 호출을 반복하거나 다른 배포 API로 검토를 우회하지 않는다. 사용자는 이어 Replit 웹 검토·배포 조작을 승인했다.
-- CLI 경로 확인 결과 현재 개발 workspace의 `replit --help`에는 publish/deploy 명령이 없었다. 이는 이 설치의 명령 목록 확인이며 모든 CLI에서 재게시가 불가능하다는 뜻은 아니다. 승인된 웹 검토는 `ego-browser` CLI로 열었으나 Replit 로그아웃 상태여서 로그인 화면을 사용자에게 넘겼다.
-- 마지막 배포 조회는 기존 deployment `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`의 success를 반환했다. 이는 새 후보의 배포 성공이 아니다. 새 코드 Republish·운영 HTTP 확인·구 테이블 삭제는 미완료이며 실계정 QA는 계속 보류한다. Git·DB·배포 시도 receipt는 Replit `.superpowers/release-20261109/`에 보존한다.
+- CLI 경로 확인 결과 현재 개발 workspace의 `replit --help`에는 publish/deploy 명령이 없었다. 이는 이 설치의 명령 목록 확인이며 모든 CLI에서 재게시가 불가능하다는 뜻은 아니다. 승인된 웹 검토는 `ego-browser` CLI로 열었고, 사용자가 Replit 로그인을 마친 뒤 같은 브라우저에서 이어서 처리했다.
+- 웹 재게시 전 조회는 기존 deployment `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`의 success를 반환했다. 당시에는 새 후보의 배포 성공이 아니었다. 이후 실제 단계 전환과 성공은 아래 완료 결과로 구분한다. Git·DB·배포 receipt는 Replit `.superpowers/release-20261109/`에 보존한다.
+
+#### 웹 DB 검토에 따른 적용 순서
+
+- 사용자 로그인 후 Publishing에서 `OPENAI_API_KEY`가 운영 배포에 없는 것을 확인하고 기존 프로젝트 Secret을 배포 설정에 추가했다. 값은 열거나 복사하지 않았다. 개발 DB 전체 복사 옵션은 꺼진 상태를 유지했다. 배포 후보는 문서 기록 commit `21bd999`이며 앱 코드는 `f54177b`와 같다.
+- 웹 Republish가 실제로 DB 승인 단계에서 멈췄다. 화면의 생성 SQL은 `DROP TABLE "community_events" CASCADE;`와 `DROP TABLE "obituaries" CASCADE;` 두 문장뿐이다. Replit 자체의 임시 복사본 마이그레이션 확인 완료가 표시됐다. 별도 preview 배포나 실계정 점검은 실행하지 않는다.
+- 13:18 KST 새 운영 읽기 전용 연결에서 두 테이블 각각 0건, 외부 incoming FK 0개, 의존 객체는 해당 테이블 소유·내부 객체(`a`·`i`)뿐임을 확인했다. 구조 snapshot을 다시 보존했다. 승인된 삭제 범위가 확대되지 않으므로 이번에는 이 두 문장의 플랫폼 SQL을 검토·승인하는 경로로 진행한다. 일반 수동 SQL에 `CASCADE`를 추가하지 않는다.
+- Replit은 새 앱 빌드 후, 새 버전 전환 전에 마이그레이션을 적용하며 비호환 변경에는 구 앱을 잠시 중지할 수 있다. [공식 배포 DB 절차](https://docs.replit.com/features/data-and-storage/publish-database-changes)와 화면의 일시 중단 안내를 확인했다. 기존 수동 삭제 순서를 이 플랫폼 절차로 대체하고, 성공 후 DB 새 연결과 비로그인 HTTP로 결과를 확인한다. 두 테이블이 제거됐으면 수동 cleanup SQL을 중복 실행하지 않는다.
+
+#### 릴리스 완료 결과
+
+- 2026-11-09 13:25 KST `https://dgkma.org` 재게시 완료를 확인했다. DB 검토의 `승인 및 게시` 후 커넥터 상태가 `building → running → promoting → success`로 바뀌었다. deployment ID는 같은 앱의 기존 ID를 유지하므로 ID만으로 새 릴리스를 판정하지 않았다. 게시 당시 main은 `21bd999e7224f9f6995fe06174d8a36fb2b51ffb`이며 앱 코드는 PR #22 병합 `f54177b`와 같다.
+- Replit은 13:24:35 KST 파일 변경 없는 `79e43c9` (`Published your App`)를 추가했다. 커밋 metadata의 배포 build ID는 `97e874de-635e-441a-9db8-3bc60e55ecd5`다. 완료 문서 커밋 `6f2e0ed`와 분기된 이 배포 기록을 삭제·재작성하지 않고 main에 병합해 로컬·GitHub·Replit 이력을 함께 보존한다.
+- 비로그인 GET `/`·`/b`는 200 HTML, `/api/posts`·`/api/categories`는 401 JSON, 제거된 `/api/obituaries`는 404 JSON이었다. 초기 JS·게시판·상세·본문 편집기·편집 엔진의 5개 JS가 모두 200이며 Replit 후보 빌드의 SHA-256과 일치했다. 연결된 CSS도 200이다. 이 결과는 회원 로그인·글 작성·편집 동작을 실행한 결과가 아니다.
+- 새 운영 연결에서 `community_events`·`obituaries`와 소유 객체 제거를 확인했다. 최종 catalog는 13개 테이블·102개 컬럼이고 다른 객체 변화는 없었다. 명부 3,458건을 포함한 존속 테이블의 건수는 모두 보존했다. Replit이 검토한 SQL을 적용했으므로 수동 `release-posts-cleanup.sql`은 실행하지 않았다.
+- 기존 `OPENAI_API_KEY`를 값 노출 없이 운영 배포에 포함했다. 실제 OpenAI 호출, 부고·결혼·개원 수집, 운영 Chromium/OCR 실행, 편집기 브라우저 동작과 실계정 QA는 수행하지 않았다. 개발 서버의 별도 재시작도 실행하지 않았다.
+- 근거는 `production-http-smoke.json`, `production-after-web-publish.json`, `production-after-web-publish-catalog.txt`, `release-completion.json`이다. 최종 문서 기록 commit은 이 게시 버전과 구분하며 문서만 갱신한 뒤 추가 Republish하지 않는다.
 
 ### 공개 링크 범용 수집 (2026-11-09 결정)
 
@@ -170,6 +186,31 @@
 - 2026-11-09 Replit에서 `npm run check`(타입·경계·runtime cycle, 앱 소스 201개), 파일 내용만 읽는 기존 문서 계약 6개, `git diff --check`가 통과했다. 검사별 실행 시각과 최종 적용 해시는 아래 증거 파일에 기록한다. 전체 테스트·빌드·새 합성 자료·브라우저·게시 시험은 실행하지 않았다.
 - 실제 선택 도구의 위치·모바일 조작·한글 입력·붙여넣기·모드 왕복·클립보드 권한·게시 후 화면은 이번에 실행 확인하지 않았다. 정적 검사의 통과를 해당 사용자 흐름의 성공으로 확대하지 않는다.
 - 증거는 Replit `.superpowers/post-formatting-20261109/`의 `before-source.tar.gz`, `before-manifest.json`, `install-receipt.json`, `source-manifest.json`, `static-checks.json`, `receipt.json`이다. DB 접속·스키마/행 변경·서버 재시작·Git 커밋/push/PR/병합·운영 배포·실계정 QA는 수행하지 않았다.
+
+### 회원 커뮤니티 반응형 화면 (2026-11-09)
+
+- 목표: 모바일 회원 커뮤니티에 태블릿·PC 배치를 추가한다.
+- 범위: 회원 홈·공통 탐색, 게시판 목록·상세·댓글·일반 글쓰기·경조사 작성, 명부·검색·내 정보의 표시. 768px/1024px 전환과 최대 1280px 콘텐츠 폭을 사용한다.
+- 완료 조건: 기준 문서 선반영 후 반응형 소스를 Replit 개발 워크스페이스에 적용하고 변경 범위의 정적 검사 결과를 기록한다.
+- 제외: 공개 홈페이지·관리자 기능 개편, API·DB 변경, 새로운 의존성, 커밋·push·PR·운영 배포, 서버 재시작·실계정 QA·브라우저 실행 점검.
+- 확인: 로컬·Replit의 `main` 기준은 `3e679a061633cfda24868291cbfdd086901e9f3e`이며 작업 전 두 working tree는 깨끗했다. 적용 파일의 기존 내용을 대조·보존하고 Replit에서 `npm run check`, Tailwind CSS 정적 컴파일, 파일 내용만 읽는 문서 계약과 `git diff --check`로 한정한다.
+
+#### 반응형 개발 적용 결과
+
+- 2026-11-09 14:01 KST Replit `/home/runner/workspace`에 화면 코드·CSS와 기준 문서를 적용했다. 기존 파일 15개는 적용 전 해시를 대조하고 원본을 보존했으며, 상·하단 공통 탐색 항목 `client/src/app/layout/nav-items.ts` 1개를 추가했다. 새 패키지·API·DB 변경은 없다.
+- 공통 콘텐츠 폭은 모바일 448px 상한에서 태블릿 이상 1280px 상한으로 전환한다. 태블릿은 2열 목록과 상단 2행 헤더, PC는 한 행 헤더·게시판 카테고리 사이드바를 사용한다. 1280px 이상 게시판·명부·검색 결과는 3열이다.
+- 회원 홈·내 정보는 요약과 본문 카드를 나란히 표시한다. 게시글 상세의 본문·댓글, 경조사 작성의 입력·미리보기는 PC에서 2열로 배치한다. 일반 작성 창은 태블릿 768px·PC 896px 상한으로 넓히고 서식/마크다운 입력부의 최소 높이는 320px로 늘렸다. 모바일 단일 열과 선택 영역 서식 도구, 기존 회원·게시 정책은 유지한다.
+- 2026-11-09 14:02 KST Replit Node `v20.20.0`에서 `npm run check`(타입·모듈 경계·runtime cycle, 앱 소스 202개), Tailwind CSS 정적 컴파일, 문서 계약 6개와 `git diff --check`가 통과했다. CSS 컴파일의 Browserslist 데이터 갱신 안내는 경고이며 의존성을 변경하지 않았다.
+- 근거는 Replit `.superpowers/responsive-community-20261109/`의 `before/`, `source-manifest.json`, `static-checks.json`, 검사별 로그와 `community.css`에 보존한다. 정적 검사는 실제 화면·터치·스크롤·편집·게시 동작의 확인을 대신하지 않는다. 브라우저·실계정 QA·서버 재시작·smoke check·빌드·Republish는 실행하지 않았다.
+- 개발 완료 당시 이 변경은 로컬·Replit의 미커밋 변경이었다. 이후 사용자가 아래 릴리스를 승인했다.
+
+#### 반응형 릴리스 (2026-11-09)
+
+- 목표: 회원 커뮤니티 반응형 변경을 GitHub main에 통합하고 Replit 운영에 릴리스한다.
+- 범위: 앞선 반응형 변경 16개 파일의 커밋·push·PR 생성·main 병합, 로컬·Replit main 동기화와 Republish. 사용자 요청이 이 작업의 승인 근거다.
+- 완료 조건: Git 통합과 Replit 게시 성공을 확인하고 비로그인 HTTP 응답·변경된 정적 자산의 배포 여부를 확인한다. Replit이 만드는 게시 기록 커밋도 보존한다.
+- 제외: DB 스키마·행 변경, Secrets 변경, 개발 서버 별도 재시작, 실계정 QA·회원 화면 조작·OpenAI 호출·경조사 수집·자동 원복. 스키마 변경이 없는 릴리스이므로 DB 전환 절차는 실행하지 않는다.
+- 확인: 14:02 KST의 타입·경계·CSS 정적 결과를 소스 해시가 같을 때 재사용하고 Replit에서 배포 빌드와 변경된 문서의 정적 계약을 확인한다. 게시 후에는 비로그인 상태와 자산 해시만 점검하며 회원 기능의 실제 조작 성공으로 확대하지 않는다.
 
 ## GitHub 동기화
 

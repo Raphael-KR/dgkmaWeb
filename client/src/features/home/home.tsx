@@ -72,7 +72,11 @@ export default function Home() {
     <div className="min-h-screen bg-kakao-gray">
 
 
-      <div className="max-w-md mx-auto px-4 pb-20 pt-4">
+      <div className="member-container">
+        <div className="mb-6 hidden md:block">
+          <h1 className="text-3xl font-bold text-gray-900">동문 커뮤니티</h1>
+          <p className="mt-2 text-sm text-gray-500">동문 소식을 만나고 함께 이야기 나누세요.</p>
+        </div>
 
         {isBirthdayToday(user) && (
           <div className="mb-4 border-l-4 border-kakao-yellow bg-white px-4 py-3 shadow-sm" role="status">
@@ -82,19 +86,19 @@ export default function Home() {
         )}
 
         {/* User Info Section */}
-        <div className="bg-white rounded-lg p-4 mb-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+        <div className="mb-6 rounded-lg bg-white p-4 shadow-sm md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center space-x-3">
               {/* Avatar */}
-              <div className="w-12 h-12 bg-kakao-yellow rounded-full flex items-center justify-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-kakao-yellow">
                 <span className="text-kakao-brown font-bold text-lg">
                   {user.name?.charAt(0) || "?"}
                 </span>
               </div>
 
               {/* User Details */}
-              <div>
-                <p className="font-bold text-gray-800 text-base">
+              <div className="min-w-0">
+                <p className="break-words text-base font-bold text-gray-800 md:text-lg">
                   {user.name}
                 </p>
                 <p className="text-sm text-gray-600">
@@ -104,7 +108,7 @@ export default function Home() {
             </div>
 
             {/* Status Badge */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {user.isVerified ? (
                 <Badge className="bg-green-100 text-green-700 text-xs px-3 py-1">
                   인증완료
@@ -131,8 +135,9 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 lg:grid-cols-[20rem_minmax(0,1fr)]">
         {/* Membership Status */}
-        <Card className="shadow-sm mb-6">
+        <Card className="min-w-0 shadow-sm md:col-start-1 md:row-start-1">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-800">회비 납부 현황</h3>
@@ -189,7 +194,7 @@ export default function Home() {
         </Card>
 
         {/* Recent Posts Section */}
-        <Card className="shadow-sm mb-6" id="recent-posts-section">
+        <Card className="min-w-0 scroll-mt-32 shadow-sm md:col-start-2 md:row-span-3 md:row-start-1 lg:scroll-mt-24" id="recent-posts-section">
           <div className="p-6 border-b border-gray-100">
             <h3 className="text-lg font-bold text-gray-800">최근 게시글</h3>
           </div>
@@ -200,16 +205,16 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {recentPosts?.map((post: any, index: number) => (
-                <div
+              {recentPosts?.map((post: any) => (
+                <Link
                   key={post.id}
-                  className="p-4 border-b border-gray-50 last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => setLocation(`/p/${post.id}`)}
+                  className="block border-b border-gray-50 p-4 transition-colors last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:p-6"
+                  href={`/p/${post.id}`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
                         <Badge variant={post.category.badgeVariant as any}>
                           {post.category.displayName}
                         </Badge>
@@ -217,13 +222,13 @@ export default function Home() {
                           {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <h4 className="font-medium text-gray-800 mb-1 line-clamp-2">
+                      <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800 md:text-lg">
                         {post.title}
                       </h4>
-                      <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-2" />
+                      <PostExcerpt content={post.content} className="line-clamp-2 text-sm text-gray-600 [overflow-wrap:anywhere]" />
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
 
               <div className="p-4 text-center">
@@ -236,7 +241,7 @@ export default function Home() {
         </Card>
 
         <Button
-          className="mb-6 w-full bg-kakao-yellow text-kakao-brown font-bold hover:bg-yellow-400"
+          className="w-full bg-kakao-yellow font-bold text-kakao-brown hover:bg-yellow-400 md:col-start-1 md:row-start-2"
           onClick={() => setLocation("/b")}
           aria-label="경조사 페이지로 이동"
         >
@@ -247,7 +252,7 @@ export default function Home() {
 
 
         {/* Alumni Directory Quick Access */}
-        <Card className="shadow-sm">
+        <Card className="min-w-0 shadow-sm md:col-start-1 md:row-start-3">
           <CardContent className="p-6">
             <h3 className="font-bold text-gray-800 mb-4">동문 연결</h3>
             <div className="grid grid-cols-3 gap-4">
@@ -299,6 +304,7 @@ export default function Home() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
 
 

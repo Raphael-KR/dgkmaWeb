@@ -106,38 +106,49 @@ function Composer({ type }: { type: NoticeType }) {
     });
   });
   const previewCurrent = draft && text === draft.sourceText;
-  return <main className="max-w-xl mx-auto p-4 pb-24 space-y-5">
+  return <div className="member-container space-y-5 md:space-y-6">
     <Button variant="ghost" disabled={busy} onClick={() => void move("/b")}>← 게시판</Button>
-    <h1 className="text-2xl font-bold">부고·경사 작성</h1>
-    <div className="flex gap-2" aria-label="경조사 유형">
-      {NOTICE_TYPES.map((value) => <Button key={value} disabled={busy || !draft} variant={value === type ? "default" : "outline"} onClick={() => void move(`/b/write/${value}`)}>{NOTICE_LABELS[value]}</Button>)}
-    </div>
-    <p className="text-sm text-muted-foreground">알고 있는 내용이나 공개 안내 링크를 짧게 적어 주세요. 부족한 정보만 여쭤보고, 확인한 미리보기로 게시합니다. 관리자는 대리 등록할 동문의 이름과 학번을 함께 적어 주세요.</p>
-    {error && <p role="alert" className="text-sm text-red-700 whitespace-pre-wrap">{error}</p>}
-    {!draft ? <div>{!error ? <LoadingSpinner /> : <Button onClick={() => window.location.reload()}>초안 다시 불러오기</Button>}</div> : <>
-      <label className="block space-y-2"><span className="font-medium">전할 내용</span>
-        <Textarea rows={7} maxLength={20000} value={text} disabled={busy} onChange={(event) => edit(event.target.value)} placeholder="예: 제 부친상입니다. 아래 부고 링크를 참고해 주세요." />
-      </label>
-      <div className="flex justify-between gap-3 text-sm text-muted-foreground">
-        <span role="status">{previewCurrent ? "초안 저장됨" : error ? "변경 내용이 저장되지 않았습니다" : "변경 내용 저장 중"}</span>
-        <button type="button" disabled={busy} className="underline" onClick={() => void remove()}>초안 삭제</button>
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <h1 className="text-2xl font-bold md:text-3xl">부고·경사 작성</h1>
+      <div className="flex flex-wrap gap-2" aria-label="경조사 유형">
+        {NOTICE_TYPES.map((value) => <Button key={value} disabled={busy || !draft} aria-pressed={value === type} variant={value === type ? "default" : "outline"} onClick={() => void move(`/b/write/${value}`)}>{NOTICE_LABELS[value]}</Button>)}
       </div>
-      <p className="text-xs text-muted-foreground">자연어 해석이 필요한 경우 입력 내용과 공개 링크의 필요한 정보가 OpenAI로 전달됩니다.</p>
-      <Button disabled={busy || !text.trim()} onClick={() => void generate()}>{busy ? "처리 중…" : "미리보기 작성"}</Button>
-      {previewCurrent && draft.eventData.sources.filter((source) => source.status !== "fetched").map((source) => <p className="text-sm" key={source.url}>{source.message || "링크를 읽지 못했습니다. 필요한 내용을 직접 적어 주세요."}</p>)}
-      {previewCurrent && draft.eventData.questions.length > 0 && <section className="rounded-lg border p-4 space-y-3" aria-label="추가 정보">
-        <h2 className="font-semibold">이 내용만 더 알려주세요</h2>
-        <ul className="list-disc pl-5 space-y-1">{draft.eventData.questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
-      </section>}
-      {previewCurrent && draft.content && <section className="rounded-lg border bg-white p-4 space-y-4" aria-label="게시 미리보기">
-        <h2 className="font-semibold">{draft.title}</h2><PostBody content={draft.content} />
-        <label className="flex gap-2 text-sm items-start"><input type="checkbox" checked={confirmed} disabled={busy} onChange={(event) => setConfirmed(event.target.checked)} />내용과 연락처·계좌를 확인했습니다.</label>
-        <Button disabled={busy || !confirmed || !!answer.trim()} onClick={() => void publish()}>확인한 내용 게시</Button>
-      </section>}
-      {previewCurrent && (draft.content || draft.eventData.questions.length > 0) && <div className="space-y-2">
-        <label className="block space-y-2"><span className="font-medium">추가 답변 또는 정정</span><Textarea value={answer} maxLength={20000 - text.length} disabled={busy} onChange={(event) => { setAnswer(event.target.value); setConfirmed(false); }} placeholder="필요한 내용만 짧게 적어 주세요." /></label>
-        <Button variant="outline" disabled={busy || !answer.trim() || text.length + answer.length + 12 > 20000} onClick={() => { edit(`${text}\n\n추가 답변·정정: ${answer.trim()}`); setAnswer(""); void generate(); }}>반영하여 다시 작성</Button>
+    </div>
+    <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">알고 있는 내용이나 공개 안내 링크를 짧게 적어 주세요. 부족한 정보만 여쭤보고, 확인한 미리보기로 게시합니다. 관리자는 대리 등록할 동문의 이름과 학번을 함께 적어 주세요.</p>
+    {error && <p role="alert" className="whitespace-pre-wrap text-sm text-red-700 [overflow-wrap:anywhere]">{error}</p>}
+    {!draft ? <div>{!error ? <LoadingSpinner /> : <Button onClick={() => window.location.reload()}>초안 다시 불러오기</Button>}</div> :
+      <div className="grid grid-cols-1 items-start gap-5 md:gap-6 lg:grid-cols-2">
+        <div className="min-w-0 space-y-5 rounded-xl border bg-white p-4 md:p-6">
+          <label className="block space-y-2"><span className="font-semibold">전할 내용</span>
+            <Textarea rows={7} className="md:min-h-64 md:text-base" maxLength={20000} value={text} disabled={busy} onChange={(event) => edit(event.target.value)} placeholder="알고 있는 경조사 내용과 공개 안내 링크를 적어 주세요." />
+          </label>
+          <div className="flex flex-wrap justify-between gap-3 text-sm text-muted-foreground">
+            <span role="status">{previewCurrent ? "초안 저장됨" : error ? "변경 내용이 저장되지 않았습니다" : "변경 내용 저장 중"}</span>
+            <button type="button" disabled={busy} className="underline" onClick={() => void remove()}>초안 삭제</button>
+          </div>
+          <p className="text-xs text-muted-foreground">자연어 해석이 필요한 경우 입력 내용과 공개 링크의 필요한 정보가 OpenAI로 전달됩니다.</p>
+          <Button className="w-full md:w-auto" disabled={busy || !text.trim()} onClick={() => void generate()}>{busy ? "처리 중…" : "미리보기 작성"}</Button>
+          {previewCurrent && draft.eventData.sources.filter((source) => source.status !== "fetched").map((source) => <p className="text-sm [overflow-wrap:anywhere]" key={source.url}>{source.message || "링크를 읽지 못했습니다. 필요한 내용을 직접 적어 주세요."}</p>)}
+          {previewCurrent && draft.eventData.questions.length > 0 && <section className="space-y-3 rounded-lg border p-4" aria-label="추가 정보">
+            <h2 className="font-semibold">이 내용만 더 알려주세요</h2>
+            <ul className="list-disc space-y-1 pl-5 [overflow-wrap:anywhere]">{draft.eventData.questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
+          </section>}
+          {previewCurrent && (draft.content || draft.eventData.questions.length > 0) && <div className="space-y-2 border-t pt-5">
+            <label className="block space-y-2"><span className="font-medium">추가 답변 또는 정정</span><Textarea value={answer} maxLength={20000 - text.length} disabled={busy} onChange={(event) => { setAnswer(event.target.value); setConfirmed(false); }} placeholder="필요한 내용만 짧게 적어 주세요." /></label>
+            <Button variant="outline" disabled={busy || !answer.trim() || text.length + answer.length + 12 > 20000} onClick={() => { edit(`${text}\n\n추가 답변·정정: ${answer.trim()}`); setAnswer(""); void generate(); }}>반영하여 다시 작성</Button>
+          </div>}
+        </div>
+        <section className="min-w-0 space-y-5 rounded-xl border bg-white p-4 md:p-6" aria-labelledby="notice-preview-title">
+          <h2 id="notice-preview-title" className="border-b pb-4 text-lg font-semibold">게시 미리보기</h2>
+          {previewCurrent && draft.content ? <>
+            <h3 className="break-words text-lg font-bold md:text-xl">{draft.title}</h3>
+            <PostBody content={draft.content} className="md:text-base" />
+            <div className="space-y-4 border-t pt-5">
+              <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={confirmed} disabled={busy} onChange={(event) => setConfirmed(event.target.checked)} />내용과 연락처·계좌를 확인했습니다.</label>
+              <Button className="w-full md:w-auto" disabled={busy || !confirmed || !!answer.trim()} onClick={() => void publish()}>확인한 내용 게시</Button>
+            </div>
+          </> : <p className="py-8 text-center text-sm leading-relaxed text-muted-foreground md:py-16">전할 내용을 입력하고 ‘미리보기 작성’을 누르면<br />게시할 글을 이곳에서 확인할 수 있습니다.</p>}
+        </section>
       </div>}
-    </>}
-  </main>;
+  </div>;
 }
