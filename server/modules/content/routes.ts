@@ -1,3 +1,4 @@
+import { PostDocumentError } from "@shared/editor/post-document";
 import type { Express } from "express";
 import { insertCategorySchema } from "@shared/schema";
 import { insertPostSchema, insertCommentSchema } from "@shared/contracts";
@@ -119,6 +120,7 @@ export function registerContentRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
+      if (error instanceof PostDocumentError) return res.status(400).json({ message: error.message, reason: error.reason, path: error.path });
       res.status(500).json({ message: "Failed to create post" });
     }
   });

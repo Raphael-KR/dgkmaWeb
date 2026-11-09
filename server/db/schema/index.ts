@@ -14,6 +14,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { PostDocument } from "@shared/contracts/post-document";
 import type { NoticeData } from "@shared/contracts/notices";
 import type { PendingRegistrationUserData } from "@shared/contracts";
 import type { MembershipTier } from "@shared/contracts";
@@ -82,7 +83,7 @@ export const categories = pgTable("categories", {
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  content: text("content").notNull(),
+  content: jsonb("content").$type<PostDocument>().notNull(),
   categoryId: integer("category_id").references(() => categories.id),
   authorId: integer("author_id").references(() => users.id),
   isPublished: boolean("is_published").default(true),
@@ -94,6 +95,7 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  check("posts_content_document_check", sql`(jsonb_typeof(${table.content}) = 'object' AND ${table.content}->>'type' = 'doc' AND jsonb_typeof(${table.content}->'content') = 'array') IS TRUE`),
   check("posts_notice_type_check", sql`${table.eventData} IS NULL OR (${table.eventData}->>'schemaVersion' = '1' AND ${table.eventData}->>'eventType' IN ('obituary', 'wedding', 'opening')) IS TRUE`),
   check("posts_revision_check", sql`${table.revision} >= 0`),
   uniqueIndex("posts_notice_draft_unique").on(table.authorId, sql`(${table.eventData}->>'eventType')`).where(sql`${table.isPublished} = false AND ${table.eventData} IS NOT NULL`),

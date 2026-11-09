@@ -1,3 +1,4 @@
+import { emptyPostDocument } from "@shared/contracts/post-document";
 import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
@@ -29,6 +30,7 @@ export default function Boards() {
   const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState(() => new URLSearchParams(window.location.search).get("category") || "all");
   const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
+  const [bodyValid, setBodyValid] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +91,7 @@ export default function Boards() {
     })),
     defaultValues: {
       title: "",
-      content: "",
+      content: emptyPostDocument(),
       categoryId: undefined,
       authorId: user?.id,
     },
@@ -139,6 +141,7 @@ export default function Boards() {
   });
 
   const onSubmitPost = (data: InsertPost) => {
+    if (!bodyValid) return;
     createPostMutation.mutate({
       ...data,
       authorId: user?.id!,
@@ -252,7 +255,7 @@ export default function Boards() {
                           <FormLabel>내용</FormLabel>
                           <Suspense fallback={<div role="status" className="min-h-48 py-8 text-center text-sm text-gray-500">편집기를 불러오는 중입니다.</div>}>
                             <FormControl>
-                              <PostBodyEditor {...field} />
+                              <PostBodyEditor {...field} onValidityChange={setBodyValid} />
                             </FormControl>
                           </Suspense>
                           <FormMessage />
@@ -327,7 +330,7 @@ export default function Boards() {
                       </Button>
                       <Button
                         type="submit"
-                        disabled={createPostMutation.isPending || isUploading}
+                        disabled={createPostMutation.isPending || isUploading || !bodyValid}
                         className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400"
                       >
                         {createPostMutation.isPending ? "작성중..." : "작성완료"}

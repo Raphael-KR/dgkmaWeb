@@ -36,7 +36,43 @@
 - 최종 전체 catalog는 `13/102/13/8/6/6/24/9`(tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences)이며 출력 SHA-256은 `50b2f6f8676b7ad37a6a1ebd15e596255450f5db5c23f8a1430c6a4cfbf3c60c`다. 추가 구조 적용 후 catalog와 비교한 차이는 승인된 두 구 테이블 및 소유 객체의 제거뿐이었다. READ ONLY gate·ROLLBACK·완료 marker를 확인했다.
 - 구조 snapshot `production-after-web-publish-schema.sql`의 SHA-256은 `b10b764347f0640ce3afbe2d03294b805753eee6b506fb691aa90bd4a099a2b2`다. 새 연결 집계·catalog·HTTP 결과와 `release-completion.json`을 같은 작업 경로에 보존했다. 운영 Secret 값과 행 원문은 보존하지 않았다.
 
-## 게시글 본문 서식 계약 (2026-11-09)
+## 본문 JSONB 개발 전환 (2026-11-09)
+
+- 사용자 요청은 Development `posts.content`의 Markdown TEXT를 Tiptap JSONB로 변환하고 기존 내용을 보존하는 것이다. 이번 작업에서는 폐기 가능한 테스트 데이터 정책을 근거로 게시글을 삭제하지 않는다. 운영 DB·배포·실계정 QA·자동 원복은 포함하지 않는다.
+- 명시적 전환 스크립트 `scripts/migrate-post-body.ts`는 Replit PG* 개발 연결과 `current_database()=heliumdb`를 확인한다. `--preview`에서 타입·건수·공식 Markdown 변환과 공통 문서 스키마 결과를 집계한다. 본문·회원 정보·URL·인증정보를 콘솔이나 커밋에 출력하지 않는다.
+- 적용 전 schema-only snapshot과 metadata-only catalog, 대상 의존 관계·테이블별 건수를 확인한다. 원문을 포함한 posts 전체 행은 Replit의 Git 제외 경로 `.superpowers/post-body-jsonb-20261109/` 안에 소유자 전용 권한으로 보존한다. 이 요청이 해당 원문 보존의 근거이며 Mac으로 복제하지 않는다. 파일 해시·행 수만 보고한다.
+- 데이터 변환 로직과 DDL `scripts/post-body-jsonb.sql`을 분리한다. `--apply`는 트랜잭션·posts 배타 잠금 아래 원본을 보존하고 기존 Markdown을 공식 파서로 변환한다. 기존 구문에서 손실이 발견되면 해당 행을 실패로 보고하고 전체 적용을 커밋하지 않는다. 안전 링크 정책 밖의 링크나 지원 밖 문서를 임의 삭제하지 않는다.
+- 같은 트랜잭션에서 변환 JSON을 기존 content에 기록한 뒤 JSONB로 타입 전환하고 CHECK를 추가한다. ID·본문 외 컬럼·`event_data`·첨부·작성자·시각·댓글·명부와 나머지 테이블을 보존한다. 완료 후 새 연결에서 모든 대상 JSON·기존 행의 본문 외 필드·건수와 검색용 텍스트 추출을 대조한다. 이미 JSONB인 경우 재변환하지 않는다.
+- 스키마 변경 뒤 `scripts/database-schema-catalog.sql`을 expected_database=heliumdb로 실행해 READ ONLY gate·ROLLBACK·completion marker를 확인하고 스키마 기준서에 객체·digest·실제 적용 시각을 기록한다. 개발 코드와 전환 결과가 준비되기 전 새 게시글을 생성하는 시험을 하지 않는다.
+- 복구 계획: 보존한 schema와 원문 행으로 원래 TEXT 타입·본문을 복원할 수 있다. 성공한 변경을 되돌리는 실행은 별도 원복 승인 후에만 수행하며 자동 원복·백업 자동 삭제는 하지 않는다. SQL 실패로 미커밋 트랜잭션을 종료하는 것은 성공한 변경의 원복과 구분한다.
+
+### 본문 JSONB 개발 적용 기록
+
+- 2026-11-09 18:58 KST 기본 `PG*` 연결의 `heliumdb`·개발 환경을 확인했다. posts는 0건, content는 TEXT, 해당 컬럼의 외부 의존 객체는 0개였다. `before-schema.sql` 18,779 bytes(SHA-256 `085a7c402c510f9fd22c3f637e90c5c9d687f1beef1eacf71bd44cac14da8b1f`)와 `before-catalog.txt`를 Replit 비공개 경로에 보존했다.
+- 19:05:44 KST `--preview`는 대상 0건·변환 가능 0건·오류 0건으로 READ ONLY 트랜잭션을 종료했다. 19:06:32 KST `--apply`가 같은 대상의 원본 보존·posts 잠금·타입 전환·CHECK 추가를 한 트랜잭션으로 COMMIT했다. DDL SHA-256은 `09578f77340d1b60a211828564c54e966a235091844b38cedcbd86bb783908c0`다.
+- 원본 보존 파일은 `.superpowers/post-body-jsonb-20261109/posts-before-1794218792225.json`이며 행 배열은 비어 있다. 파일 권한은 0600, 디렉터리는 0700이고 SHA-256은 `0eff1e7741c283a066c3874f63d57246a12ec94348f6a953e5aabaa10883cdc6`이다. Mac·Git으로 복제하지 않았다.
+- COMMIT 후 별도 연결에서 JSONB NOT NULL·validated CHECK, posts 0건과 모든 public 테이블의 전후 건수 일치를 확인했다. 명부 3,458건·카테고리 7건·수집 규칙 1건·기존 OAuth 상태/세션 각각 1건을 보존했다. 본문 외 값과 검색 텍스트의 실제 행 대조 대상은 0건이며 비어 있지 않은 본문의 변환·검색 결과를 실행 확인한 것은 아니다.
+- 19:07:21 KST 전체 metadata-only catalog는 READ ONLY gate·ROLLBACK·완료 marker를 확인했고 `13/102/13/8/6/7/24/9`였다. 차이는 본문 컬럼 타입과 CHECK 하나뿐이며 [스키마 기록](./database-schema.md#본문-jsonb-개발-catalog와-적용-결과)을 따른다. `after-schema.sql` SHA-256은 `2741528773f0362f2be585d0b8d1f5eed9ad475437523ddb8a198b9852bc5934`다.
+- 실행 근거 `preview.json`·`apply.json`·`catalog-receipt.json`과 전후 구조 snapshot/catalog를 같은 비공개 경로에 보존했다. 새 게시글·시험 회원·시험 DB는 만들지 않았다. 운영 DB·운영 배포·실계정 QA·서버 재시작·자동 원복은 수행하지 않았다. 운영 전환은 별도 승인된 후속 범위이며 이 개발 전용 스크립트는 운영 대상을 거부한다.
+
+## 본문 JSONB 운영 릴리스 (2026-11-09)
+
+- 사용자 승인: 전체 미커밋분의 커밋·push·PR·main 병합·Replit 릴리스와 운영 DB 본문 전환을 명시 승인했다. 기존 본문의 보존 요청은 유지하며 테스트 데이터 초기화 권한으로 대신하지 않는다. 실계정 QA와 자동 원복은 보류한다.
+- 운영 명령은 `node --import tsx scripts/migrate-post-body-production.ts --preview`와 `--apply`다. 같은 변환 함수에 운영 대상을 명시하고 `current_database()=neondb`를 확인한다. preview·사후 읽기는 `PROD_DATABASE_READONLY_URL`이 있으면 우선 사용하고, apply는 `PROD_DATABASE_URL`을 해당 Client에만 전달한다. `PG*`의 개발 기본값과 Secret 자체는 바꾸지 않는다.
+- 사전 확인: 운영 스키마·본문 타입·posts 건수·컬럼 의존 관계·테이블별 건수, 원문 없는 metadata-only catalog와 schema snapshot을 Replit `.superpowers/post-body-jsonb-release-20261109/`에 보존한다. 원문은 변환 preview 동안 메모리에서만 처리하며 apply 직전 posts 전체 행을 같은 경로의 0600 파일에 보존한다. 디렉터리는 0700, 원문 백업은 Mac·Git·채팅에 복제하지 않는다.
+- 적용 순서: 기준 문서·운영 전용 실행 코드 준비 → Replit 정적 검사·릴리스 빌드 → 운영 preview → 후보 커밋·push·PR 검토·main 병합 → 같은 main을 Replit에 적용 → 운영 원본 재확인·백업·posts 배타 잠금·변환과 DDL 한 트랜잭션 → 새 연결 확인·catalog → 즉시 Republish → 운영 비로그인 HTTP·정적 자산 대조. 자동 DB push나 개발 DB 복사는 사용하지 않는다.
+- 기존 TEXT 본문 앱과 새 JSONB 계약은 호환되지 않는다. 후보 빌드와 Git 통합이 준비되기 전에 운영 컬럼을 전환하지 않는다. 전환부터 새 배포까지의 간격을 기록하고, 게시 실패 시 현재 상태·근거를 보고하며 승인 없이 자동 롤백하지 않는다. 플랫폼이 DB 웹 검토를 요구하면 승인된 변경만 확인하고 검토를 우회하지 않는다.
+- 실제 변환 가능 건수·오류·원본 해시·DDL 해시·새 연결의 JSON/본문 외 값/텍스트 추출 대조·전체 건수·catalog 결과를 기록한다. 변환 오류가 있으면 해당 레코드 ID·실패 이유만 보고하고 전환 트랜잭션을 COMMIT하지 않는다. 운영 대상이 이미 JSONB면 이 마이그레이션을 다시 실행하지 않고 실제 계약과 기록을 대조한다.
+- 같은 운영 명령의 성공한 결과는 자동 원복하지 않는다. schema와 원문 보존은 복구 준비이며 복원 실행은 별도 승인을 따른다. 운영 DB 연결은 명령 종료 시 닫고 Secrets는 기존 수명 정책대로 유지한다.
+
+### 본문 운영 전환 사전 결과
+
+- 2026-11-09 19:32:22 KST 운영 `neondb`에서 READ ONLY로 대상·구조·건수를 확인했다. 읽기 전용 URL은 미설정이어서 명시적으로 owner Secret을 읽기 전용 트랜잭션에 사용했다. 값·접속 문자열·행 원문은 출력하지 않았다.
+- 기존 posts는 3건이며 content는 TEXT NOT NULL·기본값 없음, 컬럼의 외부 의존 객체는 0개다. 명부 3,458건·카테고리 7건과 기존 회원·신청·별칭·인증 기록 등 모든 테이블 건수를 `production-before.json`에 기록했다. 삭제나 초기화는 실행하지 않았다.
+- `production-before-schema.sql`의 SHA-256은 `5a954bcbacde7543950dd8180867b81cf2e7cdf59f790fd3b5671373b5a20be4`다. metadata-only catalog는 READ ONLY gate·ROLLBACK·완료 marker를 확인했고 [스키마 기록](./database-schema.md#본문-jsonb-운영-전환-범위)을 따른다.
+- 19:33:46 KST 운영 전용 `--preview`는 대상 3건·변환 가능 3건·오류 0건이다. 공식 파싱·문서 스키마·Markdown 왕복 비교를 거쳤으며 원문을 출력하지 않았다. 이 단계는 READ ONLY이고 JSONB 전환이나 게시 완료가 아니다.
+
+## 이전 게시글 본문 서식 계약 (2026-11-09 이력)
 
 - 일반 게시글의 서식 입력은 마크다운으로 변환해 기존 `posts.content` TEXT에 저장한다. 기존 텍스트와 경조사 본문은 공통 표시기를 적용하며 행을 변환하지 않는다.
 - 이번 작업에는 DB 접속·DDL·`db:push`·데이터 마이그레이션이 필요하지 않다. 코드·의존성·문서만 Replit 개발에 반영하고 필요한 정적 검사로 확인한다. 물리 catalog는 이전 관찰 이력을 유지한다.

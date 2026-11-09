@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PostDocument } from "./post-document";
 
 export const NOTICE_TYPES = ["obituary", "wedding", "opening"] as const;
 export type NoticeType = typeof NOTICE_TYPES[number];
@@ -47,7 +48,7 @@ export type NoticeData = {
   fieldSources?: Partial<Record<keyof NoticeFacts, NoticeFieldSource[]>>;
 };
 export type NoticeDraft = {
-  id: number; title: string; content: string; sourceText: string | null;
+  id: number; title: string; content: PostDocument; sourceText: string | null;
   revision: number; isPublished: boolean | null; eventData: NoticeData;
 };
 export const noticeRevisionSchema = z.object({ revision: z.number().int().nonnegative() }).strict();

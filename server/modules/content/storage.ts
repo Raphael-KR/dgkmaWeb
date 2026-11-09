@@ -1,3 +1,5 @@
+import { normalizePostDocument } from "@shared/editor/post-document";
+import { postBodyTextExpression } from "./post-body-query";
 import {
   users, posts, categories, comments,
   type Post, type InsertPost, type Category, type InsertCategory, type Comment,
@@ -89,13 +91,13 @@ export class ContentStorage implements ContentStorageContract {
   }
 
   async createPost(insertPost: InsertPost): Promise<Post> {
-    const [post] = await db.insert(posts).values(insertPost).returning();
+    const [post] = await db.insert(posts).values({ ...insertPost, content: normalizePostDocument(insertPost.content) }).returning();
     return post;
   }
 
   async updatePost(id: number, updateData: Partial<InsertPost>): Promise<Post | undefined> {
     const [post] = await db.update(posts)
-      .set({ ...updateData, updatedAt: new Date() })
+      .set({ ...updateData, ...(updateData.content === undefined ? {} : { content: normalizePostDocument(updateData.content) }), updatedAt: new Date() })
       .where(eq(posts.id, id))
       .returning();
     return post || undefined;
@@ -167,7 +169,7 @@ export class ContentStorage implements ContentStorageContract {
         eq(posts.isPublished, true),
         or(
           like(posts.title, searchTerm),
-          like(posts.content, searchTerm)
+          like(postBodyTextExpression(), searchTerm)
         )
       )
     )
