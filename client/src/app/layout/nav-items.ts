@@ -8,9 +8,11 @@ export type PublicNavItem = {
 };
 
 export const publicNavItems: PublicNavItem[] = [
-  { path: "/", label: "홈" },
+  { path: "/about", label: "홈" },
   { path: "/about/intro", label: "소개" },
   { path: "/about/executives", label: "임원명단" },
+  { path: "/about/presidents", label: "역대회장" },
+  { path: "/about/heritage", label: "역사관" },
   {
     path: "/about/bylaws",
     label: "회칙",
@@ -26,12 +28,13 @@ export const publicNavItems: PublicNavItem[] = [
 ];
 
 export function isPublicNavActive(location: string, item: PublicNavItem) {
+  if (item.path === "/about" && location === "/") return true;
   return location === item.path || !!item.children?.some((child) => child.path === location);
 }
 
 export const memberNavItems = [
   { path: "/", icon: Home, label: "홈", gated: false },
-  { path: "/heritage", icon: Info, label: "동문회", gated: true },
+  { path: "/about", icon: Info, label: "동문회", gated: false },
   { path: "/b", icon: MessageSquare, label: "게시판", gated: true },
   { path: "/directory", icon: Users, label: "명부", gated: true },
   { path: "/profile", icon: User, label: "내정보", gated: true },
@@ -40,6 +43,9 @@ export const memberNavItems = [
 export const adminNavItem = { path: "/admin", icon: Shield, label: "관리자", gated: true };
 
 export function isMemberNavActive(location: string, path: string) {
+  if (path === "/about") {
+    return location === "/about" || location.startsWith("/about/");
+  }
   if (path === "/b") {
     return location === "/b" || location.startsWith("/b/") || location.startsWith("/p/") || location.startsWith("/post/");
   }

@@ -1,7 +1,7 @@
 # 프로젝트 구조와 변경 경계
 
 React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를 유지한다.
-기능 이동은 URL, 권한, 캐시 키, 데이터 정의를 바꾸는 작업이 아니다.
+기능 소유 위치와 URL·공개 범위의 변경은 구분하며, URL·권한은 확정된 제품 정책을 따른다.
 제품 정책은 `planning_proposal.md`, 환경은 `replit.md`, DB는 기존
 `database-schema.md`/`database-operations.md`가 계속 기준이다.
 
@@ -11,9 +11,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 |---|---|---|
 | `client/src/App.tsx` | `client/src/app/app.tsx`, `providers.tsx`, `routing/`, `layout/` | 앱 조립, 라우트, 프로바이더, 공통 레이아웃 |
 | `pages/login`, `kakao-callback`, `onboarding`, auth 훅/컴포넌트 | `features/auth` | 로그인·콜백·활동지역, 세션 상태와 인증 API |
-| `pages/home`, `public-home` | `features/home` | 회원/비회원 홈 |
-| `pages/about`, `info` | `features/about` | 소개·임원·회칙·가입·회비·경조사 지원 안내 |
-| `pages/heritage`, heritage 컴포넌트 | `features/heritage` | 역사 자료 |
+| `pages/home`, `public-home` | `features/home` | 회원 홈과 `/`·`/about`에서 공유하는 공개 랜딩페이지 |
+| `pages/about`, `info`, `pages/heritage` | `features/about` | 소개·임원·역대회장·역사관·회칙·가입·회비·경조사 지원 안내. 기존 heritage 목업은 제거 |
 | `pages/boards`, `post-detail` | `features/boards` | 게시글·댓글·첨부 |
 | `pages/directory` | `features/directory` | 권한 범위 내 명부 |
 | `pages/profile`, profile 컴포넌트 | `features/profile` | 프로필·납부내역·회원상태 |
@@ -58,12 +57,14 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 ### 브라우저 경로
 
 `/`, `/login`, `/kakao-callback`, `/onboarding/region`, `/terms`, `/privacy`,
-`/about/intro`, `/about/executives`, `/about/bylaws`, `/about/bylaws/regulations`,
+`/about`, `/about/intro`, `/about/executives`, `/about/presidents`, `/about/heritage`,
+`/about/bylaws`, `/about/bylaws/regulations`,
 `/about/join`, `/about/dues`, `/about/condolence`, `/admin`, `/b`, `/directory`,
-`/profile`, `/heritage`, `/search`, `/p/:id`, `/post/:id`를 유지한다.
+`/profile`, `/search`, `/p/:id`, `/post/:id`를 제공한다.
 통합 정책에 따라 `/b/write/:type`를 추가하고 `/o`, `/events`와 그 하위 경로는 제거한다.
 
-- `/about`, `/info`, `/history → /heritage`
+- `/about`은 로그인 여부와 관계없이 기존 공개 홈 랜딩페이지를 직접 표시한다. `/heritage` 화면·라우트는 제거한다.
+- `/info → /about`; `/history → /about/intro`
 - `/executives`, `/officers → /about/executives`; `/bylaws → /about/bylaws`
 - 회원의 활동지역 미입력 시 `/onboarding/region` 이동, 관리자 진입 제한을 유지한다.
 
@@ -123,13 +124,14 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 - `npm test`, `npm run build`: 전체 회귀·배포 번들 검증.
 
 경계 검사는 정적 import/export와 literal dynamic import를 대상으로 한다.
-동적으로 계산한 import 문자열, DI의 의미적 의존성, HTTP 권한을 증명하지 않으므로
-타입 검사와 라우트 회귀를 함께 실행한다. 스키마·실데이터 변경은 이 작업에 포함하지 않는다.
+동적으로 계산한 import 문자열, DI의 의미적 의존성, HTTP 권한을 증명하지 않는다.
+개발 직후에는 필요한 정적 검사만 수행한다. 별도로 요청된 라우트 실행 점검과 구분하며 스키마·실데이터 변경은 이 작업에 포함하지 않는다.
 
 ## 삭제하지 않은 검토 후보
 
-`features/about/info.tsx`, 레거시 `features/events/obituary/create.tsx`/`list.tsx`,
-기존 호환 shared export, 미사용 추정 패키지는 사용처를 별도 확인하기 전 보존한다.
+레거시 `features/events/obituary/create.tsx`/`list.tsx`, 기존 호환 shared export와
+미사용 추정 패키지는 사용처를 별도 확인하기 전 보존한다.
+`features/heritage/info.tsx`를 포함한 기존 heritage 화면은 2026-11-09 공개 메뉴 통합 범위에서 제거했다.
 `attached_assets`나 sandbox를 정리 대상으로 취급하지 않는다.
 
 검증 결과와 실제 계정 UI의 미확인 범위는 [구조 개편 검증 기록](structure-validation.md)에 기록한다.
