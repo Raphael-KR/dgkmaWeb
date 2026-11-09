@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 
-const SITE_NAME = "동국대학교한의과대학동문회";
-const DEFAULT_DESCRIPTION =
-  "따뜻한 연대, 함께하는 성장 — 동국대학교 한의과대학 동문회 공식 플랫폼. 회칙, 회비, 경조사 지원, 동문 명부와 게시판을 한 곳에서 이용하세요.";
-const DEFAULT_KEYWORDS =
-  "동국한의동문회, 동국대학교한의과대학동문회, 동국한의대, 동문회, 한의과대학 동문";
+import {
+  SITE_NAME, SITE_DESCRIPTION as DEFAULT_DESCRIPTION, SITE_KEYWORDS as DEFAULT_KEYWORDS,
+  SITE_IMAGE as DEFAULT_IMAGE, siteTitle,
+} from "@shared/site";
 
 export interface SeoOptions {
   title: string;
@@ -42,9 +41,7 @@ function setLink(rel: string, href: string) {
 export function applySeo(opts: SeoOptions) {
   if (typeof document === "undefined") return;
 
-  const fullTitle = opts.title.includes(SITE_NAME)
-    ? opts.title
-    : `${opts.title} | ${SITE_NAME}`;
+  const fullTitle = siteTitle(opts.title);
   const description = opts.description || DEFAULT_DESCRIPTION;
   const keywords = opts.keywords || DEFAULT_KEYWORDS;
   const origin =
@@ -59,7 +56,7 @@ export function applySeo(opts: SeoOptions) {
     ? opts.image.startsWith("http")
       ? opts.image
       : `${origin}${opts.image}`
-    : `${origin}/og-image.png`;
+    : `${origin}${DEFAULT_IMAGE}`;
 
   document.title = fullTitle;
   setMeta("name", "description", description);

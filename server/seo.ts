@@ -1,11 +1,9 @@
 import type { Request } from "express";
 
-const SITE_NAME = "동국대학교한의과대학동문회";
-const DEFAULT_DESCRIPTION =
-  "따뜻한 연대, 함께하는 성장 — 동국대학교 한의과대학 동문회 공식 플랫폼. 회칙, 회비, 경조사 지원, 동문 명부와 게시판을 한 곳에서 이용하세요.";
-const DEFAULT_KEYWORDS =
-  "동국한의동문회, 동국대학교한의과대학동문회, 동국한의대, 동문회, 한의과대학 동문";
-const DEFAULT_IMAGE = "/og-image.png";
+import {
+  SITE_NAME, SITE_DESCRIPTION as DEFAULT_DESCRIPTION, SITE_KEYWORDS as DEFAULT_KEYWORDS,
+  SITE_IMAGE as DEFAULT_IMAGE, siteTitle,
+} from "@shared/site";
 
 type SeoMeta = {
   title: string;
@@ -18,16 +16,16 @@ type SeoMeta = {
 
 const STATIC_SEO: Record<string, SeoMeta> = {
   "/": {
-    title: "동국대학교한의과대학동문회",
+    title: SITE_NAME,
     description: "모교 기여, 장학, 동문 모임, 경조사 안내",
   },
   "/login": {
     title: "로그인",
-    description: "동국대학교한의과대학동문회 회원 전용 서비스에 로그인합니다.",
+    description: `${SITE_NAME} 회원 전용 서비스에 로그인합니다.`,
   },
   "/kakao-callback": {
     title: "카카오 로그인 처리",
-    description: "동국대학교한의과대학동문회 카카오 로그인을 처리하고 있습니다.",
+    description: `${SITE_NAME} 카카오 로그인을 처리하고 있습니다.`,
   },
   "/onboarding/region": {
     title: "활동 지역 선택",
@@ -35,23 +33,23 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   },
   "/terms": {
     title: "이용약관",
-    description: "동국대학교한의과대학동문회 홈페이지 이용약관을 안내합니다.",
+    description: `${SITE_NAME} 홈페이지 이용약관을 안내합니다.`,
   },
   "/privacy": {
     title: "개인정보처리방침",
-    description: "동국대학교한의과대학동문회 개인정보 수집 및 이용 방침을 안내합니다.",
+    description: `${SITE_NAME} 개인정보 수집 및 이용 방침을 안내합니다.`,
   },
   "/about/intro": {
     title: "동문회 소개",
-    description: "동국대학교한의과대학동문회의 설립 목적, 연혁, 조직, 주요 사업을 소개합니다.",
+    description: `${SITE_NAME}의 설립 목적, 연혁, 조직, 주요 사업을 소개합니다.`,
   },
   "/about/executives": {
     title: "임원 명단",
-    description: "동국대학교한의과대학동문회 임원진과 조직 구성을 소개합니다.",
+    description: `${SITE_NAME} 임원진과 조직 구성을 소개합니다.`,
   },
   "/about/bylaws": {
     title: "동문회 회칙",
-    description: "동국대학교한의과대학동문회 회칙과 운영 기준을 안내합니다.",
+    description: `${SITE_NAME} 회칙과 운영 기준을 안내합니다.`,
   },
   "/about/join": {
     title: "회원가입 안내",
@@ -59,7 +57,7 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   },
   "/about/dues": {
     title: "2026년 회비 안내",
-    description: "2026년 동국대학교한의과대학동문회 회비 금액과 납부 계좌, 권리회원 혜택을 안내합니다.",
+    description: `2026년 ${SITE_NAME} 회비 금액과 납부 계좌, 권리회원 혜택을 안내합니다.`,
   },
   "/about/condolence": {
     title: "회원 경조사 지원 안내",
@@ -67,11 +65,11 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   },
   "/admin": {
     title: "관리자",
-    description: "동국대학교한의과대학동문회 관리자 전용 메뉴입니다.",
+    description: `${SITE_NAME} 관리자 전용 메뉴입니다.`,
   },
   "/b": {
     title: "공지 및 게시판",
-    description: "동국대학교한의과대학동문회의 공지사항과 동문 소식을 확인합니다.",
+    description: `${SITE_NAME}의 공지사항과 동문 소식을 확인합니다.`,
   },
   "/directory": {
     title: "동문 명부",
@@ -79,11 +77,11 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   },
   "/profile": {
     title: "내 정보",
-    description: "동국대학교한의과대학동문회 회원 정보를 확인하고 관리합니다.",
+    description: `${SITE_NAME} 회원 정보를 확인하고 관리합니다.`,
   },
   "/heritage": {
     title: "동문회 역사와 회칙",
-    description: "동국대학교한의과대학동문회의 연혁, 역대 회장, 조직, 회칙을 확인합니다.",
+    description: `${SITE_NAME}의 연혁, 역대 회장, 조직, 회칙을 확인합니다.`,
   },
   "/search": {
     title: "검색",
@@ -99,17 +97,13 @@ const STATIC_SEO: Record<string, SeoMeta> = {
   },
   "/events": {
     title: "경조사",
-    description: "동국대학교한의과대학동문회 회원 경조사 소식을 확인합니다.",
+    description: `${SITE_NAME} 회원 경조사 소식을 확인합니다.`,
     noIndex: true,
   },
 };
 
 function stripQueryAndHash(url: string) {
   return url.split("?")[0]?.split("#")[0] || "/";
-}
-
-function fullTitle(title: string) {
-  return title.includes(SITE_NAME) ? title : `${title} | ${SITE_NAME}`;
 }
 
 function plainText(value: string) {
@@ -143,7 +137,7 @@ async function getRouteSeo(pathname: string): Promise<SeoMeta> {
   return (
     STATIC_SEO[pathname] || {
       title: "페이지를 찾을 수 없습니다",
-      description: "요청하신 동국대학교한의과대학동문회 페이지를 찾을 수 없습니다.",
+      description: `요청하신 ${SITE_NAME} 페이지를 찾을 수 없습니다.`,
     }
   );
 }
@@ -171,7 +165,7 @@ export async function injectSeo(req: Request, html: string) {
   const pathname = stripQueryAndHash(req.originalUrl || req.url);
   const origin = getOrigin(req);
   const meta = await getRouteSeo(pathname);
-  const title = fullTitle(meta.title);
+  const title = siteTitle(meta.title);
   const description = meta.description || DEFAULT_DESCRIPTION;
   const keywords = meta.keywords || DEFAULT_KEYWORDS;
   const url = `${origin}${pathname}`;

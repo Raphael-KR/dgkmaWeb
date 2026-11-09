@@ -10,6 +10,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        kakao: "bg-kakao-yellow text-kakao-brown font-bold hover:brightness-95",
+        onBrand: "site-header-action",
+        onBrandOutline: "border site-header-action site-header-action--outline",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:

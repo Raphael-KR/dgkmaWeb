@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/use-auth";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Button } from "@/components/ui/button";
 import { LoginModal } from "./login-modal";
 
 interface AuthGateProps {
@@ -37,12 +38,9 @@ export function AuthGate({ children, requireAdmin, reason }: AuthGateProps) {
           <p className="text-sm text-gray-600 mb-6">
             카카오 로그인 후 이용해 주세요.
           </p>
-          <button
-            className="bg-kakao-yellow text-kakao-brown px-5 py-2.5 rounded-md font-bold hover:bg-yellow-400"
-            onClick={() => setModalOpen(true)}
-          >
+          <Button variant="kakao" onClick={() => setModalOpen(true)}>
             카카오 로그인
-          </button>
+          </Button>
           <div className="mt-4">
             <button
               className="text-sm text-gray-500 underline"
