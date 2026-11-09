@@ -104,6 +104,7 @@
 #### 릴리스 완료 결과
 
 - 2026-11-09 13:25 KST `https://dgkma.org` 재게시 완료를 확인했다. DB 검토의 `승인 및 게시` 후 커넥터 상태가 `building → running → promoting → success`로 바뀌었다. deployment ID는 같은 앱의 기존 ID를 유지하므로 ID만으로 새 릴리스를 판정하지 않았다. 게시 당시 main은 `21bd999e7224f9f6995fe06174d8a36fb2b51ffb`이며 앱 코드는 PR #22 병합 `f54177b`와 같다.
+- Replit은 13:24:35 KST 파일 변경 없는 `79e43c9` (`Published your App`)를 추가했다. 커밋 metadata의 배포 build ID는 `97e874de-635e-441a-9db8-3bc60e55ecd5`다. 완료 문서 커밋 `6f2e0ed`와 분기된 이 배포 기록을 삭제·재작성하지 않고 main에 병합해 로컬·GitHub·Replit 이력을 함께 보존한다.
 - 비로그인 GET `/`·`/b`는 200 HTML, `/api/posts`·`/api/categories`는 401 JSON, 제거된 `/api/obituaries`는 404 JSON이었다. 초기 JS·게시판·상세·본문 편집기·편집 엔진의 5개 JS가 모두 200이며 Replit 후보 빌드의 SHA-256과 일치했다. 연결된 CSS도 200이다. 이 결과는 회원 로그인·글 작성·편집 동작을 실행한 결과가 아니다.
 - 새 운영 연결에서 `community_events`·`obituaries`와 소유 객체 제거를 확인했다. 최종 catalog는 13개 테이블·102개 컬럼이고 다른 객체 변화는 없었다. 명부 3,458건을 포함한 존속 테이블의 건수는 모두 보존했다. Replit이 검토한 SQL을 적용했으므로 수동 `release-posts-cleanup.sql`은 실행하지 않았다.
 - 기존 `OPENAI_API_KEY`를 값 노출 없이 운영 배포에 포함했다. 실제 OpenAI 호출, 부고·결혼·개원 수집, 운영 Chromium/OCR 실행, 편집기 브라우저 동작과 실계정 QA는 수행하지 않았다. 개발 서버의 별도 재시작도 실행하지 않았다.
