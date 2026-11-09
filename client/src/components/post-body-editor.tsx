@@ -165,7 +165,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
       <EditorContent editor={editor} />
     </div>
     {mode === "markdown" && <Textarea ref={sourceInput} id={id} name={name} value={source} aria-label="게시글 마크다운 내용" aria-describedby={descriptionId} aria-invalid={invalid}
-      onChange={(event) => editSource(event.target.value)} className="min-h-[180px] font-mono text-sm" placeholder="마크다운 내용을 입력하세요" />}
+      onChange={(event) => editSource(event.target.value)} className="min-h-[180px] font-mono text-sm md:min-h-[320px] md:text-base" placeholder="마크다운 내용을 입력하세요" />}
     {editor && mode === "visual" && <BubbleMenu editor={editor} updateDelay={0} appendTo={() => container.current!} className="z-[60]"
       options={{ placement: "top", offset: 8, flip: true, shift: true }}
       shouldShow={({ editor: current, state: currentState, from, to }) => current.isEditable && !currentState.selection.empty && Boolean(currentState.doc.textBetween(from, to).trim()) && (current.isFocused || Boolean(toolbar.current?.contains(document.activeElement)))}>

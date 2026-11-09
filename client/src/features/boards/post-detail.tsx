@@ -98,7 +98,7 @@ export default function PostDetail() {
   if (error || !post) {
     return (
       <div className="min-h-screen bg-kakao-gray">
-        <div className="max-w-md mx-auto px-4 pt-8">
+        <div className="member-container md:max-w-3xl">
           <Card>
             <CardContent className="p-6 text-center">
               <h2 className="text-lg font-bold text-gray-800 mb-2">게시글을 찾을 수 없습니다</h2>
@@ -118,7 +118,7 @@ export default function PostDetail() {
 
   return (
     <div className="min-h-screen bg-kakao-gray">
-      <div className="max-w-md mx-auto px-4 pb-20 pt-4">
+      <div className="member-container">
         {/* 뒤로가기 버튼 */}
         <div className="mb-4">
           <Link href="/b">
@@ -129,12 +129,13 @@ export default function PostDetail() {
           </Link>
         </div>
 
+        <div className="grid grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
         {/* 게시글 상세 */}
-        <Card className="shadow-sm">
-          <CardContent className="p-6">
+        <Card className="min-w-0 shadow-sm">
+          <CardContent className="p-6 md:p-8 lg:p-10">
             {/* 헤더 정보 */}
             <div className="mb-4">
-              <div className="flex items-center space-x-2 mb-3">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge variant={post.category?.badgeVariant as any}>
                   {post.category?.displayName}
                 </Badge>
@@ -150,7 +151,7 @@ export default function PostDetail() {
               </div>
 
               {/* 제목 */}
-              <h1 className="text-xl font-bold text-gray-800 mb-2">
+              <h1 className="mb-3 break-words text-xl font-bold leading-snug text-gray-800 md:text-3xl">
                 {post.title}
               </h1>
 
@@ -163,23 +164,23 @@ export default function PostDetail() {
             <hr className="mb-6" />
 
             {/* 본문 내용 */}
-            <PostBody content={post.content} />
+            <PostBody content={post.content} className="md:text-base" />
 
             {/* 첨부 이미지 */}
             {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (
-              <div className="mt-6 grid grid-cols-2 gap-2">
+              <div className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3">
                 {post.imageUrls.map((url: string, i: number) => (
                   <a
                     key={i}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block"
+                    className="block min-w-0"
                   >
                     <img
                       src={url}
                       alt={`첨부 이미지 ${i + 1}`}
-                      className="w-full h-40 object-cover rounded-md border border-gray-200"
+                      className="h-40 w-full rounded-md border border-gray-200 object-cover md:h-48"
                     />
                   </a>
                 ))}
@@ -188,7 +189,7 @@ export default function PostDetail() {
 
             {/* 하단 액션 버튼들 */}
             <div className="mt-8 pt-6 border-t border-gray-100">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <Link href="/b">
                   <Button variant="outline">
                     <ArrowLeft size={16} className="mr-2" />
@@ -213,7 +214,7 @@ export default function PostDetail() {
         </Card>
 
         {/* 댓글 */}
-        <Card className="shadow-sm mt-4">
+        <Card className="min-w-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center mb-4">
               <MessageSquare size={18} className="mr-2 text-gray-500" />
@@ -226,6 +227,7 @@ export default function PostDetail() {
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="댓글을 입력하세요..."
+                aria-label="댓글 내용"
                 className="min-h-[80px] resize-none mb-2"
                 maxLength={1000}
               />
@@ -257,8 +259,8 @@ export default function PostDetail() {
               <div className="space-y-4">
                 {comments.map((c) => (
                   <div key={c.id} className="border-b border-gray-100 pb-3 last:border-0">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm font-medium text-gray-800">
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                      <span className="min-w-0 break-words text-sm font-medium text-gray-800">
                         {c.author?.name || "회원"}
                       </span>
                       <div className="flex items-center gap-2">
@@ -282,7 +284,7 @@ export default function PostDetail() {
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                    <p className="whitespace-pre-wrap text-sm text-gray-700 [overflow-wrap:anywhere]">
                       {c.content}
                     </p>
                   </div>
@@ -291,6 +293,7 @@ export default function PostDetail() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

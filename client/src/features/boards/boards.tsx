@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -16,10 +15,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/contracts";
 import { isSelectablePostCategory, isNoticeCategory } from "@shared/category-policy";
-import { Plus, ImagePlus, X, Loader2, HeartHandshake } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { Plus, ImagePlus, X, Loader2, HeartHandshake, ArrowUpRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useUpload } from "@/hooks/use-upload";
 
 const PostBodyEditor = lazy(() => import("@/components/post-body-editor").then(module => ({ default: module.PostBodyEditor })));
@@ -64,7 +62,7 @@ export default function Boards() {
     window.scrollTo(0, 0);
   }, []);
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
     enabled: !!user,
   });
@@ -149,15 +147,22 @@ export default function Boards() {
   };
 
   const isLoading = categoriesLoading || postsLoading;
+  const boardCategories = categories.some((category) => category.name === "all")
+    ? categories
+    : [{ name: "all", displayName: "전체" }, ...categories];
+  const categoryLabel = boardCategories.find((category) => category.name === selectedCategory)?.displayName || "게시글";
 
   return (
     <div className="min-h-screen bg-kakao-gray">
 
 
-      <div className="max-w-md mx-auto px-4 pb-20">
-        <div className="py-4">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h1 className="shrink-0 text-xl font-bold text-kakao-brown">게시판</h1>
+      <div className="member-container">
+        <div>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 md:mb-8">
+            <div>
+              <h1 className="text-xl font-bold text-kakao-brown md:text-3xl">게시판</h1>
+              <p className="mt-2 hidden text-sm text-gray-500 md:block">동문들의 소식과 이야기를 나누는 공간입니다.</p>
+            </div>
 
             <div className="flex min-w-0 items-center justify-end gap-2">
               <Button
@@ -188,18 +193,18 @@ export default function Boards() {
                     글쓰기
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto">
+              <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto md:max-w-3xl lg:max-w-4xl">
                 <DialogHeader>
                   <DialogTitle>새 게시글 작성</DialogTitle>
                 </DialogHeader>
 
                 <Form {...writeForm}>
-                  <form onSubmit={writeForm.handleSubmit(onSubmitPost)} className="space-y-4">
+                  <form onSubmit={writeForm.handleSubmit(onSubmitPost)} className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
                     <FormField
                       control={writeForm.control}
                       name="categoryId"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="min-w-0">
                           <FormLabel>카테고리</FormLabel>
                           <Select
                             onValueChange={(value) => field.onChange(parseInt(value))}
@@ -229,7 +234,7 @@ export default function Boards() {
                       control={writeForm.control}
                       name="title"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="min-w-0">
                           <FormLabel>제목</FormLabel>
                           <FormControl>
                             <Input placeholder="게시글 제목을 입력하세요" {...field} />
@@ -243,7 +248,7 @@ export default function Boards() {
                       control={writeForm.control}
                       name="content"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="min-w-0 md:col-span-2">
                           <FormLabel>내용</FormLabel>
                           <Suspense fallback={<div role="status" className="min-h-48 py-8 text-center text-sm text-gray-500">편집기를 불러오는 중입니다.</div>}>
                             <FormControl>
@@ -256,7 +261,7 @@ export default function Boards() {
                     />
 
                     {/* 사진 첨부 */}
-                    <div className="space-y-2">
+                    <div className="min-w-0 space-y-2 md:col-span-2">
                       <FormLabel>사진 첨부</FormLabel>
                       <input
                         type="file"
@@ -287,7 +292,7 @@ export default function Boards() {
                         )}
                       </Button>
                       {imageUrls.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
                           {imageUrls.map((path) => (
                             <div key={path} className="relative">
                               <img
@@ -309,7 +314,7 @@ export default function Boards() {
                       )}
                     </div>
 
-                    <div className="flex justify-end space-x-2 pt-4">
+                    <div className="flex justify-end space-x-2 pt-4 md:col-span-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -335,16 +340,23 @@ export default function Boards() {
             </div>
           </div>
 
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-6">
-              {(categories as Category[]).map((category: Category) => (
-                <TabsTrigger key={category.name} value={category.name} className="text-xs">
+          <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+            <nav aria-label="게시판 카테고리" className="mb-5 flex gap-2 overflow-x-auto pb-2 lg:sticky lg:top-24 lg:mb-0 lg:block lg:space-y-1 lg:rounded-xl lg:border lg:bg-white lg:p-3">
+              <h2 className="hidden px-3 py-2 text-xs font-semibold text-gray-500 lg:block">카테고리</h2>
+              {boardCategories.map((category) => (
+                <button key={category.name} type="button" aria-pressed={selectedCategory === category.name}
+                  onClick={() => setSelectedCategory(category.name)}
+                  className={`min-h-10 shrink-0 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:w-full lg:text-left ${selectedCategory === category.name ? "bg-orange-50 text-kakao-orange" : "bg-white text-gray-600 hover:bg-gray-100"}`}>
                   {category.displayName}
-                </TabsTrigger>
+                </button>
               ))}
-            </TabsList>
+            </nav>
 
-            <div className="space-y-4">
+            <section className="min-w-0" aria-label={`${categoryLabel} 게시글`}>
+              <div className="mb-4 hidden items-center justify-between md:flex">
+                <h2 className="text-lg font-semibold text-gray-800">{categoryLabel}</h2>
+                <span className="text-xs text-gray-500">최근 등록순</span>
+              </div>
               {isLoading ? (
                 <div className="flex justify-center py-8">
                   <LoadingSpinner />
@@ -356,44 +368,30 @@ export default function Boards() {
                   </CardContent>
                 </Card>
               ) : (
-                posts?.map((post: any) => (
-                  <Card key={post.id} className="shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Badge variant={post.category.badgeVariant as any}>
-                              {post.category.displayName}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                              {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <h3 className="font-bold text-gray-800 mb-2 line-clamp-2">
-                            {post.title}
-                          </h3>
-                          <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-3 mb-3" />
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-500">
-                              작성자: 관리자
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setLocation(`/p/${post.id}`)}
-                            >
-                              자세히 보기
-                            </Button>
-                          </div>
-                        </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {posts?.map((post: any) => (
+                    <Link key={post.id} href={`/p/${post.id}`} className="group flex min-w-0 flex-col rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:p-5">
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <Badge variant={post.category.badgeVariant as any}>
+                          {post.category.displayName}
+                        </Badge>
+                        <time className="text-xs text-gray-500" dateTime={post.publishedAt || post.createdAt}>
+                          {new Date(post.publishedAt || post.createdAt).toLocaleDateString("ko-KR")}
+                        </time>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
+                      <h3 className="mb-2 line-clamp-2 break-words font-bold text-gray-800 group-hover:text-kakao-orange md:text-lg">
+                        {post.title}
+                      </h3>
+                      <PostExcerpt content={post.content} className="mb-5 line-clamp-3 text-sm text-gray-600 [overflow-wrap:anywhere]" />
+                      <span className="mt-auto flex items-center justify-end gap-1 text-sm font-medium text-gray-600">
+                        자세히 보기 <ArrowUpRight size={16} aria-hidden="true" />
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               )}
-            </div>
-          </Tabs>
+            </section>
+          </div>
         </div>
       </div>
 

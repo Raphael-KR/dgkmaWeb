@@ -84,6 +84,12 @@
   }
 }
 
+@layer components {
+  .member-container {
+    @apply mx-auto w-full max-w-md px-4 pb-20 pt-4 md:max-w-7xl md:px-6 md:py-8 lg:px-8;
+  }
+}
+
 @layer utilities {
   /* Kakao 브랜드 (로그인 버튼 전용 — 디자인 시스템 외) */
   .kakao,
