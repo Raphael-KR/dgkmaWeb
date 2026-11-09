@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useSeo } from "@/lib/seo";
+import { PostBody } from "@/components/post-body";
 
 const base = "/api/posts/notices";
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -129,7 +130,7 @@ function Composer({ type }: { type: NoticeType }) {
         <ul className="list-disc pl-5 space-y-1">{draft.eventData.questions.map((question, index) => <li key={index}>{question}</li>)}</ul>
       </section>}
       {previewCurrent && draft.content && <section className="rounded-lg border bg-white p-4 space-y-4" aria-label="게시 미리보기">
-        <h2 className="font-semibold">{draft.title}</h2><p className="whitespace-pre-wrap break-words">{draft.content}</p>
+        <h2 className="font-semibold">{draft.title}</h2><PostBody content={draft.content} />
         <label className="flex gap-2 text-sm items-start"><input type="checkbox" checked={confirmed} disabled={busy} onChange={(event) => setConfirmed(event.target.checked)} />내용과 연락처·계좌를 확인했습니다.</label>
         <Button disabled={busy || !confirmed || !!answer.trim()} onClick={() => void publish()}>확인한 내용 게시</Button>
       </section>}

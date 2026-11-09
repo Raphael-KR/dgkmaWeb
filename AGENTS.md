@@ -35,7 +35,7 @@
 
 - 환경별 주소와 접속·배포 절차는 [replit.md](./replit.md#환경-구분)를 따른다.
 - 기능 구현과 필요한 정적 검사는 Replit 개발 워크스페이스를 기본으로 한다. 개발 직후 서버 재시작·브라우저 점검·smoke check·Republish를 자동으로 추가하지 않는다.
-- 화면·흐름 확인을 요청받으면 개발 홈페이지를 사용하고 전역 GUI 승인 규칙을 따른다. 운영 배포와 실계정 QA는 현재 보류하며, 명시적으로 요청된 배포의 프로덕션 smoke check는 Republish 후에 수행한다.
+- 화면·흐름 확인을 요청받으면 개발 홈페이지를 사용하고 전역 GUI 승인 규칙을 따른다. 2026-11-09 요청된 릴리스 범위는 `replit.md`를 따르며 실계정 QA는 계속 보류한다. 명시적으로 요청된 배포의 프로덕션 smoke check는 Republish 후에 수행한다.
 - Replit SSH는 개발 워크스페이스와 Development Database에 연결되며 autoscale 프로덕션 인스턴스 셸이 아니다.
 - 로컬 Mac의 `node_modules`와 npm 도구 상태를 신뢰하지 않는다. 코드 검증이 필요하면 가능한 경우 Replit 개발 워크스페이스에서 수행한다.
 

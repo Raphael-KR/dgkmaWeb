@@ -4,6 +4,7 @@ import type { IStorage } from "../../lib/storage-contract";
 import { normalizeMemberName, resolveEventMember } from "./event-member-policy";
 import { admissionYearLabel, graduationClassLabel } from "./member-labels";
 import { NoticeGenerationError } from "./notice-extraction";
+import { renderCelebration } from "./celebration-rendering";
 
 function validDate(value: string | null): boolean {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -49,9 +50,12 @@ export async function renderNotice(data: NoticeData, sourceText: string, request
   ask(graduation || admission, "명부의 학번 또는 졸업기수를 확인해 주세요.");
   const membership = member.user ? await storage.getMembershipStatus(member.user.id) : undefined;
   const memberType = member.user ? membership?.tier === "권리회원" ? "권리회원" : "회원" : "동문";
-  ask(validDate(f.date), data.eventType === "obituary" ? "발인 날짜를 연·월·일까지 알려주세요." : "행사 날짜를 연·월·일까지 알려주세요.");
+  ask(validDate(f.date), data.eventType === "obituary" ? "발인 날짜를 연·월·일까지 알려주세요." : data.eventType === "wedding" ? "예식 날짜를 연·월·일까지 알려주세요." : "개원 날짜를 연·월·일까지 알려주세요.");
   ask(!f.time || /^([01]\d|2[0-3]):[0-5]\d$/.test(f.time), "시각을 오전·오후와 함께 알려주세요.");
   ask(f.place, data.eventType === "obituary" ? "빈소를 알려주세요." : "장소를 알려주세요.");
+  if(data.eventType !== 'obituary') return renderCelebration(data,sourceText,storage,{
+    name:member.memberDisplayName,admission,graduation,memberType,
+  },validDate(f.date)?dateLabel(f.date!,f.time):'',questions);
   const phone = data.eventType === "obituary" && f.relation === "본인" ? f.contactPhone : member.user?.phoneNumber || member.alumni?.mobile || f.contactPhone;
   if (data.eventType === "obituary") {
     ask(f.relation && ["본인", "부친", "모친", "빙부", "빙모", "시부", "시모", "자녀"].includes(f.relation), "동문과 고인의 관계를 알려주세요.");
@@ -64,27 +68,16 @@ export async function renderNotice(data: NoticeData, sourceText: string, request
       ask(f.contactName && normalizeMemberName(f.contactName) !== normalizeMemberName(member.memberDisplayName), "연락 가능한 유가족의 성함·관계를 알려주세요.");
       ask(phone && phone.replace(/\D/g, "") !== (member.user?.phoneNumber || member.alumni?.mobile || "").replace(/\D/g, ""), "고인 연락처 대신 유가족 연락처를 알려주세요.");
     }
-  } else if (data.eventType === "wedding") {
-    ask(f.time, "예식 시각을 알려주세요.");
-    ask(f.weddingRelation && ["본인", "아들", "딸"].includes(f.weddingRelation), "본인 결혼인지 아들·딸의 결혼인지 알려주세요.");
-    ask(f.weddingRelation === "본인" || f.childName, "결혼하는 자녀의 성함을 알려주세요.");
-    ask(!f.childAlumniInfo || f.childMemberType && ["동문", "회원", "권리회원"].includes(f.childMemberType), "자녀 동문의 호칭을 동문·회원·권리회원 중에서 알려주세요.");
-  } else ask(f.clinicName, "개원하는 한의원 이름을 알려주세요.");
+  }
   if (data.eventType === "obituary") ask(f.accounts.length <= 1, "부고에 게시할 대표 계좌 한 개를 지정해 주세요.");
   for (const account of f.accounts) {
     ask(account.bank && account.number && account.holder && /^[\d -]+$/.test(account.number), "게시할 계좌의 은행·번호·예금주를 확인해 주세요.");
-    ask(account.role === "member" || data.eventType === "wedding" && f.childAlumniInfo, "계좌는 대상 동문이나 동문인 결혼 당사자의 것만 게시할 수 있습니다.");
-    if (data.eventType !== "obituary") {
-      const owner = account.role === "alumni-child" ? f.childName : member.memberDisplayName;
-      const holder = normalizeMemberName(account.holder);
-      ask(owner && holder.includes(normalizeMemberName(owner)) || data.eventType === "opening" && f.clinicName && holder.includes(normalizeMemberName(f.clinicName)), "게시할 계좌의 예금주가 대상 동문 또는 해당 한의원인지 확인해 주세요.");
-    }
+    ask(account.role === "member", "계좌는 대상 동문의 것만 게시할 수 있습니다.");
     // LLM cannot import all accounts from a linked family notice by itself.
     ask(data.eventType === "obituary" && data.sources.some((source) => source.status === "fetched") || sourceText.includes(account.number) || /계좌.*(?:포함|게시|알려|추가)|(?:마음|축의|부의).*계좌/.test(sourceText), "게시할 계좌를 원문에 적거나 포함할 계좌를 지정해 주세요.");
   }
   if (questions.length) return { title: "", content: "", questions: Array.from(new Set(questions)) };
   const name = member.memberDisplayName;
-  const info = [graduation ? `졸업${graduation}기` : "", admission ? `${admission}학번` : ""].filter(Boolean).join(" ");
   if (data.eventType === "obituary") {
     const account = f.accounts[0];
     const content = await renderPython({
@@ -95,16 +88,5 @@ export async function renderNotice(data: NoticeData, sourceText: string, request
     }, { member_name: name, member_type: memberType, graduation_class: graduation, admission_year: admission, title: f.memberTitle, relation: f.relation, phone: phone || null, contact_name: f.relation === "본인" ? f.contactName : name });
     return { title: `[부고] ${name} ${f.relation}상`, content, questions: [] };
   }
-  const person = `${info} ${name} ${memberType}${f.memberTitle ? `(${f.memberTitle})` : ""}`;
-  const event = data.eventType === "opening" ? `${f.clinicName} 개원` : f.weddingRelation === "본인" ? "결혼" : `${f.weddingRelation} ${f.childName} 님의 결혼`;
-  const heading = data.eventType === "wedding" && f.weddingRelation !== "본인" && f.childAlumniInfo
-    ? `본회 ${person}의 ${f.weddingRelation}\n${f.childAlumniInfo} ${f.childName} ${f.childMemberType}${f.childTitle ? `(${f.childTitle})` : ""}의 결혼을 알려드립니다.`
-    : `본회 ${person}의 ${event}을 알려드립니다.`;
-  const blocks = ["#알림 #경사", heading, `- 일시: ${dateLabel(f.date!, f.time)}\n- 장소: ${f.place}${f.room ? ` ${f.room}` : ""}`];
-  if (f.notes.length) blocks.push(f.notes.map((note) => `- ${note}`).join("\n"));
-  const url = data.sources.find((source) => source.status !== "blocked")?.url;
-  if (url) blocks.push(`■ ${data.eventType === "wedding" ? "모바일 청첩장" : "개원 안내"}\n${url}`);
-  if (f.accounts.length) blocks.push("■ 마음 전하실 곳\n" + f.accounts.map((a) => `${a.label} ${a.bank} ${a.number} ${a.holder}`.trim()).join("\n"));
-  blocks.push(data.eventType === "wedding" ? "많은 축하와 참석 부탁드립니다." : "개원을 축하하며 많은 관심과 응원 부탁드립니다.", "-동국대학교 한의과대학 동문회-");
-  return { title: `[${data.eventType === "wedding" ? "결혼" : "개원"}] ${name} ${event}`, content: blocks.join("\n\n"), questions: [] };
+  throw new NoticeGenerationError("지원하지 않는 경조사 유형입니다.");
 }

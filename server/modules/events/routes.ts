@@ -1,17 +1,19 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import { NOTICE_TYPES, noticeRevisionSchema, noticeTextSchema } from "@shared/contracts/notices";
+import { NOTICE_TYPES, noticeRevisionSchema, noticeTextSchema, type NoticeType } from "@shared/contracts/notices";
 import { storage } from "../../storage";
 import { requireAuthenticated } from "../../middleware/auth";
 import { readEventSources } from "./event-source-reader";
 import { extractNoticeFacts, staticObituaryFacts, NoticeGenerationError } from "./notice-extraction";
+import { noticeFieldSources } from './notice-field-sources';
+import { normalizeCelebrationFacts } from './celebration-normalization';
 import { renderNotice } from "./notice-rendering";
 import { EventSourcePolicyError } from "./event-source-policy";
 import type { RouteContext } from "../../lib/route-context";
 
-export type RouteEventSourceReader = (input: string, signal?: AbortSignal) => ReturnType<typeof readEventSources>;
+export type RouteEventSourceReader = (input: string, signal?: AbortSignal, noticeType?: NoticeType) => ReturnType<typeof readEventSources>;
 export function createDefaultEventSourceReader(reader: typeof readEventSources = readEventSources): RouteEventSourceReader {
-  return (input, signal) => reader(input, undefined, signal);
+  return (input, signal, noticeType) => reader(input, undefined, signal, noticeType);
 }
 const idSchema = z.coerce.number().int().positive();
 function failure(res: Response, error: unknown) {
@@ -41,7 +43,7 @@ export function registerEventRoutes(app: Express, { eventParseLimiter, eventPars
       if (!draft?.eventData) return;
       const saved = await storage.saveNotice(draft.id, req.session.userId!, input.revision, {
         sourceText: input.sourceText, title: "", content: "",
-        eventData: { ...draft.eventData, facts: null, questions: [], sources: [] },
+        eventData: { ...draft.eventData, facts: null, questions: [], sources: [], fieldSources: {} },
       });
       if (!saved) return conflict(res);
       res.json(saved);
@@ -61,12 +63,13 @@ export function registerEventRoutes(app: Express, { eventParseLimiter, eventPars
       if (!draft?.eventData) return;
       if (draft.revision !== revision) return conflict(res);
       if (!draft.sourceText?.trim()) return res.status(400).json({ message: "경조사 내용이나 공개 링크를 입력해 주세요." });
-      const sources = await readSources(draft.sourceText, AbortSignal.timeout(eventParseTimeoutMs));
+      const sources = await readSources(draft.sourceText, AbortSignal.timeout(eventParseTimeoutMs), draft.eventData.eventType);
       const signal = AbortSignal.timeout(60_000);
-      const facts = (draft.eventData.eventType === "obituary"
+      const extracted = (draft.eventData.eventType === "obituary"
         ? staticObituaryFacts(draft.sourceText, sources.urls, sources.structuredObituary) : undefined)
         ?? await extractNoticeFacts(draft.eventData.eventType, draft.sourceText, sources.combinedText, signal);
-      const data = { ...draft.eventData, facts, sources: sources.sources };
+      const facts = normalizeCelebrationFacts(draft.eventData.eventType,extracted);
+      const data = { ...draft.eventData, facts, sources: sources.sources, fieldSources: noticeFieldSources(facts,draft.sourceText,sources.evidence) };
       const rendered = await renderNotice(data, draft.sourceText, req.session.userId!, storage);
       const saved = await storage.saveNotice(draft.id, req.session.userId!, revision, {
         title: rendered.title, content: rendered.content, eventData: { ...data, questions: rendered.questions },

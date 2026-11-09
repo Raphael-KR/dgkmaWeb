@@ -13,6 +13,7 @@ import { useSeo } from "@/lib/seo";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Comment } from "@shared/contracts";
+import { PostBody } from "@/components/post-body";
 
 type CommentWithAuthor = Comment & { author: { id: number; name: string } | null };
 
@@ -162,11 +163,7 @@ export default function PostDetail() {
             <hr className="mb-6" />
 
             {/* 본문 내용 */}
-            <div className="prose prose-sm max-w-none">
-              <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                {post.content}
-              </div>
-            </div>
+            <PostBody content={post.content} />
 
             {/* 첨부 이미지 */}
             {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (

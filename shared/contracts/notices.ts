@@ -12,6 +12,9 @@ export const noticeFactsSchema = z.object({
   contactName: fact, contactPhone: fact,
   weddingRelation: fact, childName: fact, childAlumniInfo: fact, childMemberType: fact,
   childTitle: fact, partnerName: fact, clinicName: fact,
+  groomName: fact.optional(), brideName: fact.optional(), weddingPartyRole: fact.optional(),
+  childAdmissionYear: fact.optional(), childGraduationClass: fact.optional(),
+  address: fact.optional(), meal: fact.optional(), parking: fact.optional(), flowerPolicy: fact.optional(),
   visitationDeclined: z.boolean(),
   notes: z.array(z.string().trim().max(500)).max(10),
   accounts: z.array(z.object({
@@ -31,12 +34,17 @@ export function emptyNoticeFacts(): NoticeFacts {
   });
 }
 export type NoticeSource = { url: string; status: "fetched" | "unavailable" | "blocked"; message?: string };
+export type NoticeFieldSource = {
+  kind: 'user' | 'html' | 'api' | 'rendered' | 'ocr' | 'unresolved';
+  url?: string; locator?: string; collectedAt?: string;
+};
 export type NoticeData = {
   schemaVersion: 1;
   eventType: NoticeType;
   facts: NoticeFacts | null;
   questions: string[];
   sources: NoticeSource[];
+  fieldSources?: Partial<Record<keyof NoticeFacts, NoticeFieldSource[]>>;
 };
 export type NoticeDraft = {
   id: number; title: string; content: string; sourceText: string | null;

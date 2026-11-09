@@ -86,7 +86,8 @@ test("development uses minimal static checks and the plan tracks missing feature
     assert.match(proposal, new RegExp(term));
   }
   assert.match(walkthrough, /## 현재 적용 기준/);
-  assert.match(walkthrough, /운영 배포와 실계정 QA는 계속 보류/);
+  assert.match(walkthrough, /실계정 QA는 계속 보류/);
+  assert.match(replit, /최신 변경 릴리스 \(2026-11-09\)/);
   assert.match(proposal, /모든 `posts`는 회원 전용/);
   assert.match(proposal, /구조화 정보는 `posts` 내부 JSON으로 저장/);
   assert.match(proposal, /기존 경조사·부고의 상세 필드 입력 폼을 모두 제거/);

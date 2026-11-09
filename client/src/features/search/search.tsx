@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 import { Search, ArrowLeft, FileText, Users } from "lucide-react";
+import { PostExcerpt } from "@/components/post-body";
 
 interface DirectoryAlumni {
   id: number;
@@ -190,9 +191,7 @@ export default function SearchPage() {
                         <h4 className="font-medium text-gray-800 mb-1 line-clamp-2">
                           {post.title}
                         </h4>
-                        <p className="text-sm text-gray-600 line-clamp-2">
-                          {post.content.substring(0, 100)}...
-                        </p>
+                        <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-2" />
                       </div>
                     </div>
                   </CardContent>

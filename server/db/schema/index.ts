@@ -9,6 +9,7 @@ import {
   check,
   index,
   uniqueIndex,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -16,6 +17,18 @@ import { z } from "zod";
 import type { NoticeData } from "@shared/contracts/notices";
 import type { PendingRegistrationUserData } from "@shared/contracts";
 import type { MembershipTier } from "@shared/contracts";
+
+export const sourceCollectionRules = pgTable('source_collection_rules', {
+  id: serial('id').primaryKey(), domain: text('domain').notNull(), pagePattern: text('page_pattern').notNull(),
+  rule: jsonb('rule').notNull(), version: integer('version').notNull().default(1),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  lastSuccessAt: timestamp('last_success_at', { withTimezone: true }).notNull(),
+}, table => [
+  unique('source_collection_rules_domain_pattern_unique').on(table.domain,table.pagePattern),
+  check('source_collection_rules_version_check',sql`${table.version}>0`),
+  check('source_collection_rules_json_check',sql`(jsonb_typeof(${table.rule})='object' AND ${table.rule}->>'schemaVersion'='1') IS TRUE`),
+]);
 
 export {
   PENDING_REGISTRATION_CONFLICT_REASONS,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { PostExcerpt } from "@/components/post-body";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { trackEvent } from "@/lib/analytics";
 import { useLocation } from "wouter";
 import { useUpload } from "@/hooks/use-upload";
+
+const PostBodyEditor = lazy(() => import("@/components/post-body-editor").then(module => ({ default: module.PostBodyEditor })));
 
 export default function Boards() {
   const { user } = useAuth();
@@ -186,7 +188,7 @@ export default function Boards() {
                     글쓰기
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-w-sm mx-4">
+              <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>새 게시글 작성</DialogTitle>
                 </DialogHeader>
@@ -243,13 +245,11 @@ export default function Boards() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>내용</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="게시글 내용을 입력하세요"
-                              className="min-h-[120px]"
-                              {...field}
-                            />
-                          </FormControl>
+                          <Suspense fallback={<div role="status" className="min-h-48 py-8 text-center text-sm text-gray-500">편집기를 불러오는 중입니다.</div>}>
+                            <FormControl>
+                              <PostBodyEditor {...field} />
+                            </FormControl>
+                          </Suspense>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -373,9 +373,7 @@ export default function Boards() {
                           <h3 className="font-bold text-gray-800 mb-2 line-clamp-2">
                             {post.title}
                           </h3>
-                          <p className="text-sm text-gray-600 line-clamp-3 mb-3">
-                            {post.content}
-                          </p>
+                          <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-3 mb-3" />
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-gray-500">
                               작성자: 관리자

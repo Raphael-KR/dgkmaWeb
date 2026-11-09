@@ -15,6 +15,7 @@ import { MembershipBadge } from "@/components/membership-badge";
 import { KAKAO_CHANNEL_URL } from "@/lib/config";
 import type { MembershipStatus } from "@shared/contracts";
 import { isBirthdayToday } from "@shared/birthday";
+import { PostExcerpt } from "@/components/post-body";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -219,9 +220,7 @@ export default function Home() {
                       <h4 className="font-medium text-gray-800 mb-1 line-clamp-2">
                         {post.title}
                       </h4>
-                      <p className="text-sm text-gray-600 line-clamp-2">
-                        {post.content.substring(0, 100)}...
-                      </p>
+                      <PostExcerpt content={post.content} className="text-sm text-gray-600 line-clamp-2" />
                     </div>
                   </div>
                 </div>
