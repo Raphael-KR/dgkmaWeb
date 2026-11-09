@@ -212,6 +212,17 @@
 - 제외: DB 스키마·행 변경, Secrets 변경, 개발 서버 별도 재시작, 실계정 QA·회원 화면 조작·OpenAI 호출·경조사 수집·자동 원복. 스키마 변경이 없는 릴리스이므로 DB 전환 절차는 실행하지 않는다.
 - 확인: 14:02 KST의 타입·경계·CSS 정적 결과를 소스 해시가 같을 때 재사용하고 Replit에서 배포 빌드와 변경된 문서의 정적 계약을 확인한다. 게시 후에는 비로그인 상태와 자산 해시만 점검하며 회원 기능의 실제 조작 성공으로 확대하지 않는다.
 
+#### 반응형 릴리스 완료 결과
+
+- 2026-11-09 14:08 KST Replit 릴리스 빌드와 문서 계약 6개가 통과했다. 초기 JS는 351,629 bytes, 지연 화면은 21개이며 기존 번들 한도를 충족했다. 타입·모듈 경계·CSS 정적 검사는 앞선 14:02 KST 통과 소스와 해시가 같아 재사용했다.
+- 기능 커밋 `793d3e460ca9a7bdc9429c0ee2f00fd483881a2c`를 push하고 [PR #23](https://github.com/Raphael-KR/dgkmaWeb/pull/23)을 생성·검토·병합했다. main 병합은 `e38b75bb0b8bee2f2c8a0d579787220d526b7f5f`다. 이번 재게시 요청 전 진행 중이던 Replit 게시가 남긴 `41fc39c`도 동일한 소스임을 확인하고 PR에 병합해 이력을 보존했다. 이 선행 게시 작업의 시작 주체는 확인하지 않았다.
+- 재게시 전에 로컬·GitHub·Replit main을 `e38b75b`로 맞췄다. Replit 추적 파일 433개가 해당 Git blob과 일치하고 작업 트리가 깨끗한 것을 확인했다.
+- 14:12 KST Replit 커넥터 `publish_app`으로 재게시를 시작했다. `pending → building → running → promoting → success` 전환 후 14:16:53 KST `https://dgkma.org` 게시 성공을 확인했다. deployment ID는 기존 `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`를 유지했으며 새 build ID는 `66aa080a-36d9-4043-8c73-776886562452`다. 이번에는 웹 DB 검토나 GUI 조작이 필요하지 않았다.
+- Replit이 추가한 `0319fb422bd150dc24b91e3a3769bece0b2851ba` (`Published your App`)는 파일 변경 없는 게시 기록이다. 이 커밋을 삭제·재작성하지 않고 main 이력에 포함했다. 완료 기록의 후속 문서 커밋은 실제 게시 버전과 구분하며 문서만 바꾼 뒤 다시 Republish하지 않는다.
+- 14:17:58 KST Replit에서 비로그인 GET `/`·`/b`의 200 HTML과 `/api/posts`·`/api/categories`의 401 JSON을 확인했다. 초기 화면·회원 홈·게시판·상세·경조사 작성·명부·내 정보·검색·본문 편집기의 JS 9개와 CSS 2개는 모두 200이며 후보 빌드 SHA-256과 일치했다. HTML도 후보 초기 JS를 참조한다. 로컬 Python의 최초 HTTP 시도는 DNS 오류로 실패했으나 시스템 `curl`에서는 200을 확인했다. 자산 전체 대조의 근거는 Replit 실행 결과다.
+- DB·Secrets 변경 명령, 별도 개발 서버 재시작, 실계정 QA·회원 화면 조작·OpenAI 호출·경조사 수집은 실행하지 않았다. HTTP와 자산 확인은 실제 태블릿·PC 화면 조작의 확인을 대신하지 않는다.
+- 로컬·Replit `.superpowers/responsive-release-20261109/`에 빌드·문서 검사 기록, 후보 자산 해시, 게시 기록 bundle과 `production-http-smoke.json`을 보존한다. 상태 전환 기록은 로컬 `publish-status.json`에 있다.
+
 ## GitHub 동기화
 
 GitHub의 `main` 브랜치를 공유 소스 기준으로 사용합니다.
@@ -360,11 +371,11 @@ npm run check
 
 먼저 GitHub `main`, 로컬, Replit 개발 워크스페이스의 배포 대상 커밋이 같은지 확인합니다.
 
-1. Development Database에 additive 스키마를 수동 적용하고 검증합니다.
+1. 스키마 변경이 있는 릴리스에서만 Development Database에 additive 스키마를 수동 적용하고 검증합니다.
 2. 배포할 코드의 필요한 정적 검사 결과와 빌드를 확인합니다. 같은 소스의 통과 결과를 재사용하며 전체 회귀를 자동 추가하지 않습니다.
-3. Production Database에 additive 스키마를 수동 적용하고 검증합니다.
+3. 스키마 변경이 있는 릴리스에서만 Production Database에 additive 스키마를 수동 적용하고 검증합니다.
 4. Replit Deployments에서 Republish합니다.
-5. 스키마와 코드 준비 상태를 확인한 뒤 데이터 마이그레이션을 별도 수동 SQL로 실행합니다.
+5. 데이터 마이그레이션이 필요한 경우 스키마와 코드 준비 상태를 확인한 뒤 별도 승인된 수동 SQL로 실행합니다.
 6. 공개 홈페이지와 핵심 API의 HTTP 상태를 확인합니다.
 7. 실계정 QA도 요청된 범위에 포함된 경우에만 실제 계정으로 카카오 로그인과 변경된 회원 기능을 확인합니다.
 
@@ -377,7 +388,7 @@ curl -I https://dgkma.org/
 curl -sS https://dgkma.org/api/categories
 ```
 
-인증이 필요한 API는 비로그인 요청에서 `401`이 나오는지 먼저 확인한 뒤 실제 계정으로 성공 흐름을 검증합니다.
+인증이 필요한 API는 비로그인 요청에서 `401`이 나오는지 확인합니다. 실제 계정의 성공 흐름은 실계정 QA를 별도로 요청받은 경우에만 확인합니다.
 
 ## 장애 확인 순서
 
