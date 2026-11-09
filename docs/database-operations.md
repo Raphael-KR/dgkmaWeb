@@ -2,6 +2,29 @@
 
 이 문서는 dgkmaWeb의 Development Database와 Production Database를 SSH에서 구분하여 조회·변경·검증하는 기준 절차다. 실제 접속 문자열, 비밀번호, 토큰은 이 문서나 Git에 기록하지 않는다.
 
+## 게시글 가리기 개발 스키마 (2026-11-09)
+
+- 작성자 수정·삭제와 관리자 가리기 구현에 필요한 `posts.is_hidden boolean NOT NULL DEFAULT false`를 Development에만 추가한다. 기존 본문·행을 삭제하거나 변환하지 않는다. Production 조회·변경과 Republish는 이 작업에 포함하지 않는다.
+- Replit PG* 기본 연결에서 `current_database()=heliumdb`, 변경 전 테이블별 건수·컬럼 부재를 확인한다. schema-only snapshot과 metadata-only catalog를 ignored `.superpowers/post-management-20261109/`에 보존한다. 행 원문·Secret은 출력하거나 복제하지 않는다.
+- `scripts/add-post-visibility.sql`은 개발 DB 이름을 확인한 뒤 한 트랜잭션에서 컬럼 하나만 추가한다. `db:push`, 앱 시작 DDL, 운영 연결 선택은 사용하지 않는다.
+- 새 연결에서 JSONB 본문 유지, 새 컬럼의 boolean·NOT NULL·false 기본값, 기존 게시글의 가림 false와 전체 테이블 건수를 대조한다. catalog SQL의 READ ONLY gate·ROLLBACK·완료 marker를 확인하고 스키마 문서와 실행 기록을 갱신한다. 실제 게시글 수정·삭제·가리기 API 시험이나 새 시험 데이터는 생성하지 않는다.
+
+### 게시글 가리기 개발 적용 결과
+
+- 2026-11-09 20:05:43 KST `heliumdb`·PostgreSQL 16.10·READ ONLY를 확인했다. posts/comments 0건, 명부 3,458건, 카테고리 7건, 수집 규칙 1건과 나머지 테이블 건수를 `development-before.json`에 보존했다. 변경 전 `is_hidden`은 없고 본문은 JSONB NOT NULL이었다.
+- 변경 전 schema-only snapshot SHA-256은 `383e7cb318467c1233ff0fa3062b669129d2427447f82a3769a1b3263c4b2e87`다. 20:09:49 KST `scripts/add-post-visibility.sql`의 한 트랜잭션을 COMMIT했다. DDL SHA-256은 `4ddfe26522e944508f47d1f3a6f64729ea06f693444daafe289b8f772c6afe70`이며 행 삭제·초기화·본문 변환은 실행하지 않았다.
+- 같은 시각 새 연결에서 `is_hidden` boolean NOT NULL DEFAULT false, 본문 JSONB 유지, 기존 posts 값의 digest·모든 테이블 건수 일치를 확인했다. posts는 여전히 0건이며 행을 생성하지 않았다. metadata-only catalog의 유일한 차이는 새 컬럼이며 [스키마 기록](./database-schema.md#게시글-관리-추가-계약-2026-11-09)을 따른다.
+- 근거는 Replit `.superpowers/post-management-20261109/`의 `schema-apply.json`·`.log`, `development-before.json`·`development-after.json`과 전후 catalog/snapshot이다. 디렉터리 0700·metadata 파일 0600으로 보존했고 Secret·행 원문을 기록하지 않았다. Production DB·실제 글 수정/삭제/가리기·Object Storage 삭제·자동 원복은 수행하지 않았다.
+
+## 게시글 가리기 운영 릴리스 (2026-11-09)
+
+- 사용자 요청으로 Production `posts.is_hidden boolean NOT NULL DEFAULT false` 추가와 Git 통합·Republish가 승인되었다. 기존 개발 전용 SQL의 대상 제한은 유지하고 `scripts/add-post-visibility-production.sql`을 별도로 사용한다. 스키마·테이블 삭제, DB 전체 복사, 행 초기화·본문 변환은 하지 않는다.
+- Replit Secrets의 `PROD_DATABASE_READONLY_URL`을 우선하여 변경 전 `BEGIN READ ONLY`에서 `current_database()=neondb`, 테이블별 건수, 본문 JSONB 계약과 가림 컬럼 부재를 확인한다. 읽기 전용 URL이 없으면 owner URL을 READ ONLY 트랜잭션으로 제한한다. schema-only snapshot·metadata-only catalog·기존 posts 전체 값의 digest를 ignored `.superpowers/post-management-release-20261109/`에 보존한다. 행 원문·Secret을 출력하거나 로컬로 복제하지 않는다.
+- 실행 직전 대상·컬럼 부재를 다시 확인한다. `PROD_DATABASE_URL`을 해당 psql 프로세스에만 전달하고 SQL은 `neondb`를 확인한 한 트랜잭션에서 컬럼 하나만 추가한다. 기존 컬럼이 이미 같은 계약이면 중복 적용하지 않고 실제 상태를 기록한다. 값이나 구조가 다르면 자동 덮어쓰기·원복하지 않는다. 개발 PG 기본 환경과 Secrets는 바꾸지 않는다.
+- 적용 후 새 READ ONLY 연결에서 boolean·NOT NULL·false 기본값과 기존 posts의 가림 false, `is_hidden`을 제외한 값의 digest 및 테이블별 건수를 비교한다. catalog의 READ ONLY gate·ROLLBACK·완료 marker와 유일한 컬럼 추가 차이를 확인하고 스키마 문서에 기록한다. 이는 실제 회원 기능 QA를 대신하지 않는다.
+- 기존 코드는 새 컬럼을 사용하지 않으므로 추가 구조를 먼저 적용한 뒤 병합된 코드로 Republish한다. 성공한 변경은 자동 원복하지 않는다. 실계정 QA·실제 게시글 변경·Object Storage 변경·명부 재동기화는 계속 제외한다.
+- 20:25:34 KST 사전 조회는 읽기 전용 URL이 없어 `PROD_DATABASE_URL`을 READ ONLY로 제한했다. `neondb`, 본문 JSONB·문서 CHECK, `is_hidden` 부재를 확인했다. posts 3건·comments 0건·명부 3,458건과 모든 테이블 건수, 기존 posts digest를 원문 없이 기록했다. 변경 전 schema snapshot·catalog는 같은 비공개 작업 경로에 보존했고 당시 DDL은 실행하지 않았다.
+
 ## 최신 변경 릴리스 준비 (2026-11-09)
 
 - 사용자 승인: 후보 `5b19e86`의 push·PR 생성·main 병합과 운영 DB 전환을 명시 승인했다. 이 전환은 아래 추가 구조 SQL과 빈 `community_events`·`obituaries` 삭제 SQL을 포함한다. 일반 게시글·회원·명부는 보존하고 명부 재동기화·실계정 QA·자동 원복은 포함하지 않는다.

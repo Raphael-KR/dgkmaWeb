@@ -52,4 +52,13 @@ export class EventsStorage implements EventsStorageContract {
     )).returning({ id: posts.id });
     return rows.length === 1;
   }
+  async updatePublishedNotice(id: number, authorId: number, revision: number, data: {
+    eventData: NoticeData; title: string; content: PostDocument;
+  }): Promise<Post | undefined> {
+    const [row] = await db.update(posts).set({ ...data, sourceText: null,
+      revision: sql`${posts.revision} + 1`, updatedAt: new Date(),
+    }).where(and(eq(posts.id, id), eq(posts.authorId, authorId), eq(posts.revision, revision),
+      eq(posts.isPublished, true), sql`${posts.eventData} IS NOT NULL`)).returning();
+    return row;
+  }
 }

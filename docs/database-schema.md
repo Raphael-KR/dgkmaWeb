@@ -1,6 +1,18 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 19:07 KST, Production은 19:41 KST 본문 JSONB 전환 후 catalog다. 두 환경은 13개 테이블·102개 컬럼·CHECK 7개이며 `posts.content`는 JSONB NOT NULL이다. 운영 기존 본문 3건을 보존해 변환했고 실제 결과는 아래 기록을 따른다. 스키마 적용과 코드 게시·실계정 QA 결과를 구분한다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 20:09 KST 가리기 컬럼 추가 후 catalog이며 13개 테이블·103개 컬럼이다. Production은 20:25 KST 릴리스 사전 조회에서 13개 테이블·102개 컬럼과 가림 컬럼 부재를 확인했다. 운영 컬럼 적용 전후 상태를 구분해 아래에 기록한다.
+
+### 게시글 관리 추가 계약 (2026-11-09)
+
+- 후속 릴리스에서 같은 `is_hidden` 컬럼의 Production 적용을 승인받았다. 운영 적용 전후 metadata-only catalog와 기존 행 보존을 새 연결로 확인하며, 아래 개발 결과와 실제 운영 적용 결과를 구분한다. 운영 구조 변경은 컬럼 하나로 한정한다.
+- 확정된 개발 추가 구조는 `posts.is_hidden boolean NOT NULL DEFAULT false` 하나다. 기존 `is_published`는 초안/게시 구분으로 유지하며 가리기에 재사용하지 않는다. 기존 행은 false로 유지하고 본문·사실 JSON·댓글·작성자·최초 게시 시각을 바꾸지 않는다. 새 테이블·제약·인덱스·RLS·트리거는 추가하지 않는다.
+- 기존 `revision`으로 일반 글 수정·작성자 삭제·관리자 가리기/다시 표시하기의 충돌을 검사한다. 작성자 수정·삭제는 SQL에도 `author_id`, `is_published`, `revision` 조건을 적용한다. 가리기 권한은 서버가 현재 회원의 관리자 여부로 판단한다.
+- 정상 목록·검색은 게시됨 + 가리지 않음 조건이다. 가린 글 상세·관리 목록은 작성자/관리자만 볼 수 있고 댓글 추가는 막는다. 댓글의 기존 ON DELETE CASCADE를 사용해 작성자 삭제 시 댓글을 함께 제거하며 Object Storage 파일은 삭제하지 않는다.
+- 경조사 수정은 기존 `event_data`·본문을 한 번에 반영하고 `source_text`는 NULL로 유지한다. 정정 미리보기는 15분 유효한 서버 서명 응답으로만 전달하며 DB에 별도 사본을 저장하지 않는다. 작성자·대상 ID·revision을 묶어 다른 글/회원의 미리보기 재사용과 임의 사실·본문 조작을 막는다. 현재 사실 JSON의 물리 계약은 바꾸지 않는다.
+- 2026-11-09 20:09:49 KST `heliumdb`에 컬럼 추가를 COMMIT하고 새 연결에서 위 타입·기본값·NOT NULL을 확인했다. posts 0건이며 전체 테이블 건수와 기존 본문 JSONB 구조를 보존했다. 기존 행이 있는 상태의 가리기·수정·삭제 기능을 실행한 결과는 아니다.
+- 같은 시각 metadata-only catalog는 tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences `13/103/13/8/6/7/24/9`다. READ ONLY gate·ROLLBACK·완료 marker를 확인했고 차이는 `posts.is_hidden` 컬럼 한 개뿐이다. view·trigger·policy·routine·enum·domain 0개, RLS 모두 비활성을 유지한다.
+- catalog SHA-256은 `453a1924708cc258dec6385be2f461753813747d8ee2a7226f63dd47c2c11e5a`, schema snapshot은 `f6b63b83be2de88e510c88cf6a010987bd67ef2f8d09dfa2e569adbb0f6095fb`다. Replit `.superpowers/post-management-20261109/development-after-catalog.txt`·`development-after.json`·`development-after-schema.sql`을 근거로 한다. 이 개발 단계에서는 운영 DB를 조회·변경하지 않았다.
+- 운영 릴리스 사전 조회: 20:25:34 KST `neondb`·PostgreSQL 16.15·READ ONLY에서 `13/102/13/8/6/7/24/9`를 확인했다. 본문 JSONB NOT NULL·문서 CHECK는 유지되고 `is_hidden`은 없다. catalog SHA-256 `20a089c1f0b4cfb8bf9fc98d2277c6fd0b6de99ebe451b1690abece58e2e5460`, schema snapshot SHA-256 `ba5949b53db20876b8568748e8ab5bdec5718cbc5eb8ba43dbd8b93201bc15d9`이며 `.superpowers/post-management-release-20261109/production-before*`에 보존했다.
 
 ### 운영 릴리스 구조 (2026-11-09)
 
