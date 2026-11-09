@@ -63,6 +63,27 @@
 
 구현은 Replit 개발 워크스페이스를 기본으로 하며 개발 직후 점검은 필요한 정적 검사로 최소화합니다. 코드 반영마다 서버 재시작·브라우저 점검·smoke check를 요구하지 않습니다.
 
+#### ESLint 도입 (2026-11-09)
+
+- 목표: Replit에서 재실행할 수 있는 `npm run lint`를 추가하고 발견된 오류를 수정한다.
+- 범위: 공식 ESLint flat config, JavaScript/TypeScript 권장 규칙, React `rules-of-hooks`·`exhaustive-deps`. 앱·서버·공유 코드·스크립트·설정과 기존 테스트를 포함하고 의존성·빌드 산출물·외부 첨부·격리된 실험 자료는 제외한다. `_`로 명시한 미사용 인자와 나머지 속성 분리를 위한 변수는 해당 규칙의 공식 옵션으로 처리한다. 포맷터나 React Compiler는 도입하지 않는다.
+- 완료 조건: 로컬과 Replit의 설정·소스·lockfile을 일치시키고 lint 오류를 해결한다. 경고·예외가 있으면 사유와 범위를 기록하며 오류를 숨기기 위한 blanket disable은 하지 않는다.
+- 제외: 운영 DB·배포·서버 재시작·실계정 QA·브라우저·실제 외부 API/회원 데이터 호출·새 시험 데이터·실행형 테스트. 기존 테스트 파일도 코드만 정적으로 읽는다.
+- 확인: Replit `npm run lint`, 수정한 코드의 `npm run check`, 테스트 타입 변경 시 `npm run check:tests`, 파일 기반 문서 확인과 `git diff --check`로 제한한다. 통과한 같은 소스의 검사는 반복하지 않는다.
+- 구성 기준은 [ESLint flat config](https://eslint.org/docs/latest/use/configure/configuration-files), [typescript-eslint 공식 시작 안내](https://typescript-eslint.io/getting-started/), [React Hooks 규칙](https://react.dev/reference/eslint-plugin-react-hooks)을 따른다. 확인한 호환 버전은 ESLint 10.14.0·`@eslint/js` 10.0.1·`typescript-eslint` 8.72.1·`eslint-plugin-react-hooks` 7.1.1·`globals` 17.14.0이며 devDependencies와 lockfile에 고정한다. Replit Node 20.20.0·TypeScript 5.6.3·React 18을 유지한다.
+- 환경 경계: Replit이 제공한 `.local/skills/` 등의 외부 도구 소스는 앱 코드가 아니므로 `.local/`을 제외한다. `scripts/collector/worker.mjs`에는 Node 실행부와 Playwright 페이지 콜백이 함께 있으므로 Node·브라우저 전역을 모두 선언한다. 앱·서버·수집기 코드와 기존 테스트는 제외하지 않는다.
+- 한정 예외: 본문 DB 전환 스크립트의 오류 처리 한 줄은 `preserve-caught-error`를 제외한다. 원본 DB 오류를 `cause`로 연결하면 호출자의 오류 출력에 Secret·행 원문이 포함될 수 있으므로 기존 metadata-only receipt에 오류 유형·SQL state·비식별 비교 근거를 보존한다. 나머지 권장 규칙은 유지하고 미사용 disable도 오류로 검사한다.
+
+##### ESLint 개발 적용 결과
+
+- 2026-11-09 로컬 main `372d0ed3099bc0463608b4d9528647c4f88d5c4c`와 같은 소스 트리의 Replit 개발 main에 적용했다. Replit에는 파일 차이가 없는 후속 `Published your App` 커밋이 있으며 이번 작업에서 생성한 커밋은 아니다. 패키지 설치는 Replit Node 20.20.0에서 `--ignore-scripts --no-audit --no-fund`로 수행했다. devDependencies 5종의 고정 버전과 lockfile을 로컬에도 반영했으며 런타임 직접 의존성을 추가하지 않았다.
+- `npm run lint`는 전체 소스를 읽고 `npm run lint:fix`는 ESLint가 지원하는 수정 사항을 적용한다. 이번 오류 수정은 해당 위치를 직접 수정했으며 일괄 자동 수정은 실행하지 않았다. ESLint와 TypeScript 권장 규칙 및 React Hooks 2개 규칙은 오류 수준을 유지했다.
+- 첫 결과는 292개 파일·151건이었다. Replit 제공 `.local/skills` 18개 파일의 93건은 외부 도구 경계로 제외했고, 앱 58건 중 수집 worker의 브라우저 전역 7건은 실행 환경을 선언했다. 나머지 중 50건은 코드로 수정하고, 민감한 DB 원본 오류의 재전달 1건은 위 한 줄 예외로 명시했다.
+- 게시글·납부 내역의 응답 타입과 배지 타입, 작성자 부재 처리, 수집 worker 메시지 타입, 명부 반환 타입을 명시했다. 사용하지 않는 선언과 SEO 도우미를 제거하고 오류 유형만 기록하는 기존 로그 경계·URL 제어문자 차단을 유지했다. 동적 storage facade는 prototype 복사·동일 receiver 동작을 유지하면서 선언 병합을 명시적 생성자 타입으로 바꿨다. Tailwind 플러그인은 ES module import로 통일했다.
+- 기존 DB 테스트 4개의 cleanup을 Node test 종료 훅으로 옮겨 본래 테스트 실패를 cleanup 오류로 덮지 않게 했다. 기존 자료·대상 제한·cleanup SQL과 잔여 건수 확인은 유지하며 풀 종료도 보장한다. 테스트 코드는 실행하지 않았다.
+- Replit 최종 결과: 21:17:54 KST lint 274개 파일·오류 0·경고 0, 21:18:17 KST `npm run check`(타입·209개 앱 파일의 경계/순환), 21:18:19 KST `npm run check:tests` 통과. 21:17:55 KST 파일 기반 문서 계약 6건과 `git diff --check`도 통과했다. locale 안내는 셸 환경 경고이며 lint 경고가 아니다. 증거는 ignored `.superpowers/eslint-20261109/`에 보존한다.
+- 이번 적용은 개발 소스·설정과 정적 검사다. 운영 DB·배포·서버 재시작·실계정 QA·브라우저·수집/OpenAI 호출·실행형 테스트·빌드는 수행하지 않았다. 커밋·push·PR·병합은 실행하지 않았다.
+
 화면·흐름 확인을 별도로 요청받으면 개발 홈페이지를 사용하며 [AGENTS.md](./AGENTS.md#런타임과-배포-경계)의 GUI 승인 규칙을 따릅니다. 이 절은 화면 점검이나 운영 배포를 자동으로 시작하는 절차가 아닙니다.
 
 2026-11-09 사용자가 최신 변경의 릴리스를 요청했습니다. 이번 릴리스는 아래 범위로 준비하며 실계정 QA는 계속 보류합니다. 일상 개발마다 Republish를 수행하는 정책은 아닙니다.

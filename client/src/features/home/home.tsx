@@ -8,12 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { HeartHandshake, Users, Calendar } from "lucide-react";
 import { MembershipBadge } from "@/components/membership-badge";
 import { KAKAO_CHANNEL_URL } from "@/lib/config";
-import type { MembershipStatus } from "@shared/contracts";
+import type { MembershipStatus, PostWithCategory } from "@shared/contracts";
 import { isBirthdayToday } from "@shared/birthday";
 import { PostExcerpt } from "@/components/post-body";
 import { useSeo } from "@/lib/seo";
@@ -31,7 +31,7 @@ export default function Home() {
     window.scrollTo(0, 0);
   }, []);
 
-  const { data: recentPosts, isLoading: postsLoading } = useQuery({
+  const { data: recentPosts, isLoading: postsLoading } = useQuery<PostWithCategory[]>({
     queryKey: ["/api/posts"],
     queryFn: async () => {
       const response = await fetch("/api/posts?limit=3", { credentials: "include" });
@@ -209,7 +209,7 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {recentPosts?.map((post: any) => (
+              {recentPosts?.map((post) => (
                 <Link
                   key={post.id}
                   className="block border-b border-gray-50 p-4 transition-colors last:border-b-0 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:p-6"
@@ -219,11 +219,11 @@ export default function Home() {
                     <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <Badge variant={post.category.badgeVariant as any}>
+                        <Badge variant={post.category.badgeVariant as BadgeProps["variant"]}>
                           {post.category.displayName}
                         </Badge>
                         <span className="text-xs text-gray-500">
-                          {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
+                          {new Date(post.publishedAt || post.createdAt || "").toLocaleDateString()}
                         </span>
                       </div>
                       <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800 md:text-lg">

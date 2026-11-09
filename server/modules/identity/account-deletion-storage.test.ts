@@ -68,7 +68,7 @@ test("development PostgreSQL deletes one member while preserving public content"
     : !hasDatabaseEnvironment
       ? "PostgreSQL 개발 DB 환경변수가 없어 건너뜁니다."
       : false,
-}, async () => {
+}, async (t) => {
   const { pool } = await import("../../db");
   const databaseResult = await pool.query<{ database: string }>(
     "select current_database() as database",
@@ -99,194 +99,195 @@ test("development PostgreSQL deletes one member while preserving public content"
   const marker = `TASK4-${token}`;
   const targetSessionIds = [`task4-${token}-session-a`, `task4-${token}-session-b`];
   const otherSessionId = `task4-${token}-session-other`;
-  let userId: number | undefined;
-  let otherUserId: number | undefined;
 
-  try {
-    const usersResult = await pool.query<{ id: number }>(
-      `insert into users (kakao_id, email, name, phone_number)
-       values ($1, $2, $3, $4), ($5, $6, $7, $8)
-       returning id`,
-      [
-        kakaoId,
-        email,
-        marker,
-        testPhone(0),
-        otherKakaoId,
-        otherEmail,
-        `${marker}-other`,
-        testPhone(1),
-      ],
-    );
-    userId = usersResult.rows[0].id;
-    otherUserId = usersResult.rows[1].id;
-
-    await pool.query(
-      `insert into posts (title, content, author_id) values ($1, $1, $2)`,
-      [marker, userId],
-    );
-    const postResult = await pool.query<{ id: number }>(
-      "select id from posts where title = $1",
-      [marker],
-    );
-    await pool.query(
-      `insert into comments (post_id, author_id, content) values ($1, $2, $3)`,
-      [postResult.rows[0].id, userId, marker],
-    );
-    await pool.query(
-      `insert into alumni_database
-        (department, generation, name, mobile, is_matched, matched_user_id)
-       values ('한의학과', $1, $1, $2, true, $3)`,
-      [marker, testPhone(2), userId],
-    );
-    await pool.query(
-      `insert into posts (title, content, is_published, event_data, author_id)
-       values ($1, '', false, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2),
-              ($3, '', true, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2)`,
-      [`${marker}-draft`, userId, `${marker}-published`],
-    );
-    await pool.query(
-      `insert into pending_registrations (kakao_id, email, name, status)
-       values
-         ($1, $2, $3, 'pending'),
-         ($4, $5, $3, 'pending')`,
-      [kakaoId, otherEmail, marker, otherKakaoId, mixedCaseEmail],
-    );
-    await pool.query(
-      `insert into "session" (sid, sess, expire)
-       values
-         ($1, $2::json, now() + interval '1 day'),
-         ($3, $4::json, now() + interval '1 day'),
-         ($5, $6::json, now() + interval '1 day')`,
-      [
-        targetSessionIds[0],
-        JSON.stringify({ userId, cookie: {} }),
-        targetSessionIds[1],
-        JSON.stringify({ userId, cookie: {}, device: "second" }),
-        otherSessionId,
-        JSON.stringify({ userId: otherUserId, cookie: {} }),
-      ],
-    );
-
-    await storage.deleteUserAccount({ id: userId, kakaoId, email });
-
-    const state = await pool.query<{
-      users_count: number;
-      draft_count: number;
-      published_anonymous_count: number;
-      post_anonymous_count: number;
-      comment_anonymous_count: number;
-      payment_anonymous_count: number;
-      alumni_unmatched_count: number;
-      pending_count: number;
-      target_session_count: number;
-      other_session_count: number;
-      termination_count: number;
-    }>(
-      `select
-         (select count(*)::int from users where id = $1) as users_count,
-         (select count(*)::int from posts where title = $2) as draft_count,
-         (select count(*)::int from posts where title = $3 and author_id is null) as published_anonymous_count,
-         (select count(*)::int from posts where title = $4 and author_id is null) as post_anonymous_count,
-         (select count(*)::int from comments where content = $4 and author_id is null) as comment_anonymous_count,
-         (select count(*)::int from payments where type = $4 and user_id is null) as payment_anonymous_count,
-         (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id is null) as alumni_unmatched_count,
-         (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
-         (select count(*)::int from "session" where sid = any($7::text[])) as target_session_count,
-         (select count(*)::int from "session" where sid = $8) as other_session_count,
-         (select count(*)::int from kakao_identity_terminations
-           where identity_hash = any($9::text[])) as termination_count`,
-      [
-        userId,
-        `${marker}-draft`,
-        `${marker}-published`,
-        marker,
-        kakaoId,
-        email,
-        targetSessionIds,
-        otherSessionId,
-        terminationHashes,
-      ],
-    );
-    assert.deepEqual(state.rows[0], {
-      users_count: 0,
-      draft_count: 0,
-      published_anonymous_count: 1,
-      post_anonymous_count: 1,
-      comment_anonymous_count: 1,
-      payment_anonymous_count: 0,
-      alumni_unmatched_count: 1,
-      pending_count: 0,
-      target_session_count: 0,
-      other_session_count: 1,
-      termination_count: 2,
-    });
-  } finally {
+  t.after(async () => {
     try {
-      await pool.query("begin");
-      await pool.query("delete from \"session\" where sid = any($1::text[])", [
-        [...targetSessionIds, otherSessionId],
-      ]);
-      await pool.query("delete from comments where content = $1", [marker]);
-      await pool.query("delete from posts where title = $1", [marker]);
-      await pool.query("delete from posts where title = any($1::text[])", [
-        [`${marker}-draft`, `${marker}-published`],
-      ]);
-      await pool.query("delete from payments where type = $1", [marker]);
-      await pool.query("delete from alumni_database where generation = $1", [marker]);
-      await pool.query("delete from pending_registrations where name = $1", [marker]);
-      await pool.query("delete from users where email = any($1::text[])", [[email, otherEmail]]);
-      await pool.query(
-        "delete from kakao_identity_terminations where identity_hash = any($1::text[])",
-        [terminationHashes],
-      );
-      await pool.query("commit");
-    } catch (error) {
-      await pool.query("rollback");
-      throw error;
-    }
+      try {
+        await pool.query("begin");
+        await pool.query("delete from \"session\" where sid = any($1::text[])", [
+          [...targetSessionIds, otherSessionId],
+        ]);
+        await pool.query("delete from comments where content = $1", [marker]);
+        await pool.query("delete from posts where title = $1", [marker]);
+        await pool.query("delete from posts where title = any($1::text[])", [
+          [`${marker}-draft`, `${marker}-published`],
+        ]);
+        await pool.query("delete from payments where type = $1", [marker]);
+        await pool.query("delete from alumni_database where generation = $1", [marker]);
+        await pool.query("delete from pending_registrations where name = $1", [marker]);
+        await pool.query("delete from users where email = any($1::text[])", [[email, otherEmail]]);
+        await pool.query(
+          "delete from kakao_identity_terminations where identity_hash = any($1::text[])",
+          [terminationHashes],
+        );
+        await pool.query("commit");
+      } catch (error) {
+        await pool.query("rollback");
+        throw error;
+      }
 
-    const residue = await pool.query<{
-      users_count: number;
-      posts_count: number;
-      comments_count: number;
-      payments_count: number;
-      alumni_count: number;
-      events_count: number;
-      pending_count: number;
-      sessions_count: number;
-      terminations_count: number;
-    }>(
-      `select
-         (select count(*)::int from users where email = any($1::text[])) as users_count,
-         (select count(*)::int from posts where title = $2) as posts_count,
-         (select count(*)::int from comments where content = $2) as comments_count,
-         (select count(*)::int from payments where type = $2) as payments_count,
-         (select count(*)::int from alumni_database where generation = $2) as alumni_count,
-         (select count(*)::int from posts where title = any($3::text[])) as events_count,
-         (select count(*)::int from pending_registrations where name = $2) as pending_count,
-         (select count(*)::int from "session" where sid = any($4::text[])) as sessions_count,
-         (select count(*)::int from kakao_identity_terminations
-           where identity_hash = any($5::text[])) as terminations_count`,
-      [
-        [email, otherEmail],
-        marker,
-        [`${marker}-draft`, `${marker}-published`],
-        [...targetSessionIds, otherSessionId],
-        terminationHashes,
-      ],
-    );
-    assert.deepEqual(residue.rows[0], {
-      users_count: 0,
-      posts_count: 0,
-      comments_count: 0,
-      payments_count: 0,
-      alumni_count: 0,
-      events_count: 0,
-      pending_count: 0,
-      sessions_count: 0,
-      terminations_count: 0,
-    });
-    await pool.end();
-  }
+      const residue = await pool.query<{
+        users_count: number;
+        posts_count: number;
+        comments_count: number;
+        payments_count: number;
+        alumni_count: number;
+        events_count: number;
+        pending_count: number;
+        sessions_count: number;
+        terminations_count: number;
+      }>(
+        `select
+           (select count(*)::int from users where email = any($1::text[])) as users_count,
+           (select count(*)::int from posts where title = $2) as posts_count,
+           (select count(*)::int from comments where content = $2) as comments_count,
+           (select count(*)::int from payments where type = $2) as payments_count,
+           (select count(*)::int from alumni_database where generation = $2) as alumni_count,
+           (select count(*)::int from posts where title = any($3::text[])) as events_count,
+           (select count(*)::int from pending_registrations where name = $2) as pending_count,
+           (select count(*)::int from "session" where sid = any($4::text[])) as sessions_count,
+           (select count(*)::int from kakao_identity_terminations
+             where identity_hash = any($5::text[])) as terminations_count`,
+        [
+          [email, otherEmail],
+          marker,
+          [`${marker}-draft`, `${marker}-published`],
+          [...targetSessionIds, otherSessionId],
+          terminationHashes,
+        ],
+      );
+      assert.deepEqual(residue.rows[0], {
+        users_count: 0,
+        posts_count: 0,
+        comments_count: 0,
+        payments_count: 0,
+        alumni_count: 0,
+        events_count: 0,
+        pending_count: 0,
+        sessions_count: 0,
+        terminations_count: 0,
+      });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  const usersResult = await pool.query<{ id: number }>(
+    `insert into users (kakao_id, email, name, phone_number)
+     values ($1, $2, $3, $4), ($5, $6, $7, $8)
+     returning id`,
+    [
+      kakaoId,
+      email,
+      marker,
+      testPhone(0),
+      otherKakaoId,
+      otherEmail,
+      `${marker}-other`,
+      testPhone(1),
+    ],
+  );
+  const userId = usersResult.rows[0].id;
+  const otherUserId = usersResult.rows[1].id;
+
+  await pool.query(
+    `insert into posts (title, content, author_id) values ($1, $1, $2)`,
+    [marker, userId],
+  );
+  const postResult = await pool.query<{ id: number }>(
+    "select id from posts where title = $1",
+    [marker],
+  );
+  await pool.query(
+    `insert into comments (post_id, author_id, content) values ($1, $2, $3)`,
+    [postResult.rows[0].id, userId, marker],
+  );
+  await pool.query(
+    `insert into alumni_database
+      (department, generation, name, mobile, is_matched, matched_user_id)
+     values ('한의학과', $1, $1, $2, true, $3)`,
+    [marker, testPhone(2), userId],
+  );
+  await pool.query(
+    `insert into posts (title, content, is_published, event_data, author_id)
+     values ($1, '', false, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2),
+            ($3, '', true, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2)`,
+    [`${marker}-draft`, userId, `${marker}-published`],
+  );
+  await pool.query(
+    `insert into pending_registrations (kakao_id, email, name, status)
+     values
+       ($1, $2, $3, 'pending'),
+       ($4, $5, $3, 'pending')`,
+    [kakaoId, otherEmail, marker, otherKakaoId, mixedCaseEmail],
+  );
+  await pool.query(
+    `insert into "session" (sid, sess, expire)
+     values
+       ($1, $2::json, now() + interval '1 day'),
+       ($3, $4::json, now() + interval '1 day'),
+       ($5, $6::json, now() + interval '1 day')`,
+    [
+      targetSessionIds[0],
+      JSON.stringify({ userId, cookie: {} }),
+      targetSessionIds[1],
+      JSON.stringify({ userId, cookie: {}, device: "second" }),
+      otherSessionId,
+      JSON.stringify({ userId: otherUserId, cookie: {} }),
+    ],
+  );
+
+  await storage.deleteUserAccount({ id: userId, kakaoId, email });
+
+  const state = await pool.query<{
+    users_count: number;
+    draft_count: number;
+    published_anonymous_count: number;
+    post_anonymous_count: number;
+    comment_anonymous_count: number;
+    payment_anonymous_count: number;
+    alumni_unmatched_count: number;
+    pending_count: number;
+    target_session_count: number;
+    other_session_count: number;
+    termination_count: number;
+  }>(
+    `select
+       (select count(*)::int from users where id = $1) as users_count,
+       (select count(*)::int from posts where title = $2) as draft_count,
+       (select count(*)::int from posts where title = $3 and author_id is null) as published_anonymous_count,
+       (select count(*)::int from posts where title = $4 and author_id is null) as post_anonymous_count,
+       (select count(*)::int from comments where content = $4 and author_id is null) as comment_anonymous_count,
+       (select count(*)::int from payments where type = $4 and user_id is null) as payment_anonymous_count,
+       (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id is null) as alumni_unmatched_count,
+       (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
+       (select count(*)::int from "session" where sid = any($7::text[])) as target_session_count,
+       (select count(*)::int from "session" where sid = $8) as other_session_count,
+       (select count(*)::int from kakao_identity_terminations
+         where identity_hash = any($9::text[])) as termination_count`,
+    [
+      userId,
+      `${marker}-draft`,
+      `${marker}-published`,
+      marker,
+      kakaoId,
+      email,
+      targetSessionIds,
+      otherSessionId,
+      terminationHashes,
+    ],
+  );
+  assert.deepEqual(state.rows[0], {
+    users_count: 0,
+    draft_count: 0,
+    published_anonymous_count: 1,
+    post_anonymous_count: 1,
+    comment_anonymous_count: 1,
+    payment_anonymous_count: 0,
+    alumni_unmatched_count: 1,
+    pending_count: 0,
+    target_session_count: 0,
+    other_session_count: 1,
+    termination_count: 2,
+  });
 });

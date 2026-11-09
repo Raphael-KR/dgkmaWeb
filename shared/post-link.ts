@@ -1,7 +1,11 @@
 /** Same URL policy for HTML input, stored documents and rendered links. */
 export function safePostLink(value: string): string | undefined {
   const url = value.trim();
-  if (!url || /[\u0000-\u0020\u007f]/.test(url)) return;
+  if (!url) return;
+  for (const character of url) {
+    const code = character.charCodeAt(0);
+    if (code <= 0x20 || code === 0x7f) return;
+  }
   if (url.startsWith("#") || /^\/(?![/\\])/.test(url)) return url;
   if (!/^(?:https?:\/\/|mailto:|tel:)/i.test(url)) return;
   try {

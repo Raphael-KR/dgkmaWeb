@@ -4,7 +4,7 @@ const METRICS = [
     key: "stableRequests",
     label: "cold home stable request count (excluding font CDN and injected dev banner)",
     value: (run) => run.stableRequestCount,
-    allowedIncrease: (baseline) => 1,
+    allowedIncrease: () => 1,
   },
   {
     key: "localTransferredBytes",

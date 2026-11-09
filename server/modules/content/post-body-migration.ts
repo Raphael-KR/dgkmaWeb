@@ -153,6 +153,7 @@ export async function migratePostBody(mode: "preview" | "apply", directory: stri
     Object.assign(receipt, { committed, failed: true, errorType: safe.name, sqlState: safe.code, evidence: safe.evidence, contentOmitted: true });
     await writeFile(path.join(allowedRoot, `${mode}-failure.json`), JSON.stringify(receipt, null, 2) + "\n", { mode: 0o600 });
     console.error(JSON.stringify(receipt));
+    // eslint-disable-next-line preserve-caught-error -- Raw DB errors may expose credentials or rows; the metadata-only receipt preserves safe evidence.
     throw new Error("Post body migration failed; see the metadata-only receipt.");
   } finally { await client.end(); }
 }

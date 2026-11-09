@@ -82,6 +82,7 @@ export function registerRegistryAdminRoutes(
       const registrations = await storage.getPendingRegistrations();
       res.json(registrations.map(toAdminPendingRegistrationDto));
     } catch (error) {
+      console.error("Failed to fetch pending registrations", { errorType: getErrorType(error) });
       res.status(500).json({ message: "Failed to fetch pending registrations" });
     }
   });

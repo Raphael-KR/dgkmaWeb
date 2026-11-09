@@ -53,7 +53,7 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
   app.use(express.json());
   app.use((req, _res, next) => {
     const userId = req.header("x-test-user-id");
-    (req as any).session = userId ? { userId: Number(userId) } : {};
+    req.session = (userId ? { userId: Number(userId) } : {}) as typeof req.session;
     next();
   });
 
@@ -80,7 +80,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
   let paymentWrites = 0;
   t.mock.method(storage, "getUser", async () => {
     categoryLookups += 1;
-    return { isAdmin: false } as any;
+    return { isAdmin: false } as User;
   });
   t.mock.method(storage, "createCategory", async () => {
     categoryWrites += 1;

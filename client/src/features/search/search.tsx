@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/features/auth";
+import type { PostWithCategory } from "@shared/contracts";
 import { useLocation } from "wouter";
 
 // import { AppHeader } from "@/app/layout/app-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 
 import { Search, ArrowLeft, FileText, Users } from "lucide-react";
 import { PostExcerpt } from "@/components/post-body";
@@ -30,8 +30,7 @@ interface DirectoryResult {
 }
 
 export default function SearchPage() {
-  const { user } = useAuth();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
 
@@ -41,7 +40,7 @@ export default function SearchPage() {
   }, []);
 
   // 게시글 검색
-  const { data: posts, isLoading: postsLoading } = useQuery({
+  const { data: posts, isLoading: postsLoading } = useQuery<PostWithCategory[]>({
     queryKey: ["/api/posts/search", searchTerm],
     queryFn: async () => {
       if (!searchTerm.trim()) return [];
@@ -173,7 +172,7 @@ export default function SearchPage() {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {/* 게시글 결과 */}
-              {(activeTab === "all" || activeTab === "posts") && posts?.map((post: any) => (
+              {(activeTab === "all" || activeTab === "posts") && posts?.map((post) => (
                 <Card
                   key={`post-${post.id}`}
                   className="min-w-0 cursor-pointer transition-shadow hover:shadow-md"
@@ -184,11 +183,11 @@ export default function SearchPage() {
                       <div className="w-2 h-2 bg-kakao-orange rounded-full mt-2 flex-shrink-0"></div>
                       <div className="flex-1 min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <Badge variant={post.category.badgeVariant as any}>
+                          <Badge variant={post.category.badgeVariant as BadgeProps["variant"]}>
                             {post.category.displayName}
                           </Badge>
                           <span className="text-xs text-gray-500">
-                            {new Date(post.createdAt).toLocaleDateString()}
+                            {new Date(post.createdAt || "").toLocaleDateString()}
                           </span>
                         </div>
                         <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800">

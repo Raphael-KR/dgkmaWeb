@@ -9,6 +9,10 @@ import { LIMITS, type JsonObservation } from './collection-contract';
 import { buildRule } from './collection-rules';
 
 type BrowserResult={segments:{url:string;text:string;kind:'rendered'|'ocr';locator?:string}[];stats:{frames:number;interactions:number;scrolls:number;ocrImages:number};blocked:boolean};
+type WorkerMessage =
+  | { type: 'result'; result: BrowserResult }
+  | { type: 'failure'; code: string }
+  | { type: 'request'; id: number; url: string; method: string; resource: string };
 let running=0;
 function chromiumExecutable():string {
   if(process.env.COLLECTOR_CHROMIUM_PATH)return process.env.COLLECTOR_CHROMIUM_PATH;
@@ -47,7 +51,7 @@ export async function browserCollect(url:string,budget:CollectionBudget,observat
       child.on('exit',()=>{if(!settled)finish(Error('collector_worker_exit'));});
       child.on('message',async (raw:unknown)=>{
         if(settled||!raw||typeof raw!=='object')return;
-        const m=raw as Record<string,any>;
+        const m=raw as WorkerMessage;
         if(++messages>LIMITS.requests+10){finish(Error('collector_message_limit'));return;}
         if(m.type==='result') {
           if(!m.result||JSON.stringify(m.result).length>500000||!Array.isArray(m.result.segments))return finish(Error('collector_result_limit'));

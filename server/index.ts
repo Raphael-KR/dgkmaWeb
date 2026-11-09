@@ -5,6 +5,7 @@ import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { resolveSessionSecret } from "./lib/session-secret";
+import { getErrorType } from "./lib/safe-logging";
 
 const app = express();
 
@@ -88,8 +89,8 @@ app.use((req, res, next) => {
       "CREATE INDEX IF NOT EXISTS session_expire_idx ON session (expire);"
     );
     log("session_expire_idx index ensured on session table");
-  } catch (err: any) {
-    const msg = `Could not ensure session_expire_idx on session table: ${err.message}`;
+  } catch (err) {
+    const msg = `Could not ensure session_expire_idx on session table: ${getErrorType(err)}`;
     if (process.env.NODE_ENV === "production") {
       console.error(`FATAL: ${msg}`);
       process.exit(1);
@@ -99,9 +100,15 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const details = err && typeof err === "object"
+      ? err as { status?: unknown; statusCode?: unknown; message?: unknown }
+      : {};
+    const candidateStatus = details.status || details.statusCode;
+    const status = typeof candidateStatus === "number" && Number.isInteger(candidateStatus)
+      && candidateStatus >= 400 && candidateStatus <= 599 ? candidateStatus : 500;
+    const message = typeof details.message === "string" && details.message
+      ? details.message : "Internal Server Error";
 
     res.status(status).json({ message });
     throw err;

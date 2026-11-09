@@ -53,7 +53,7 @@ export default function OnboardingRegion() {
           dest = stored;
         }
         sessionStorage.removeItem("auth:returnTo");
-      } catch {}
+      } catch { /* Storage can be unavailable; continue with the default return path. */ }
       setLocation(dest);
     } catch (error) {
       toast({

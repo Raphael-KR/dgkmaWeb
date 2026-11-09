@@ -17,7 +17,9 @@
     "measure:mobile:update-baseline": "npm run build && node scripts/measure-mobile-home.mjs --update-baseline",
     "test:mobile-benchmark": "node --test scripts/mobile-home-regression.test.mjs",
     "test:route-recovery-browser": "node --import tsx scripts/test-route-recovery-browser.mjs",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.21.0",
@@ -115,6 +117,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@replit/vite-plugin-cartographer": "^0.5.5",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
@@ -132,10 +135,14 @@
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.31.10",
     "esbuild": "^0.25.0",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.13",
     "typescript": "5.6.3",
+    "typescript-eslint": "8.72.1",
     "vite": "^6.4.3"
   },
   "optionalDependencies": {
