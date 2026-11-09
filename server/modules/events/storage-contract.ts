@@ -9,4 +9,7 @@ export interface EventsStorageContract {
   }): Promise<Post | undefined>;
   publishNotice(id: number, authorId: number, revision: number): Promise<Post | undefined>;
   deleteNoticeDraft(id: number, authorId: number, revision: number): Promise<boolean>;
+  updatePublishedNotice(id: number, authorId: number, revision: number, data: {
+    eventData: NoticeData; title: string; content: PostDocument;
+  }): Promise<Post | undefined>;
 }

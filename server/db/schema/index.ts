@@ -87,6 +87,7 @@ export const posts = pgTable("posts", {
   categoryId: integer("category_id").references(() => categories.id),
   authorId: integer("author_id").references(() => users.id),
   isPublished: boolean("is_published").default(true),
+  isHidden: boolean("is_hidden").notNull().default(false),
   imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
   eventData: jsonb("event_data").$type<NoticeData>(),
   sourceText: text("source_text"),

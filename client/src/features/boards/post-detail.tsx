@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@/features/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,10 @@ import { Link } from "wouter";
 import { useSeo } from "@/lib/seo";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { type Comment } from "@shared/contracts";
+import { type Comment, type Post, type Category } from "@shared/contracts";
 import { PostBody } from "@/components/post-body";
+import { postRequest, refreshPosts } from "@/lib/post-management";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 
 type CommentWithAuthor = Comment & { author: { id: number; name: string } | null };
 
@@ -22,6 +24,8 @@ export default function PostDetail() {
   const [, shortPostParams] = useRoute("/p/:id");
   const { user } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [action, setAction] = useState<"delete" | "hide" | "show" | null>(null);
   const postId = postParams?.id || shortPostParams?.id;
   const [commentText, setCommentText] = useState("");
 
@@ -30,7 +34,7 @@ export default function PostDetail() {
     window.scrollTo(0, 0);
   }, []);
 
-  const { data: post, isLoading, error } = useQuery({
+  const { data: post, isLoading, error } = useQuery<Post & { category: Category }>({
     queryKey: ["/api/posts", postId],
     queryFn: async () => {
       const response = await fetch(`/api/posts/${postId}`, { credentials: "include" });
@@ -44,7 +48,7 @@ export default function PostDetail() {
 
   const { data: comments = [], isLoading: commentsLoading } = useQuery<CommentWithAuthor[]>({
     queryKey: ["/api/posts", postId, "comments"],
-    enabled: !!postId,
+    enabled: !!postId && !!user && !!post && !post.isHidden,
   });
 
   const createComment = useMutation({
@@ -71,6 +75,25 @@ export default function PostDetail() {
     onError: () => {
       toast({ title: "삭제 실패", description: "댓글을 삭제하지 못했습니다.", variant: "destructive" });
     },
+  });
+
+  const manage = useMutation({
+    mutationFn: async (operation: "delete" | "hide" | "show") => {
+      if (!post) return;
+      return operation === "delete"
+        ? postRequest("DELETE", `/api/posts/${post.id}`, { revision: post.revision })
+        : postRequest("PATCH", `/api/posts/${post.id}/visibility`, { revision: post.revision, isHidden: operation === "hide" });
+    },
+    onSuccess: async (_, operation) => {
+      setAction(null);
+      if (operation === "delete") {
+        navigate("/b");
+        queryClient.removeQueries({ queryKey: ["/api/posts", postId] });
+      }
+      await refreshPosts();
+      toast({ title: operation === "delete" ? "게시글을 삭제했습니다." : operation === "hide" ? "게시글을 가렸습니다." : "게시글을 다시 표시합니다." });
+    },
+    onError: (cause: Error) => toast({ title: "변경하지 못했습니다.", description: cause.message, variant: "destructive" }),
   });
 
   const handleSubmitComment = () => {
@@ -102,7 +125,7 @@ export default function PostDetail() {
           <Card>
             <CardContent className="p-6 text-center">
               <h2 className="text-lg font-bold text-gray-800 mb-2">게시글을 찾을 수 없습니다</h2>
-              <p className="text-gray-600 mb-4">요청하신 게시글이 존재하지 않거나 삭제되었습니다.</p>
+              <p className="text-gray-600 mb-4">요청하신 게시글이 없거나 표시할 수 없는 상태입니다.</p>
               <Link href="/b">
                 <Button className="bg-kakao-yellow text-kakao-brown hover:bg-yellow-400">
                   <ArrowLeft size={16} className="mr-2" />
@@ -139,8 +162,9 @@ export default function PostDetail() {
                 <Badge variant={post.category?.badgeVariant as any}>
                   {post.category?.displayName}
                 </Badge>
+                {post.isHidden && <Badge variant="secondary">가린 글 · 작성자/관리자만 열람</Badge>}
                 <span className="text-xs text-gray-500">
-                  {new Date(post.publishedAt || post.createdAt).toLocaleDateString('ko-KR', {
+                  {new Date(post.publishedAt || post.createdAt || "").toLocaleDateString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -157,7 +181,7 @@ export default function PostDetail() {
 
               {/* 작성자 정보 */}
               <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <span>작성자: {post.author?.name || "관리자"}</span>
+                <span>작성자: {post.authorId === user?.id ? "본인" : post.authorId ? "회원" : "탈퇴한 회원"}</span>
               </div>
             </div>
 
@@ -197,24 +221,20 @@ export default function PostDetail() {
                   </Button>
                 </Link>
 
-                {/* 관리자나 작성자만 수정/삭제 가능 (추후 구현) */}
-                {(user?.isAdmin || user?.id === post.authorId) && (
-                  <div className="space-x-2">
-                    <Button variant="outline" size="sm">
-                      수정
-                    </Button>
-                    <Button variant="destructive" size="sm">
-                      삭제
-                    </Button>
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {user?.id === post.authorId && <>
+                    <Button variant="outline" size="sm" asChild><Link href={`/p/${post.id}/edit`}>수정</Link></Button>
+                    <Button variant="destructive" size="sm" disabled={manage.isPending} onClick={() => setAction("delete")}>삭제</Button>
+                  </>}
+                  {user?.isAdmin && <Button variant="outline" size="sm" disabled={manage.isPending} onClick={() => setAction(post.isHidden ? "show" : "hide")}>{post.isHidden ? "다시 표시" : "글 가리기"}</Button>}
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 댓글 */}
-        <Card className="min-w-0 shadow-sm">
+        {/* 가린 글에는 댓글을 조회하거나 추가하지 않는다. */}
+        {!post.isHidden && <Card className="min-w-0 shadow-sm">
           <CardContent className="p-6">
             <div className="flex items-center mb-4">
               <MessageSquare size={18} className="mr-2 text-gray-500" />
@@ -292,8 +312,20 @@ export default function PostDetail() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card>}
         </div>
+        <AlertDialog open={action !== null} onOpenChange={open => { if (!open && !manage.isPending) setAction(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{action === "delete" ? "게시글을 삭제할까요?" : action === "hide" ? "게시글을 가릴까요?" : "게시글을 다시 표시할까요?"}</AlertDialogTitle>
+              <AlertDialogDescription>{action === "delete" ? "게시글과 댓글이 삭제됩니다. 이 작업은 되돌릴 수 없습니다." : action === "hide" ? "목록과 검색에서 제외하고 작성자와 관리자만 볼 수 있게 합니다. 본문과 댓글은 보존됩니다." : "회원들이 목록과 검색에서 이 글을 다시 볼 수 있습니다."}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={manage.isPending}>취소</AlertDialogCancel>
+              <AlertDialogAction disabled={manage.isPending} onClick={event => { event.preventDefault(); if (action) manage.mutate(action); }}>{manage.isPending ? "처리 중…" : "확인"}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

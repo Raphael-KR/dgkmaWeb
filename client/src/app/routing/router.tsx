@@ -3,7 +3,7 @@ import { RouteBoundary } from "./route-boundary";
 import { AuthGate, useAuth, Login, KakaoCallback, OnboardingRegion } from "@/features/auth";
 import { Home, PublicHome } from "@/features/home";
 import { Admin } from "@/features/admin";
-import { Boards, PostDetail } from "@/features/boards";
+import { Boards, PostDetail, PostEdit } from "@/features/boards";
 import { Directory } from "@/features/directory";
 import { Profile } from "@/features/profile";
 import { NoticeComposer } from "@/features/events";
@@ -68,6 +68,7 @@ export function Router() {
       <Route path="/search">
         <AuthGate><Search /></AuthGate>
       </Route>
+      <Route path="/p/:id/edit"><AuthGate><PostEdit /></AuthGate></Route>
       <Route path="/p/:id">
         <AuthGate><PostDetail /></AuthGate>
       </Route>

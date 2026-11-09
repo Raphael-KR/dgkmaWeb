@@ -1,4 +1,5 @@
 import { useEffect, useReducer } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
 
@@ -416,9 +417,8 @@ export default function Admin() {
                   <CardTitle>게시글 관리</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-center text-gray-500 py-4">
-                    게시글 관리 기능은 준비 중입니다.
-                  </p>
+                  <p className="mb-4 text-sm text-gray-500">게시글 상세에서 글을 가리거나 다시 표시할 수 있습니다. 다른 작성자의 본문은 수정·삭제하지 않습니다.</p>
+                  <div className="flex flex-wrap gap-2"><Button asChild><Link href="/b">게시글 보기</Link></Button><Button variant="outline" asChild><Link href="/b?view=hidden">가린 글 관리</Link></Button></div>
                 </CardContent>
               </Card>
             </TabsContent>

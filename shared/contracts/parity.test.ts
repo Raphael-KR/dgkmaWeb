@@ -148,7 +148,7 @@ const typeParity: [
   Equal<contracts.InsertPost, z.infer<typeof persistence.insertPostSchema>>,
   Equal<contracts.InsertComment, persistence.InsertComment>,
   Equal<contracts.Category, JsonDates<persistence.Category>>,
-  Equal<contracts.Post, JsonDates<Omit<persistence.Post, "eventData" | "sourceText" | "revision">>>,
+  Equal<contracts.Post, JsonDates<Omit<persistence.Post, "eventData" | "sourceText"> & { eventType: contracts.NoticeType | null }>>,
   Equal<contracts.Comment, JsonDates<persistence.Comment>>,
   Equal<contracts.ClientUser, persistence.ClientUser>,
 ] = [true, true, true, true, true, true];

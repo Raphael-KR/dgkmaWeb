@@ -29,6 +29,7 @@ export default function Boards() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState(() => new URLSearchParams(window.location.search).get("category") || "all");
+  const [showHidden, setShowHidden] = useState(() => new URLSearchParams(window.location.search).get("view") === "hidden");
   const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
   const [bodyValid, setBodyValid] = useState(true);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -70,11 +71,10 @@ export default function Boards() {
   });
 
   const { data: posts, isLoading: postsLoading } = useQuery({
-    queryKey: ["/api/posts", selectedCategory === "all" ? undefined : selectedCategory],
+    queryKey: ["/api/posts", selectedCategory === "all" ? undefined : selectedCategory, showHidden ? "hidden" : "visible"],
     queryFn: async () => {
-      const url = selectedCategory === "all"
-        ? "/api/posts"
-        : `/api/posts?category=${encodeURIComponent(selectedCategory)}`;
+      const base = showHidden ? "/api/posts/hidden" : "/api/posts";
+      const url = selectedCategory === "all" ? base : `${base}?category=${encodeURIComponent(selectedCategory)}`;
       const response = await fetch(url, { credentials: "include" });
       if (!response.ok) throw new Error("게시글을 불러오지 못했습니다.");
       return response.json();
@@ -343,6 +343,11 @@ export default function Boards() {
             </div>
           </div>
 
+          <div className="mb-5 flex flex-wrap gap-2" aria-label="게시글 표시 범위">
+            <Button variant={showHidden ? "outline" : "default"} onClick={() => setShowHidden(false)}>게시된 글</Button>
+            <Button variant={showHidden ? "default" : "outline"} onClick={() => setShowHidden(true)}>{user?.isAdmin ? "가린 글 관리" : "내 가린 글"}</Button>
+          </div>
+
           <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8">
             <nav aria-label="게시판 카테고리" className="mb-5 flex gap-2 overflow-x-auto pb-2 member-sticky-panel lg:mb-0 lg:block lg:space-y-1 lg:rounded-xl lg:border lg:bg-white lg:p-3">
               <h2 className="hidden px-3 py-2 text-xs font-semibold text-gray-500 lg:block">카테고리</h2>
@@ -378,6 +383,7 @@ export default function Boards() {
                         <Badge variant={post.category.badgeVariant as any}>
                           {post.category.displayName}
                         </Badge>
+                        {post.isHidden && <Badge variant="secondary">가린 글</Badge>}
                         <time className="text-xs text-gray-500" dateTime={post.publishedAt || post.createdAt}>
                           {new Date(post.publishedAt || post.createdAt).toLocaleDateString("ko-KR")}
                         </time>
