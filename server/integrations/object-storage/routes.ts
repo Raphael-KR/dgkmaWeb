@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { storage } from "../../storage";
 import { createHmac, timingSafeEqual } from "crypto";
 import type { IncomingMessage } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -269,6 +270,11 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(401).json({ error: "로그인이 필요합니다" });
       }
       res.set("Cache-Control", "private, no-store");
+      const viewer = await storage.getUser(req.session.userId);
+      if (!viewer) return res.status(401).json({ error: "로그인이 필요합니다" });
+      if (!await storage.canReadPostAttachment(req.path, viewer)) {
+        return res.status(404).json({ error: "첨부 파일을 찾을 수 없습니다" });
+      }
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {

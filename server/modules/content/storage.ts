@@ -1,12 +1,22 @@
 import { normalizePostDocument } from "@shared/editor/post-document";
+import type { NoticeType, UpdatePost } from "@shared/contracts";
 import { postBodyTextExpression } from "./post-body-query";
 import {
   users, posts, categories, comments,
   type Post, type InsertPost, type Category, type InsertCategory, type Comment,
 } from "@shared/schema";
-import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import type { CommentWithAuthor, ContentStorageContract, PublishedPost } from "./storage-contract";
+import type { CommentWithAuthor, ContentStorageContract, PublishedPost, PostViewer } from "./storage-contract";
+
+const publicColumns = {
+  id: posts.id, title: posts.title, content: posts.content, categoryId: posts.categoryId,
+  authorId: posts.authorId, isPublished: posts.isPublished, isHidden: posts.isHidden,
+  revision: posts.revision, imageUrls: posts.imageUrls, createdAt: posts.createdAt,
+  updatedAt: posts.updatedAt, publishedAt: posts.publishedAt,
+  eventType: sql<NoticeType | null>`${posts.eventData}->>'eventType'`, category: categories,
+};
+const visible = () => and(eq(posts.isPublished, true), eq(posts.isHidden, false));
 
 export class ContentStorage implements ContentStorageContract {
   async getCategories(): Promise<Category[]> {
@@ -44,24 +54,12 @@ export class ContentStorage implements ContentStorageContract {
   }
 
   async getPosts(categoryName?: string, limit = 50): Promise<(PublishedPost & { category: Category })[]> {
-    const baseCondition = eq(posts.isPublished, true);
+    const baseCondition = visible();
     const whereCondition = categoryName && categoryName !== 'all'
       ? and(baseCondition, eq(categories.name, categoryName))
       : baseCondition;
 
-    return await db.select({
-      id: posts.id,
-      title: posts.title,
-      content: posts.content,
-      categoryId: posts.categoryId,
-      authorId: posts.authorId,
-      isPublished: posts.isPublished,
-      imageUrls: posts.imageUrls,
-      createdAt: posts.createdAt,
-      updatedAt: posts.updatedAt,
-      publishedAt: posts.publishedAt,
-      category: categories
-    })
+    return await db.select(publicColumns)
     .from(posts)
     .innerJoin(categories, eq(posts.categoryId, categories.id))
     .where(whereCondition)
@@ -69,23 +67,12 @@ export class ContentStorage implements ContentStorageContract {
     .limit(limit);
   }
 
-  async getPost(id: number): Promise<(PublishedPost & { category: Category }) | undefined> {
-    const [result] = await db.select({
-      id: posts.id,
-      title: posts.title,
-      content: posts.content,
-      categoryId: posts.categoryId,
-      authorId: posts.authorId,
-      isPublished: posts.isPublished,
-      imageUrls: posts.imageUrls,
-      createdAt: posts.createdAt,
-      updatedAt: posts.updatedAt,
-      publishedAt: posts.publishedAt,
-      category: categories
-    })
+  async getPost(id: number, viewer?: PostViewer): Promise<(PublishedPost & { category: Category }) | undefined> {
+    const [result] = await db.select(publicColumns)
     .from(posts)
     .innerJoin(categories, eq(posts.categoryId, categories.id))
-    .where(and(eq(posts.id, id), eq(posts.isPublished, true)));
+    .where(and(eq(posts.id, id), eq(posts.isPublished, true),
+      viewer?.isAdmin ? undefined : or(eq(posts.isHidden, false), viewer ? eq(posts.authorId, viewer.id) : undefined)));
 
     return result || undefined;
   }
@@ -95,17 +82,49 @@ export class ContentStorage implements ContentStorageContract {
     return post;
   }
 
-  async updatePost(id: number, updateData: Partial<InsertPost>): Promise<Post | undefined> {
-    const [post] = await db.update(posts)
-      .set({ ...updateData, ...(updateData.content === undefined ? {} : { content: normalizePostDocument(updateData.content) }), updatedAt: new Date() })
-      .where(eq(posts.id, id))
-      .returning();
-    return post || undefined;
+  async getPostForManagement(id: number): Promise<Post | undefined> {
+    const [post] = await db.select().from(posts).where(and(eq(posts.id, id), eq(posts.isPublished, true)));
+    return post;
   }
 
-  async deletePost(id: number): Promise<boolean> {
-    const result = await db.delete(posts).where(and(eq(posts.id, id), eq(posts.isPublished, true)));
-    return (result.rowCount ?? 0) > 0;
+  async getHiddenPosts(viewer: PostViewer, categoryName?: string): Promise<(PublishedPost & { category: Category })[]> {
+    return db.select(publicColumns).from(posts).innerJoin(categories, eq(posts.categoryId, categories.id))
+      .where(and(eq(posts.isPublished, true), eq(posts.isHidden, true),
+        viewer.isAdmin ? undefined : eq(posts.authorId, viewer.id),
+        categoryName && categoryName !== "all" ? eq(categories.name, categoryName) : undefined))
+      .orderBy(desc(posts.updatedAt)).limit(100);
+  }
+
+  async canReadPostAttachment(path: string, viewer: PostViewer): Promise<boolean> {
+    const references = await db.select({ authorId: posts.authorId, isHidden: posts.isHidden, isPublished: posts.isPublished })
+      .from(posts).where(sql`${path} = ANY(${posts.imageUrls})`);
+    // Unattached uploads retain the existing member-only preview boundary.
+    return references.length === 0 || references.some(post =>
+      viewer.isAdmin || post.authorId === viewer.id || (post.isPublished && !post.isHidden));
+  }
+
+  async updatePost(id: number, authorId: number, data: UpdatePost): Promise<Post | undefined> {
+    const { revision, ...editable } = data;
+    const [post] = await db.update(posts)
+      .set({ ...editable, content: normalizePostDocument(data.content), revision: sql`${posts.revision} + 1`, updatedAt: new Date() })
+      .where(and(eq(posts.id, id), eq(posts.authorId, authorId), eq(posts.revision, revision),
+        eq(posts.isPublished, true), isNull(posts.eventData)))
+      .returning();
+    return post;
+  }
+
+  async deletePost(id: number, authorId: number, revision: number): Promise<boolean> {
+    const rows = await db.delete(posts).where(and(eq(posts.id, id), eq(posts.authorId, authorId),
+      eq(posts.revision, revision), eq(posts.isPublished, true))).returning({ id: posts.id });
+    return rows.length === 1;
+  }
+
+  async setPostHidden(id: number, adminId: number, revision: number, isHidden: boolean): Promise<boolean> {
+    const rows = await db.update(posts).set({ isHidden, revision: sql`${posts.revision} + 1`, updatedAt: new Date() })
+      .where(and(eq(posts.id, id), eq(posts.isPublished, true), eq(posts.revision, revision),
+        sql`exists (select 1 from ${users} where ${users.id} = ${adminId} and ${users.isAdmin} = true)`))
+      .returning({ id: posts.id });
+    return rows.length === 1;
   }
 
   async getCommentsByPost(postId: number): Promise<CommentWithAuthor[]> {
@@ -118,8 +137,9 @@ export class ContentStorage implements ContentStorageContract {
       authorName: users.name,
     })
     .from(comments)
+    .innerJoin(posts, eq(comments.postId, posts.id))
     .leftJoin(users, eq(comments.authorId, users.id))
-    .where(eq(comments.postId, postId))
+    .where(and(eq(comments.postId, postId), visible()))
     .orderBy(asc(comments.createdAt));
 
     return rows.map((r) => ({
@@ -137,9 +157,14 @@ export class ContentStorage implements ContentStorageContract {
     return comment || undefined;
   }
 
-  async createComment(data: { postId: number; authorId: number; content: string }): Promise<Comment> {
-    const [comment] = await db.insert(comments).values(data).returning();
-    return comment;
+  async createComment(data: { postId: number; authorId: number; content: string }): Promise<Comment | undefined> {
+    return db.transaction(async tx => {
+      const [parent] = await tx.select({ id: posts.id }).from(posts)
+        .where(and(eq(posts.id, data.postId), visible())).for("update");
+      if (!parent) return undefined;
+      const [comment] = await tx.insert(comments).values(data).returning();
+      return comment;
+    });
   }
 
   async deleteComment(id: number): Promise<boolean> {
@@ -149,24 +174,12 @@ export class ContentStorage implements ContentStorageContract {
 
   async searchPosts(query: string): Promise<(PublishedPost & { category: Category })[]> {
     const searchTerm = `%${query}%`;
-    return await db.select({
-      id: posts.id,
-      title: posts.title,
-      content: posts.content,
-      categoryId: posts.categoryId,
-      authorId: posts.authorId,
-      isPublished: posts.isPublished,
-      imageUrls: posts.imageUrls,
-      createdAt: posts.createdAt,
-      updatedAt: posts.updatedAt,
-      publishedAt: posts.publishedAt,
-      category: categories
-    })
+    return await db.select(publicColumns)
     .from(posts)
     .innerJoin(categories, eq(posts.categoryId, categories.id))
     .where(
       and(
-        eq(posts.isPublished, true),
+        visible(),
         or(
           like(posts.title, searchTerm),
           like(postBodyTextExpression(), searchTerm)

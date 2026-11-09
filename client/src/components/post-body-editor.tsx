@@ -13,6 +13,7 @@ type Props = {
   value: PostDocument;
   onChange: (document: PostDocument) => void;
   onValidityChange?: (valid: boolean) => void;
+  disabled?: boolean;
   onBlur?: () => void;
   id?: string;
   name?: string;
@@ -21,7 +22,7 @@ type Props = {
 };
 
 export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEditor(
-  { value, onChange, onValidityChange, onBlur, id, name, "aria-describedby": descriptionId, "aria-invalid": invalid }, ref,
+  { value, onChange, onValidityChange, disabled = false, onBlur, id, name, "aria-describedby": descriptionId, "aria-invalid": invalid }, ref,
 ) {
   const [mode, setMode] = useState<"visual" | "markdown">("visual");
   const [source, setSource] = useState("");
@@ -80,6 +81,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
     onSelectionUpdate: () => { setLinkEditing(false); setLinkError(""); },
   });
   editorRef.current = editor;
+  useEffect(() => { editor?.setEditable(!disabled, false); }, [editor, disabled]);
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => current ? {

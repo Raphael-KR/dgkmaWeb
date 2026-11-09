@@ -1,6 +1,8 @@
 import type { Post, InsertPost, Category, InsertCategory, Comment } from "@shared/schema";
+import type { NoticeType, UpdatePost } from "@shared/contracts";
 
-export type PublishedPost = Pick<Post, "id" | "title" | "content" | "categoryId" | "authorId" | "isPublished" | "imageUrls" | "createdAt" | "updatedAt" | "publishedAt">;
+export type PublishedPost = Pick<Post, "id" | "title" | "content" | "categoryId" | "authorId" | "isPublished" | "isHidden" | "revision" | "imageUrls" | "createdAt" | "updatedAt" | "publishedAt"> & { eventType: NoticeType | null };
+export type PostViewer = { id: number; isAdmin?: boolean | null };
 
 // 댓글 + 작성자 표시 정보(이름). authorId 가 없는(탈퇴 등) 경우 author=null.
 export type CommentWithAuthor = Comment & {
@@ -15,13 +17,17 @@ export interface ContentStorageContract {
   updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: number): Promise<boolean>;
   getPosts(categoryName?: string, limit?: number): Promise<(PublishedPost & { category: Category })[]>;
-  getPost(id: number): Promise<(PublishedPost & { category: Category }) | undefined>;
+  getPost(id: number, viewer?: PostViewer): Promise<(PublishedPost & { category: Category }) | undefined>;
+  getHiddenPosts(viewer: PostViewer, categoryName?: string): Promise<(PublishedPost & { category: Category })[]>;
+  getPostForManagement(id: number): Promise<Post | undefined>;
+  canReadPostAttachment(path: string, viewer: PostViewer): Promise<boolean>;
   createPost(post: InsertPost): Promise<Post>;
-  updatePost(id: number, post: Partial<InsertPost>): Promise<Post | undefined>;
-  deletePost(id: number): Promise<boolean>;
+  updatePost(id: number, authorId: number, data: UpdatePost): Promise<Post | undefined>;
+  deletePost(id: number, authorId: number, revision: number): Promise<boolean>;
+  setPostHidden(id: number, adminId: number, revision: number, isHidden: boolean): Promise<boolean>;
   searchPosts(query: string): Promise<(PublishedPost & { category: Category })[]>;
   getCommentsByPost(postId: number): Promise<CommentWithAuthor[]>;
   getComment(id: number): Promise<Comment | undefined>;
-  createComment(data: { postId: number; authorId: number; content: string }): Promise<Comment>;
+  createComment(data: { postId: number; authorId: number; content: string }): Promise<Comment | undefined>;
   deleteComment(id: number): Promise<boolean>;
 }

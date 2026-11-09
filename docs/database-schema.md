@@ -1,6 +1,18 @@
 # 데이터베이스 스키마 기준서
 
-이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 19:07 KST 본문 JSONB 전환 후 catalog이며 13개 테이블·102개 컬럼·CHECK 7개다. Production의 최신 관찰은 2026-11-09 19:32 KST 운영 전환 직전 catalog로 13개 테이블·102개 컬럼·CHECK 6개이며 본문은 TEXT다. 사용자는 같은 본문 JSONB 계약의 운영 전환과 릴리스를 승인했다. 실제 전환 결과는 실행 후 아래에 기록하며 승인을 적용 완료로 간주하지 않는다.
+이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. Development의 최신 전체 관찰은 2026-11-09 20:09 KST 가리기 컬럼 추가 후 catalog이며 13개 테이블·103개 컬럼이다. Production은 20:25 KST 릴리스 사전 조회에서 13개 테이블·102개 컬럼과 가림 컬럼 부재를 확인했다. 운영 컬럼 적용 전후 상태를 구분해 아래에 기록한다.
+
+### 게시글 관리 추가 계약 (2026-11-09)
+
+- 후속 릴리스에서 같은 `is_hidden` 컬럼의 Production 적용을 승인받았다. 운영 적용 전후 metadata-only catalog와 기존 행 보존을 새 연결로 확인하며, 아래 개발 결과와 실제 운영 적용 결과를 구분한다. 운영 구조 변경은 컬럼 하나로 한정한다.
+- 확정된 개발 추가 구조는 `posts.is_hidden boolean NOT NULL DEFAULT false` 하나다. 기존 `is_published`는 초안/게시 구분으로 유지하며 가리기에 재사용하지 않는다. 기존 행은 false로 유지하고 본문·사실 JSON·댓글·작성자·최초 게시 시각을 바꾸지 않는다. 새 테이블·제약·인덱스·RLS·트리거는 추가하지 않는다.
+- 기존 `revision`으로 일반 글 수정·작성자 삭제·관리자 가리기/다시 표시하기의 충돌을 검사한다. 작성자 수정·삭제는 SQL에도 `author_id`, `is_published`, `revision` 조건을 적용한다. 가리기 권한은 서버가 현재 회원의 관리자 여부로 판단한다.
+- 정상 목록·검색은 게시됨 + 가리지 않음 조건이다. 가린 글 상세·관리 목록은 작성자/관리자만 볼 수 있고 댓글 추가는 막는다. 댓글의 기존 ON DELETE CASCADE를 사용해 작성자 삭제 시 댓글을 함께 제거하며 Object Storage 파일은 삭제하지 않는다.
+- 경조사 수정은 기존 `event_data`·본문을 한 번에 반영하고 `source_text`는 NULL로 유지한다. 정정 미리보기는 15분 유효한 서버 서명 응답으로만 전달하며 DB에 별도 사본을 저장하지 않는다. 작성자·대상 ID·revision을 묶어 다른 글/회원의 미리보기 재사용과 임의 사실·본문 조작을 막는다. 현재 사실 JSON의 물리 계약은 바꾸지 않는다.
+- 2026-11-09 20:09:49 KST `heliumdb`에 컬럼 추가를 COMMIT하고 새 연결에서 위 타입·기본값·NOT NULL을 확인했다. posts 0건이며 전체 테이블 건수와 기존 본문 JSONB 구조를 보존했다. 기존 행이 있는 상태의 가리기·수정·삭제 기능을 실행한 결과는 아니다.
+- 같은 시각 metadata-only catalog는 tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences `13/103/13/8/6/7/24/9`다. READ ONLY gate·ROLLBACK·완료 marker를 확인했고 차이는 `posts.is_hidden` 컬럼 한 개뿐이다. view·trigger·policy·routine·enum·domain 0개, RLS 모두 비활성을 유지한다.
+- catalog SHA-256은 `453a1924708cc258dec6385be2f461753813747d8ee2a7226f63dd47c2c11e5a`, schema snapshot은 `f6b63b83be2de88e510c88cf6a010987bd67ef2f8d09dfa2e569adbb0f6095fb`다. Replit `.superpowers/post-management-20261109/development-after-catalog.txt`·`development-after.json`·`development-after-schema.sql`을 근거로 한다. 이 개발 단계에서는 운영 DB를 조회·변경하지 않았다.
+- 운영 릴리스 사전 조회: 20:25:34 KST `neondb`·PostgreSQL 16.15·READ ONLY에서 `13/102/13/8/6/7/24/9`를 확인했다. 본문 JSONB NOT NULL·문서 CHECK는 유지되고 `is_hidden`은 없다. catalog SHA-256 `20a089c1f0b4cfb8bf9fc98d2277c6fd0b6de99ebe451b1690abece58e2e5460`, schema snapshot SHA-256 `ba5949b53db20876b8568748e8ab5bdec5718cbc5eb8ba43dbd8b93201bc15d9`이며 `.superpowers/post-management-release-20261109/production-before*`에 보존했다.
 
 ### 운영 릴리스 구조 (2026-11-09)
 
@@ -11,7 +23,7 @@
 - 12:56 KST 추가 구조 적용 직후 catalog는 tables/columns/PK/FK/non-PK UNIQUE/CHECK/indexes/sequences = `15/131/15/10/7/6/27/11`이었다. view·trigger·policy·routine·enum·domain은 0개이며 모든 public 테이블의 RLS는 비활성이었다. 새 연결에서 `neondb`·READ ONLY gate·ROLLBACK·`__CATALOG_INSPECTION_COMPLETE__`를 확인했다. 출력 SHA-256은 `1883ff1b398b00a56d58914c245cf7569d2aca87cf516b6e2dd60b692f40879a`이며 `.superpowers/release-20261109/production-after-additive-catalog.txt`에 있다. 당시에는 Republish와 구 테이블 제거 전이었다.
 - 13:18 KST 웹 삭제 승인 직전, 두 구 테이블과 행 타입의 의존 객체를 추가로 확인했다. 외부 incoming FK는 없고 `pg_depend` 결과는 테이블 소유·내부 객체(`a`·`i`)뿐이다. 이 확인은 전체 catalog 재수집이 아니며, Replit 생성 SQL 두 문장의 실효 삭제 범위가 승인한 두 테이블·소유 객체를 넘지 않는다는 근거다. 실제 삭제 후 전체 catalog를 별도로 기록한다.
 - 13:25 KST 최종 catalog는 `13/102/13/8/6/6/24/9`이며 view·trigger·policy·routine·enum·domain은 0개, RLS는 모두 비활성이다. 대상 `neondb`·READ ONLY gate·ROLLBACK·완료 marker를 확인했다. 추가 구조 적용 후 catalog와 비교한 차이는 두 구 테이블의 컬럼·제약·인덱스·소유 시퀀스 제거뿐이며 존속 객체의 변경·추가 누락은 없었다.
-- 최종 SQL digest는 `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f`, 출력 digest는 `50b2f6f8676b7ad37a6a1ebd15e596255450f5db5c23f8a1430c6a4cfbf3c60c`다. 근거 파일은 Replit `.superpowers/release-20261109/production-after-web-publish-catalog.txt`이며 당시 개발 구조와 일치했다. 이후 개발의 본문 JSONB 전환은 운영에 적용하지 않았다. 아래 과거 표의 Production 미적용 표시는 해당 개발 작업 시점의 이력이다.
+- 최종 SQL digest는 `7263c0736c96cbb3120252778b7adf8a463700ece8cd59b57be99cdb5fad757f`, 출력 digest는 `50b2f6f8676b7ad37a6a1ebd15e596255450f5db5c23f8a1430c6a4cfbf3c60c`다. 근거 파일은 Replit `.superpowers/release-20261109/production-after-web-publish-catalog.txt`이며 당시 개발 구조와 일치했다. 그 시점에는 본문 JSONB 전환 전이었으며 후속 운영 전환은 아래 결과를 따른다. 과거 표의 Production 미적용 표시는 해당 작업 시점의 이력이다.
 
 ### 공개 링크 수집 규칙 (2026-11-09 개발 적용)
 
@@ -53,7 +65,7 @@
 - 지원 노드: doc, paragraph, text, heading(H1~H4), hardBreak, blockquote, codeBlock, horizontalRule, bulletList, orderedList, listItem. 마크: bold, italic, strike, underline, code, link. 외부 이미지·임의 HTML 노드·실행 가능한 속성은 허용하지 않는다.
 - API의 본문도 JSON 문서다. 기존 `posts.event_data`는 경조사 사실 정보로 유지하고 문안 JSON과 합치지 않는다. 경조사 writer의 문자열 결과는 문서로 변환해 저장하며 게시 직전 같은 문서 스키마로 재생성 비교한다. 빈 초안은 빈 paragraph 문서로 표현한다.
 - 목록 요약·검색용 일반 텍스트는 본문에서 파생한다. 검색은 JSON 속성명·링크 속성 대신 text 노드와 본문 줄 경계를 읽고 제목과 함께 찾는다. 별도 검색 텍스트를 편집 가능한 원본으로 두지 않는다.
-- 기존 본문은 [전환 런북](./database-operations.md#본문-jsonb-개발-전환-2026-11-09)에 따라 보존·변환한다. Development 적용과 실제 catalog는 아래 기록을 따르며 Production은 이번 작업에서 조회·변경하지 않았다.
+- 기존 본문은 [개발 전환 런북](./database-operations.md#본문-jsonb-개발-전환-2026-11-09)과 후속 승인된 [운영 전환 런북](./database-operations.md#본문-jsonb-운영-릴리스-2026-11-09)에 따라 보존·변환했다. 두 환경의 실제 적용과 catalog는 아래 기록을 따른다.
 
 #### 본문 JSONB 개발 catalog와 적용 결과
 
@@ -67,6 +79,12 @@
 - 2026-11-09 후속 승인으로 Production `neondb.posts.content`에도 위 JSONB NOT NULL·CHECK 계약을 적용한다. 운영 전용 `scripts/migrate-post-body-production.ts`가 기존 변환 로직과 별도의 대상 제한 DDL `scripts/post-body-jsonb-production.sql`을 사용한다. 일반 개발 연결과 개발 SQL의 대상 제한은 유지한다.
 - 운영 기존 본문을 보존해 변환하고 본문 외 컬럼·`event_data`·첨부·댓글·명부·회원·수집 규칙을 유지한다. 신규 테이블·컬럼·인덱스·함수·RLS는 추가하지 않는다. 실행 전후 metadata-only catalog와 실제 적용 기록은 [운영 런북](./database-operations.md#본문-jsonb-운영-릴리스-2026-11-09)을 따른다.
 - 19:32:22 KST 전환 전 `neondb`·READ ONLY·PostgreSQL 16.15를 확인했다. catalog는 `13/102/13/8/6/6/24/9`, 출력 SHA-256은 `50b2f6f8676b7ad37a6a1ebd15e596255450f5db5c23f8a1430c6a4cfbf3c60c`로 직전 운영 구조와 같다. `content` TEXT NOT NULL·기본값 없음, 해당 컬럼 의존 객체 0개이며 새 본문 CHECK는 아직 없다. Replit `production-before-catalog.txt`에 보존했다.
+
+#### 본문 JSONB 운영 catalog와 적용 결과
+
+- 2026-11-09 19:41:21 KST `neondb`에서 전환을 COMMIT했다. 원본 보존 후 본문 3건을 변환했으며 오류 0건이다. 새 연결에서 문서 3건·본문 외 모든 필드·검색 텍스트 3건과 전체 테이블 건수 일치를 확인했다.
+- 19:41:38 KST metadata-only catalog는 `13/102/13/8/6/7/24/9`이며 READ ONLY gate·ROLLBACK·완료 marker를 확인했다. `content` JSONB NOT NULL·기본값 없음, `posts_content_document_check` validated다. 전후 객체 차이는 본문 타입·collation과 CHECK 1개뿐이다. view·trigger·policy·routine·enum·domain은 0개이고 RLS는 모두 비활성이다.
+- 결과 SHA-256은 `20a089c1f0b4cfb8bf9fc98d2277c6fd0b6de99ebe451b1690abece58e2e5460`, schema snapshot SHA-256은 `f03e346396da876ff6b362a46740bd0df0711b21de98ac9c7ea4c85e3febd663`다. Replit `.superpowers/post-body-jsonb-release-20261109/production-after-catalog.txt`·`production-after.json`·`production-after-schema.sql`과 [DB 실행 기록](./database-operations.md#본문-운영-전환-결과)에 보존했다.
 
 ### 이전 게시글 본문 표현 계약 (2026-11-09 이력)
 

@@ -4,6 +4,7 @@ export * from "./post-document";
 
 export * from "./notices";
 export * from "./alumni-sync";
+export * from "./post-management";
 
 export const PENDING_REGISTRATION_CONFLICT_REASONS = [
   "email_conflict",
@@ -64,6 +65,9 @@ export type Post = {
   categoryId: number | null;
   authorId: number | null;
   isPublished: boolean | null;
+  isHidden: boolean;
+  revision: number;
+  eventType: import("./notices").NoticeType | null;
   imageUrls: string[] | null;
   createdAt: string | null;
   updatedAt: string | null;

@@ -12,6 +12,7 @@ import { normalizeCelebrationFacts } from './celebration-normalization';
 import { renderNotice } from "./notice-rendering";
 import { EventSourcePolicyError } from "./event-source-policy";
 import type { RouteContext } from "../../lib/route-context";
+import { registerNoticeEditRoutes } from "./notice-edit";
 
 export type RouteEventSourceReader = (input: string, signal?: AbortSignal, noticeType?: NoticeType) => ReturnType<typeof readEventSources>;
 export function createDefaultEventSourceReader(reader: typeof readEventSources = readEventSources): RouteEventSourceReader {
@@ -34,6 +35,7 @@ async function ownDraft(req: Request, res: Response) {
 export function registerEventRoutes(app: Express, { eventParseLimiter, eventParseTimeoutMs, readSources }: RouteContext): void {
   const base = "/api/posts/notices";
   app.use(base, requireAuthenticated, (_req, res, next) => { res.set("Cache-Control", "private, no-store"); next(); });
+  registerNoticeEditRoutes(app, { eventParseLimiter, eventParseTimeoutMs, readSources });
   app.post(`${base}/drafts/:type`, async (req, res) => {
     try { res.json(await storage.getNoticeDraft(req.session.userId!, z.enum(NOTICE_TYPES).parse(req.params.type))); }
     catch (error) { failure(res, error); }

@@ -13,6 +13,8 @@ const app = express();
 // 정상 전달되지 않아 세션이 매 요청마다 새로 생성되거나 인식되지 않을 수 있음.
 app.set("trust proxy", 1);
 
+// Signed notice previews include bounded fact data and the author's correction.
+app.use("/api/posts/notices/:id/edit", express.json({ limit: "300kb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

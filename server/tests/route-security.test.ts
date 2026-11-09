@@ -254,6 +254,7 @@ test("post creation enforces the approved category policy before writing", async
       categoryId: data.categoryId ?? null,
       authorId: data.authorId ?? null,
       isPublished: data.isPublished ?? true,
+      isHidden: false,
       imageUrls: data.imageUrls ?? null,
       eventData: null, sourceText: null, revision: 0, publishedAt: null,
       createdAt: new Date("2026-07-11T00:00:00Z"),
