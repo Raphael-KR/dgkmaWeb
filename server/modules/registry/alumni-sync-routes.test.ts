@@ -43,9 +43,10 @@ async function startServer(alumniSyncStorage: NonNullable<RouteDependencies["alu
   const { port } = server.address() as AddressInfo;
   return {
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 
@@ -129,7 +130,9 @@ test("apply maps stale, blocked, and concurrent plans to fixed PII-free response
   for (const item of cases) {
     const server = await startServer({
       previewAlumniSync: async () => report,
-      applyAlumniSync: async () => { throw item.error; },
+      applyAlumniSync: async () => {
+        throw item.error;
+      },
     });
     try {
       const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni`, {
@@ -152,8 +155,12 @@ test("unexpected sync failures do not expose source errors in response or logs",
     logs.push(values.map(String).join(" "));
   });
   const server = await startServer({
-    previewAlumniSync: async () => { throw new Error(sourceError); },
-    applyAlumniSync: async () => { throw new Error(sourceError); },
+    previewAlumniSync: async () => {
+      throw new Error(sourceError);
+    },
+    applyAlumniSync: async () => {
+      throw new Error(sourceError);
+    },
   });
 
   try {

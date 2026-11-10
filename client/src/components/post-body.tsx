@@ -6,9 +6,14 @@ import { cn } from "@/lib/utils";
 import "./post-content.css";
 
 export function PostBody({ content, className }: { content: PostDocument; className?: string }) {
-  const body = useMemo(() => renderToReactElement({
-    extensions: postExtensions, content: normalizePostDocument(content),
-  }), [content]);
+  const body = useMemo(
+    () =>
+      renderToReactElement({
+        extensions: postExtensions,
+        content: normalizePostDocument(content),
+      }),
+    [content],
+  );
   return <div className={cn("post-body text-sm text-gray-800", className)}>{body}</div>;
 }
 

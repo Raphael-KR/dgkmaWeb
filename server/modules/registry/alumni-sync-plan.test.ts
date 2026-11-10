@@ -36,10 +36,7 @@ function sourceRow(rowNumber: number, overrides: Partial<typeof baseSource> = {}
   return { rowNumber, ...baseSource, ...overrides };
 }
 
-function databaseRow(
-  id: number,
-  overrides: Partial<typeof baseSource> = {},
-) {
+function databaseRow(id: number, overrides: Partial<typeof baseSource> = {}) {
   return {
     id,
     ...baseSource,
@@ -105,7 +102,10 @@ test("classifies source and database rows without planning database-only deletio
     },
   );
   assert.equal(plan.report.blocked, false);
-  assert.deepEqual(plan.changes.map((change) => change.kind), ["update", "insert"]);
+  assert.deepEqual(
+    plan.changes.map((change) => change.kind),
+    ["update", "insert"],
+  );
   assert.equal("delete" in plan, false);
   assert.equal("deletes" in plan, false);
 });
@@ -113,10 +113,7 @@ test("classifies source and database rows without planning database-only deletio
 test("blocks an empty source before producing changes", async () => {
   const { planAlumniSync } = await import("./alumni-sync-plan");
 
-  const plan = planAlumniSync(
-    { records: [], sourceTotal: 0, issues: [] },
-    [databaseRow(1)],
-  );
+  const plan = planAlumniSync({ records: [], sourceTotal: 0, issues: [] }, [databaseRow(1)]);
 
   assert.equal(plan.report.blocked, true);
   assert.equal(plan.report.invalid, 0);
@@ -158,17 +155,12 @@ test("blocks ambiguous normalized mobile duplicates already in the database", as
       sourceTotal: 1,
       issues: [],
     },
-    [
-      databaseRow(1, { mobile: "010-1111-2222" }),
-      databaseRow(2, { mobile: "+82 10-1111-2222" }),
-    ],
+    [databaseRow(1, { mobile: "010-1111-2222" }), databaseRow(2, { mobile: "+82 10-1111-2222" })],
   );
 
   assert.equal(plan.report.blocked, true);
   assert.equal(plan.report.conflict, 2);
-  assert.deepEqual(plan.report.issues, [
-    { code: "DATABASE_DUPLICATE_MOBILE", count: 2 },
-  ]);
+  assert.deepEqual(plan.report.issues, [{ code: "DATABASE_DUPLICATE_MOBILE", count: 2 }]);
   assert.deepEqual(plan.changes, []);
 });
 
@@ -214,9 +206,7 @@ test("preserves structured source issues as blocking PII-free report counts", as
   );
 
   assert.equal(plan.report.blocked, true);
-  assert.deepEqual(plan.report.issues, [
-    { code: "MISSING_REQUIRED_HEADER", count: 1 },
-  ]);
+  assert.deepEqual(plan.report.issues, [{ code: "MISSING_REQUIRED_HEADER", count: 1 }]);
   assert.deepEqual(plan.changes, []);
 });
 
@@ -235,10 +225,7 @@ test("creates a stable non-identifying fingerprint and keeps the report PII-free
     memo: "민감메모B",
   });
 
-  const original = planAlumniSync(
-    { records: [first, second], sourceTotal: 2, issues: [] },
-    [],
-  );
+  const original = planAlumniSync({ records: [first, second], sourceTotal: 2, issues: [] }, []);
   const reorderedAndReformatted = planAlumniSync(
     {
       records: [
@@ -260,27 +247,15 @@ test("creates a stable non-identifying fingerprint and keeps the report PII-free
   );
 
   assert.match(original.report.sourceFingerprint ?? "", /^sha256:[a-f0-9]{64}$/);
-  assert.equal(
-    original.report.sourceFingerprint,
-    reorderedAndReformatted.report.sourceFingerprint,
-  );
+  assert.equal(original.report.sourceFingerprint, reorderedAndReformatted.report.sourceFingerprint);
   assert.notEqual(original.report.sourceFingerprint, changed.report.sourceFingerprint);
 
   const serializedReport = JSON.stringify(original.report);
-  for (const pii of [
-    "민감이름A",
-    "민감이름B",
-    "010-1212-3434",
-    "민감주소A",
-    "민감메모A",
-  ]) {
+  for (const pii of ["민감이름A", "민감이름B", "010-1212-3434", "민감주소A", "민감메모A"]) {
     assert.doesNotMatch(serializedReport, new RegExp(pii));
   }
 
-  const blocked = planAlumniSync(
-    { records: [], sourceTotal: 0, issues: [] },
-    [],
-  );
+  const blocked = planAlumniSync({ records: [], sourceTotal: 0, issues: [] }, []);
   assert.equal(blocked.report.sourceFingerprint, null);
 });
 
@@ -296,9 +271,7 @@ test("builds a structured snapshot without dropping rows missing required values
   assert.equal(snapshot.records.length, 2);
   assert.equal(snapshot.records[1].rowNumber, 3);
   assert.equal(snapshot.records[1].name, "");
-  assert.deepEqual(snapshot.issues, [
-    { code: "MISSING_REQUIRED_VALUE", count: 1 },
-  ]);
+  assert.deepEqual(snapshot.issues, [{ code: "MISSING_REQUIRED_VALUE", count: 1 }]);
 });
 
 test("returns blocking snapshots for an empty source and invalid required headers", async () => {
@@ -318,9 +291,7 @@ test("returns blocking snapshots for an empty source and invalid required header
   ]);
   assert.equal(invalid.sourceTotal, 1);
   assert.deepEqual(invalid.records, []);
-  assert.deepEqual(invalid.issues, [
-    { code: "MISSING_REQUIRED_HEADER", count: 1 },
-  ]);
+  assert.deepEqual(invalid.issues, [{ code: "MISSING_REQUIRED_HEADER", count: 1 }]);
 });
 
 test("blocks snapshots when any managed source column header is missing", async () => {
@@ -344,9 +315,7 @@ test("blocks snapshots when any managed source column header is missing", async 
 
   assert.equal(snapshot.sourceTotal, 1);
   assert.deepEqual(snapshot.records, []);
-  assert.deepEqual(snapshot.issues, [
-    { code: "MISSING_REQUIRED_HEADER", count: 1 },
-  ]);
+  assert.deepEqual(snapshot.issues, [{ code: "MISSING_REQUIRED_HEADER", count: 1 }]);
 });
 
 test("Google Sheets API failures become structured snapshots without raw errors", async (t) => {
@@ -378,17 +347,14 @@ test("Google Sheets API failures become structured snapshots without raw errors"
 
 test("tracked Google Sheets readers keep no raw alumni cache", async () => {
   const serverDirectory = new URL("../../integrations/", import.meta.url);
-  const readerFiles = (await readdir(serverDirectory))
-    .filter((fileName) => /^google-sheets(?:-.*)?\.ts$/.test(fileName));
+  const readerFiles = (await readdir(serverDirectory)).filter((fileName) =>
+    /^google-sheets(?:-.*)?\.ts$/.test(fileName),
+  );
 
   assert.ok(readerFiles.includes("google-sheets.ts"));
   for (const fileName of readerFiles) {
     const source = await readFile(new URL(fileName, serverDirectory), "utf8");
-    assert.doesNotMatch(
-      source,
-      /cachedAlumniData|Cache cleared|캐시에 저장/,
-      fileName,
-    );
+    assert.doesNotMatch(source, /cachedAlumniData|Cache cleared|캐시에 저장/, fileName);
   }
 });
 
@@ -402,9 +368,7 @@ test("planner does not double-count strict snapshot issues", async () => {
 
   const missingValuePlan = planAlumniSync(missingValueSnapshot, []);
   assert.equal(missingValuePlan.report.invalid, 1);
-  assert.deepEqual(missingValuePlan.report.issues, [
-    { code: "MISSING_REQUIRED_VALUE", count: 1 },
-  ]);
+  assert.deepEqual(missingValuePlan.report.issues, [{ code: "MISSING_REQUIRED_VALUE", count: 1 }]);
 
   const invalidHeaders = [...sheetHeaders];
   invalidHeaders[2] = "잘못된성명헤더";

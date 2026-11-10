@@ -45,10 +45,7 @@ export type PublicPageFetcherDependencies = {
   requestPublicAddress?: RequestPublicAddress;
 };
 
-function headerValue(
-  headers: RawPublicResponse["headers"],
-  name: string,
-): string | undefined {
+function headerValue(headers: RawPublicResponse["headers"], name: string): string | undefined {
   const value = Object.entries(headers).find(([key]) => key.toLowerCase() === name)?.[1];
   return Array.isArray(value) ? value[0] : value;
 }
@@ -113,9 +110,7 @@ function createTimedBody(
             }
             return {
               done: false,
-              value: result.value instanceof Uint8Array
-                ? result.value
-                : Buffer.from(result.value),
+              value: result.value instanceof Uint8Array ? result.value : Buffer.from(result.value),
             };
           } catch (error) {
             finish();
@@ -157,30 +152,33 @@ export function requestPublicAddress(
   return new Promise((resolve, reject) => {
     throwIfAborted(signal);
     let receivedResponse = false;
-    const request = transport.request({
-      protocol: url.protocol,
-      hostname,
-      port: url.port || (isHttps ? 443 : 80),
-      path: `${url.pathname}${url.search}`,
-      method: "GET",
-      headers: {
-        Accept: accept,
-        "Accept-Encoding": "identity",
-        Connection: "close",
-        Host: url.host,
-        "User-Agent": PARSER_USER_AGENT,
+    const request = transport.request(
+      {
+        protocol: url.protocol,
+        hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: `${url.pathname}${url.search}`,
+        method: "GET",
+        headers: {
+          Accept: accept,
+          "Accept-Encoding": "identity",
+          Connection: "close",
+          Host: url.host,
+          "User-Agent": PARSER_USER_AGENT,
+        },
+        agent: false,
+        lookup: pinnedLookup,
+        servername: isHttps && !net.isIP(hostname) ? hostname : undefined,
       },
-      agent: false,
-      lookup: pinnedLookup,
-      servername: isHttps && !net.isIP(hostname) ? hostname : undefined,
-    }, (response) => {
-      receivedResponse = true;
-      resolve({
-        status: response.statusCode ?? 0,
-        headers: response.headers,
-        body: createTimedBody(response, timer, cleanupAbort),
-      });
-    });
+      (response) => {
+        receivedResponse = true;
+        resolve({
+          status: response.statusCode ?? 0,
+          headers: response.headers,
+          body: createTimedBody(response, timer, cleanupAbort),
+        });
+      },
+    );
     const onAbort = () => request.destroy(abortError());
     const cleanupAbort = () => signal?.removeEventListener("abort", onAbort);
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -209,11 +207,12 @@ export async function resolvePublicAddress(
   if (!Array.isArray(answers) || answers.length === 0) {
     throw new Error("주소를 확인할 수 없습니다");
   }
-  if (answers.some((answer) => {
-    const detectedFamily = net.isIP(answer.address);
-    return (answer.family !== 4 && answer.family !== 6)
-      || detectedFamily !== answer.family;
-  })) {
+  if (
+    answers.some((answer) => {
+      const detectedFamily = net.isIP(answer.address);
+      return (answer.family !== 4 && answer.family !== 6) || detectedFamily !== answer.family;
+    })
+  ) {
     throw new Error("주소를 확인할 수 없습니다");
   }
   if (answers.some((answer) => !isPublicAddress(answer.address))) {
@@ -264,24 +263,29 @@ async function readBoundedBody(
   }
 }
 
-function responseContentType(response: RawPublicResponse): PublicResourceResult["contentType"] | undefined {
+function responseContentType(
+  response: RawPublicResponse,
+): PublicResourceResult["contentType"] | undefined {
   const contentType = headerValue(response.headers, "content-type")
     ?.split(";", 1)[0]
     ?.trim()
     .toLowerCase();
-  return contentType === "text/html"
-    || contentType === "text/plain"
-    || contentType === "application/json"
+  return contentType === "text/html" ||
+    contentType === "text/plain" ||
+    contentType === "application/json"
     ? contentType
     : undefined;
 }
 
 function isCompressed(response: RawPublicResponse): boolean {
   const encoding = headerValue(response.headers, "content-encoding");
-  return Boolean(encoding && encoding.split(",").some((value) => {
-    const normalized = value.trim().toLowerCase();
-    return normalized && normalized !== "identity";
-  }));
+  return Boolean(
+    encoding &&
+    encoding.split(",").some((value) => {
+      const normalized = value.trim().toLowerCase();
+      return normalized && normalized !== "identity";
+    }),
+  );
 }
 
 function declaredBodyTooLarge(response: RawPublicResponse): boolean {

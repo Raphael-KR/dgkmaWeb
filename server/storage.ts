@@ -14,9 +14,8 @@ export {
   AlumniSyncBlockedError,
   AlumniSyncInProgressError,
 } from "./modules/registry/storage";
+export type { DirectoryAlumni, DirectoryResult } from "@shared/contracts/directory";
 export type {
-  DirectoryAlumni,
-  DirectoryResult,
   PendingRegistrationReviewInput,
   CreateOrRefreshPendingRegistrationResult,
 } from "./modules/registry/storage-contract";
@@ -33,15 +32,20 @@ export type { CommentWithAuthor } from "./modules/content/storage-contract";
 export type DatabaseStorage = IStorage & RegistryStorage;
 // The prototype descriptors below supply this constructor's full contract.
 export const DatabaseStorage = class DatabaseStorage {} as {
-  new(): DatabaseStorage;
+  new (): DatabaseStorage;
   prototype: DatabaseStorage;
 };
 
 for (const DomainStorage of [
-  IdentityStorage, RegistryStorage, ContentStorage, EventsStorage, DuesStorage,
+  IdentityStorage,
+  RegistryStorage,
+  ContentStorage,
+  EventsStorage,
+  DuesStorage,
 ]) {
-  const { constructor: _constructor, ...methods } =
-    Object.getOwnPropertyDescriptors(DomainStorage.prototype);
+  const { constructor: _constructor, ...methods } = Object.getOwnPropertyDescriptors(
+    DomainStorage.prototype,
+  );
   Object.defineProperties(DatabaseStorage.prototype, methods);
 }
 

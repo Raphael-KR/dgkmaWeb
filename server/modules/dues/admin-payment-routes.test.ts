@@ -24,11 +24,13 @@ const storedPayment: Payment = {
 async function startAdminPaymentServer() {
   const app = express();
   app.use(express.json());
-  app.use(session({
-    secret: "admin-payment-contract-secret",
-    resave: false,
-    saveUninitialized: false,
-  }));
+  app.use(
+    session({
+      secret: "admin-payment-contract-secret",
+      resave: false,
+      saveUninitialized: false,
+    }),
+  );
   app.post("/__test/admin-session", (req, res) => {
     req.session.userId = 1;
     res.json({ ok: true });
@@ -54,9 +56,10 @@ async function startAdminPaymentServer() {
   return {
     baseUrl,
     cookie,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 

@@ -32,7 +32,10 @@ function lookupDouble(
   function lookup(hostname: string, family: number): Promise<LookupAddress>;
   function lookup(hostname: string, options: LookupOneOptions): Promise<LookupAddress>;
   function lookup(hostname: string, options: LookupAllOptions): Promise<LookupAddress[]>;
-  function lookup(hostname: string, options: LookupOptions): Promise<LookupAddress | LookupAddress[]>;
+  function lookup(
+    hostname: string,
+    options: LookupOptions,
+  ): Promise<LookupAddress | LookupAddress[]>;
   function lookup(hostname: string): Promise<LookupAddress>;
   async function lookup(
     hostname: string,
@@ -78,7 +81,9 @@ test("requestPublicAddress pins the supplied address and preserves the HTTP host
   const server = createServer((request, response) => {
     host = request.headers.host ?? "";
     const encodingHeader = request.headers["accept-encoding"];
-    acceptEncoding = Array.isArray(encodingHeader) ? encodingHeader.join(", ") : encodingHeader ?? "";
+    acceptEncoding = Array.isArray(encodingHeader)
+      ? encodingHeader.join(", ")
+      : (encodingHeader ?? "");
     connection = request.headers.connection ?? "";
     response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     response.end("<p>행사 안내</p>");
@@ -189,11 +194,13 @@ test("fetchPublicPage returns a small HTML page through validated dependency inj
     contentType: "text/html",
     body: "<main>동문 행사</main>",
   });
-  assert.deepEqual(requests, [{
-    url: "https://source.example/events",
-    address: PUBLIC_ADDRESS,
-    family: 4,
-  }]);
+  assert.deepEqual(requests, [
+    {
+      url: "https://source.example/events",
+      address: PUBLIC_ADDRESS,
+      family: 4,
+    },
+  ]);
 });
 
 test("fetchPublicJson parses bounded JSON through the same public-address policy", async () => {
@@ -202,10 +209,9 @@ test("fetchPublicJson parses bounded JSON through the same public-address policy
     lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 4 }),
     requestPublicAddress: async (_url, _address, _family, _signal, requestedAccept) => {
       accept = requestedAccept ?? "";
-      return textResponse(
-        JSON.stringify({ deceased: { age: 80 } }),
-        { "content-type": "application/json; charset=utf-8" },
-      );
+      return textResponse(JSON.stringify({ deceased: { age: 80 } }), {
+        "content-type": "application/json; charset=utf-8",
+      });
     },
   });
 
@@ -246,7 +252,10 @@ test("fetchPublicPage revalidates every redirect destination", async () => {
     return [{ address: PUBLIC_ADDRESS, family: 4 }];
   });
 
-  const page = await fetchPublicPage("https://source.example/start", { lookup, requestPublicAddress });
+  const page = await fetchPublicPage("https://source.example/start", {
+    lookup,
+    requestPublicAddress,
+  });
 
   assert.equal(page.finalUrl, "https://next.example/notice");
   assert.equal(page.contentType, "text/plain");
@@ -277,9 +286,13 @@ test("fetchPublicPage blocks all DNS answers when any address is private before 
 
 test("fetchPublicPage aborts a pending DNS lookup at the caller deadline", async () => {
   const controller = new AbortController();
-  const pending = fetchPublicPage("https://source.example/slow-dns", {
-    lookup: (() => new Promise(() => {})) as PublicPageFetcherDependencies["lookup"],
-  }, controller.signal);
+  const pending = fetchPublicPage(
+    "https://source.example/slow-dns",
+    {
+      lookup: (() => new Promise(() => {})) as PublicPageFetcherDependencies["lookup"],
+    },
+    controller.signal,
+  );
 
   setTimeout(() => controller.abort(), 10);
   await assert.rejects(pending, /중단|aborted/i);
@@ -287,14 +300,18 @@ test("fetchPublicPage aborts a pending DNS lookup at the caller deadline", async
 
 test("fetchPublicPage aborts an injected stalled body at the caller deadline", async () => {
   const controller = new AbortController();
-  const pending = fetchPublicPage("https://source.example/slow-body", {
-    lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 4 }),
-    requestPublicAddress: async () => ({
-      status: 200,
-      headers: { "content-type": "text/plain" },
-      body: { [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) },
-    }),
-  }, controller.signal);
+  const pending = fetchPublicPage(
+    "https://source.example/slow-body",
+    {
+      lookup: publicLookup({ address: PUBLIC_ADDRESS, family: 4 }),
+      requestPublicAddress: async () => ({
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: { [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) },
+      }),
+    },
+    controller.signal,
+  );
 
   setTimeout(() => controller.abort(), 10);
   await assert.rejects(pending, /중단|aborted/i);
@@ -370,17 +387,19 @@ test("fetchPublicPage rejects non-text and compressed responses", async () => {
   await assert.rejects(
     fetchPublicPage("https://source.example/file", {
       lookup,
-      requestPublicAddress: async () => textResponse("binary", { "content-type": "application/octet-stream" }),
+      requestPublicAddress: async () =>
+        textResponse("binary", { "content-type": "application/octet-stream" }),
     }),
     /텍스트 형식/,
   );
   await assert.rejects(
     fetchPublicPage("https://source.example/compressed", {
       lookup,
-      requestPublicAddress: async () => textResponse("gzip", {
-        "content-type": "text/html",
-        "content-encoding": "gzip",
-      }),
+      requestPublicAddress: async () =>
+        textResponse("gzip", {
+          "content-type": "text/html",
+          "content-encoding": "gzip",
+        }),
     }),
     /압축/,
   );

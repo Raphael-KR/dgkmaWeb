@@ -1,9 +1,5 @@
 import { createHash } from "node:crypto";
-import type {
-  AlumniSyncIssue,
-  AlumniSyncIssueCode,
-  AlumniSyncReport,
-} from "@shared/alumni-sync";
+import type { AlumniSyncIssue, AlumniSyncIssueCode, AlumniSyncReport } from "@shared/alumni-sync";
 
 export type AlumniSourceRecord = {
   rowNumber: number;
@@ -102,11 +98,7 @@ function normalizeManagedRecord(
   };
 }
 
-function addIssue(
-  counts: Map<AlumniSyncIssueCode, number>,
-  code: AlumniSyncIssueCode,
-  count = 1,
-) {
+function addIssue(counts: Map<AlumniSyncIssueCode, number>, code: AlumniSyncIssueCode, count = 1) {
   counts.set(code, (counts.get(code) ?? 0) + count);
 }
 
@@ -128,9 +120,7 @@ function sameManagedRecord(left: AlumniManagedRecord, right: AlumniManagedRecord
 
 function createSourceFingerprint(records: Iterable<AlumniManagedRecord>): string {
   const canonicalRecords = Array.from(records, (record) => JSON.stringify(record)).sort();
-  const digest = createHash("sha256")
-    .update(JSON.stringify(canonicalRecords))
-    .digest("hex");
+  const digest = createHash("sha256").update(JSON.stringify(canonicalRecords)).digest("hex");
   return `sha256:${digest}`;
 }
 
@@ -147,9 +137,9 @@ export function planAlumniSync(
     ensureIssueCount(issueCounts, "EMPTY_SOURCE", 1);
   }
   if (
-    snapshot.sourceTotal !== snapshot.records.length
-    && !issueCounts.has("SOURCE_UNAVAILABLE")
-    && !issueCounts.has("MISSING_REQUIRED_HEADER")
+    snapshot.sourceTotal !== snapshot.records.length &&
+    !issueCounts.has("SOURCE_UNAVAILABLE") &&
+    !issueCounts.has("MISSING_REQUIRED_HEADER")
   ) {
     addIssue(
       issueCounts,
@@ -166,10 +156,10 @@ export function planAlumniSync(
 
   for (const record of snapshot.records) {
     const hasRequiredValues = Boolean(
-      required(record.department)
-      && required(record.generation)
-      && required(record.name)
-      && required(record.mobile),
+      required(record.department) &&
+      required(record.generation) &&
+      required(record.name) &&
+      required(record.mobile),
     );
     if (!hasRequiredValues) {
       missingRequiredValues++;

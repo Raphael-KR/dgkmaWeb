@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { resolveSessionSecret } from "./lib/session-secret";
 import { getErrorType } from "./lib/safe-logging";
+import { registerPublicMetadataRoutes } from "./seo";
 
 const app = express();
 
@@ -13,6 +14,7 @@ const app = express();
 // 이 설정이 없으면 secure cookie(NODE_ENV=production 시 활성) 가 클라이언트에
 // 정상 전달되지 않아 세션이 매 요청마다 새로 생성되거나 인식되지 않을 수 있음.
 app.set("trust proxy", 1);
+registerPublicMetadataRoutes(app);
 
 // Signed notice previews include bounded fact data and the author's correction.
 app.use("/api/posts/notices/:id/edit", express.json({ limit: "300kb" }));
@@ -47,11 +49,11 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     },
-  })
+  }),
 );
 
 // Serve attached assets
-app.use('/attached_assets', express.static('attached_assets'));
+app.use("/attached_assets", express.static("attached_assets"));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -85,9 +87,7 @@ app.use((req, res, next) => {
         CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
       );
     `);
-    await pool.query(
-      "CREATE INDEX IF NOT EXISTS session_expire_idx ON session (expire);"
-    );
+    await pool.query("CREATE INDEX IF NOT EXISTS session_expire_idx ON session (expire);");
     log("session_expire_idx index ensured on session table");
   } catch (err) {
     const msg = `Could not ensure session_expire_idx on session table: ${getErrorType(err)}`;
@@ -101,14 +101,22 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const details = err && typeof err === "object"
-      ? err as { status?: unknown; statusCode?: unknown; message?: unknown }
-      : {};
+    const details =
+      err && typeof err === "object"
+        ? (err as { status?: unknown; statusCode?: unknown; message?: unknown })
+        : {};
     const candidateStatus = details.status || details.statusCode;
-    const status = typeof candidateStatus === "number" && Number.isInteger(candidateStatus)
-      && candidateStatus >= 400 && candidateStatus <= 599 ? candidateStatus : 500;
-    const message = typeof details.message === "string" && details.message
-      ? details.message : "Internal Server Error";
+    const status =
+      typeof candidateStatus === "number" &&
+      Number.isInteger(candidateStatus) &&
+      candidateStatus >= 400 &&
+      candidateStatus <= 599
+        ? candidateStatus
+        : 500;
+    const message =
+      typeof details.message === "string" && details.message
+        ? details.message
+        : "Internal Server Error";
 
     res.status(status).json({ message });
     throw err;
@@ -127,12 +135,15 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  const port = parseInt(process.env.PORT || "5000", 10);
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+    },
+  );
 })();

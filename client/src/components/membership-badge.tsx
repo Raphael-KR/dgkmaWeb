@@ -3,13 +3,7 @@ import { Crown } from "lucide-react";
 import type { MembershipTier } from "@shared/contracts";
 
 // 권리회원 = 당해년도 회비 납부자. 권리회원은 금색 강조, 일반회원은 회색.
-export function MembershipBadge({
-  tier,
-  className,
-}: {
-  tier: MembershipTier;
-  className?: string;
-}) {
+export function MembershipBadge({ tier, className }: { tier: MembershipTier; className?: string }) {
   if (tier === "권리회원") {
     return (
       <Badge

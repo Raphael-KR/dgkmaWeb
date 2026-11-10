@@ -20,9 +20,10 @@ async function listen(app: express.Express) {
   const { port } = server.address() as AddressInfo;
   return {
     url: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 
@@ -37,8 +38,12 @@ test("shared quota state limits requests across limiter instances", async () => 
   const sharedQuota = createInMemoryEventParseQuota();
   const app = express();
   sessionUser(app);
-  app.get("/a", createEventParseLimiter({ max: 3, consumeQuota: sharedQuota }), (_req, res) => res.sendStatus(204));
-  app.get("/b", createEventParseLimiter({ max: 3, consumeQuota: sharedQuota }), (_req, res) => res.sendStatus(204));
+  app.get("/a", createEventParseLimiter({ max: 3, consumeQuota: sharedQuota }), (_req, res) =>
+    res.sendStatus(204),
+  );
+  app.get("/b", createEventParseLimiter({ max: 3, consumeQuota: sharedQuota }), (_req, res) =>
+    res.sendStatus(204),
+  );
   const server = await listen(app);
 
   try {
@@ -89,15 +94,18 @@ test("limits concurrent parsing work per user and releases capacity", async () =
 
 test("PostgreSQL quota atomically limits requests across callers", async () => {
   const email = `event-parse-${randomUUID()}@example.test`;
-  const inserted = await pool.query<{ id: number }>(`
+  const inserted = await pool.query<{ id: number }>(
+    `
     INSERT INTO users (email, name) VALUES ($1, '파싱 제한 테스트') RETURNING id
-  `, [email]);
+  `,
+    [email],
+  );
   const userId = inserted.rows[0]!.id;
 
   try {
-    const results = await Promise.all(Array.from({ length: 12 }, () => (
-      consumePostgresEventParseQuota(userId, 60_000, 10)
-    )));
+    const results = await Promise.all(
+      Array.from({ length: 12 }, () => consumePostgresEventParseQuota(userId, 60_000, 10)),
+    );
     assert.equal(results.filter(Boolean).length, 10);
     assert.equal(results.filter((allowed) => !allowed).length, 2);
   } finally {

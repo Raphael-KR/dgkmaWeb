@@ -1,3 +1,4 @@
+import { ASSOCIATION_CONTACT } from "@shared/association";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronDown, Menu, X, LogIn, LogOut, User, Users } from "lucide-react";
@@ -37,7 +38,9 @@ export function PublicLayout({ children }: { children: ReactNode }) {
               {user ? (
                 <>
                   <Button asChild size="sm" variant="onBrand">
-                    <Link href="/"><Users size={16} /> 커뮤니티</Link>
+                    <Link href="/">
+                      <Users size={16} /> 커뮤니티
+                    </Link>
                   </Button>
                   <span className="flex max-w-[8rem] items-center gap-1 text-sm text-white/90">
                     <User size={14} className="shrink-0" aria-hidden="true" />
@@ -53,7 +56,13 @@ export function PublicLayout({ children }: { children: ReactNode }) {
                 </Button>
               )}
             </div>
-            <Button variant="onBrand" size="icon" className="md:hidden" onClick={() => setDrawerOpen(true)} aria-label="메뉴 열기">
+            <Button
+              variant="onBrand"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="메뉴 열기"
+            >
               <Menu size={24} />
             </Button>
           </>
@@ -63,13 +72,23 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           if (item.children) {
             return (
               <div key={item.path} className="group relative">
-                <Link href={item.path} className="site-nav-link" aria-current={active ? "page" : undefined}>
-                  {item.label}<ChevronDown size={14} aria-hidden="true" />
+                <Link
+                  href={item.path}
+                  className="site-nav-link"
+                  aria-current={active ? "page" : undefined}
+                >
+                  {item.label}
+                  <ChevronDown size={14} aria-hidden="true" />
                 </Link>
                 <div className="absolute left-0 top-full hidden pt-1 group-hover:block group-focus-within:block">
                   <div className="w-32 rounded-md border border-border bg-background p-1 shadow-lg">
                     {item.children.map((child) => (
-                      <Link key={child.path} href={child.path} className="site-menu-link" aria-current={location === child.path ? "page" : undefined}>
+                      <Link
+                        key={child.path}
+                        href={child.path}
+                        className="site-menu-link"
+                        aria-current={location === child.path ? "page" : undefined}
+                      >
                         {child.label}
                       </Link>
                     ))}
@@ -79,7 +98,13 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             );
           }
           return (
-            <Link key={item.path} href={item.path} onClick={(e) => handleNavClick(e, item)} className="site-nav-link" aria-current={active ? "page" : undefined}>
+            <Link
+              key={item.path}
+              href={item.path}
+              onClick={(e) => handleNavClick(e, item)}
+              className="site-nav-link"
+              aria-current={active ? "page" : undefined}
+            >
               {item.label}
             </Link>
           );
@@ -94,7 +119,13 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             <div className="site-brand-surface p-4">
               <div className="flex items-center gap-2">
                 <SiteBrand homeHref="/about" onClick={() => setDrawerOpen(false)} />
-                <Button variant="onBrand" size="icon" className="shrink-0" onClick={() => setDrawerOpen(false)} aria-label="닫기">
+                <Button
+                  variant="onBrand"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setDrawerOpen(false)}
+                  aria-label="닫기"
+                >
                   <X size={20} />
                 </Button>
               </div>
@@ -117,7 +148,9 @@ export function PublicLayout({ children }: { children: ReactNode }) {
                       aria-current={active ? "page" : undefined}
                     >
                       {item.label}
-                      {item.gated && !user && <span className="ml-2 text-xs text-gray-400">로그인 필요</span>}
+                      {item.gated && !user && (
+                        <span className="ml-2 text-xs text-gray-400">로그인 필요</span>
+                      )}
                     </Link>
                     {item.children && (
                       <div className="ml-5 border-l border-gray-200 pl-2">
@@ -141,8 +174,8 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             <div className="p-4 border-t">
               {user ? (
                 <Button
-                  variant="outline"
-                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                  variant="dangerOutline"
+                  className="w-full"
                   onClick={() => {
                     setDrawerOpen(false);
                     logout();
@@ -176,22 +209,28 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             <dt className="text-white/60">단체명</dt>
             <dd>{SITE_NAME}</dd>
             <dt className="text-white/60">대표자</dt>
-            <dd>최윤용</dd>
+            <dd>{ASSOCIATION_CONTACT.representative}</dd>
             <dt className="text-white/60">고유번호</dt>
-            <dd>504-82-90335</dd>
+            <dd>{ASSOCIATION_CONTACT.registrationNumber}</dd>
             <dt className="text-white/60">소재지</dt>
-            <dd>07944 서울특별시 양천구 오목로 181, 1층 큰나무한의원 (신정동)</dd>
+            <dd>{ASSOCIATION_CONTACT.address}</dd>
             <dt className="text-white/60">이메일</dt>
             <dd>
-              <a href="mailto:alumni.dkom@gmail.com" className="hover:underline">alumni.dkom@gmail.com</a>
+              <a href={`mailto:${ASSOCIATION_CONTACT.email}`} className="hover:underline">
+                {ASSOCIATION_CONTACT.email}
+              </a>
             </dd>
           </dl>
           <div className="text-xs text-white/60 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
             <div>© {SITE_NAME} · All Rights Reserved.</div>
             <div>
-              <Link href="/terms" className="hover:underline">서비스 이용약관</Link>
+              <Link href="/terms" className="hover:underline">
+                서비스 이용약관
+              </Link>
               <span className="mx-2">·</span>
-              <Link href="/privacy" className="hover:underline">개인정보 처리방침</Link>
+              <Link href="/privacy" className="hover:underline">
+                개인정보 처리방침
+              </Link>
             </div>
           </div>
         </div>

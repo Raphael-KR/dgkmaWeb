@@ -20,7 +20,8 @@ export const consumePostgresEventParseQuota: ConsumeEventParseQuota = async (
   windowMs,
   max,
 ) => {
-  const result = await pool.query<{ request_count: number }>(`
+  const result = await pool.query<{ request_count: number }>(
+    `
     INSERT INTO event_parse_rate_limits (
       user_id,
       window_started_at,
@@ -40,7 +41,9 @@ export const consumePostgresEventParseQuota: ConsumeEventParseQuota = async (
       END,
       updated_at = now()
     RETURNING request_count
-  `, [userId, windowMs]);
+  `,
+    [userId, windowMs],
+  );
 
   return Number(result.rows[0]?.request_count ?? max + 1) <= max;
 };
@@ -50,8 +53,9 @@ export function createInMemoryEventParseQuota(): ConsumeEventParseQuota {
 
   return async (userId, windowMs, max) => {
     const now = Date.now();
-    const recentRequests = (requestsByUserId.get(userId) ?? [])
-      .filter((requestedAt) => now - requestedAt < windowMs);
+    const recentRequests = (requestsByUserId.get(userId) ?? []).filter(
+      (requestedAt) => now - requestedAt < windowMs,
+    );
     if (recentRequests.length >= max) {
       requestsByUserId.set(userId, recentRequests);
       return false;
@@ -80,7 +84,7 @@ export function createEventParseLimiter({
     }
 
     try {
-      if (!await consumeQuota(userId, windowMs, max)) {
+      if (!(await consumeQuota(userId, windowMs, max))) {
         res.status(429).json({ message: "잠시 후 다시 시도해주세요" });
         return;
       }

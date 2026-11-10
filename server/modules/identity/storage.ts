@@ -5,7 +5,6 @@ import {
   normalizePhoneForComparison,
   normalizedPhoneSql,
   lockRegistrationIdentities,
-  withPhoneRegistrationLock,
   assertKakaoOAuthGenerationActive,
   markKakaoIdentityTerminated,
   removeLocalUsers,
@@ -20,7 +19,9 @@ export class IdentityStorage implements IdentityStorageContract {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users)
+    const [user] = await db
+      .select()
+      .from(users)
       .where(sql`lower(${users.email}) = ${email.trim().toLowerCase()}`);
     return user || undefined;
   }
@@ -34,24 +35,12 @@ export class IdentityStorage implements IdentityStorageContract {
     const normalizedPhone = normalizePhoneForComparison(phoneNumber);
     if (!normalizedPhone) return undefined;
 
-    const [user] = await db.select().from(users)
+    const [user] = await db
+      .select()
+      .from(users)
       .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
       .limit(1);
     return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    return db.transaction(async (tx) => {
-      await lockRegistrationIdentities(tx, insertUser.kakaoId ?? "", insertUser.email);
-      return withPhoneRegistrationLock(
-        tx,
-        insertUser.phoneNumber ?? "",
-        async () => {
-          const [user] = await tx.insert(users).values(insertUser).returning();
-          return user;
-        },
-      );
-    });
   }
 
   async updateUser(
@@ -63,11 +52,14 @@ export class IdentityStorage implements IdentityStorageContract {
       return db.transaction(async (tx) => {
         await lockRegistrationIdentities(tx, oauthGeneration.kakaoId, oauthGeneration.email);
         await assertKakaoOAuthGenerationActive(tx, oauthGeneration);
-        const [currentUser] = await tx.select().from(users)
+        const [currentUser] = await tx
+          .select()
+          .from(users)
           .where(and(eq(users.id, id), eq(users.kakaoId, oauthGeneration.kakaoId)))
           .limit(1);
         if (!currentUser) throw new KakaoOAuthTerminatedError();
-        const [updatedUser] = await tx.update(users)
+        const [updatedUser] = await tx
+          .update(users)
           .set({ ...updateData, updatedAt: new Date() })
           .where(eq(users.id, id))
           .returning();
@@ -75,7 +67,8 @@ export class IdentityStorage implements IdentityStorageContract {
       });
     }
 
-    const [user] = await db.update(users)
+    const [user] = await db
+      .update(users)
       .set({ ...updateData, updatedAt: new Date() })
       .where(eq(users.id, id))
       .returning();
@@ -90,7 +83,9 @@ export class IdentityStorage implements IdentityStorageContract {
     return db.transaction(async (tx) => {
       await lockRegistrationIdentities(tx, generation.kakaoId, generation.email);
       await assertKakaoOAuthGenerationActive(tx, generation);
-      const [user] = await tx.select().from(users)
+      const [user] = await tx
+        .select()
+        .from(users)
         .where(and(eq(users.id, userId), eq(users.kakaoId, generation.kakaoId)))
         .limit(1);
       if (!user) throw new KakaoOAuthTerminatedError();
@@ -105,9 +100,7 @@ export class IdentityStorage implements IdentityStorageContract {
   ): Promise<void> {
     await db.transaction(async (tx) => {
       await lockRegistrationIdentities(tx, user.kakaoId ?? "", user.email);
-      const [lockedUser] = await tx.select().from(users)
-        .where(eq(users.id, user.id))
-        .for("update");
+      const [lockedUser] = await tx.select().from(users).where(eq(users.id, user.id)).for("update");
       if (!lockedUser) return;
 
       await beforeDelete(lockedUser);
@@ -115,12 +108,14 @@ export class IdentityStorage implements IdentityStorageContract {
         await markKakaoIdentityTerminated(tx, lockedUser.kakaoId, lockedUser.email);
       }
       await removeLocalUsers(tx, [lockedUser.id], () =>
-        tx.delete(pendingRegistrations).where(or(
-          lockedUser.kakaoId
-            ? eq(pendingRegistrations.kakaoId, lockedUser.kakaoId)
-            : undefined,
-          sql`lower(${pendingRegistrations.email}) = ${lockedUser.email.trim().toLowerCase()}`,
-        )),
+        tx
+          .delete(pendingRegistrations)
+          .where(
+            or(
+              lockedUser.kakaoId ? eq(pendingRegistrations.kakaoId, lockedUser.kakaoId) : undefined,
+              sql`lower(${pendingRegistrations.email}) = ${lockedUser.email.trim().toLowerCase()}`,
+            ),
+          ),
       );
     });
   }

@@ -51,12 +51,14 @@ test("checked-in baseline matches the measured local asset and byte totals", () 
   assert.equal(baseline.metrics.stableRequests, 7);
   assert.equal(baseline.metrics.localTransferredBytes, 597_187);
   assert.equal(
-    baseline.assets.filter((asset) => asset.scope === "local")
+    baseline.assets
+      .filter((asset) => asset.scope === "local")
       .reduce((sum, asset) => sum + asset.medianTransferredBytes, 0),
     baseline.metrics.localTransferredBytes,
   );
   assert.equal(
-    baseline.assets.filter((asset) => asset.scope === "external")
+    baseline.assets
+      .filter((asset) => asset.scope === "external")
       .reduce((sum, asset) => sum + asset.medianTransferredBytes, 0),
     baseline.metrics.externalTransferredBytes,
   );
@@ -70,7 +72,10 @@ test("stable samples pass and asset hashes do not create false new assets", () =
     "/assets/index-<hash>.js",
   );
   assert.equal(
-    canonicalAssetResource("http://localhost:4000/images/executives/choi-yun-yong-president.avif", "local"),
+    canonicalAssetResource(
+      "http://localhost:4000/images/executives/choi-yun-yong-president.avif",
+      "local",
+    ),
     "/images/executives/choi-yun-yong-president.avif",
   );
   assert.notEqual(
@@ -80,18 +85,24 @@ test("stable samples pass and asset hashes do not create false new assets", () =
 });
 
 test("a single CDN/LCP outlier does not fail the comparison", () => {
-  const result = evaluateMobileHomeRegression(makeRuns({
-    externalBytes: [1_200_000, 566_970, 566_970, 566_970, 566_970],
-    lcpMs: [6_000, 2_936, 2_936, 2_936, 2_936],
-  }), baseline);
+  const result = evaluateMobileHomeRegression(
+    makeRuns({
+      externalBytes: [1_200_000, 566_970, 566_970, 566_970, 566_970],
+      lcpMs: [6_000, 2_936, 2_936, 2_936, 2_936],
+    }),
+    baseline,
+  );
   assert.equal(result.status, "passed");
 });
 
 test("repeated local byte and stable request regressions fail with named assets", () => {
-  const result = evaluateMobileHomeRegression(makeRuns({
-    localBytes: Array(5).fill(800_000),
-    stableRequests: Array(5).fill(9),
-  }), baseline);
+  const result = evaluateMobileHomeRegression(
+    makeRuns({
+      localBytes: Array(5).fill(800_000),
+      stableRequests: Array(5).fill(9),
+    }),
+    baseline,
+  );
   assert.equal(result.status, "failed");
   const requestFailure = result.failures.find((failure) => failure.key === "stableRequests");
   assert.ok(requestFailure);
@@ -103,10 +114,13 @@ test("repeated local byte and stable request regressions fail with named assets"
 });
 
 test("external-byte and LCP regressions need repeated samples over the wide CDN-aware limits", () => {
-  const result = evaluateMobileHomeRegression(makeRuns({
-    externalBytes: Array(5).fill(900_000),
-    lcpMs: Array(5).fill(4_000),
-  }), baseline);
+  const result = evaluateMobileHomeRegression(
+    makeRuns({
+      externalBytes: Array(5).fill(900_000),
+      lcpMs: Array(5).fill(4_000),
+    }),
+    baseline,
+  );
   assert.equal(result.status, "failed");
   assert.ok(result.failures.some((failure) => failure.key === "externalTransferredBytes"));
   assert.ok(result.failures.some((failure) => failure.key === "lcpMs"));

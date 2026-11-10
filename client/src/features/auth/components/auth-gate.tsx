@@ -35,17 +35,12 @@ export function AuthGate({ children, requireAdmin, reason }: AuthGateProps) {
       <div className="theme-public min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <h2 className="text-xl font-bold tp-text-green-dark mb-2">로그인이 필요한 메뉴입니다</h2>
-          <p className="text-sm text-gray-600 mb-6">
-            카카오 로그인 후 이용해 주세요.
-          </p>
+          <p className="text-sm text-gray-600 mb-6">카카오 로그인 후 이용해 주세요.</p>
           <Button variant="kakao" onClick={() => setModalOpen(true)}>
             카카오 로그인
           </Button>
           <div className="mt-4">
-            <button
-              className="text-sm text-gray-500 underline"
-              onClick={() => setLocation("/")}
-            >
+            <button className="text-sm text-gray-500 underline" onClick={() => setLocation("/")}>
               홈으로 돌아가기
             </button>
           </div>
@@ -62,7 +57,7 @@ export function AuthGate({ children, requireAdmin, reason }: AuthGateProps) {
 
   if (requireAdmin && !user.isAdmin) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
+      <div className="route-status">
         <div className="text-center">
           <h2 className="text-xl font-bold mb-2">접근 권한이 없습니다</h2>
           <p className="text-gray-600">관리자만 이용할 수 있는 메뉴입니다.</p>

@@ -1,7 +1,7 @@
+import { MAX_EXTRACTED_TEXT_LENGTH } from "./extraction-limits";
 import * as cheerio from "cheerio";
 import { Parser } from "htmlparser2";
 
-const MAX_EXTRACTED_TEXT_LENGTH = 20_000;
 const MAX_HTML_ELEMENTS = 10_000;
 const MAX_HTML_DEPTH = 256;
 const JSON_LD_FIELDS = new Set(["name", "description", "startDate", "location"]);
@@ -36,16 +36,19 @@ function assertBoundedHtmlComplexity(body: string): void {
   const reject = () => {
     throw new Error("페이지 구조가 너무 복잡합니다");
   };
-  const parser = new Parser({
-    onopentag() {
-      elements += 1;
-      depth += 1;
-      if (elements > MAX_HTML_ELEMENTS || depth > MAX_HTML_DEPTH) reject();
+  const parser = new Parser(
+    {
+      onopentag() {
+        elements += 1;
+        depth += 1;
+        if (elements > MAX_HTML_ELEMENTS || depth > MAX_HTML_DEPTH) reject();
+      },
+      onclosetag() {
+        depth = Math.max(0, depth - 1);
+      },
     },
-    onclosetag() {
-      depth = Math.max(0, depth - 1);
-    },
-  }, { decodeEntities: false });
+    { decodeEntities: false },
+  );
 
   parser.write(body);
   parser.end();
@@ -81,8 +84,8 @@ function safeJsonLdValues(value: unknown): string[] {
 
     for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
       if (
-        JSON_LD_FIELDS.has(key)
-        && (typeof child === "string" || typeof child === "number" || typeof child === "boolean")
+        JSON_LD_FIELDS.has(key) &&
+        (typeof child === "string" || typeof child === "number" || typeof child === "boolean")
       ) {
         values.push(String(child));
       }

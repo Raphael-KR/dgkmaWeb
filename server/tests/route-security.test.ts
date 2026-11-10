@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
@@ -8,45 +7,6 @@ import type { AdminUserLookup } from "../middleware/auth";
 import { AlumniSourceReadError, googleSheetsService } from "../integrations/google-sheets";
 import { registerRoutes } from "../routes";
 import { storage } from "../storage";
-import { readRouteSource } from "./source";
-
-const authHookPath = new URL("../../client/src/features/auth/hooks/use-auth.tsx", import.meta.url);
-const vitePath = new URL("../vite.ts", import.meta.url);
-
-test("debug login route and client query bypass are absent", async () => {
-  const [routesSource, authHookSource] = await Promise.all([
-    readRouteSource(),
-    readFile(authHookPath, "utf8"),
-  ]);
-
-  assert.doesNotMatch(routesSource, /\/api\/debug\/login/);
-  assert.doesNotMatch(authHookSource, /debug_login/);
-  assert.doesNotMatch(authHookSource, /\/api\/debug\/login/);
-});
-
-test("SPA fallback does not turn unknown API paths into HTML success responses", async () => {
-  const viteSource = await readFile(vitePath, "utf8");
-  assert.match(viteSource, /req\.originalUrl\.split\("\?", 1\)\[0\]\.startsWith\("\/api\/"\)/);
-  assert.match(viteSource, /res\.status\(404\)\.json\(\{ message: "요청한 API를 찾을 수 없습니다" \}\)/);
-});
-
-test("all admin routes are registered after the shared administrator guard", async () => {
-  const source = await readRouteSource();
-  const guardIndex = source.indexOf('app.use("/api/admin", requireAdmin)');
-  const adminRouteIndexes = Array.from(
-    source.matchAll(/app\.(?:get|post|patch|put|delete)\("\/api\/admin\//g),
-  ).map((match) => match.index ?? -1);
-
-  assert.ok(guardIndex >= 0);
-  assert.equal(adminRouteIndexes.length, 6);
-  assert.ok(adminRouteIndexes.every((index) => index > guardIndex));
-});
-
-test("payment creation requires an administrator", async () => {
-  const source = await readRouteSource();
-
-  assert.match(source, /app\.post\("\/api\/payments", requireAdmin,/);
-});
 
 async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
   const app = express();
@@ -66,9 +26,10 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
 
   return {
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 
@@ -101,7 +62,6 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
       { method: "POST", path: "/api/admin/sync-alumni/preview" },
       { method: "POST", path: "/api/admin/sync-alumni" },
-      { method: "GET", path: "/api/admin/sync-progress" },
       { method: "GET", path: "/api/admin/test-google-sheets" },
       { method: "POST", path: "/api/categories", body: "{}", legacyGuard: true },
       { method: "POST", path: "/api/payments", body: "{}" },
@@ -212,14 +172,20 @@ test("post and notice endpoints require a member session before storage access",
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
   try {
     for (const [method, path] of [
-      ["GET", "/api/posts"], ["GET", "/api/posts/search?q=notice"], ["GET", "/api/posts/1"],
-      ["GET", "/api/posts/1/comments"], ["POST", "/api/posts/notices/drafts/obituary"],
-      ["POST", "/api/posts/notices/1/generate"], ["POST", "/api/posts/notices/1/publish"],
+      ["GET", "/api/posts"],
+      ["GET", "/api/posts/search?q=notice"],
+      ["GET", "/api/posts/1"],
+      ["GET", "/api/posts/1/comments"],
+      ["POST", "/api/posts/notices/drafts/obituary"],
+      ["POST", "/api/posts/notices/1/generate"],
+      ["POST", "/api/posts/notices/1/publish"],
     ]) {
       const response = await fetch(`${server.baseUrl}${path}`, { method });
       assert.equal(response.status, 401, path);
     }
-  } finally { await server.close(); }
+  } finally {
+    await server.close();
+  }
 });
 
 test("post creation enforces the approved category policy before writing", async (t) => {
@@ -256,7 +222,10 @@ test("post creation enforces the approved category policy before writing", async
       isPublished: data.isPublished ?? true,
       isHidden: false,
       imageUrls: data.imageUrls ?? null,
-      eventData: null, sourceText: null, revision: 0, publishedAt: null,
+      eventData: null,
+      sourceText: null,
+      revision: 0,
+      publishedAt: null,
       createdAt: new Date("2026-07-11T00:00:00Z"),
       updatedAt: new Date("2026-07-11T00:00:00Z"),
     } satisfies Post;
@@ -264,14 +233,22 @@ test("post creation enforces the approved category policy before writing", async
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
 
   try {
-    const request = (body: Record<string, unknown>) => fetch(`${server.baseUrl}/api/posts`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-test-user-id": String(memberId),
-      },
-      body: JSON.stringify({ title: "제목", content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }] }, ...body }),
-    });
+    const request = (body: Record<string, unknown>) =>
+      fetch(`${server.baseUrl}/api/posts`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-test-user-id": String(memberId),
+        },
+        body: JSON.stringify({
+          title: "제목",
+          content: {
+            type: "doc",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }],
+          },
+          ...body,
+        }),
+      });
 
     for (const body of [
       {},

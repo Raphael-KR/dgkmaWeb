@@ -14,26 +14,15 @@ export class KakaoOAuthTerminatedError extends Error {
   }
 }
 
-function hashKakaoIdentityKey(
-  kind: "kakao" | "email",
-  value: string,
-  secret: string = resolveSessionSecret(),
-): string {
-  return createHmac("sha256", secret)
-    .update(`${kind}:${value}`, "utf8")
-    .digest("hex");
+function hashKakaoIdentityKey(kind: "kakao" | "email", value: string): string {
+  const secret = resolveSessionSecret();
+  return createHmac("sha256", secret).update(`${kind}:${value}`, "utf8").digest("hex");
 }
 
-export function hashKakaoIdentity(
-  kakaoId: string,
-  secret: string = resolveSessionSecret(),
-): string {
-  return hashKakaoIdentityKey("kakao", kakaoId, secret);
+export function hashKakaoIdentity(kakaoId: string): string {
+  return hashKakaoIdentityKey("kakao", kakaoId);
 }
 
-export function hashKakaoEmailIdentity(
-  email: string,
-  secret: string = resolveSessionSecret(),
-): string {
-  return hashKakaoIdentityKey("email", email.trim().toLowerCase(), secret);
+export function hashKakaoEmailIdentity(email: string): string {
+  return hashKakaoIdentityKey("email", email.trim().toLowerCase());
 }

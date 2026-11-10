@@ -9,7 +9,7 @@ export function BottomNavigation() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingTarget, setPendingTarget] = useState<string | null>(null);
 
-  const handleClick = (item: typeof memberNavItems[number]) => {
+  const handleClick = (item: (typeof memberNavItems)[number]) => {
     if (item.gated && !user) {
       setPendingTarget(item.path);
       setLoginOpen(true);
@@ -20,10 +20,7 @@ export function BottomNavigation() {
 
   return (
     <>
-      <nav
-        aria-label="하단 메뉴"
-        className="site-bottom-navigation site-brand-surface"
-      >
+      <nav aria-label="하단 메뉴" className="site-bottom-navigation site-brand-surface">
         <div className="site-bottom-navigation__inner">
           {memberNavItems.map((item) => {
             const isActive = isMemberNavActive(location, item.path);

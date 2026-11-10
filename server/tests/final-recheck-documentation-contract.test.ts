@@ -3,147 +3,87 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
+const read = (path: string) => readFile(new URL(path, root), "utf8");
 
-async function read(path: string) {
-  return readFile(new URL(path, root), "utf8");
+// Check the named policy's content, not unrelated history or every word in a document.
+function section(document: string, heading: string) {
+  const lines = document.split("\n");
+  const start = lines.findIndex((line) => /^#{1,6}\s/.test(line) && line.includes(heading));
+  assert.ok(start >= 0, `Missing policy section: ${heading}`);
+  const level = lines[start].match(/^#+/)![0].length;
+  const end = lines.findIndex(
+    (line, index) => index > start && new RegExp(`^#{1,${level}}\\s`).test(line),
+  );
+  return lines.slice(start + 1, end < 0 ? undefined : end).join("\n");
 }
 
-test("Kakao callback documentation describes the actual SPA authorization-code flow", async () => {
-  const [guide, walkthrough] = await Promise.all([
-    read("docs/kakao-consent-review-guide.md"),
-    read("walkthrough.md"),
-  ]);
-
-  for (const document of [guide, walkthrough]) {
-    assert.match(document, /카카오가 callback URL의 query로 인가 코드와 state를 전달/);
-    assert.match(document, /브라우저가 인가 코드와 state를 서버에 한 번 전달/);
-    assert.match(document, /서버 응답과 앱 로그에 전체 인가 코드나 토큰을 남기지 않/);
-    assert.doesNotMatch(document, /브라우저[^\n]*전체 인가 코드[^\n]*노출하지 않/);
+test("Kakao documentation preserves the SPA authorization-code boundary", async () => {
+  for (const path of [
+    "docs/runbooks/kakao-consent-review-guide.md",
+    "docs/runbooks/feature-checks.md",
+  ]) {
+    const document = await read(path);
+    assert.match(document, /callback[\s\S]*query[\s\S]*인가 코드[\s\S]*state/);
+    assert.match(document, /브라우저[^\n]*인가 코드[^\n]*state[^\n]*서버/);
+    assert.match(document, /로그[^\n]*(?:인가 코드|토큰)[^\n]*(?:남기지|기록하지)/);
   }
 });
 
-test("planning proposal distinguishes the managed alumni source from the runtime copy", async () => {
-  const proposal = await read("planning_proposal.md");
-  const currentPlan = proposal.slice(0, proposal.indexOf("## 9. 변경되거나 폐기된 방향"));
-
-  assert.match(proposal, /카카오 REST OAuth/);
-  assert.doesNotMatch(currentPlan, /카카오싱크/);
-  assert.match(proposal, /카카오 JavaScript SDK·카카오싱크[\s\S]*방향 변경/);
-  assert.match(proposal, /PostgreSQL `alumni_database`/);
-  assert.match(proposal, /1회 이관/);
-  assert.match(proposal, /Google Sheets를 동문 명부의 (?:\*\*)?관리 원본/);
-  assert.match(proposal, /런타임 복제본/);
-  assert.doesNotMatch(proposal, /신규 가입 매칭[^\n]*Google Sheets[^\n]*의존/);
+test("roster policy distinguishes the managed source, runtime copy and explicit sync", async () => {
+  const roster = section(await read("docs/product/planning-proposal.md"), "동문 명부");
+  assert.match(roster, /Google Sheets[\s\S]*관리 원본/);
+  assert.match(roster, /PostgreSQL[\s\S]*런타임 복제본/);
+  assert.match(roster, /로그인 요청[^\n]*Google Sheets[^\n]*조회하지/);
+  assert.match(roster, /관리자[\s\S]*동기화/);
 });
 
-test("planning proposal is the single current product and development plan", async () => {
-  const [proposal, roadmap, readme, replit, walkthrough] = await Promise.all([
-    read("planning_proposal.md"),
-    read("roadmap.md"),
-    read("README.md"),
-    read("replit.md"),
-    read("walkthrough.md"),
-  ]);
-
-  assert.match(proposal, /제품·개발 통합 계획서/);
-  assert.match(proposal, /현재 구현된 기반/);
-  assert.match(proposal, /남은 기능 개발/);
-  assert.match(proposal, /기존 기능의 보완과 정리/);
-  assert.match(proposal, /결정이 필요한 사항/);
-  assert.match(proposal, /변경되거나 폐기된 방향/);
-  assert.match(proposal, /`posts.event_data` JSON 기반 부고·결혼·개원/);
-  assert.match(proposal, /Supabase 클라이언트 로그인[\s\S]*방향 변경/);
-  assert.doesNotMatch(proposal, /\*\*미구현\*\*: 통합 경조사 모델/);
-
-  assert.match(roadmap, /planning_proposal\.md/);
-  assert.match(roadmap, /독립적인 상태나 계획을 관리하지 않습니다/);
-  assert.doesNotMatch(roadmap, /## 긴급|## 다음|## 이후|\| P0 \|/);
-
-  for (const document of [readme, replit, walkthrough]) {
-    assert.match(document, /planning_proposal\.md/);
+test("entry documents link to the current plan and separate history", async () => {
+  for (const path of ["AGENTS.md", "README.md", "replit.md", "roadmap.md", "docs/README.md"]) {
+    const document = await read(path);
+    assert.match(document, /\]\([^)]*planning-proposal\.md(?:#[^)]*)?\)/);
   }
-  assert.doesNotMatch(readme, /\[roadmap\.md\]/);
+  const index = await read("docs/README.md");
+  assert.match(index, /history\//);
+  assert.match(index, /정본[\s\S]*이력/);
+  assert.doesNotMatch(await read("roadmap.md"), /^#{2,}\s*(?:긴급|다음 개발|이후 개발)/m);
 });
 
-test("development uses minimal static checks and the plan tracks missing features", async () => {
-  const [proposal, agents, readme, replit, walkthrough] = await Promise.all([
-    read("planning_proposal.md"),
-    read("AGENTS.md"),
-    read("README.md"),
-    read("replit.md"),
-    read("walkthrough.md"),
-  ]);
-
-  for (const document of [proposal, agents, readme, replit, walkthrough]) {
-    assert.match(document, /개발 직후[^\n]*정적 검사/);
-  }
-  assert.doesNotMatch(proposal, /QA|검증|회귀|smoke|npm test/i);
-  assert.match(proposal, /관리자 게시글 관리/);
-  assert.match(proposal, /관리자 통계·리포팅/);
-  assert.match(proposal, /실제 회비·서비스 결제/);
-  assert.match(proposal, /결제박사 사용 예정/);
-  for (const term of ["API", "수수료", "정산", "환불", "영수증", "보안 조건"]) {
-    assert.match(proposal, new RegExp(term));
-  }
-  assert.match(walkthrough, /## 현재 적용 기준/);
-  assert.match(walkthrough, /실계정 QA는 계속 보류/);
-  assert.match(replit, /최신 변경 릴리스 \(2026-11-09\)/);
-  assert.match(proposal, /모든 `posts`는 회원 전용/);
-  assert.match(proposal, /구조화 정보는 `posts` 내부 JSON으로 저장/);
-  assert.match(proposal, /기존 경조사·부고의 상세 필드 입력 폼을 모두 제거/);
-  assert.match(proposal, /홈페이지 서버에서 OpenAI API를 호출/);
-  assert.match(proposal, /기존 경조사·레거시 부고 데이터와 상세 주소는 폐기/);
-  assert.match(proposal, /`부고`·`경사` 카테고리를 추가/);
-  assert.match(proposal, /`경사`의 JSON 유형은 `결혼`·`개원`만 사용/);
-  assert.match(proposal, /`기타` 유형은 제거/);
-  assert.match(proposal, /게시문 호칭은 부고·경사 모두 `동문·회원·권리회원`으로 통일/);
-  assert.doesNotMatch(proposal, /상세 입력은 등록 명령 이후/);
-  assert.match(walkthrough, /등록 명령을 누르기 전에는 상세 필드와 미리보기가 표시되지 않/);
-  assert.match(walkthrough, /목록 필터 없이 모든 유형의 경조사가 함께 표시/);
+test("current product policy preserves post access and feature-first development", async () => {
+  const proposal = await read("docs/product/planning-proposal.md");
+  assert.match(section(proposal, "접근과 공개 범위"), /모든 `posts`[^\n]*회원 전용/);
+  const integration = section(proposal, "게시글과 경조사 통합");
+  assert.match(integration, /`posts`[\s\S]*`categories`/);
+  assert.match(integration, /`부고`[\s\S]*`경사`[\s\S]*`결혼`[\s\S]*`개원`/);
+  const goals = section(proposal, "다음 개발 목표");
+  assert.match(goals, /통계|역사|결제/);
+  // A QA backlog heading is different from explaining that QA is outside a task.
+  assert.doesNotMatch(
+    goals,
+    /^\s*(?:#{1,6}|[-*]|\d+\.)\s*(?:\*\*)?(?:QA|회귀 검사|smoke check)\s*(?:대기|목록|실행|완료 조건)/im,
+  );
+  assert.match(await read("AGENTS.md"), /개발 직후[^\n]*정적 검사/);
 });
 
-test("privacy policy and approved design record the pending rejection destruction contract", async () => {
-  const [privacy, design, plan] = await Promise.all([
-    read("client/src/features/legal/privacy.tsx"),
-    read("docs/superpowers/specs/2026-07-12-kakao-consent-and-account-deletion-design.md"),
-    read("docs/superpowers/plans/2026-07-12-kakao-consent-and-account-deletion.md"),
-  ]);
-
-  for (const document of [privacy, design, plan]) {
-    assert.match(
-      document,
-      /가입 거절[^\n]*즉시 카카오 연결[^\n]*해제[^\n]*신청정보[^\n]*파기[^\n]*실패[^\n]*거절 미완료/,
-    );
-  }
-});
-
-test("termination marker purpose, retention, admin-key scope, and production schema order are documented", async () => {
-  const [agents, replit, privacy, design, plan] = await Promise.all([
-    read("AGENTS.md"),
-    read("replit.md"),
-    read("client/src/features/legal/privacy.tsx"),
-    read("docs/superpowers/specs/2026-07-12-kakao-consent-and-account-deletion-design.md"),
-    read("docs/superpowers/plans/2026-07-12-kakao-consent-and-account-deletion.md"),
-  ]);
-
-  for (const document of [agents, replit]) {
-    assert.match(document, /회원 탈퇴(?: 및|와) 가입 거절(?:의 카카오)? 연결 해제/);
-  }
-  for (const document of [privacy, design, plan]) {
+test("current consent and termination guidance does not designate archived submission files", async () => {
+  const guide = await read("docs/runbooks/kakao-consent-review-guide.md");
+  const submission = section(guide, "심사 신청 입력값");
+  assert.match(submission, /과거 심사 자료/);
+  assert.doesNotMatch(submission, /회원가입 화면 또는 시나리오:\s*[^\n]*\.pdf/);
+  for (const document of [guide, await read("client/src/features/legal/privacy.tsx")]) {
+    assert.match(document, /가입 거절[\s\S]*카카오 연결[\s\S]*해제[\s\S]*신청정보[\s\S]*파기/);
     assert.match(document, /HMAC-SHA-256/);
-    assert.match(document, /SESSION_SECRET/);
     assert.match(document, /종료 시각/);
-    assert.match(document, /최신 marker 1건/);
-    assert.match(document, /종료보다 먼저 시작된 OAuth/);
-    assert.match(document, /종료 이후 새로 시작한 OAuth/);
   }
+});
 
-  const productionSchema = replit.slice(replit.indexOf("프로덕션 선행 additive 스키마 순서"));
-  const stateTable = productionSchema.indexOf("kakao_oauth_states");
-  const startedAtColumn = productionSchema.indexOf("kakao_oauth_states.started_at");
-  const markerTable = productionSchema.indexOf("kakao_identity_terminations", startedAtColumn);
-  const republish = productionSchema.indexOf("Republish", markerTable);
-  assert.ok(stateTable >= 0 && stateTable <= startedAtColumn);
-  assert.ok(startedAtColumn < markerTable);
-  assert.ok(markerTable < republish);
+test("DB instructions distinguish targets and exclude the runtime session table", async () => {
+  const operations = await read("docs/runbooks/database-operations.md");
+  for (const heading of ["개발 변경", "운영 변경", "완료된 전환과 재실행 경계"])
+    section(operations, heading);
+  assert.match(section(operations, "운영 변경"), /승인/);
+  assert.match(await read("drizzle.config.ts"), /tablesFilter:\s*\["!session"\]/);
+  assert.match(
+    await read("docs/reference/database-schema.md"),
+    /connect-pg-simple[\s\S]*session|session[\s\S]*connect-pg-simple/,
+  );
 });

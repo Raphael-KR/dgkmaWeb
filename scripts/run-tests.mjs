@@ -12,9 +12,13 @@ const files = ["client/src", "server", "shared"].flatMap(discover).sort();
 if (process.argv.includes("--list")) {
   console.log(files.join("\n"));
 } else {
-  const result = spawnSync(process.execPath, ["--import", "tsx", "--test", ...process.argv.slice(2), ...files], {
-    stdio: "inherit",
-  });
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "--test", ...process.argv.slice(2), ...files],
+    {
+      stdio: "inherit",
+    },
+  );
   if (result.error) throw result.error;
   process.exit(result.status ?? 1);
 }

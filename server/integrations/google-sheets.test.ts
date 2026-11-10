@@ -6,17 +6,19 @@ function captureConsoleLogs(run: () => Promise<unknown>): Promise<string[]> {
   const messages: string[] = [];
   const originalLog = console.log;
   console.log = (...args: unknown[]) => messages.push(args.map(String).join(" "));
-  return run().then(
-    () => messages,
-    (error) => {
-      throw error;
-    },
-  ).finally(() => {
-    console.log = originalLog;
-  });
+  return run()
+    .then(
+      () => messages,
+      (error) => {
+        throw error;
+      },
+    )
+    .finally(() => {
+      console.log = originalLog;
+    });
 }
 
-test("Google Sheets 매칭 로그는 한국어 비식별 건수만 기록한다", async () => {
+test("Google Sheets 명부 조회는 행 원문을 로그에 기록하지 않는다", async () => {
   const service = new GoogleSheetsService({
     spreadsheetId: "spreadsheet-test",
     sheets: {
@@ -25,7 +27,20 @@ test("Google Sheets 매칭 로그는 한국어 비식별 건수만 기록한다"
           get: async () => ({
             data: {
               values: [
-                ["학과", "기수", "성명", "입학일자", "졸업일자", "주소", "핸드폰번호", "전화번호", "그룹", "상태", "동문회직책", "메모"],
+                [
+                  "학과",
+                  "기수",
+                  "성명",
+                  "입학일자",
+                  "졸업일자",
+                  "주소",
+                  "핸드폰번호",
+                  "전화번호",
+                  "그룹",
+                  "상태",
+                  "동문회직책",
+                  "메모",
+                ],
                 ["한의학과", "40", "테스트동문", "", "", "", "010-1234-5678", "", "", "", "", ""],
               ],
             },
@@ -36,9 +51,10 @@ test("Google Sheets 매칭 로그는 한국어 비식별 건수만 기록한다"
     },
   });
 
-  const logs = await captureConsoleLogs(() => service.findAlumniByPhoneAndName("+82 10-1234-5678", "테스트동문"));
+  const logs = await captureConsoleLogs(async () => {
+    const records = await service.fetchAlumniData();
+    assert.equal(records.length, 1);
+  });
 
-  assert.deepEqual(logs, ["동문 명부 전화번호 매칭 결과: 1건"]);
-  assert.ok(logs.every((message) => !message.includes("010-1234-5678")));
-  assert.ok(logs.every((message) => !message.includes("테스트동문")));
+  assert.deepEqual(logs, []);
 });

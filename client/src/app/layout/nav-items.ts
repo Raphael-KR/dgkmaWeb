@@ -1,4 +1,4 @@
-import { Home, Users, User, Info, MessageSquare, Shield } from "lucide-react";
+import { Home, Users, User, Info, MessageSquare } from "lucide-react";
 
 export type PublicNavItem = {
   path: string;
@@ -40,14 +40,17 @@ export const memberNavItems = [
   { path: "/profile", icon: User, label: "내정보", gated: true },
 ];
 
-export const adminNavItem = { path: "/admin", icon: Shield, label: "관리자", gated: true };
-
 export function isMemberNavActive(location: string, path: string) {
   if (path === "/about") {
     return location === "/about" || location.startsWith("/about/");
   }
   if (path === "/b") {
-    return location === "/b" || location.startsWith("/b/") || location.startsWith("/p/") || location.startsWith("/post/");
+    return (
+      location === "/b" ||
+      location.startsWith("/b/") ||
+      location.startsWith("/p/") ||
+      location.startsWith("/post/")
+    );
   }
   return location === path;
 }

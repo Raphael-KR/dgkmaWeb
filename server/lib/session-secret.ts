@@ -7,7 +7,8 @@ export class SessionSecretConfigurationError extends Error {
   }
 }
 
-export function resolveSessionSecret(env: NodeJS.ProcessEnv = process.env): string {
+export function resolveSessionSecret(): string {
+  const env = process.env;
   if (typeof env.SESSION_SECRET === "string" && env.SESSION_SECRET.length > 0) {
     return env.SESSION_SECRET;
   }

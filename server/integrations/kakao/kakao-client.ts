@@ -11,10 +11,7 @@ export function requestKakaoToken(
   });
 }
 
-export function requestKakaoUser(
-  accessToken: string,
-  kakaoFetch: typeof fetch,
-): Promise<Response> {
+export function requestKakaoUser(accessToken: string, kakaoFetch: typeof fetch): Promise<Response> {
   return kakaoFetch("https://kapi.kakao.com/v2/user/me?secure_resource=true", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });

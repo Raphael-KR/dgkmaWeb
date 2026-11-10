@@ -59,19 +59,11 @@ export async function setupVite(app: Express, server: Server) {
     const url = req.originalUrl;
 
     try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
+      const clientTemplate = path.resolve(import.meta.dirname, "..", "client", "index.html");
 
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
+      template = template.replace(`src="/src/main.tsx"`, `src="/src/main.tsx?v=${nanoid()}"`);
       const transformed = await vite.transformIndexHtml(url, template);
       const page = await injectSeo(req, transformed);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -82,10 +74,7 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-export function serveStatic(
-  app: Express,
-  distPath = path.resolve(import.meta.dirname, "public"),
-) {
+export function serveStatic(app: Express, distPath = path.resolve(import.meta.dirname, "public")) {
   const resolvedDistPath = path.resolve(distPath);
 
   if (!fs.existsSync(resolvedDistPath)) {
@@ -94,15 +83,17 @@ export function serveStatic(
     );
   }
 
-  app.use(express.static(resolvedDistPath, {
-    // 루트 HTML도 아래 SEO 처리를 거쳐 canonical을 포함한다.
-    index: false,
-    setHeaders: (res, filePath) => {
-      if (path.basename(filePath) === "index.html") {
-        res.setHeader("Cache-Control", "no-cache");
-      }
-    },
-  }));
+  app.use(
+    express.static(resolvedDistPath, {
+      // 루트 HTML도 아래 SEO 처리를 거쳐 canonical을 포함한다.
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (path.basename(filePath) === "index.html") {
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      },
+    }),
+  );
 
   app.use("*", rejectUnknownApiPath);
 
@@ -126,7 +117,8 @@ export function serveStatic(
         "utf-8",
       );
       const page = await injectSeo(req, template);
-      res.status(200)
+      res
+        .status(200)
         .set({
           "Content-Type": "text/html",
           "Cache-Control": "no-cache",

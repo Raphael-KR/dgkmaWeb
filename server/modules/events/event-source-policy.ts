@@ -58,11 +58,9 @@ function expandIpv6(address: string): number[] | undefined {
   const omitted = 8 - left.length - right.length;
   if ((halves.length === 1 && omitted !== 0) || omitted < 0) return undefined;
 
-  const groups = [
-    ...left,
-    ...Array.from({ length: omitted }, () => "0"),
-    ...right,
-  ].map((group) => Number.parseInt(group || "0", 16));
+  const groups = [...left, ...Array.from({ length: omitted }, () => "0"), ...right].map((group) =>
+    Number.parseInt(group || "0", 16),
+  );
 
   return groups.length === 8 && groups.every(Number.isFinite) ? groups : undefined;
 }
@@ -103,8 +101,8 @@ function isObviouslyNonPublicHostname(hostname: string): boolean {
   const normalized = hostname.toLowerCase().replace(/\.$/, "");
   if (!normalized.includes(".")) return true;
 
-  return [".localhost", ".local", ".internal", ".lan", ".home.arpa"].some(
-    (suffix) => normalized.endsWith(suffix),
+  return [".localhost", ".local", ".internal", ".lan", ".home.arpa"].some((suffix) =>
+    normalized.endsWith(suffix),
   );
 }
 
@@ -145,8 +143,8 @@ export function assertSafeSourceUrl(rawUrl: string): URL {
 
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   if (
-    (net.isIP(hostname) && !isPublicAddress(hostname))
-    || (!net.isIP(hostname) && isObviouslyNonPublicHostname(hostname))
+    (net.isIP(hostname) && !isPublicAddress(hostname)) ||
+    (!net.isIP(hostname) && isObviouslyNonPublicHostname(hostname))
   ) {
     throw new EventSourcePolicyError("공개 주소가 아닌 대상은 읽을 수 없습니다");
   }

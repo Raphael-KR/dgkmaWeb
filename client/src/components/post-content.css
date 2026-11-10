@@ -3,47 +3,128 @@
   line-height: 1.75;
 }
 
-.post-body p { margin: 0 0 .8em; }
-.post-body > :last-child { margin-bottom: 0; }
-.post-body h1, .post-body h2, .post-body h3, .post-body h4 {
-  margin: 1.2em 0 .55em;
+.post-body p {
+  margin: 0 0 0.8em;
+}
+.post-body > :last-child {
+  margin-bottom: 0;
+}
+.post-body h1,
+.post-body h2,
+.post-body h3,
+.post-body h4 {
+  margin: 1.2em 0 0.55em;
   font-weight: 700;
   line-height: 1.35;
 }
-.post-body > :first-child { margin-top: 0; }
-.post-body h1 { font-size: 1.75em; }
-.post-body h2 { font-size: 1.5em; }
-.post-body h3 { font-size: 1.25em; }
-.post-body h4 { font-size: 1.1em; }
-.post-body strong { font-weight: 700; }
-.post-body em { font-style: italic; }
-.post-body del, .post-body s { text-decoration: line-through; }
-.post-body ul, .post-body ol { margin: .75em 0; padding-left: 1.6em; }
-.post-body ul { list-style-type: disc; }
-.post-body ol { list-style-type: decimal; }
-.post-body li + li { margin-top: .25em; }
-.post-body li > p { margin: 0; }
-.post-body a { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
-.post-body a:hover { color: #1d4ed8; }
+.post-body > :first-child {
+  margin-top: 0;
+}
+.post-body h1 {
+  font-size: 1.75em;
+}
+.post-body h2 {
+  font-size: 1.5em;
+}
+.post-body h3 {
+  font-size: 1.25em;
+}
+.post-body h4 {
+  font-size: 1.1em;
+}
+.post-body strong {
+  font-weight: 700;
+}
+.post-body em {
+  font-style: italic;
+}
+.post-body del,
+.post-body s {
+  text-decoration: line-through;
+}
+.post-body ul,
+.post-body ol {
+  margin: 0.75em 0;
+  padding-left: 1.6em;
+}
+.post-body ul {
+  list-style-type: disc;
+}
+.post-body ol {
+  list-style-type: decimal;
+}
+.post-body li + li {
+  margin-top: 0.25em;
+}
+.post-body li > p {
+  margin: 0;
+}
+.post-body a {
+  @apply text-blue-600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.post-body a:hover {
+  @apply text-blue-700;
+}
+
+.post-editor,
+.post-editor-source {
+  --post-editor-min-height: 180px;
+}
 
 .post-editor .tiptap {
-  min-height: 180px;
-  padding: .75rem;
+  min-height: var(--post-editor-min-height);
+  padding: 0.75rem;
   outline: none;
 }
-.post-editor .tiptap p:last-child { margin-bottom: 0; }
+.post-editor .tiptap p:last-child {
+  margin-bottom: 0;
+}
 
-@media (min-width: 768px) {
+@screen md {
+  .post-editor,
+  .post-editor-source {
+    --post-editor-min-height: 320px;
+  }
   .post-editor .tiptap {
-    min-height: 320px;
     padding: 1rem;
     font-size: 1rem;
   }
 }
 
-.post-body u { text-decoration: underline; }
-.post-body code { border-radius: .25rem; background: #f1f5f9; padding: .1em .3em; font-family: ui-monospace, monospace; }
-.post-body pre { overflow-x: auto; margin: 1em 0; padding: 1rem; border-radius: .5rem; background: #0f172a; color: #f8fafc; white-space: pre; }
-.post-body pre code { background: transparent; color: inherit; padding: 0; }
-.post-body blockquote { margin: 1em 0; padding-left: 1rem; border-left: 3px solid #cbd5e1; color: #475569; }
-.post-body hr { margin: 1.5em 0; border-top: 1px solid #cbd5e1; }
+.post-body u {
+  text-decoration: underline;
+}
+.post-body code {
+  @apply bg-slate-100;
+  border-radius: 0.25rem;
+  padding: 0.1em 0.3em;
+  font-family: ui-monospace, monospace;
+}
+.post-body pre {
+  @apply bg-slate-900 text-slate-50;
+  overflow-x: auto;
+  margin: 1em 0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  white-space: pre;
+}
+.post-body pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+.post-body blockquote {
+  @apply border-slate-300 text-slate-600;
+  margin: 1em 0;
+  padding-left: 1rem;
+  border-left-width: 3px;
+  border-left-style: solid;
+}
+.post-body hr {
+  @apply border-slate-300;
+  margin: 1.5em 0;
+  border-top-width: 1px;
+  border-top-style: solid;
+}

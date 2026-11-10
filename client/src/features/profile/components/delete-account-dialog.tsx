@@ -57,9 +57,10 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
     onError: (error) => {
       toast({
         title: "회원 탈퇴 실패",
-        description: error instanceof Error
-          ? error.message
-          : "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요",
+        description:
+          error instanceof Error
+            ? error.message
+            : "회원 탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요",
         variant: "destructive",
       });
     },
@@ -81,7 +82,8 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
               카카오 연결을 해제하고 회원 개인정보를 삭제하며 미발행 초안도 삭제합니다.
             </span>
             <span className="block">
-              게시글, 댓글, 발행된 경조사, 결제 기록은 작성자·회원 연결을 제거한 뒤 익명으로 보존됩니다.
+              게시글, 댓글, 발행된 경조사, 결제 기록은 작성자·회원 연결을 제거한 뒤 익명으로
+              보존됩니다.
             </span>
             <span className="block">계속하려면 아래에 탈퇴를 입력해주세요.</span>
           </AlertDialogDescription>
