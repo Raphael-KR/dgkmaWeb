@@ -8,6 +8,7 @@
 |---|---|
 | [Replit 개발·릴리스](replit-2026-11-09.md) | 개발 적용, PR·병합·Republish와 확인 결과 |
 | [2026-11-10 코드·문서 정리 릴리스](cleanup-release-2026-11-10.md) | 누적 정리 통합·게시 승인과 실제 적용 결과 |
+| [2026-11-10 릴리스 후 파일 정리](post-release-cleanup-2026-11-10.md) | 캐시·구형 산출물 정리와 원본·검증 기록 보존 |
 | [DB 구조·catalog](database-schema-2026-11-09.md) | 구조·metadata·digest와 전환 결과 |
 | [DB 작업](database-operations-2026-11-09.md) | SQL·승인·백업·변환과 전후 확인 |
 | [기능 점검](walkthrough-2026-11-09.md) | 별도 점검 결과와 당시 체크리스트 |
