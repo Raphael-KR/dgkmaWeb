@@ -1,5 +1,5 @@
 import type { AlumniRecord, User } from "@shared/schema";
-import { admissionYearLabel } from "./obituary-preview";
+import { admissionYearLabel } from "./member-labels";
 
 export type EventMemberStorage = {
   findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]>;

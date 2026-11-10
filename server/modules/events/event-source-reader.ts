@@ -1,3 +1,4 @@
+import type { NoticeFacts } from "@shared/contracts/notices";
 import {
   assertSafeSourceUrl,
   EventSourcePolicyError,
@@ -8,6 +9,7 @@ import { extractPublicPageText } from "../../integrations/public-sources/public-
 import {
   isGipoomPublicObituaryUrl,
   readGipoomPublicObituary,
+  readGipoomNotice,
 } from "../../integrations/public-sources/gipoom-public-api";
 import { parseObituaryEventSource } from "./obituary-parser";
 
@@ -26,6 +28,7 @@ export type EventSourceStatus = {
 
 export type EventSourceReadResult = {
   combinedText: string;
+  structuredObituary?: NoticeFacts;
   urls: string[];
   sources: EventSourceStatus[];
 };
@@ -81,6 +84,7 @@ export async function readEventSources(
   const extractText = dependencies.extractText ?? extractPublicPageText;
   const textParts = [withoutSourceUrls(input, urls)].filter(Boolean);
   const sources: EventSourceStatus[] = [];
+  let structuredObituary: NoticeFacts | undefined;
 
   for (const url of urls) {
     throwIfAborted(signal);
@@ -89,7 +93,11 @@ export async function readEventSources(
       let extracted = "";
       let method: EventSourceStatus["method"];
       try {
-        extracted = normalizeSourceText(await readProviderSource(url, signal) ?? "");
+        if (!dependencies.readProviderSource && isGipoomPublicObituaryUrl(url)) {
+          const provider = await readGipoomNotice(url, signal);
+          extracted = normalizeSourceText(provider.text);
+          structuredObituary = provider.facts;
+        } else extracted = normalizeSourceText(await readProviderSource(url, signal) ?? "");
         if (extracted) method = "provider-api";
       } catch {
         throwIfAborted(signal);
@@ -101,7 +109,7 @@ export async function readEventSources(
         if (extracted) method = "static-html";
       }
       if (hasUnavailableSourceEvidence(extracted)) throw new Error("unavailable public source");
-      if (isGipoomPublicObituaryUrl(url) && !hasCompleteObituaryEvidence(extracted)) {
+      if (isGipoomPublicObituaryUrl(url) && !structuredObituary && !hasCompleteObituaryEvidence(extracted)) {
         throw new Error("incomplete public obituary source");
       }
       if (!extracted) throw new Error("empty public page");
@@ -120,6 +128,7 @@ export async function readEventSources(
 
   return {
     combinedText: textParts.join("\n"),
+    structuredObituary: urls.length === 1 && sources[0]?.status === "fetched" ? structuredObituary : undefined,
     urls,
     sources,
   };

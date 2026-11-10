@@ -14,8 +14,8 @@ test("route compatibility facade preserves the historical domain registration or
     "createRouteContext(dependencies)",
     "registerIdentityRoutes(app, context)",
     "registerMembershipRoutes(app)",
-    "registerContentRoutes(app)",
     "registerEventRoutes(app, context)",
+    "registerContentRoutes(app)",
     "registerDirectoryRoutes(app)",
     "registerPaymentRoutes(app, context)",
     "registerRegistryAdminRoutes(app, context)",
@@ -47,7 +47,8 @@ test("storage compatibility facade retains every domain prototype method and des
       assert.equal(typeof (instance as unknown as Record<string, unknown>)[name], "function");
     }
   }
-  assert.equal(methodNames.size, 55);
+  assert.ok(methodNames.has("getNoticeDraft"));
+  assert.ok(!methodNames.has("getObituaries"));
   assert.equal(Object.keys(instance).length, 0);
 });
 

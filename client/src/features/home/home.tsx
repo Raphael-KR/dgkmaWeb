@@ -213,7 +213,7 @@ export default function Home() {
                           {post.category.displayName}
                         </Badge>
                         <span className="text-xs text-gray-500">
-                          {new Date(post.createdAt).toLocaleDateString()}
+                          {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                       <h4 className="font-medium text-gray-800 mb-1 line-clamp-2">
@@ -238,7 +238,7 @@ export default function Home() {
 
         <Button
           className="mb-6 w-full bg-kakao-yellow text-kakao-brown font-bold hover:bg-yellow-400"
-          onClick={() => setLocation("/events")}
+          onClick={() => setLocation("/b")}
           aria-label="경조사 페이지로 이동"
         >
           <HeartHandshake size={18} className="mr-2" />

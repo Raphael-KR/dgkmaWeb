@@ -2,17 +2,34 @@
 
 이 문서는 행 데이터, 연결 문자열, 사용자·호스트명, Secret을 포함하지 않는 `public` 메타데이터 기준서다. 현재 구조 관찰은 2026-09-05 Development·Production에서 실행한 읽기 전용 catalog를 기준으로 한다. 양쪽 모두 앱 테이블 14개이며 이전 Development의 추가 객체 상태는 현재 관찰과 다르다. 이름 기준 구조 메타데이터는 같고 `users`·`posts`의 일부 컬럼 물리적 순서는 다르다. 과거 기준·해시는 이력으로 보존하며 catalog 확인을 실제 계정·데이터·기능 검증으로 확대하지 않는다.
 
-### 게시글 통합 예정 구조 (2026-11-09)
+### 게시글 통합 구조 (2026-11-09)
 
-상태는 **정책 확정·스키마 미적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)이 아래 catalog 기준과 다른 부분은 구현 예정 변경이다. 이번에는 실제 DB 조회나 스키마·데이터 변경을 수행하지 않았다.
+상태는 **코드 구현·개발 및 운영 스키마 미적용**이다. [제품 정책](../planning_proposal.md#게시글과-경조사-통합)이 아래 catalog 기준과 다른 부분은 구현 예정 변경이다. Replit 별도 checkout의 정적 검사는 마쳤다. 2026-11-09 Development의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 기존 14개 테이블 및 두 구 테이블의 존재를 확인했다. 전환 SQL은 실행하지 않았다. Production은 이번에 조회하지 않았으며 아래 과거 catalog와 구분한다.
 
 - 모든 게시물과 경조사 초안은 `posts`를 사용하고 분류는 `categories`를 사용한다. `community_events`·`obituaries`는 통합 구현에서 삭제하며 별도 경조사 상세 테이블로 대체하지 않는다.
 - 기존 공지·자유·행사·소식에 `부고`·`경사` 카테고리를 추가한다. `경사` JSON의 유형은 결혼·개원만 허용하며 기타 유형은 제거한다. 부고·경사의 게시문 회원 호칭은 동문·회원·권리회원으로 통일한다.
-- 경조사 구조화 정보는 `posts` 안의 JSONB로 저장한다. 유형·스키마 버전·관련 동문·행사 정보·유형별 상세를 가진 JSON 계약으로 설계한다. 정확한 컬럼명·키·제약·인덱스는 구현 설계에서 정하고 이 문서의 사전과 함께 갱신한다.
+- 경조사 구조화 정보는 `posts` 안의 JSONB로 저장한다. 유형·스키마 버전·관련 동문·행사 정보·유형별 상세를 가진 JSON 계약으로 설계한다. `event_data` JSONB는 `schemaVersion: 1`, `eventType: obituary|wedding|opening`, `facts`, `questions`, `sources`를 가진다. `source_text` TEXT는 작성자의 입력 전용이고 게시 응답에서 제외한다. `revision` INTEGER NOT NULL DEFAULT 0은 저장·생성·게시의 낙관적 잠금 값이고, `published_at` TIMESTAMP는 경조사 게시 시각이다. 일반 글은 event_data/source_text가 NULL이다. JSON 유형 CHECK, revision >= 0 CHECK와 작성자·JSON 유형별 미게시 초안 partial UNIQUE index를 둔다.
 - 제목·본문·작성자·분류·게시 상태·시각은 공통 게시글 정보다. 작성자와 권한은 서버가 정하며 JSON·LLM 출력으로 대체하지 않는다. 경조사 본문은 구조화 사실에서 생성하고 입력 원문은 게시 응답과 분리한다. 초안은 필수 사실이 덜 채워진 상태를 수용한다.
 - 기존 경조사·레거시 부고 데이터와 상세 주소는 폐기한다. 마이그레이션·ID 매핑·레거시 조회 호환을 만들지 않는다. 기존 일반 게시글·댓글·명부와 Object Storage 파일은 이 폐기 범위에 포함하지 않는다.
 - `comments.post_id → posts.id` 관계는 공통으로 사용한다. 모든 게시글과 그 댓글·첨부·검색·메타데이터 읽기에 회원 전용 정책을 적용한다.
 - 아래 14-table catalog, ERD, 두 전용 테이블 사전과 기존 소유권 표는 통합 전 실제 구조 기록이다. 코드와 해당 환경의 스키마가 바뀌기 전에는 삭제 완료나 새 catalog 수치로 바꾸지 않는다. 실제 전환 절차는 [DB 운영 런북](./database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)을 따른다.
+
+#### 코드와 환경 적용 구분
+
+| 항목 | 2026-11-09 상태 |
+|---|---|
+| 코드 의도 | 11개 `pgTable` + runtime `session`; posts의 4개 컬럼·2개 CHECK·1개 partial UNIQUE 추가, 전용 테이블 2개 제거 |
+| 전환 SQL | `scripts/unify-posts.sql`; 개발 DB 이름 확인 후 한 트랜잭션, `DROP ... CASCADE` 없음 |
+| Development 관찰 | 기존 14개 테이블. read-only catalog 완료. 구조·데이터 변경 없음 |
+| Production | 이번 작업에서 조회·변경하지 않음 |
+| 코드 확인 | Replit `npm run check`, `npm run check:tests`, writer Python 4개 AST 구문 확인 통과. 기능 실행 결과를 뜻하지 않음 |
+
+#### 구현 계약
+
+- `/api/posts/notices/drafts/:type`에서 본인 초안을 복구·생성한다. `/api/posts/notices/:id`는 원문 저장·삭제, 하위 `/generate`는 정적 추출→OpenAI Responses 구조화→회원 확인→정적 작성, `/publish`는 확인한 revision의 본문 게시다. 클라이언트는 자연어 원문과 revision만 보낸다.
+- 모든 변경은 세션 작성자와 `is_published=false` 및 revision을 확인한다. 원문 변경은 기존 미리보기를 지운다. 게시 직전 대상 회원과 정적 본문을 재확인한다. API가 생성한 JSON이나 권한 필드를 클라이언트가 덮어쓸 수 없다.
+- 부고는 프로젝트에 복제한 writer Python 원본 3개와 stdin 전용 bridge를 사용한다. 경사는 기존 스킬의 홈페이지 형식을 TypeScript 정적 작성기로 구현한다. 양식 필드 UI와 이전 API·상세 주소는 제거한다.
+- 계정 탈퇴 시 미게시 초안은 삭제하고 게시 글 작성자는 NULL로 처리한다. 입력 원문은 게시 시 지워 이후 재노출되지 않는다.
 
 ## 1. authority/verification metadata
 

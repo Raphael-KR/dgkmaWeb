@@ -13,13 +13,13 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import type { CommunityEventDetails } from "@shared/contracts/community-events";
+import type { NoticeData } from "@shared/contracts/notices";
 import type { PendingRegistrationUserData } from "@shared/contracts";
 import type { MembershipTier } from "@shared/contracts";
 
 export {
   PENDING_REGISTRATION_CONFLICT_REASONS,
-  insertObituarySchema,
+  insertPostSchema,
   REGION_OPTIONS,
   activityRegionSchema,
   ANNUAL_DUES,
@@ -31,7 +31,6 @@ export type {
   ClientUser,
   AdminPendingRegistrationDto,
   AdminPendingRegistrationUpdateResult,
-  InsertObituary,
   MembershipTier,
   UpdateProfile,
 } from "@shared/contracts";
@@ -75,9 +74,17 @@ export const posts = pgTable("posts", {
   authorId: integer("author_id").references(() => users.id),
   isPublished: boolean("is_published").default(true),
   imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
+  eventData: jsonb("event_data").$type<NoticeData>(),
+  sourceText: text("source_text"),
+  revision: integer("revision").notNull().default(0),
+  publishedAt: timestamp("published_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  check("posts_notice_type_check", sql`${table.eventData} IS NULL OR (${table.eventData}->>'schemaVersion' = '1' AND ${table.eventData}->>'eventType' IN ('obituary', 'wedding', 'opening')) IS TRUE`),
+  check("posts_revision_check", sql`${table.revision} >= 0`),
+  uniqueIndex("posts_notice_draft_unique").on(table.authorId, sql`(${table.eventData}->>'eventType')`).where(sql`${table.isPublished} = false AND ${table.eventData} IS NOT NULL`),
+]);
 
 // 게시글 댓글. authorId/postId 는 서버에서 세션·URL 로 채움(본문은 content 만).
 export const comments = pgTable("comments", {
@@ -144,41 +151,6 @@ export const alumniNameAliases = pgTable("alumni_name_aliases", {
   index("alumni_name_aliases_normalized_idx").on(table.normalizedName),
 ]);
 
-export const obituaries = pgTable("obituaries", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  deceasedName: text("deceased_name").notNull(),
-  deceasedRelation: text("deceased_relation").notNull(),
-  dateOfDeath: text("date_of_death").notNull(),
-  funeralHome: text("funeral_home").default(""),
-  jangji: text("jangji").default(""),
-  bankAccount: text("bank_account").default(""),
-  chiefMourner: text("chief_mourner").default(""),
-  contactNumber: text("contact_number").default(""),
-  authorId: integer("author_id").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const communityEvents = pgTable("community_events", {
-  id: serial("id").primaryKey(),
-  legacyObituaryId: integer("legacy_obituary_id").unique(),
-  eventType: text("event_type").notNull(),
-  status: text("status").notNull().default("draft"),
-  title: text("title"),
-  eventDate: text("event_date"),
-  location: text("location"),
-  relatedMemberName: text("related_member_name"),
-  contactNumber: text("contact_number"),
-  accountInfo: text("account_info"),
-  sourceText: text("source_text"),
-  sourceUrls: text("source_urls").array().default([]),
-  details: jsonb("details").$type<CommunityEventDetails>().notNull().default({}),
-  authorId: integer("author_id").references(() => users.id),
-  publishedAt: timestamp("published_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const eventParseRateLimits = pgTable("event_parse_rate_limits", {
   userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
   windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
@@ -213,7 +185,6 @@ export const kakaoIdentityTerminations = pgTable("kakao_identity_terminations", 
 export const usersRelations = relations(users, ({ many, one }) => ({
   posts: many(posts),
   payments: many(payments),
-  communityEvents: many(communityEvents),
   alumniRecord: one(alumniDatabase, {
     fields: [users.id],
     references: [alumniDatabase.matchedUserId],
@@ -269,20 +240,6 @@ export const alumniNameAliasesRelations = relations(alumniNameAliases, ({ one })
   }),
 }));
 
-export const obituariesRelations = relations(obituaries, ({ one }) => ({
-  author: one(users, {
-    fields: [obituaries.authorId],
-    references: [users.id],
-  }),
-}));
-
-export const communityEventsRelations = relations(communityEvents, ({ one }) => ({
-  author: one(users, {
-    fields: [communityEvents.authorId],
-    references: [users.id],
-  }),
-}));
-
 // Schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -291,12 +248,6 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 
 export const insertCategorySchema = createInsertSchema(categories).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertPostSchema = createInsertSchema(posts).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -332,7 +283,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Post = typeof posts.$inferSelect;
-export type InsertPost = z.infer<typeof insertPostSchema>;
+export type InsertPost = typeof posts.$inferInsert;
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Payment = typeof payments.$inferSelect;
@@ -342,9 +293,6 @@ export type AlumniNameAlias = typeof alumniNameAliases.$inferSelect;
 export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
-export type Obituary = typeof obituaries.$inferSelect;
-export type CommunityEvent = typeof communityEvents.$inferSelect;
-export type InsertCommunityEvent = typeof communityEvents.$inferInsert;
 
 // Preserve the server model's Date timestamp; contracts expose its JSON form.
 export type MembershipStatus = {

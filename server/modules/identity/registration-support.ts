@@ -1,5 +1,5 @@
 import {
-  users, posts, payments, alumniDatabase, obituaries, comments, communityEvents,
+  users, posts, payments, alumniDatabase, comments,
   kakaoIdentityTerminations, type PendingRegistrationConflictReason,
 } from "@shared/schema";
 import { and, eq, gte, inArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
@@ -109,22 +109,13 @@ export async function removeLocalUsers(
 ): Promise<void> {
   if (userIds.length > 0) {
     const userCondition = inArray(users.id, userIds);
-    await tx.delete(communityEvents).where(and(
-      inArray(communityEvents.authorId, userIds),
-      eq(communityEvents.status, "draft"),
-    ));
-    await tx.update(communityEvents)
-      .set({ authorId: null })
-      .where(inArray(communityEvents.authorId, userIds));
+    await tx.delete(posts).where(and(inArray(posts.authorId, userIds), eq(posts.isPublished, false)));
     await tx.update(posts)
       .set({ authorId: null })
       .where(inArray(posts.authorId, userIds));
     await tx.update(comments)
       .set({ authorId: null })
       .where(inArray(comments.authorId, userIds));
-    await tx.update(obituaries)
-      .set({ authorId: null })
-      .where(inArray(obituaries.authorId, userIds));
     await tx.update(payments)
       .set({ userId: null })
       .where(inArray(payments.userId, userIds));

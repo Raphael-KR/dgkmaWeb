@@ -2,7 +2,17 @@
 
 이 문서는 dgkmaWeb의 현재 GitHub, Replit 개발 워크스페이스, 프로덕션 배포, 데이터베이스 운영 방법을 설명합니다. 제품 비전, 현재 상태와 개발 우선순위는 [제품·개발 통합 계획서](./planning_proposal.md)를 참고합니다.
 
-2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)은 코드·DB 미적용입니다. `posts`·`categories`와 JSON으로 전환하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 현재 호출 구현·모델·Secret 설정은 추가하지 않았습니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+2026-11-09 확정한 [게시글 통합 정책](./planning_proposal.md#게시글과-경조사-통합)은 작업 브랜치에 코드 반영했으며 실행 중인 개발·운영 DB는 미전환입니다. `posts`·`categories`와 JSON으로 전환하며 모든 게시글을 회원 전용으로 처리합니다. 경조사 작성은 홈페이지 서버의 OpenAI API와 정적 코드로 처리하도록 결정했으며, 호출 구현은 Responses API Structured Outputs이며 기본 모델은 `gpt-6-luna`입니다. 서버 Secret `OPENAI_API_KEY`가 필요하고 `OPENAI_NOTICE_MODEL`로 호환 모델을 지정할 수 있습니다. 2026-11-09 개발 Secret의 키 존재 여부만 확인했으며 미설정입니다. 기존 경조사 데이터·상세 주소는 폐기하므로 아래 과거 부고 이관 절차를 새 전환에 사용하지 않습니다.
+
+## 통합 게시글 실행 준비 (2026-11-09)
+
+- 정책 선커밋: `2855424`; 구현 브랜치: `codex/unified-member-posts`.
+- `/b`가 공통 게시판이고 `/b/write/obituary`, `/b/write/wedding`, `/b/write/opening`에서 텍스트 초안을 작성합니다. 이전 `/events`, `/o`와 상세 경로는 사용하지 않습니다.
+- Replit 검사는 `/home/runner/workspace/.worktrees/unified-posts-check`의 별도 checkout에서 `npm run check`, 변경된 테스트 소스의 `npm run check:tests`, Python AST 구문 확인으로 제한합니다. 실행 중인 `/home/runner/workspace`와 서버·DB 전환은 이 정적 검사에 포함하지 않습니다.
+- 실제 개발 활성화 시 [DB 운영 런북](./docs/database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)에 따라 구조 기록과 의존 관계를 확인한 뒤 `scripts/unify-posts.sql`과 같은 버전의 앱을 적용해야 합니다. 구 코드로 두 전용 테이블을 삭제하면 경조사 요청이 실패하므로 SQL만 먼저 적용하지 않습니다.
+- `server/modules/events/writer/`의 Python 파일을 런타임에 포함하고 프로젝트 루트에서 서버를 실행합니다. Python 3.10+ 및 IANA `Asia/Seoul` 시간대 자료가 필요합니다. `.replit`의 `python-base-3.13` 모듈이 포함되어 있고 현재 개발 Python은 3.13.11입니다.
+- API 키는 Replit Secrets의 서버 전용 `OPENAI_API_KEY`에만 둡니다. 브라우저·`VITE_` 설정으로 노출하지 않습니다. 일반 텍스트·정정 해석은 필요한 정보만 OpenAI로 전달하며 `store: false`를 사용합니다. 기품 링크의 구조화된 정상 경로는 정적 추출·작성으로 처리합니다. OpenAI 실제 호출은 이번 작업에서 하지 않습니다.
+- API 구현 근거: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna), 2026-11-09 확인.
 
 ## 환경 구분
 

@@ -2,6 +2,15 @@
 
 이 문서는 별도로 요청된 기능·운영 점검에 참고할 절차와 과거 수행 기록을 보관합니다. 다음 기능 개발은 [제품·개발 통합 계획서](./planning_proposal.md)를 따릅니다. 아래 체크리스트는 일상 개발의 완료 조건이나 다음 작업 목록이 아닙니다.
 
+## 게시글·경조사 통합 정적 확인 (2026-11-09)
+
+- 정책 커밋 `2855424` 후 `codex/unified-member-posts`에서 공통 posts·categories, JSON, 텍스트 작성·추가 질문·미리보기 게시와 회원 권한을 구현했다. 구현 변경은 아직 커밋·push하지 않았다.
+- Replit `/home/runner/workspace/.worktrees/unified-posts-check`에서 로컬 변경 파일 51개의 SHA-256 일치를 확인한 뒤 `npm run check`(187개 애플리케이션 파일의 타입·의존 경계), `npm run check:tests`를 통과했다. Python 작성기 4개는 AST 구문만 확인했고, 기존 문서 계약 6개는 파일 내용만 읽는 정적 확인으로 통과했다.
+- 개발 DB catalog는 `heliumdb`의 read-only gate·ROLLBACK·completion marker를 확인했다. 기존 테이블은 14개이고 `community_events`·`obituaries`가 남아 있다. 이는 전환 전 구조 관찰이며 새 스키마 적용이나 제품 동작 확인을 뜻하지 않는다.
+- 현재 Replit 서버용 `OPENAI_API_KEY`는 미설정이다. 실제 OpenAI·부고/청첩장 링크 호출, 제품 테스트, 브라우저·실계정 QA, DB 전환 SQL, 재시작·smoke, 운영 배포는 실행하지 않았다.
+- 실행 중인 개발 workspace는 main `abff93e`와 clean 상태를 유지한다. 통합 활성화 순서는 [Replit 운영 문서](./replit.md#통합-게시글-실행-준비-2026-11-09)와 [DB 런북](./docs/database-operations.md#게시글-통합-결정과-실행-범위-2026-11-09)을 따른다.
+
+
 ## 현재 적용 기준 (2026-11-08)
 
 - 개발 직후 점검은 변경 범위에 필요한 정적 검사로 최소화한다. 세부 기준은 [AGENTS.md](./AGENTS.md#개발-직후-점검)를 따른다.

@@ -1,16 +1,11 @@
-import type { CommunityEvent, Obituary, InsertObituary } from "@shared/schema";
-import type { CommunityEventDraftInput, CommunityEventPublishInput, CommunityEventType } from "@shared/community-events";
-
+import type { Post } from "../../db/schema";
+import type { NoticeData, NoticeType } from "@shared/contracts/notices";
 export interface EventsStorageContract {
-  getObituaries(): Promise<Obituary[]>;
-  getObituary(id: number): Promise<Obituary | undefined>;
-  createObituary(data: InsertObituary & { authorId?: number }): Promise<Obituary>;
-  getPublishedEvents(eventType?: CommunityEventType): Promise<CommunityEvent[]>;
-  getPublishedEvent(id: number): Promise<CommunityEvent | undefined>;
-  getEventDraft(id: number, authorId: number): Promise<CommunityEvent | undefined>;
-  getLatestEventDraft(authorId: number, eventType: CommunityEventType): Promise<CommunityEvent | undefined>;
-  createEventDraft(authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent>;
-  updateEventDraft(id: number, authorId: number, data: CommunityEventDraftInput): Promise<CommunityEvent | undefined>;
-  deleteEventDraft(id: number, authorId: number): Promise<boolean>;
-  publishEvent(id: number, authorId: number, data: CommunityEventPublishInput): Promise<CommunityEvent | undefined>;
+  getNoticeDraft(authorId: number, type: NoticeType): Promise<Post>;
+  getOwnNotice(id: number, authorId: number): Promise<Post | undefined>;
+  saveNotice(id: number, authorId: number, revision: number, data: {
+    sourceText?: string; eventData: NoticeData; title: string; content: string;
+  }): Promise<Post | undefined>;
+  publishNotice(id: number, authorId: number, revision: number): Promise<Post | undefined>;
+  deleteNoticeDraft(id: number, authorId: number, revision: number): Promise<boolean>;
 }

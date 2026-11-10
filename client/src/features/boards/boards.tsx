@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertPostSchema, type Category, type InsertPost } from "@shared/contracts";
-import { isSelectablePostCategory } from "@shared/category-policy";
+import { isSelectablePostCategory, isNoticeCategory } from "@shared/category-policy";
 import { Plus, ImagePlus, X, Loader2, HeartHandshake } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { trackEvent } from "@/lib/analytics";
@@ -27,7 +27,7 @@ export default function Boards() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState(() => new URLSearchParams(window.location.search).get("category") || "all");
   const [isWriteDialogOpen, setIsWriteDialogOpen] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +74,7 @@ export default function Boards() {
         ? "/api/posts"
         : `/api/posts?category=${encodeURIComponent(selectedCategory)}`;
       const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) throw new Error("게시글을 불러오지 못했습니다.");
       return response.json();
     },
     enabled: !!user,
@@ -161,11 +162,11 @@ export default function Boards() {
                 size="sm"
                 variant="outline"
                 className="shrink-0"
-                onClick={() => setLocation("/events")}
-                aria-label="경조사 페이지로 이동"
+                onClick={() => setLocation("/b/write/obituary")}
+                aria-label="부고·경사 작성"
               >
                 <HeartHandshake size={16} className="mr-1" />
-                경조사
+                부고·경사
               </Button>
 
               {/* 글쓰기 버튼 */}
@@ -209,7 +210,7 @@ export default function Boards() {
                             </FormControl>
                             <SelectContent>
                               {(categories as Category[])
-                                .filter(isSelectablePostCategory)
+                                .filter((category) => isSelectablePostCategory(category) && !isNoticeCategory(category.name))
                                 .map((category: Category) => (
                                   <SelectItem key={category.id} value={category.id.toString()}>
                                     {category.displayName}
@@ -366,7 +367,7 @@ export default function Boards() {
                               {post.category.displayName}
                             </Badge>
                             <span className="text-xs text-gray-500">
-                              {new Date(post.createdAt).toLocaleDateString()}
+                              {new Date(post.publishedAt || post.createdAt).toLocaleDateString()}
                             </span>
                           </div>
                           <h3 className="font-bold text-gray-800 mb-2 line-clamp-2">

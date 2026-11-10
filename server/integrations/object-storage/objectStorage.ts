@@ -105,9 +105,6 @@ export class ObjectStorageService {
     try {
       // Get file metadata
       const [metadata] = await file.getMetadata();
-      // Get the ACL policy for the object.
-      const aclPolicy = await getObjectAclPolicy(file);
-      const isPublic = aclPolicy?.visibility === "public";
       // 보안: 이미지가 아닌 파일은 octet-stream + 첨부 다운로드로 강제하고
       // nosniff 를 적용해 앱 오리진에서의 저장형 XSS(예: text/html 업로드) 를 차단.
       const rawContentType = metadata.contentType || "application/octet-stream";
@@ -118,9 +115,7 @@ export class ObjectStorageService {
       res.set({
         "Content-Type": safeContentType,
         "Content-Length": metadata.size,
-        "Cache-Control": `${
-          isPublic ? "public" : "private"
-        }, max-age=${cacheTtlSec}`,
+        "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
         ...(isImage ? {} : { "Content-Disposition": "attachment" }),
       });

@@ -29,12 +29,10 @@ test("deleteUserAccount processes every approved relation in one transaction", (
   assert.match(method, /removeLocalUsers/);
   for (const table of [
     "alumniDatabase",
-    "communityEvents",
     "posts",
     "comments",
     "payments",
     "pendingRegistrations",
-    "obituaries",
     "users",
   ]) {
     assert.match(`${helper}\n${method}`, new RegExp(table));
@@ -43,11 +41,9 @@ test("deleteUserAccount processes every approved relation in one transaction", (
   assert.match(helper, /matchedUserId:\s*null/);
 
   const orderedOperations = [
-    "tx.delete(communityEvents)",
-    "tx.update(communityEvents)",
+    "tx.delete(posts)",
     "tx.update(posts)",
     "tx.update(comments)",
-    "tx.update(obituaries)",
     "tx.update(payments)",
     "tx.update(alumniDatabase)",
     'delete from "session"',
@@ -60,7 +56,7 @@ test("deleteUserAccount processes every approved relation in one transaction", (
     previousIndex = operationIndex;
   }
 
-  assert.match(helper, /eq\(communityEvents\.status, "draft"\)/);
+  assert.match(helper, /eq\(posts\.isPublished, false\)/);
   assert.match(helper, /sql`[\s\S]*delete from "session"[\s\S]*sess\s*->>\s*'userId'\s*=\s*\$\{String\(userId\)\}[\s\S]*`/);
   assert.doesNotMatch(helper, /delete from "session"[^`]*\+[^`]*userId/);
   assert.match(method, /tx\.delete\(pendingRegistrations\)/);
@@ -144,16 +140,9 @@ test("development PostgreSQL deletes one member while preserving public content"
       [marker, testPhone(2), userId],
     );
     await pool.query(
-      `insert into obituaries
-        (title, deceased_name, deceased_relation, date_of_death, author_id)
-       values ($1, $1, $1, '2099-01-01', $2)`,
-      [marker, userId],
-    );
-    await pool.query(
-      `insert into community_events (event_type, status, title, details, author_id)
-       values
-         ('obituary', 'draft', $1, '{}'::jsonb, $2),
-         ('obituary', 'published', $3, '{}'::jsonb, $2)`,
+      `insert into posts (title, content, is_published, event_data, author_id)
+       values ($1, '', false, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2),
+              ($3, '', true, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2)`,
       [`${marker}-draft`, userId, `${marker}-published`],
     );
     await pool.query(
@@ -187,7 +176,6 @@ test("development PostgreSQL deletes one member while preserving public content"
       published_anonymous_count: number;
       post_anonymous_count: number;
       comment_anonymous_count: number;
-      obituary_anonymous_count: number;
       payment_anonymous_count: number;
       alumni_unmatched_count: number;
       pending_count: number;
@@ -197,11 +185,10 @@ test("development PostgreSQL deletes one member while preserving public content"
     }>(
       `select
          (select count(*)::int from users where id = $1) as users_count,
-         (select count(*)::int from community_events where title = $2) as draft_count,
-         (select count(*)::int from community_events where title = $3 and author_id is null) as published_anonymous_count,
+         (select count(*)::int from posts where title = $2) as draft_count,
+         (select count(*)::int from posts where title = $3 and author_id is null) as published_anonymous_count,
          (select count(*)::int from posts where title = $4 and author_id is null) as post_anonymous_count,
          (select count(*)::int from comments where content = $4 and author_id is null) as comment_anonymous_count,
-         (select count(*)::int from obituaries where title = $4 and author_id is null) as obituary_anonymous_count,
          (select count(*)::int from payments where type = $4 and user_id is null) as payment_anonymous_count,
          (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id is null) as alumni_unmatched_count,
          (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
@@ -227,7 +214,6 @@ test("development PostgreSQL deletes one member while preserving public content"
       published_anonymous_count: 1,
       post_anonymous_count: 1,
       comment_anonymous_count: 1,
-      obituary_anonymous_count: 1,
       payment_anonymous_count: 0,
       alumni_unmatched_count: 1,
       pending_count: 0,
@@ -243,10 +229,9 @@ test("development PostgreSQL deletes one member while preserving public content"
       ]);
       await pool.query("delete from comments where content = $1", [marker]);
       await pool.query("delete from posts where title = $1", [marker]);
-      await pool.query("delete from community_events where title = any($1::text[])", [
+      await pool.query("delete from posts where title = any($1::text[])", [
         [`${marker}-draft`, `${marker}-published`],
       ]);
-      await pool.query("delete from obituaries where title = $1", [marker]);
       await pool.query("delete from payments where type = $1", [marker]);
       await pool.query("delete from alumni_database where generation = $1", [marker]);
       await pool.query("delete from pending_registrations where name = $1", [marker]);
@@ -267,7 +252,6 @@ test("development PostgreSQL deletes one member while preserving public content"
       comments_count: number;
       payments_count: number;
       alumni_count: number;
-      obituaries_count: number;
       events_count: number;
       pending_count: number;
       sessions_count: number;
@@ -279,8 +263,7 @@ test("development PostgreSQL deletes one member while preserving public content"
          (select count(*)::int from comments where content = $2) as comments_count,
          (select count(*)::int from payments where type = $2) as payments_count,
          (select count(*)::int from alumni_database where generation = $2) as alumni_count,
-         (select count(*)::int from obituaries where title = $2) as obituaries_count,
-         (select count(*)::int from community_events where title = any($3::text[])) as events_count,
+         (select count(*)::int from posts where title = any($3::text[])) as events_count,
          (select count(*)::int from pending_registrations where name = $2) as pending_count,
          (select count(*)::int from "session" where sid = any($4::text[])) as sessions_count,
          (select count(*)::int from kakao_identity_terminations
@@ -299,7 +282,6 @@ test("development PostgreSQL deletes one member while preserving public content"
       comments_count: 0,
       payments_count: 0,
       alumni_count: 0,
-      obituaries_count: 0,
       events_count: 0,
       pending_count: 0,
       sessions_count: 0,
