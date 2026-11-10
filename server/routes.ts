@@ -7,6 +7,7 @@ import { registerEventRoutes } from "./modules/events/routes";
 import { registerDirectoryRoutes, registerRegistryAdminRoutes } from "./modules/registry/routes";
 import { registerMembershipRoutes, registerPaymentRoutes } from "./modules/dues/routes";
 import { registerObjectStorageRoutes } from "./integrations/object-storage/routes";
+import { registerStatisticsRoutes } from "./modules/statistics/routes";
 
 export type { RouteDependencies } from "./lib/route-context";
 
@@ -24,6 +25,7 @@ export async function registerRoutes(
   registerContentRoutes(app);
   registerDirectoryRoutes(app);
   registerPaymentRoutes(app, context);
+  registerStatisticsRoutes(app, context);
   registerRegistryAdminRoutes(app, context);
   registerObjectStorageRoutes(app);
 

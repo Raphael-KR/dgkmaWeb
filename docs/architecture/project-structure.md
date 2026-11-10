@@ -6,14 +6,11 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 ## 문서 범위와 적용 상태
 
-이 문서는 커밋된 구조·보존 계약과 개발 작업 사본의 추가 변경을 함께 설명한다. 2026-11-10 확인 기준으로 다음 상태를 구분한다.
+이 문서는 PR #29에서 main `997bc7ba891ab6a21bac6889b26db93464704f72`에 통합한 구조·보존 계약을 설명한다. 책임 분리·공통 모듈·CSS, 요청·캐시·첨부 처리와 미사용 경로 정리를 포함한다. 소유 위치는 [책임별 모듈 구성](#책임별-모듈-구성), 작업별 범위·검사 근거는 [이력 색인](../history/README.md)을 따른다.
 
-| 구분 | 기준과 설명 범위 |
-|---|---|
-| 커밋된 기준 | 로컬 main `d7184ca5238e0cdc3e91515ac0616e3b33332f41`. 소유권·의존 방향·본문 공통 기반의 출발점이며, 아래 개발 사본의 추가 보완까지 커밋됐다는 뜻은 아니다 |
-| 미커밋 변경 | 로컬·Replit 개발 사본의 책임 분리·공통 모듈·CSS 정리와 후속 보완. 아래 요청·캐시 계약의 로그아웃 실패 처리·조회 오류 안내·명부/게시글 캐시 갱신, 첨부 로그 정리와 미사용 코드·호환 경로 제거도 여기에 포함한다. 범위와 적용 상태는 [별도 절](#개발-사본의-미커밋-변경), [앞선 오류 처리 보완](../history/slop-third-cleanup-2026-11-10.md)과 [삭제·축소 기록](../history/unused-cleanup-2026-11-10.md)을 따른다 |
+환경별 마지막 적용 상태는 [replit.md](../../replit.md#현재-적용-상태), Git 통합·배포·smoke는 [정리 릴리스 기록](../history/cleanup-release-2026-11-10.md)에서 구분한다. 과거 이동·점검 결과는 [구조 개편 이력](../history/structure-validation-2026-10-20.md)에 보존한다.
 
-Replit의 별도 문서 커밋과 마지막 운영 반영 상태는 [replit.md](../../replit.md#현재-적용-상태)를 따른다. 개발 작업 사본의 변경을 main 병합·운영 반영의 증거로 사용하지 않는다. 과거 이동·점검 결과는 [구조 개편 이력](../history/structure-validation-2026-10-20.md)과 [개발·릴리스 이력](../history/replit-2026-11-09.md)에 보존한다.
+2026-11-10 후속 개발 사본에는 관리자 기초 통계의 계약을 `shared/contracts/admin-statistics.ts`, 읽기 집계와 권한 보호 라우트를 `server/modules/statistics`, 조회 상태·기간 선택·결과 표시를 `features/admin`에 추가했다. 아래 통계 항목은 PR #29 이후 개발분이며 후속 릴리스 대상이다. 정적 검사, Git·운영 적용과 미확인 실행 범위는 [통계 수행 기록](../history/admin-statistics-2026-11-10.md)을 따른다.
 
 ## 코드 소유권
 
@@ -27,7 +24,7 @@ Replit의 별도 문서 커밋과 마지막 운영 반영 상태는 [replit.md](
 | `features/directory` | 권한 범위 내 명부 |
 | `features/profile` | 프로필·납부내역·회원상태 |
 | `features/events` | 부고·결혼·개원 텍스트 초안·미리보기·게시; 목록·상세는 boards |
-| `features/admin` | 승인·거절·명부 동기화, 게시글·가린 글 관리 연결. 통계는 준비 중 |
+| `features/admin` | 승인·거절·명부 동기화, 게시글·가린 글 관리 연결, 관리자 기초 통계 |
 | `features/search` | 게시글·명부 검색 |
 | `features/legal` | 법적 고지 |
 | `server/modules/*/routes.ts` | 도메인별 HTTP 처리; 기존 파일은 순서대로 등록 |
@@ -37,6 +34,7 @@ Replit의 별도 문서 커밋과 마지막 운영 반영 상태는 [replit.md](
 | `server/modules/content` | 콘텐츠 라우트/저장 |
 | `server/modules/events` | 경조사 업무·초안·게시·호출 제한 |
 | `server/modules/dues` | 내부 납부 기록과 권리회원 계산 |
+| `server/modules/statistics` | 관리자 전용 기존 데이터 읽기 집계. 회원·명부·게시글 원문 및 회비 판정은 가져오지 않음 |
 | `server/integrations` | 외부 통신·응답 검증 |
 | `server/middleware`, `server/lib` | 서버 공통 기반 |
 | `server/db/schema/index.ts` | 영속성; 기존 경로는 서버 전용 호환 export |
@@ -88,6 +86,7 @@ Replit의 별도 문서 커밋과 마지막 운영 반영 상태는 [replit.md](
 | content | 모든 `/api/posts`·`/api/categories`·`/api/comments`에 회원 인증. GET/POST `/api/categories`, GET/POST `/api/posts`, GET `/api/posts/search`·`/api/posts/hidden`을 동적 상세보다 먼저 등록. GET/PATCH/DELETE `/api/posts/:id`, PATCH `/api/posts/:id/visibility`, GET/POST `/api/posts/:postId/comments`, DELETE `/api/comments/:id` |
 | registry | GET `/api/alumni` |
 | dues 납부 | GET `/api/payments/user/:userId`, POST `/api/payments` 관리자 보호 |
+| statistics | GET `/api/admin/statistics?from=YYYY-MM-DD&to=YYYY-MM-DD`, 공통 관리자 guard를 라우트에 직접 적용. 현재 현황과 한국시간 기간별 게시글 건수만 반환, HTTP `no-store` |
 | registry 관리자 | `/api/admin` 관리자 middleware, GET `/pending-registrations`, PATCH `/pending-registrations/:id`, POST `/sync-alumni/preview`, POST `/sync-alumni`, GET `/test-google-sheets` (모두 `/api/admin` 접두사) |
 | object storage | PUT `/api/uploads/:uploadToken`, POST `/api/uploads/request-url`, GET `/objects/:objectPath(*)` |
 
@@ -107,8 +106,7 @@ Replit의 별도 문서 커밋과 마지막 운영 반영 상태는 [replit.md](
 - directory: `["/api/alumni"]`
 - events: 작성자 초안은 직렬 요청과 revision으로 관리; 게시 후 공통 `refreshPosts()`로 목록·상세·검색 무효화 및 입력 초기화. 일반 글 게시·관리도 같은 갱신 경로를 사용한다.
 - profile: `["/api/payments/user", userId]`, `["/api/membership/status"]`; 활동 지역 변경 성공 시 `["/api/alumni"]`로 시작하는 명부 목록·검색 캐시를 제거해 새 열람 범위로 조회한다.
-- admin: `["/api/admin/pending-registrations"]`, `["/api/admin/test-google-sheets"]`;
-  승인/동기화 뒤 기존 cache invalidation 유지
+- admin: `["/api/admin/pending-registrations"]`, `["/api/admin/test-google-sheets"]`, `["/api/admin/statistics", from, to]`. 통계는 탭 진입·기간 변경·수동 새로고침에 조회하고 조회 시각을 표시한다. 승인/거절·명부 동기화와 공통 게시글 갱신 후 통계 캐시도 무효화한다. Sheets 연결 조회는 동문 데이터 탭에서만 활성화하며 기존 동기화 미리보기 상태는 탭 이동 후에도 유지한다.
 - 로그아웃: 서버 세션 종료 성공 뒤 회원 상태·조회 캐시를 비운다. 실패 시 오류를 표시하고 재시도할 수 있게 한다.
 - 인가 흐름은 `/api/auth/kakao/start` → `/kakao-callback` → `/api/auth/kakao/authorize`다. 활동지역 저장은 `activityRegion`만 사용한다. 실제 소비자가 없는 callback 별칭·입력 별칭은 유지하지 않는다.
 
@@ -136,9 +134,11 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 `client/src/lib/analytics.ts`는 운영 배포 계층이 제공하는 `window.umami`에 기존 이벤트를 전달한다. 개발에서는 SDK가 없을 수 있어 optional 호출을 유지한다. 앱 내부의 loader 부재와 기능 미사용을 구분하며, 외부 주입 근거는 [Replit 운영 기준](../../replit.md#운영-분석-스크립트)을 따른다.
 
-## 개발 사본의 미커밋 변경
+<a id="개발-사본의-미커밋-변경"></a>
 
-아래는 로컬·Replit 개발 사본의 소유 위치와 보존 계약이다. Git 통합·운영 적용 상태는 [Replit 기준](../../replit.md#현재-적용-상태)에서 구분한다. 작업별 변경 범위·검사 결과는 [이력 색인](../history/README.md)에 둔다.
+## 책임별 모듈 구성
+
+아래는 통합된 코드의 소유 위치와 보존 계약이다. 앞선 작업 기록이 참조하는 기존 절 앵커는 유지한다.
 
 | 위치 | 책임과 보존 계약 |
 |---|---|
