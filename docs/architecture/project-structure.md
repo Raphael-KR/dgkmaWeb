@@ -10,6 +10,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 환경별 마지막 적용 상태는 [replit.md](../../replit.md#현재-적용-상태), Git 통합·배포·smoke는 [정리 릴리스 기록](../history/cleanup-release-2026-11-10.md)에서 구분한다. 과거 이동·점검 결과는 [구조 개편 이력](../history/structure-validation-2026-10-20.md)에 보존한다.
 
+2026-11-10 후속 개발 사본에는 관리자 기초 통계의 계약을 `shared/contracts/admin-statistics.ts`, 읽기 집계와 권한 보호 라우트를 `server/modules/statistics`, 조회 상태·기간 선택·결과 표시를 `features/admin`에 추가했다. 아래 통계 항목은 PR #29 이후 개발분이며 후속 릴리스 대상이다. 정적 검사, Git·운영 적용과 미확인 실행 범위는 [통계 수행 기록](../history/admin-statistics-2026-11-10.md)을 따른다.
+
 ## 코드 소유권
 
 | 소유 위치 | 책임 |
@@ -22,7 +24,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `features/directory` | 권한 범위 내 명부 |
 | `features/profile` | 프로필·납부내역·회원상태 |
 | `features/events` | 부고·결혼·개원 텍스트 초안·미리보기·게시; 목록·상세는 boards |
-| `features/admin` | 승인·거절·명부 동기화, 게시글·가린 글 관리 연결. 통계는 준비 중 |
+| `features/admin` | 승인·거절·명부 동기화, 게시글·가린 글 관리 연결, 관리자 기초 통계 |
 | `features/search` | 게시글·명부 검색 |
 | `features/legal` | 법적 고지 |
 | `server/modules/*/routes.ts` | 도메인별 HTTP 처리; 기존 파일은 순서대로 등록 |
@@ -32,6 +34,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `server/modules/content` | 콘텐츠 라우트/저장 |
 | `server/modules/events` | 경조사 업무·초안·게시·호출 제한 |
 | `server/modules/dues` | 내부 납부 기록과 권리회원 계산 |
+| `server/modules/statistics` | 관리자 전용 기존 데이터 읽기 집계. 회원·명부·게시글 원문 및 회비 판정은 가져오지 않음 |
 | `server/integrations` | 외부 통신·응답 검증 |
 | `server/middleware`, `server/lib` | 서버 공통 기반 |
 | `server/db/schema/index.ts` | 영속성; 기존 경로는 서버 전용 호환 export |
@@ -83,6 +86,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | content | 모든 `/api/posts`·`/api/categories`·`/api/comments`에 회원 인증. GET/POST `/api/categories`, GET/POST `/api/posts`, GET `/api/posts/search`·`/api/posts/hidden`을 동적 상세보다 먼저 등록. GET/PATCH/DELETE `/api/posts/:id`, PATCH `/api/posts/:id/visibility`, GET/POST `/api/posts/:postId/comments`, DELETE `/api/comments/:id` |
 | registry | GET `/api/alumni` |
 | dues 납부 | GET `/api/payments/user/:userId`, POST `/api/payments` 관리자 보호 |
+| statistics | GET `/api/admin/statistics?from=YYYY-MM-DD&to=YYYY-MM-DD`, 공통 관리자 guard를 라우트에 직접 적용. 현재 현황과 한국시간 기간별 게시글 건수만 반환, HTTP `no-store` |
 | registry 관리자 | `/api/admin` 관리자 middleware, GET `/pending-registrations`, PATCH `/pending-registrations/:id`, POST `/sync-alumni/preview`, POST `/sync-alumni`, GET `/test-google-sheets` (모두 `/api/admin` 접두사) |
 | object storage | PUT `/api/uploads/:uploadToken`, POST `/api/uploads/request-url`, GET `/objects/:objectPath(*)` |
 
@@ -102,8 +106,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 - directory: `["/api/alumni"]`
 - events: 작성자 초안은 직렬 요청과 revision으로 관리; 게시 후 공통 `refreshPosts()`로 목록·상세·검색 무효화 및 입력 초기화. 일반 글 게시·관리도 같은 갱신 경로를 사용한다.
 - profile: `["/api/payments/user", userId]`, `["/api/membership/status"]`; 활동 지역 변경 성공 시 `["/api/alumni"]`로 시작하는 명부 목록·검색 캐시를 제거해 새 열람 범위로 조회한다.
-- admin: `["/api/admin/pending-registrations"]`, `["/api/admin/test-google-sheets"]`;
-  승인/동기화 뒤 기존 cache invalidation 유지
+- admin: `["/api/admin/pending-registrations"]`, `["/api/admin/test-google-sheets"]`, `["/api/admin/statistics", from, to]`. 통계는 탭 진입·기간 변경·수동 새로고침에 조회하고 조회 시각을 표시한다. 승인/거절·명부 동기화와 공통 게시글 갱신 후 통계 캐시도 무효화한다. Sheets 연결 조회는 동문 데이터 탭에서만 활성화하며 기존 동기화 미리보기 상태는 탭 이동 후에도 유지한다.
 - 로그아웃: 서버 세션 종료 성공 뒤 회원 상태·조회 캐시를 비운다. 실패 시 오류를 표시하고 재시도할 수 있게 한다.
 - 인가 흐름은 `/api/auth/kakao/start` → `/kakao-callback` → `/api/auth/kakao/authorize`다. 활동지역 저장은 `activityRegion`만 사용한다. 실제 소비자가 없는 callback 별칭·입력 별칭은 유지하지 않는다.
 

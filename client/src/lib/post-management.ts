@@ -1,4 +1,5 @@
 import { queryClient } from "./queryClient";
+import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
 
 export async function postRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
@@ -18,6 +19,7 @@ export async function postRequest<T>(method: string, path: string, body?: unknow
 export function refreshPosts() {
   return queryClient.invalidateQueries({
     predicate: (query) =>
-      typeof query.queryKey[0] === "string" && query.queryKey[0].startsWith("/api/posts"),
+      typeof query.queryKey[0] === "string" &&
+      (query.queryKey[0].startsWith("/api/posts") || query.queryKey[0] === ADMIN_STATISTICS_PATH),
   });
 }

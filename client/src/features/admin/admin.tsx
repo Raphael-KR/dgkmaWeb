@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useScrollToTop } from "@/hooks/use-scroll-to-top";
 import { Link } from "wouter";
 import { useAuth } from "@/features/auth";
@@ -9,12 +10,14 @@ import { usePendingRegistrations } from "./use-pending-registrations";
 import { useAlumniSync } from "./use-alumni-sync";
 import { PendingRegistrationsPanel } from "./pending-registrations-panel";
 import { AlumniSyncPanel } from "./alumni-sync-panel";
+import { StatisticsPanel } from "./statistics-panel";
 
 export default function Admin() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("pending");
   // 탭의 표시 여부와 무관하게 요청 상태와 동기화 미리보기를 페이지 수명 동안 유지한다.
   const pending = usePendingRegistrations(!!user?.isAdmin);
-  const alumniSync = useAlumniSync(!!user?.isAdmin);
+  const alumniSync = useAlumniSync(!!user?.isAdmin && activeTab === "alumni");
   useScrollToTop();
 
   if (!user?.isAdmin) {
@@ -33,11 +36,11 @@ export default function Admin() {
 
   return (
     <div className="member-screen">
-      <div className="max-w-md mx-auto px-4 pb-20">
+      <div className="member-container">
         <div className="py-4">
           <h1 className="text-xl font-bold  mb-6">관리자 패널</h1>
 
-          <Tabs defaultValue="pending" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="pending">가입 승인</TabsTrigger>
               <TabsTrigger value="alumni">동문 데이터</TabsTrigger>
@@ -76,12 +79,7 @@ export default function Admin() {
             </TabsContent>
 
             <TabsContent value="stats" className="space-y-4 mt-6">
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="font-semibold">통계 집계 준비 중</p>
-                  <p className="mt-1 text-sm text-gray-500">실제 집계 API가 연결되면 표시됩니다.</p>
-                </CardContent>
-              </Card>
+              <StatisticsPanel />
             </TabsContent>
           </Tabs>
         </div>

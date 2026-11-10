@@ -4,12 +4,12 @@
 
 ## 현재 적용 상태
 
-공유 소스, 개발 작업 사본, 운영 릴리스를 구분한다. 아래는 2026-11-10 코드·문서 정리 릴리스의 확인 결과다. 과거 릴리스의 범위와 시각은 이력에서 보존한다.
+공유 소스, 개발 작업 사본, 운영 릴리스를 구분한다. 아래는 2026-11-10 정리 릴리스와 후속 개발 사본의 마지막 확인 상태다. 과거 릴리스의 범위와 시각은 이력에서 보존한다.
 
 | 구분 | 마지막 확인 상태 | 근거 |
 |---|---|---|
 | Git 통합 | PR #29 main 병합 `997bc7ba891ab6a21bac6889b26db93464704f72`. Replit 게시 커밋 `7aadf4cb496193a5bb774cd9a73a43bf5551afc6`도 보존하며 완료 기록은 문서 전용 후속 커밋으로 구분 | [PR #29](https://github.com/Raphael-KR/dgkmaWeb/pull/29), [릴리스 기록](docs/history/cleanup-release-2026-11-10.md) |
-| 개발 사본 | 로컬·GitHub·Replit 개발의 main 소스 일치. 후속 Git 정리에서 작업 브랜치는 main 하나로 통일하고 과거 게시 이력·검사 사본은 보존 태그로 구분 | [Git 정리 결과](docs/history/post-release-cleanup-2026-11-10.md#후속-git-정리-결과), [코드 정리](docs/history/full-code-cleanup-2026-11-10.md), [문서 정리](docs/history/full-documentation-cleanup-2026-11-10.md) |
+| 개발 사본 | 기준 main `6ccdbfdd145ad9194dd58b1b19df28063c4b72a0`. 로컬·Replit에는 관리자 기초 통계와 계획서 갱신을 미커밋 반영. 해당 개발분은 GitHub·운영 미반영 | [통계 개발 기록](docs/history/admin-statistics-2026-11-10.md), [앞선 Git 정리](docs/history/post-release-cleanup-2026-11-10.md#후속-git-정리-결과) |
 | 마지막 운영 릴리스 | 2026-11-10 20:19:47 KST 성공 관찰. 게시 커밋과 병합 후보의 tree `3e4d8e6d8192eddcdf54a629a537fb3e16915fd1` 일치 | [Republish 결과](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
 | 릴리스 후 운영 확인 | 2026-11-10 20:20:24 KST 비로그인 공개 페이지 5개·회원 API 인증 차단 8개·정적 자산 해시 57개, 총 70건 통과. 실계정 QA 보류 | [확인 범위](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
 | DB 구조 | posts 통합, content JSONB, is_hidden, source_collection_rules와 구 테이블 2개 제거가 마지막 관찰 기준. 이번 릴리스는 DB 변경·catalog 재조회 없음 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
@@ -38,6 +38,12 @@ PR #28의 URL 교체 확인은 메모리 대역 18개 사례다. 이번 비로�
 ### 개발 중 확인 원칙
 
 구현은 Replit 개발 워크스페이스를 기본으로 하며 개발 직후 점검은 필요한 정적 검사로 최소화합니다. 코드 반영마다 서버 재시작·브라우저 점검·smoke check를 요구하지 않습니다.
+
+### 관리자 기초 통계 개발 범위
+
+2026-11-10 사용자 요청으로 [기초 통계 정책](docs/product/planning-proposal.md#관리자-기초-통계)에 따라 관리자 집계 API와 통계 탭을 개발한다. 기존 Development DB 테이블을 읽는 코드만 추가하며 새 Secret·외부 서비스·스키마·집계 저장소를 도입하지 않는다. 통계 탭은 Sheets 연결 확인을 시작하지 않고, 기존 연결 확인은 동문 데이터 탭을 열 때 수행한다.
+
+DB 구조나 회비 판정 변경이 필요하면 현재 상태와 변경안을 설명한 뒤 별도 승인을 받는다. 초기 구현은 개발 사본 반영과 타입·의존 경계·변경 파일 lint·문서 정합성의 정적 검사까지 수행했다. 후속 요청의 Git 통합·릴리스에는 아래 배포 절차를 적용한다. DB 직접 조회/변경·실계정 QA는 수행하지 않으며 실제 범위는 [통계 수행 기록](docs/history/admin-statistics-2026-11-10.md)에 구분한다.
 
 ### 설계 미리보기 서비스
 
@@ -191,7 +197,7 @@ node --import tsx --test server/tests/final-recheck-documentation-contract.test.
 
 운영 배포가 명시적으로 승인된 작업에만 적용한다. 개발 DB 변경이나 과거 릴리스 승인을 새 운영 작업의 자동 승인으로 해석하지 않는다. 실계정 QA는 계속 보류하며 별도 요청된 경우에만 실행한다.
 
-2026-11-10 코드·문서 정리와 기타 미커밋분 전체의 commit·push·PR 생성·main 병합·Republish가 승인됐다. DB 변경은 포함하지 않으며 승인 범위와 실제 결과는 [정리 릴리스 기록](docs/history/cleanup-release-2026-11-10.md)에 구분한다.
+현재 승인 범위는 2026-11-10 관리자 기초 통계와 기타 미커밋분 전체의 commit·push·PR 생성·main 병합·Republish다. 같은 소스의 정적 검사 결과를 재사용하고 릴리스 빌드와 비로그인 운영 smoke를 수행한다. DB 구조·데이터·회비 판정 변경과 실계정 QA는 포함하지 않는다. 승인 범위와 실제 결과는 [통계 수행 기록](docs/history/admin-statistics-2026-11-10.md)에 구분하며, 앞선 [정리 릴리스](docs/history/cleanup-release-2026-11-10.md)는 과거 이력으로 유지한다.
 
 1. 배포할 GitHub main·로컬·Replit 후보와 작업 트리를 확인하고 기존 변경을 보존한다.
 2. 같은 소스의 필요한 정적 검사 결과를 확인하고 Replit에서 릴리스 빌드를 만든다.

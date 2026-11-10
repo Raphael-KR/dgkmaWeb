@@ -2,6 +2,7 @@ import { useReducer } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
 import {
   alumniSyncInitialState,
   alumniSyncReducer,
@@ -95,6 +96,7 @@ export function useAlumniSync(enabled: boolean) {
     onSuccess: ({ report }) => {
       dispatchAlumniSync({ type: "apply-succeeded" });
       queryClient.invalidateQueries({ queryKey: ["/api/alumni"] });
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STATISTICS_PATH] });
       refetchGoogleSheetsStatus();
       toast({
         title: "명부 반영 완료",
