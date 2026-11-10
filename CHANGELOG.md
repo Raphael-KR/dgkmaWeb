@@ -2,6 +2,10 @@
 
 확인된 개발·릴리스 기록의 요약이다. 현재 정책은 [제품·개발 계획](docs/product/planning-proposal.md), 환경별 마지막 확인 상태는 [replit.md](replit.md#현재-적용-상태)가 기준이다. 기록일을 배포일로 사용하거나 확인되지 않은 버전 번호를 부여하지 않는다.
 
+## 2026-11-10 — PR #30 관리자 기초 통계
+
+현재 회원·가입 대기·명부 연결, 한국시간 기간별 게시글 현황과 분류별·일별 건수를 [PR #30](https://github.com/Raphael-KR/dgkmaWeb/pull/30)으로 main에 통합하고 Replit 운영에 반영했다. DB 구조·회비 판정은 유지하고 Sheets 구조 확인까지 회비 추가 개발을 보류했다. 정적 검사·운영 비로그인 확인과 실계정 미확인 범위는 [통계 수행 기록](docs/history/admin-statistics-2026-11-10.md)을 따른다.
+
 ## 2026-11-10 — PR #29 코드·문서 정리
 
 다음 변경을 [PR #29](https://github.com/Raphael-KR/dgkmaWeb/pull/29)로 main에 통합하고 Replit 운영에 반영했다. 배포와 확인 범위는 [정리 릴리스 기록](docs/history/cleanup-release-2026-11-10.md)을 따른다.

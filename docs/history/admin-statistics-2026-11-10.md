@@ -33,3 +33,13 @@
 - 완료 조건: 후보 commit·push·PR·main 병합, 개발 main 반영, 새 Republish 성공과 비로그인 운영 확인을 구분해 기록한다. 이번 임시 작업 브랜치는 병합 후 정리한다.
 - 제외: DB 구조·데이터·Secrets·회비 판정 변경, 실계정 QA, 실제 게시·명부 동기화·외부 수집·유료 API 호출, 개발 서버 별도 재시작과 자동 롤백.
 - 검증: 통계 코드 12개의 해시가 기존 검사와 일치하므로 타입·lint 결과를 재사용한다. 릴리스 빌드·변경 문서 정합성 및 배포 후 비로그인 공개 HTTP·canonical·회원/통계 API 인증 차단·후보 자산 해시를 확인한다. 실제 회원·관리자 통계 사용 흐름과 DB 집계 실행은 확인 범위에 포함하지 않는다.
+
+## 후속 릴리스 결과
+
+- 미커밋 17개 파일을 `7d590d9a360ae8259cec5f235e9b905d2f5e1301`에 커밋·push했다. [PR #30](https://github.com/Raphael-KR/dgkmaWeb/pull/30)의 파일별 patch가 로컬 후보와 정확히 일치했고 병합 가능 상태, 등록된 commit status·리뷰·미해결 스레드가 없음을 확인했다. main 병합 커밋은 `aba23b8706f2e4c38f073467d0466398198c9fe6`이다.
+- Replit 릴리스 빌드(Vite·청크 예산·esbuild)와 변경 문서의 파일 기반 검사 6건이 통과했다. 초기 JS 348,733바이트·지연 라우트 24개·정적 자산 60개이며 타입·lint는 앞선 동일 소스의 통과 기록을 재사용했다.
+- 로컬·Replit main을 병합 후보로 맞추고 관리 파일 525개의 일치를 확인했다. Replit 기존 작업은 stash `e89ce770af9c651d828689401a4dc107718e1db4`에 보존했다. 이전 stash·보존 태그·검사 사본은 유지했다.
+- Replit `publish_app` 이후 `pending → building → running → promoting → success`를 관찰했다. 2026-11-10 22:30:14 KST [운영 홈페이지](https://dgkma.org/)의 새 배포 성공을 확인했다.
+- 22:30:44 KST 비로그인 smoke 74건이 통과했다. 공개 페이지 5개의 HTTP·제목·canonical·후보 엔트리, 통계 API를 포함한 보호 API 9개의 401 JSON, 후보 정적 자산 60개의 SHA-256을 확인했다. 실제 관리자 통계 SQL·화면 조작·실계정 QA를 대신하는 결과가 아니다.
+- Replit 게시 커밋 `44944bf36a5419259049282687e2e432132d1c2e`과 병합 후보의 tree `5c1dd70212b089bdaaeda7a489bc71bf042fac6f`가 같다. 게시 커밋을 main 이력에 보존하고 완료 기록만 문서 전용 후속 커밋으로 반영한다. 이 문서 기록을 위해 다시 Republish하지 않는다.
+- 실행 증거는 ignored `.superpowers/admin-statistics-release-20261110/`의 빌드·PR 대조·게시·HTTP·Git 기록에 보존한다. DB 구조·데이터·회비 판정·Secrets를 직접 변경하지 않았고 실계정 QA·개발 서버 별도 재시작·자동 롤백은 수행하지 않았다.
