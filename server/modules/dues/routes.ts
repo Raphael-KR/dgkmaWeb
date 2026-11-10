@@ -1,13 +1,19 @@
 import type { Express } from "express";
 import { insertPaymentSchema } from "@shared/schema";
+import { KAKAO_GROUP_INVITE_ENDPOINT, type KakaoGroupInvite } from "@shared/contracts";
 import { z } from "zod";
 import { storage } from "../../storage";
 import { getErrorType } from "../../lib/safe-logging";
 import type { RouteContext } from "../../lib/route-context";
+import {
+  getKakaoGroupInviteUrl,
+  KakaoGroupConfigurationError,
+} from "../../integrations/kakao/kakao-group-config";
 
 export function registerMembershipRoutes(app: Express): void {
   // 권리회원 등급/회비 납부 현황 — 세션 기준 본인만 조회.
   app.get("/api/membership/status", async (req, res) => {
+    res.set("Cache-Control", "private, no-store");
     try {
       if (!req.session.userId) {
         return res.status(401).json({ message: "로그인이 필요합니다" });
@@ -17,6 +23,39 @@ export function registerMembershipRoutes(app: Express): void {
     } catch (error) {
       console.error("Membership status error:", getErrorType(error));
       res.status(500).json({ message: "회원 등급 조회에 실패했습니다" });
+    }
+  });
+
+  app.get(KAKAO_GROUP_INVITE_ENDPOINT, async (req, res) => {
+    res.set("Cache-Control", "private, no-store");
+    const userId = req.session.userId;
+    if (!userId) return res.status(401).json({ message: "로그인이 필요합니다" });
+
+    let stage = "member_lookup";
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ message: "로그인이 필요합니다" });
+
+      stage = "membership_lookup";
+      const membership = await storage.getMembershipStatus(userId);
+      if (!membership.isPaid) {
+        return res.status(403).json({ message: "권리회원만 단톡방에 참여할 수 있습니다" });
+      }
+
+      stage = "invitation_configuration";
+      const invitation: KakaoGroupInvite = { url: getKakaoGroupInviteUrl() };
+      return res.json(invitation);
+    } catch (error) {
+      const configurationError = error instanceof KakaoGroupConfigurationError;
+      console.error("Kakao group invitation unavailable", {
+        stage,
+        errorType: getErrorType(error),
+        ...(configurationError && { configurationReason: error.reason }),
+        privateDataOmitted: true,
+      });
+      return res.status(configurationError ? 503 : 500).json({
+        message: "단톡방 참여 연결을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      });
     }
   });
 }

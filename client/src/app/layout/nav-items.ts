@@ -9,25 +9,23 @@ export type PublicNavItem = {
 };
 
 export const publicNavItems: PublicNavItem[] = [
-  { path: "/about", label: "홈" },
-  { path: "/about/intro", label: "소개" },
-  { path: "/about/executives", label: "임원명단" },
+  {
+    path: "/about",
+    label: "동문회",
+    children: [
+      { path: "/about/executives", label: "임원명단" },
+      { path: "/about/bylaws", label: "회칙" },
+      { path: "/about/bylaws/regulations", label: "규정" },
+      { path: "/about/join", label: "회원가입" },
+      { path: "/about/dues", label: "회비" },
+      { path: "/about/condolence", label: "경조사" },
+    ],
+  },
   {
     path: HERITAGE_PAGES.timeline.path,
     label: "역사관",
     children: Object.values(HERITAGE_PAGES).map(({ path, label }) => ({ path, label })),
   },
-  {
-    path: "/about/bylaws",
-    label: "회칙",
-    children: [
-      { path: "/about/bylaws", label: "회칙" },
-      { path: "/about/bylaws/regulations", label: "규정" },
-    ],
-  },
-  { path: "/about/join", label: "회원가입" },
-  { path: "/about/dues", label: "회비" },
-  { path: "/about/condolence", label: "경조사" },
   { path: "/b", label: "공지", gated: true },
 ];
 

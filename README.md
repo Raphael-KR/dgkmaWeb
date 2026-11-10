@@ -15,6 +15,8 @@
 - [공개 홈페이지](https://dgkma.org): 동문회 공식 안내와 회원 서비스
 - [GitHub 저장소](https://github.com/Raphael-KR/dgkmaWeb): 공유 소스
 - [Replit 환경 구분](replit.md#환경-구분): 개발 주소·접속 역할·배포 대상
+- [릴리스 버전 관리 규칙](replit.md#릴리스-버전-관리-규칙): 버전 증가·Git 태그·변경 이력과 실제 배포의 연결
+- [프로젝트 전용 릴리스 스킬](.agents/skills/dgkma-release/SKILL.md): `$dgkma-release`로 승인된 범위의 릴리스 준비·실행·마무리
 
 모든 게시글은 회원 전용입니다. 본문 정본은 Tiptap JSONB이며 경조사 사실 JSON과 구분합니다. 경조사는 짧은 텍스트·링크 입력, 필요한 추가 질문, 미리보기와 작성자 확인 후 게시 흐름을 사용합니다.
 

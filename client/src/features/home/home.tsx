@@ -292,7 +292,7 @@ export default function Home() {
                       window.open(KAKAO_CHANNEL_URL, "_blank", "noopener,noreferrer");
                     } else {
                       toast({
-                        title: "카톡방 준비 중입니다",
+                        title: "카카오 채널 준비 중입니다",
                         description: "동문 카카오톡 채널이 곧 연결될 예정입니다.",
                       });
                     }
@@ -310,7 +310,7 @@ export default function Home() {
                       <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z" />
                     </svg>
                   </div>
-                  <p className="text-xs text-gray-600 font-medium">카톡방 참여</p>
+                  <p className="text-xs text-gray-600 font-medium">카카오 채널</p>
                 </Button>
 
                 <Button

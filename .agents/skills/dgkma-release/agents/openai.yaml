@@ -1,0 +1,4 @@
+interface:
+  display_name: "dgkmaWeb 릴리스"
+  short_description: "dgkmaWeb 릴리스 전 정리·검증과 버전·Git·Replit 배포"
+  default_prompt: "$dgkma-release 스킬로 dgkmaWeb의 최신 규칙에 따라 변경 코드·문서와 사용처를 검토하고, 정리·검증 후 승인된 릴리스 단계만 진행하라."
