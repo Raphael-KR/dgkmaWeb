@@ -4,21 +4,19 @@
 
 ## 현재 적용 상태
 
-공유 소스의 마지막 확인 기준, 개발 작업 사본, 운영 릴리스를 구분한다. 아래 운영 상태는 2026-11-09 릴리스 기록이며 문서·코드 정리로 운영 확인 시각을 갱신하지 않는다.
+공유 소스, 개발 작업 사본, 운영 릴리스를 구분한다. 아래는 2026-11-10 코드·문서 정리 릴리스의 확인 결과다. 과거 릴리스의 범위와 시각은 이력에서 보존한다.
 
 | 구분 | 마지막 확인 상태 | 근거 |
 |---|---|---|
-| Git 통합 | PR #28 main 병합 `b276334a14665b3a396d199c7f9a3e0c9055d19c`; 후속 기록 포함 main `d7184ca5238e0cdc3e91515ac0616e3b33332f41` | [PR #28](https://github.com/Raphael-KR/dgkmaWeb/pull/28), [릴리스 기록](docs/history/replit-2026-11-09.md#url-정정-릴리스-완료-결과) |
-| 개발 사본 | 2026-11-10 로컬 main `d7184ca`, Replit main `587202723e943cb2cc9c3d3e1daf022770f33342`. 후속 책임 분리·공통화·소스 서식·문서 정리는 미커밋 상태 | [구조 기준](docs/architecture/project-structure.md#개발-사본의-미커밋-변경), [전체 코드 정리](docs/history/full-code-cleanup-2026-11-10.md), [문서 정리](docs/history/full-documentation-cleanup-2026-11-10.md) |
-| 마지막 운영 릴리스 | 2026-11-09 21:53:21 KST 성공 관찰. Replit 게시 커밋 `a75f4d830d40e11b71762bfd36cc249f215bd3b5`, 병합 후보와 같은 tree `1fe18b36f0089fe46eeb2019b241d3cc22880df2` | [릴리스 완료](docs/history/replit-2026-11-09.md#url-정정-릴리스-완료-결과) |
-| 릴리스 후 운영 확인 | 2026-11-09 21:54:15 KST 비로그인 HTTP·인증 차단·정적 자산 26건. 실계정 QA 보류 | [확인 범위](docs/history/replit-2026-11-09.md#url-정정-릴리스-완료-결과) |
-| DB 구조 | 개발·운영의 posts 통합, content JSONB, is_hidden, source_collection_rules와 구 테이블 2개 제거 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
+| Git 통합 | PR #29 main 병합 `997bc7ba891ab6a21bac6889b26db93464704f72`. Replit 게시 커밋 `7aadf4cb496193a5bb774cd9a73a43bf5551afc6`도 보존하며 완료 기록은 문서 전용 후속 커밋으로 구분 | [PR #29](https://github.com/Raphael-KR/dgkmaWeb/pull/29), [릴리스 기록](docs/history/cleanup-release-2026-11-10.md) |
+| 개발 사본 | 로컬·Replit main에 같은 소스와 완료 기록 반영. 누적 책임 분리·공통화·소스 서식·문서 정리는 PR #29에 통합 | [구조 기준](docs/architecture/project-structure.md#책임별-모듈-구성), [코드 정리](docs/history/full-code-cleanup-2026-11-10.md), [문서 정리](docs/history/full-documentation-cleanup-2026-11-10.md) |
+| 마지막 운영 릴리스 | 2026-11-10 20:19:47 KST 성공 관찰. 게시 커밋과 병합 후보의 tree `3e4d8e6d8192eddcdf54a629a537fb3e16915fd1` 일치 | [Republish 결과](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
+| 릴리스 후 운영 확인 | 2026-11-10 20:20:24 KST 비로그인 공개 페이지 5개·회원 API 인증 차단 8개·정적 자산 해시 57개, 총 70건 통과. 실계정 QA 보류 | [확인 범위](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
+| DB 구조 | posts 통합, content JSONB, is_hidden, source_collection_rules와 구 테이블 2개 제거가 마지막 관찰 기준. 이번 릴리스는 DB 변경·catalog 재조회 없음 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
 
-운영에는 통합 게시판·수집기·경사, 반응형·공통 표시·공개 메뉴, canonical·Tiptap JSONB, 게시글 관리와 URL 정정이 반영됐다. 세부 정책은 [제품 기준](docs/product/planning-proposal.md), 이후 개발 사본의 변경은 [이력 색인](docs/history/README.md)을 따른다.
+운영에는 기존 통합 게시판·수집기·경사·공개 메뉴·본문 편집·게시글 관리와 함께 PR #29의 공통 모듈·스타일·책임 분리가 반영됐다. 세부 정책은 [제품 기준](docs/product/planning-proposal.md), 작업별 검사와 제한은 [이력 색인](docs/history/README.md)을 따른다. 게시 커밋의 메타데이터만으로 성공을 판단하지 않고 새 배포 상태 전환과 후보 자산 일치를 확인했다.
 
-Replit 개발 HEAD의 `Published your App` 메타데이터만으로 새 배포 성공을 판단하지 않는다. `5872027`의 관찰 경위와 운영 미조회 범위는 [문서 구조 정리 기록](docs/history/documentation-structure-2026-11-09.md#작업-중-관찰한-replit-커밋)에 있다.
-
-실제 URL 교체 확인은 Replit의 메모리 대역 18개 사례이며 실제 회원 글 수정·외부 수집·OpenAI 호출 확인은 아니다. 수집·경사·OCR의 실행 범위는 [수집 이력](docs/history/replit-2026-11-09.md#개발-수집-적용-결과-2026-11-09)을 따른다.
+PR #28의 URL 교체 확인은 메모리 대역 18개 사례다. 이번 비로그인 smoke는 실제 회원 글 수정·외부 수집·OpenAI 호출·브라우저 상호작용의 확인을 대신하지 않는다. 수집·경사·OCR의 실행 범위는 [수집 이력](docs/history/replit-2026-11-09.md#개발-수집-적용-결과-2026-11-09)을 따른다.
 
 ## 환경 구분
 

@@ -4,7 +4,7 @@
 
 ## 서비스 코드 소유 위치
 
-아래 내부 분리는 로컬·Replit 개발 사본의 미커밋 변경이다. 적용·검사 결과는 [책임 분리 기록](../history/content-responsibility-cleanup-2026-11-10.md), 커밋·운영 적용은 [Replit 기준](../../replit.md#현재-적용-상태)을 따른다.
+아래 내부 분리는 PR #29로 main에 통합했다. 구현 당시 검사 결과는 [책임 분리 기록](../history/content-responsibility-cleanup-2026-11-10.md), 환경별 적용 상태는 [Replit 기준](../../replit.md#현재-적용-상태)을 따른다.
 
 | 책임 | 위치 |
 |---|---|

@@ -2,9 +2,9 @@
 
 확인된 개발·릴리스 기록의 요약이다. 현재 정책은 [제품·개발 계획](docs/product/planning-proposal.md), 환경별 마지막 확인 상태는 [replit.md](replit.md#현재-적용-상태)가 기준이다. 기록일을 배포일로 사용하거나 확인되지 않은 버전 번호를 부여하지 않는다.
 
-## 미통합 개발 변경 — 2026-11-10 기록 기준
+## 2026-11-10 — PR #29 코드·문서 정리
 
-다음 변경은 로컬·Replit 개발 사본의 미커밋 작업이다. 운영 릴리스에 포함됐다는 뜻이 아니다.
+다음 변경을 [PR #29](https://github.com/Raphael-KR/dgkmaWeb/pull/29)로 main에 통합하고 Replit 운영에 반영했다. 배포와 확인 범위는 [정리 릴리스 기록](docs/history/cleanup-release-2026-11-10.md)을 따른다.
 
 - 인증·명부·관리자·게시글·편집기·경조사·수집기의 책임 분리와 공통 계약·스타일 재사용, 미사용 코드·설정 정리. 세부 범위는 [코드 정리 이력](docs/history/README.md#코드공통화와-미사용-정리)을 따른다.
 - 공통 Prettier 설정, 로그인 복귀 경로 통합, OAuth 검사 모듈 분리: [전체 코드 정리](docs/history/full-code-cleanup-2026-11-10.md).
