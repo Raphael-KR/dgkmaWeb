@@ -37,3 +37,13 @@ Replit의 `.worktrees/unified-posts-check`에는 미커밋 원본이 있어 전�
 - 검사 범위는 파일·프로세스 메타데이터·해시·문서 계약·링크·`git diff --check`다. DB 변경·기능 시험·빌드·재시작·재배포·실계정 QA·commit·push는 하지 않았다.
 
 상세 근거는 두 환경의 ignored `.superpowers/post-release-cleanup-20261110/`에 있다.
+
+## 후속 Git 정리 범위
+
+파일 정리 기록 3개는 `0529802cfd2d0cceabb4acccd22a82b02b565ae9`로 커밋했다. 이후 사용자가 남은 미커밋분의 커밋·push와 세 환경의 main 일치, main 외 브랜치 제거를 요청했다.
+
+- 목표: 로컬·GitHub·Replit 개발의 main 커밋과 소스를 일치시킨다.
+- 범위: 현재 문서 변경, 작업 브랜치, 과거 Replit 게시 이력과 detached 검사 사본의 미커밋 원본을 구분한다.
+- 완료 조건: 현재 변경은 main에, 이전 자료는 보존용 커밋·태그에 남기고 세 환경의 작업 브랜치는 main 하나로 정리한다.
+- 제외: DB·Secrets·운영 배포·재시작·실계정 QA와 사용자 자산·검증 자료·stash 삭제.
+- 검사: Git 커밋·tree·브랜치·작업 트리와 문서 정합성을 정적으로 확인한다. 과거 자료 보존을 현재 기능 검증으로 취급하지 않는다.
