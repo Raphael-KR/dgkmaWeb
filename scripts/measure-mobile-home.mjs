@@ -5,11 +5,18 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { createRequire } from "node:module";
-import { createMobileHomeBaseline, evaluateMobileHomeRegression } from "./mobile-home-regression.mjs";
+import {
+  evaluate,
+  openCdpSocket,
+  sendCdp,
+  waitFor,
+  waitForBrowserEndpoint,
+} from "./lib/browser-cdp.mjs";
+import {
+  createMobileHomeBaseline,
+  evaluateMobileHomeRegression,
+} from "./mobile-home-regression.mjs";
 
-const require = createRequire(import.meta.url);
-const WebSocket = require("ws");
 const projectRoot = process.cwd();
 const buildDir = path.join(projectRoot, "dist", "public");
 const chromiumBin = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
@@ -18,15 +25,15 @@ const minimumRunCount = 5;
 const baselinePath = path.join(projectRoot, "scripts", "mobile-home-baseline.json");
 const updateBaseline = process.argv.includes("--update-baseline");
 const profileDir = mkdtempSync(path.join(tmpdir(), "mobile-home-bench-"));
-const pendingCommands = new Map();
 const requests = new Map();
 const requestLog = [];
-let commandId = 0;
 let navigationStart = 0;
 
 assert.ok(existsSync(path.join(buildDir, "index.html")), "Run npm run build first");
-assert.ok(Number.isInteger(runCount) && runCount >= minimumRunCount,
-  `MOBILE_BENCH_RUNS must be an integer of at least ${minimumRunCount}`);
+assert.ok(
+  Number.isInteger(runCount) && runCount >= minimumRunCount,
+  `MOBILE_BENCH_RUNS must be an integer of at least ${minimumRunCount}`,
+);
 assert.ok(existsSync(chromiumBin), `Chromium was not found at ${chromiumBin}; set CHROMIUM_PATH`);
 
 function startStaticServer() {
@@ -49,113 +56,54 @@ function startStaticServer() {
   });
 }
 
-function sendCdp(socket, method, params = {}) {
-  const id = ++commandId;
-  return new Promise((resolve, reject) => {
-    pendingCommands.set(id, { resolve, reject, method });
-    socket.send(JSON.stringify({ id, method, params }));
-  });
-}
-
-function openCdpSocket(url) {
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
-    socket.once("open", () => resolve(socket));
-    socket.once("error", reject);
-    socket.on("message", (raw) => {
-      const message = JSON.parse(raw.toString());
-      if (!message.id) {
-        if (message.method === "Network.requestWillBeSent") {
-          const { requestId, request, timestamp, type } = message.params;
-          const record = {
-            requestId,
-            url: request.url,
-            type,
-            startedAt: timestamp,
-            status: null,
-            mimeType: "",
-            fromDiskCache: false,
-            fromServiceWorker: false,
-            transferredBytes: 0,
-          };
-          requests.set(requestId, record);
-          requestLog.push(record);
-        } else if (message.method === "Network.responseReceived") {
-          const record = requests.get(message.params.requestId);
-          if (record) {
-            record.status = message.params.response.status;
-            record.mimeType = message.params.response.mimeType;
-            record.fromDiskCache = Boolean(message.params.response.fromDiskCache);
-            record.fromServiceWorker = Boolean(message.params.response.fromServiceWorker);
-          }
-        } else if (message.method === "Network.loadingFinished") {
-          const record = requests.get(message.params.requestId);
-          if (record) {
-            record.transferredBytes = message.params.encodedDataLength;
-            record.finished = true;
-          }
-        } else if (message.method === "Network.loadingFailed") {
-          const record = requests.get(message.params.requestId);
-          if (record) {
-            record.failed = message.params.errorText;
-            record.finished = true;
-          }
-        }
-        return;
-      }
-      const pending = pendingCommands.get(message.id);
-      if (!pending) return;
-      pendingCommands.delete(message.id);
-      if (message.error) {
-        pending.reject(new Error(`${pending.method}: ${message.error.message}`));
-      } else {
-        pending.resolve(message.result ?? {});
-      }
-    });
-  });
-}
-
-async function waitForBrowserEndpoint(browser) {
-  const endpointFile = path.join(profileDir, "DevToolsActivePort");
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    if (browser.exitCode !== null) throw new Error(`Chromium exited (${browser.exitCode})`);
-    if (existsSync(endpointFile)) {
-      return Number(readFileSync(endpointFile, "utf8").trim().split("\n")[0]);
+function recordNetworkEvent(message) {
+  if (message.method === "Network.requestWillBeSent") {
+    const { requestId, request, timestamp, type } = message.params;
+    const record = {
+      requestId,
+      url: request.url,
+      type,
+      startedAt: timestamp,
+      status: null,
+      mimeType: "",
+      fromDiskCache: false,
+      fromServiceWorker: false,
+      transferredBytes: 0,
+    };
+    requests.set(requestId, record);
+    requestLog.push(record);
+  } else if (message.method === "Network.responseReceived") {
+    const record = requests.get(message.params.requestId);
+    if (record) {
+      record.status = message.params.response.status;
+      record.mimeType = message.params.response.mimeType;
+      record.fromDiskCache = Boolean(message.params.response.fromDiskCache);
+      record.fromServiceWorker = Boolean(message.params.response.fromServiceWorker);
     }
-    await delay(100);
+  } else if (message.method === "Network.loadingFinished") {
+    const record = requests.get(message.params.requestId);
+    if (record) {
+      record.transferredBytes = message.params.encodedDataLength;
+      record.finished = true;
+    }
+  } else if (message.method === "Network.loadingFailed") {
+    const record = requests.get(message.params.requestId);
+    if (record) {
+      record.failed = message.params.errorText;
+      record.finished = true;
+    }
   }
-  throw new Error("Timed out waiting for Chromium's DevTools endpoint");
 }
 
-async function evaluate(socket, expression) {
-  const result = await sendCdp(socket, "Runtime.evaluate", {
-    expression,
-    returnByValue: true,
-    awaitPromise: true,
-  });
-  if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || "Browser evaluation failed");
-  }
-  return result.result?.value;
-}
-
-async function waitFor(socket, expression, description, timeoutMs = 20_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await evaluate(socket, expression)) return;
-    await delay(100);
-  }
-  throw new Error(`Timed out waiting for ${description}`);
-}
-
-async function waitForNetworkIdle(socket, quietMs = 700, timeoutMs = 20_000) {
+async function waitForNetworkIdle() {
+  const quietMs = 700;
+  const timeoutMs = 20_000;
   const deadline = Date.now() + timeoutMs;
   let quietSince = Date.now();
   let previousFinishedCount = requestLog.length;
   while (Date.now() < deadline) {
-    const active = [...requests.values()].some((request) =>
-      !request.finished && request.startedAt >= navigationStart,
+    const active = [...requests.values()].some(
+      (request) => !request.finished && request.startedAt >= navigationStart,
     );
     const finishedCount = requestLog.length;
     if (!active && finishedCount === previousFinishedCount) {
@@ -175,8 +123,10 @@ function summarizeRequests(fromIndex, localOrigin) {
   const externalEntries = entries.filter((request) => new URL(request.url).origin !== localOrigin);
   const stableEntries = entries.filter((request) => {
     const parsedUrl = new URL(request.url);
-    const fontCdn = parsedUrl.hostname === "fonts.googleapis.com" || parsedUrl.hostname === "fonts.gstatic.com";
-    const injectedDevBanner = parsedUrl.hostname === "replit.com" &&
+    const fontCdn =
+      parsedUrl.hostname === "fonts.googleapis.com" || parsedUrl.hostname === "fonts.gstatic.com";
+    const injectedDevBanner =
+      parsedUrl.hostname === "replit.com" &&
       parsedUrl.pathname === "/public/js/replit-dev-banner.js";
     return !fontCdn && !injectedDevBanner;
   });
@@ -194,7 +144,10 @@ function summarizeRequests(fromIndex, localOrigin) {
     localRequestCount: localEntries.length,
     localTransferredBytes: localEntries.reduce((sum, request) => sum + request.transferredBytes, 0),
     externalRequestCount: externalEntries.length,
-    externalTransferredBytes: externalEntries.reduce((sum, request) => sum + request.transferredBytes, 0),
+    externalTransferredBytes: externalEntries.reduce(
+      (sum, request) => sum + request.transferredBytes,
+      0,
+    ),
     statusCounts: entries.reduce((counts, request) => {
       const status = request.status === null ? "no-response" : String(request.status);
       counts[status] = (counts[status] ?? 0) + 1;
@@ -202,32 +155,44 @@ function summarizeRequests(fromIndex, localOrigin) {
     }, {}),
     cacheResponses: entries.filter((request) => request.fromDiskCache).length,
     resources: groups,
-    failures: entries.filter((request) => request.failed).map(({ url, failed }) => ({ url, failed })),
-    assetDetails: entries.map((request) => {
-      const parsedUrl = new URL(request.url);
-      return {
-        resource: `${parsedUrl.origin}${parsedUrl.pathname}`,
-        scope: parsedUrl.origin === localOrigin ? "local" : "external",
-        type: request.mimeType || request.type || "other",
-        status: request.status,
-        transferredBytes: request.transferredBytes,
-        fromDiskCache: request.fromDiskCache,
-        failed: request.failed ?? null,
-      };
-    }).sort((left, right) => right.transferredBytes - left.transferredBytes),
+    failures: entries
+      .filter((request) => request.failed)
+      .map(({ url, failed }) => ({ url, failed })),
+    assetDetails: entries
+      .map((request) => {
+        const parsedUrl = new URL(request.url);
+        return {
+          resource: `${parsedUrl.origin}${parsedUrl.pathname}`,
+          scope: parsedUrl.origin === localOrigin ? "local" : "external",
+          type: request.mimeType || request.type || "other",
+          status: request.status,
+          transferredBytes: request.transferredBytes,
+          fromDiskCache: request.fromDiskCache,
+          failed: request.failed ?? null,
+        };
+      })
+      .sort((left, right) => right.transferredBytes - left.transferredBytes),
   };
 }
 
 async function navigateHome(socket, url) {
   const firstRequestIndex = requestLog.length;
-  navigationStart = (await sendCdp(socket, "Performance.getMetrics")).metrics
-    .find((metric) => metric.name === "Timestamp")?.value ?? 0;
+  navigationStart =
+    (await sendCdp(socket, "Performance.getMetrics")).metrics.find(
+      (metric) => metric.name === "Timestamp",
+    )?.value ?? 0;
   await sendCdp(socket, "Page.navigate", { url });
-  await waitFor(socket, "document.readyState === 'complete' && !!document.querySelector('h1')", "public home");
-  await waitForNetworkIdle(socket);
+  await waitFor(
+    socket,
+    "document.readyState === 'complete' && !!document.querySelector('h1')",
+    "public home",
+  );
+  await waitForNetworkIdle();
   // LCP may be reported after load; allow late image/font paint candidates to settle.
   await delay(1_000);
-  const pageMetrics = await evaluate(socket, `(() => {
+  const pageMetrics = await evaluate(
+    socket,
+    `(() => {
     const navigation = performance.getEntriesByType("navigation")[0];
     const fontSamples = [
       ["heroHeading", document.querySelector(".theme-public h1")],
@@ -262,7 +227,8 @@ async function navigateHome(socket, url) {
           ),
       },
     };
-  })()`);
+  })()`,
+  );
   assert.ok(
     Number.isFinite(pageMetrics?.lcp?.startTime) && pageMetrics.lcp.startTime > 0,
     "Public home did not report an LCP candidate",
@@ -272,7 +238,9 @@ async function navigateHome(socket, url) {
 
 async function measureMemberTransition(socket) {
   const firstRequestIndex = requestLog.length;
-  const startedAt = await evaluate(socket, `(() => {
+  const startedAt = await evaluate(
+    socket,
+    `(() => {
     const link = [...document.querySelectorAll('a[href="/b"]')]
       .find((candidate) => candidate.getClientRects().length > 0);
     if (!link) throw new Error('Public home is missing its /b member link');
@@ -280,7 +248,8 @@ async function measureMemberTransition(socket) {
     window.__memberTransitionStart = performance.now();
     link.click();
     return window.__memberTransitionStart;
-  })()`);
+  })()`,
+  );
   try {
     await waitFor(
       socket,
@@ -288,16 +257,22 @@ async function measureMemberTransition(socket) {
       "anonymous member-route gate",
     );
   } catch (error) {
-    const state = await evaluate(socket, `({
+    const state = await evaluate(
+      socket,
+      `({
       pathname: location.pathname,
       bodyText: document.body.innerText.slice(0, 500),
       link: document.querySelector('a[href="/b"]')?.outerHTML ?? null
-    })`);
+    })`,
+    );
     throw new Error(`${error.message}; after click: ${JSON.stringify(state)}`, { cause: error });
   }
   const transitionMs = await evaluate(socket, `performance.now() - ${startedAt}`);
-  await waitForNetworkIdle(socket);
-  return { transitionMs, ...summarizeRequests(firstRequestIndex, await evaluate(socket, "location.origin")) };
+  await waitForNetworkIdle();
+  return {
+    transitionMs,
+    ...summarizeRequests(firstRequestIndex, await evaluate(socket, "location.origin")),
+  };
 }
 
 function median(values) {
@@ -307,7 +282,7 @@ function median(values) {
 }
 
 function aggregate(runs, key) {
-  const values = runs.map((run) => key ? run[key] : run);
+  const values = runs.map((run) => (key ? run[key] : run));
   assert.ok(values.every(Number.isFinite), "Measurement contains a non-finite value");
   return {
     median: Math.round(median(values) * 100) / 100,
@@ -339,32 +314,45 @@ async function removeProfileDirectory() {
 
 async function run() {
   const { server, port } = await startStaticServer();
-  const browser = spawn(chromiumBin, [
-    "--headless=new",
-    "--no-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-background-networking",
-    "--disable-extensions",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--remote-debugging-port=0",
-    `--user-data-dir=${profileDir}`,
-    "about:blank",
-  ], { stdio: "ignore" });
+  const browser = spawn(
+    chromiumBin,
+    [
+      "--headless=new",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-background-networking",
+      "--disable-extensions",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--remote-debugging-port=0",
+      `--user-data-dir=${profileDir}`,
+      "about:blank",
+    ],
+    { stdio: "ignore" },
+  );
   let socket;
   try {
-    const debugPort = await waitForBrowserEndpoint(browser);
-    const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`, { method: "PUT" });
+    const debugPort = await waitForBrowserEndpoint(
+      profileDir,
+      browser,
+      "Timed out waiting for Chromium's DevTools endpoint",
+    );
+    const response = await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`, {
+      method: "PUT",
+    });
     assert.equal(response.status, 200, "Chromium opened a clean tab");
     const target = await response.json();
-    socket = await openCdpSocket(target.webSocketDebuggerUrl);
+    socket = await openCdpSocket(target.webSocketDebuggerUrl, { onEvent: recordNetworkEvent });
 
     await sendCdp(socket, "Page.enable");
     await sendCdp(socket, "Runtime.enable");
     await sendCdp(socket, "Network.enable");
     await sendCdp(socket, "Performance.enable");
     await sendCdp(socket, "Emulation.setDeviceMetricsOverride", {
-      width: 390, height: 844, deviceScaleFactor: 3, mobile: true,
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 3,
+      mobile: true,
     });
     await sendCdp(socket, "Network.emulateNetworkConditions", {
       offline: false,
@@ -417,52 +405,118 @@ async function run() {
         requiredRuns: minimumRunCount,
         failingRunShare: "at least 80% of runs must exceed a limit",
         gates: {
-          stableRequests: "baseline + 1 request; excludes Google Fonts CDN sharding and the injected Replit dev banner",
+          stableRequests:
+            "baseline + 1 request; excludes Google Fonts CDN sharding and the injected Replit dev banner",
           localBytes: "baseline + max(5%, 32 KiB)",
           externalBytes: "baseline + max(35%, 100 KiB)",
           coldLcp: "baseline + max(25%, 750 ms)",
         },
-        externalRequestCount: "reported only; not gated because CDN font sharding can change request count",
+        externalRequestCount:
+          "reported only; not gated because CDN font sharding can change request count",
       },
-      server: "Express static; anonymous /api/auth/me is stubbed to 401; external font CDN requests remain live",
+      server:
+        "Express static; anonymous /api/auth/me is stubbed to 401; external font CDN requests remain live",
       scenarios: {
         cold: coldRuns,
         warm: warmRuns,
       },
       medians: {
         coldHome: {
-          requests: aggregate(coldRuns.map((run) => run.home), "requestCount"),
-          stableRequests: aggregate(coldRuns.map((run) => run.home), "stableRequestCount"),
-          transferredBytes: aggregate(coldRuns.map((run) => run.home), "transferredBytes"),
-          localRequests: aggregate(coldRuns.map((run) => run.home), "localRequestCount"),
-          localTransferredBytes: aggregate(coldRuns.map((run) => run.home), "localTransferredBytes"),
-          externalRequests: aggregate(coldRuns.map((run) => run.home), "externalRequestCount"),
-          externalTransferredBytes: aggregate(coldRuns.map((run) => run.home), "externalTransferredBytes"),
+          requests: aggregate(
+            coldRuns.map((run) => run.home),
+            "requestCount",
+          ),
+          stableRequests: aggregate(
+            coldRuns.map((run) => run.home),
+            "stableRequestCount",
+          ),
+          transferredBytes: aggregate(
+            coldRuns.map((run) => run.home),
+            "transferredBytes",
+          ),
+          localRequests: aggregate(
+            coldRuns.map((run) => run.home),
+            "localRequestCount",
+          ),
+          localTransferredBytes: aggregate(
+            coldRuns.map((run) => run.home),
+            "localTransferredBytes",
+          ),
+          externalRequests: aggregate(
+            coldRuns.map((run) => run.home),
+            "externalRequestCount",
+          ),
+          externalTransferredBytes: aggregate(
+            coldRuns.map((run) => run.home),
+            "externalTransferredBytes",
+          ),
           lcpMs: aggregate(coldRuns.map((run) => run.home.pageMetrics.lcp?.startTime ?? 0)),
         },
         warmHome: {
-          requests: aggregate(warmRuns.map((run) => run.home), "requestCount"),
-          stableRequests: aggregate(warmRuns.map((run) => run.home), "stableRequestCount"),
-          transferredBytes: aggregate(warmRuns.map((run) => run.home), "transferredBytes"),
-          localRequests: aggregate(warmRuns.map((run) => run.home), "localRequestCount"),
-          localTransferredBytes: aggregate(warmRuns.map((run) => run.home), "localTransferredBytes"),
-          externalRequests: aggregate(warmRuns.map((run) => run.home), "externalRequestCount"),
-          externalTransferredBytes: aggregate(warmRuns.map((run) => run.home), "externalTransferredBytes"),
+          requests: aggregate(
+            warmRuns.map((run) => run.home),
+            "requestCount",
+          ),
+          stableRequests: aggregate(
+            warmRuns.map((run) => run.home),
+            "stableRequestCount",
+          ),
+          transferredBytes: aggregate(
+            warmRuns.map((run) => run.home),
+            "transferredBytes",
+          ),
+          localRequests: aggregate(
+            warmRuns.map((run) => run.home),
+            "localRequestCount",
+          ),
+          localTransferredBytes: aggregate(
+            warmRuns.map((run) => run.home),
+            "localTransferredBytes",
+          ),
+          externalRequests: aggregate(
+            warmRuns.map((run) => run.home),
+            "externalRequestCount",
+          ),
+          externalTransferredBytes: aggregate(
+            warmRuns.map((run) => run.home),
+            "externalTransferredBytes",
+          ),
           lcpMs: aggregate(warmRuns.map((run) => run.home.pageMetrics.lcp?.startTime ?? 0)),
         },
-        coldMemberTransitionMs: aggregate(coldRuns.map((run) => run.member), "transitionMs"),
-        coldMemberRequests: aggregate(coldRuns.map((run) => run.member), "requestCount"),
-        coldMemberTransferredBytes: aggregate(coldRuns.map((run) => run.member), "transferredBytes"),
-        warmMemberTransitionMs: aggregate(warmRuns.map((run) => run.member), "transitionMs"),
-        warmMemberRequests: aggregate(warmRuns.map((run) => run.member), "requestCount"),
-        warmMemberTransferredBytes: aggregate(warmRuns.map((run) => run.member), "transferredBytes"),
+        coldMemberTransitionMs: aggregate(
+          coldRuns.map((run) => run.member),
+          "transitionMs",
+        ),
+        coldMemberRequests: aggregate(
+          coldRuns.map((run) => run.member),
+          "requestCount",
+        ),
+        coldMemberTransferredBytes: aggregate(
+          coldRuns.map((run) => run.member),
+          "transferredBytes",
+        ),
+        warmMemberTransitionMs: aggregate(
+          warmRuns.map((run) => run.member),
+          "transitionMs",
+        ),
+        warmMemberRequests: aggregate(
+          warmRuns.map((run) => run.member),
+          "requestCount",
+        ),
+        warmMemberTransferredBytes: aggregate(
+          warmRuns.map((run) => run.member),
+          "transferredBytes",
+        ),
       },
     };
     const coldHomeRuns = coldRuns.map((run) => run.home);
     if (updateBaseline) {
       const baseline = createMobileHomeBaseline(coldHomeRuns);
       writeFileSync(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
-      report.regression = { status: "baseline-updated", baselinePath: path.relative(projectRoot, baselinePath) };
+      report.regression = {
+        status: "baseline-updated",
+        baselinePath: path.relative(projectRoot, baselinePath),
+      };
       console.error(`Mobile home baseline updated: ${path.relative(projectRoot, baselinePath)}`);
     } else {
       const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
@@ -474,7 +528,7 @@ async function run() {
       for (const failure of report.regression.failures) {
         console.error(
           `Mobile home regression: ${failure.label}: median ${failure.median} vs limit ${failure.limit} ` +
-          `(${failure.exceedingRuns}/${runCount} runs over limit).`,
+            `(${failure.exceedingRuns}/${runCount} runs over limit).`,
         );
         for (const asset of failure.largestAssetIncreases) {
           console.error(`  ${asset.resource}: +${asset.increaseBytes} bytes`);

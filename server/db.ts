@@ -1,5 +1,5 @@
-import { Pool } from 'pg';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 
 // Replit 내장 PostgreSQL 우선 사용 (PG* 환경변수가 있으면 그것을 사용)

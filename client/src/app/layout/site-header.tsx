@@ -14,7 +14,9 @@ export function SiteHeader({ homeHref, actions, navigation, navigationLabel }: S
       <div className="site-container site-header__inner">
         <SiteBrand homeHref={homeHref} />
         <div className="site-header__actions">{actions}</div>
-        <nav className="site-header__nav" aria-label={navigationLabel}>{navigation}</nav>
+        <nav className="site-header__nav" aria-label={navigationLabel}>
+          {navigation}
+        </nav>
       </div>
     </header>
   );

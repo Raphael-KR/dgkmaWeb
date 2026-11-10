@@ -9,14 +9,20 @@
 
 | 작업 분야 | 기준 문서 | 담당 내용 |
 |---|---|---|
-| 작업 수행 | [AGENTS.md](./AGENTS.md) | 결정 반영, 실행 경계, 검증과 보고 |
-| 제품·개발 계획 | [planning_proposal.md](./planning_proposal.md) | 제품 목표, 확정 정책, 구현 범위와 남은 기능 개발 |
-| 개발·배포 운영 | [replit.md](./replit.md) | Replit 환경, 환경변수, 개발과 배포 절차 |
-| DB 구조 | [docs/database-schema.md](./docs/database-schema.md) | 테이블과 객체별 구조·무결성, catalog 검증 상태 |
-| DB 작업 | [docs/database-operations.md](./docs/database-operations.md) | 개발·운영 DB 선택, 변경, 백업·복구와 검증 |
-| 별도 기능 점검 | [walkthrough.md](./walkthrough.md) | 요청된 점검의 범위·현재 기능 계약. 일상 개발의 선행 과제가 아님 |
+| 작업 수행 | [AGENTS.md](AGENTS.md) | 결정 반영, 실행 경계, 검증과 보고 |
+| 제품·개발 계획 | [제품·개발 계획](docs/product/planning-proposal.md) | 제품 목표, 확정 정책, 구현 범위와 남은 기능 개발 |
+| 개발·배포 운영 | [replit.md](replit.md) | Replit 환경, 환경변수, 개발과 배포 절차 |
+| DB 구조 | [DB 스키마 기준서](docs/reference/database-schema.md) | 테이블과 객체별 구조·무결성, catalog 검증 상태 |
+| DB 작업 | [DB 운영 런북](docs/runbooks/database-operations.md) | 개발·운영 DB 선택, 변경, 백업·복구와 검증 |
+| 별도 기능 점검 | [별도 기능 점검](docs/runbooks/feature-checks.md) | 요청된 점검의 범위·현재 기능 계약. 일상 개발의 선행 과제가 아님 |
 
-[README.md](./README.md)는 문서 진입점이다. [CHANGELOG.md](./CHANGELOG.md), `docs/history/`와 `docs/superpowers/`는 이력 자료이고, [roadmap.md](./roadmap.md)는 과거 링크의 연결을 유지하는 안내문이다. 이 문서들에 독립적인 현재 정책이나 실행 우선순위를 만들지 않는다.
+[README.md](README.md)는 문서 진입점이다. [CHANGELOG.md](CHANGELOG.md), `docs/history/`와 `docs/superpowers/`는 이력 자료이고, [roadmap.md](roadmap.md)는 과거 링크의 연결을 유지하는 안내문이다. 이 문서들에 독립적인 현재 정책이나 실행 우선순위를 만들지 않는다.
+
+## 문서 분류와 경로 변경
+
+2026-11-09 사용자 결정에 따라 제품 계획은 `docs/product/`, 구조·보안 설명은 `docs/architecture/`, 자료 계약은 `docs/reference/`, 개발·DB·서비스 운영 절차는 `docs/runbooks/`, 주요 결정은 `docs/decisions/`, 실행·과거 설계는 `docs/history/` 및 이력 표시된 `docs/superpowers/`로 분류한다. 루트 `README.md`·`AGENTS.md`·`replit.md`는 유지한다. 이전 경로 안내는 실제 참조를 근거로 유지한다. 전역 지침·프로젝트 메모가 참조하는 `docs/database-operations.md`·`docs/database-schema.md`와 이 파일이 연결하는 `roadmap.md`는 남기고, 새 참조는 정본 경로를 사용한다.
+
+DB 실행 파일은 현재 경로를 유지하고 용도별 색인으로 분류한다. 과거 계획에는 현행 정본 링크와 이력 표시를 붙이며 원문 명령은 새 실행 승인이 아니다. ADR은 확인된 결정의 배경·대안·결과를 기록하고 담당 기준서에 새 정책을 중복 관리하지 않는다.
 
 ## 결정 반영과 실행 순서
 
@@ -34,7 +40,7 @@
 
 ## 런타임과 배포 경계
 
-- 환경별 주소와 접속·배포 절차는 [replit.md](./replit.md#환경-구분)를 따른다.
+- 환경별 주소와 접속·배포 절차는 [replit.md](replit.md#환경-구분)를 따른다.
 - 기능 구현과 필요한 정적 검사는 Replit 개발 워크스페이스를 기본으로 한다. 개발 직후 서버 재시작·브라우저 점검·smoke check·Republish를 자동으로 추가하지 않는다.
 - 화면·흐름 확인을 요청받으면 개발 홈페이지를 사용하고 전역 GUI 승인 규칙을 따른다. 현재 적용 상태와 배포 절차는 `replit.md`, 완료된 릴리스 기록은 `docs/history/`를 따른다. 실계정 QA는 계속 보류한다. 명시적으로 요청된 배포의 프로덕션 smoke check는 Republish 후에 수행한다.
 - Replit SSH는 개발 워크스페이스와 Development Database에 연결되며 autoscale 프로덕션 인스턴스 셸이 아니다.
@@ -50,25 +56,25 @@
 
 ## 데이터베이스와 명부
 
-- DB 설계·구현·리뷰는 `docs/database-schema.md`를 기준으로 삼는다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain 또는 runtime DDL/migration을 바꾸면 같은 변경에서 스키마 문서를 갱신한다. metadata-only catalog 재검증도 갱신한다. 둘 중 하나라도 누락하면 미완료다.
-- 모든 직접 DB 작업은 `docs/database-operations.md`를 따른다.
+- DB 설계·구현·리뷰는 `docs/reference/database-schema.md`를 기준으로 삼는다. 테이블·컬럼·제약·인덱스·시퀀스·뷰·트리거·RLS·정책·루틴·enum·domain 또는 runtime DDL/migration을 바꾸면 같은 변경에서 스키마 문서를 갱신한다. metadata-only catalog 재검증도 갱신한다. 둘 중 하나라도 누락하면 미완료다.
+- 모든 직접 DB 작업은 `docs/runbooks/database-operations.md`를 따른다.
 - Development Database가 기본이다. `server/db.ts`에서는 Replit `PG*` 변수가 `DATABASE_URL`보다 우선하므로 일반 개발, 실행과 테스트에서 이를 해제하지 않는다.
 - Production Database는 명시적 운영 명령으로만 선택한다. 먼저 `current_database()`와 변경 전 건수를 확인한다. 가능한 경우 트랜잭션을 사용한다. 변경 후 새 연결에서 결과를 검증한다. 반복 조회에는 `PROD_DATABASE_READONLY_URL`을 우선한다.
 - `PROD_DATABASE_URL`과 읽기 전용 URL은 Mac `.env`, 저장소, 문서, 셸 기록 또는 채팅에 저장하지 않는다. owner URL의 존재는 운영 접근이나 변경 승인이 아니다.
-- 정식 오픈 전 반복 운영 작업이 끝날 때까지 owner URL은 Replit Secrets에만 유지한다. 사용자가 작업 종료나 launch hardening을 명시하면 [DB 운영 런북](./docs/database-operations.md)의 Secret 수명 기준을 먼저 갱신한 뒤 제거한다.
+- 정식 오픈 전 반복 운영 작업이 끝날 때까지 owner URL은 Replit Secrets에만 유지한다. 사용자가 작업 종료나 launch hardening을 명시하면 [DB 운영 런북](docs/runbooks/database-operations.md)의 Secret 수명 기준을 먼저 갱신한 뒤 제거한다.
 - 스키마 변경과 데이터 마이그레이션은 분리한다. 운영 변경·동기화 전에는 runbook이 요구하는 백업 또는 복구 가능한 snapshot, 미리보기, 적용 순서와 사후 검증을 준비한다. 스키마·테이블 삭제나 되돌리기 어려운 SQL은 별도 승인과 복구 계획 없이 실행하지 않는다.
-- 명부의 관리 원본과 런타임 복제본은 [확정된 명부 정책](./planning_proposal.md#동문-명부)을 따른다. 원본 전환은 이 정책과 DB 운영 런북에 먼저 반영한다. 전환 전에는 관련 Secrets와 명시적 관리자 동기화 경로를 유지한다. 로그인 요청에서 Google Sheets를 직접 조회하지 않는다.
+- 명부의 관리 원본과 런타임 복제본은 [확정된 명부 정책](docs/product/planning-proposal.md#동문-명부)을 따른다. 원본 전환은 이 정책과 DB 운영 런북에 먼저 반영한다. 전환 전에는 관련 Secrets와 명시적 관리자 동기화 경로를 유지한다. 로그인 요청에서 Google Sheets를 직접 조회하지 않는다.
 
 ### 정식 오픈 전 데이터 정책
 
-- 데이터 보존은 [replit.md의 정식 오픈 전 데이터 정책](./replit.md#정식-오픈-전-데이터-정책)을 따른다. 현재 두 환경의 애플리케이션 레코드는 폐기 가능한 테스트 데이터다. 이는 Development Database와 Production Database 모두에 적용한다. 개발에 필요한 초기화는 반복 승인 없이 수행할 수 있다.
+- 데이터 보존은 [replit.md의 정식 오픈 전 데이터 정책](replit.md#정식-오픈-전-데이터-정책)을 따른다. 현재 두 환경의 애플리케이션 레코드는 폐기 가능한 테스트 데이터다. 이는 Development Database와 Production Database 모두에 적용한다. 개발에 필요한 초기화는 반복 승인 없이 수행할 수 있다.
 - 초기화 전 대상 테이블과 외래키 의존 순서를 확인한다. 가능한 경우 트랜잭션을 사용한다. 완료 후 테이블별 건수를 검증한다.
 - 이 사전 승인은 스키마·테이블 삭제, Replit Secrets 삭제, Git 이력 변경, Object Storage 파일 또는 로컬 사용자 파일 삭제를 포함하지 않는다.
 - 사용자가 데이터 보존을 선언하면 초기화를 즉시 멈추고 `replit.md`의 정책과 이 절의 요약을 먼저 갱신한다. 보존 요청 이후에는 이전 초기화 허용을 근거로 실행하지 않는다.
 
 ## 인증 변경 시 보존할 구현 제약
 
-회원·동의·가입 정책은 [제품 정책](./planning_proposal.md#회원과-카카오-로그인), 환경별 설정은 [Replit 카카오 로그인 절차](./replit.md#카카오-로그인)를 따른다. 인증 코드를 변경할 때는 다음 제약을 함께 확인한다.
+회원·동의·가입 정책은 [제품 정책](docs/product/planning-proposal.md#회원과-카카오-로그인), 환경별 설정은 [Replit 카카오 로그인 절차](replit.md#카카오-로그인)를 따른다. 인증 코드를 변경할 때는 다음 제약을 함께 확인한다.
 
 - 현재 인증의 단일 경로는 Kakao Login v5 REST OAuth다. 브라우저는 `/api/auth/kakao/start`로 시작하고 서버만 환경별 REST API key, client secret과 redirect URI를 선택한다. Kakao JavaScript SDK 로그인을 추가하지 않는다.
 - `REPLIT_DEPLOYMENT="1"`은 프로덕션 설정을, 그 외 값은 개발 설정을 선택한다. 개발 callback은 `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`, 프로덕션 callback은 `https://dgkma.org/kakao-callback`이며 Kakao 설정과 정확히 일치해야 한다.
@@ -86,7 +92,7 @@
 - 단위·통합·전체 회귀, 브라우저·모바일·실계정 QA, DB 시험, 서버 재시작과 smoke check를 기본 완료 조건에 붙이지 않는다. 별도 요청된 점검이나 구체적인 실행 오류를 해결하는 데 필요한 경우에만 해당 범위로 수행한다.
 - `npm run build`는 매 변경 뒤 실행하지 않는다. 번들·배포 산출물 자체를 다루는 작업에 필요한 경우에만 수행한다.
 - 지침·문서 변경은 내용·링크·기준 간 정합성과 `git diff --check`만 확인한다. 기존 문서 계약 검사가 있으면 파일 내용만 읽는 정적 확인 범위에서 적용하고, 바뀐 사용자 결정을 검사 기준에도 반영한다.
-- 계획서에는 검증·QA 대기표나 반복 점검 과제를 두지 않는다. `walkthrough.md`의 체크리스트와 과거 기록을 다음 개발 목표로 자동 전환하지 않는다.
+- 계획서에는 검증·QA 대기표나 반복 점검 과제를 두지 않는다. `docs/runbooks/feature-checks.md`의 체크리스트와 과거 기록을 다음 개발 목표로 자동 전환하지 않는다.
 - `npm run db:push`와 직접 DB 변경은 정적 검사가 아니다. 요청된 스키마 작업에서만 DB 운영 런북을 따라 수행한다. 실제 데이터·외부 호출·GUI·운영 배포의 기존 승인 경계는 유지한다.
 
 ## 완료 보고

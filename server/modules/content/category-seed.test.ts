@@ -16,16 +16,11 @@ test("category seed defines the approved ordered idempotent set", async () => {
     "utf8",
   );
   const valuesSection = sql.match(/VALUES([\s\S]+?)ON CONFLICT/)?.[1] ?? "";
-  const rows = Array.from(valuesSection.matchAll(
-    /\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(true|false),\s*(\d+)\)/g,
-  )).map((match) => [
-    match[1],
-    match[2],
-    match[3],
-    match[4],
-    match[5] === "true",
-    Number(match[6]),
-  ]);
+  const rows = Array.from(
+    valuesSection.matchAll(
+      /\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)',\s*(true|false),\s*(\d+)\)/g,
+    ),
+  ).map((match) => [match[1], match[2], match[3], match[4], match[5] === "true", Number(match[6])]);
 
   assert.deepEqual(rows, expectedCategories);
   assert.equal((valuesSection.match(/\(/g) ?? []).length, expectedCategories.length);

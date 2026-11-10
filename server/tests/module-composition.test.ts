@@ -34,7 +34,11 @@ test("storage compatibility facade retains every domain prototype method and des
   const instance = new DatabaseStorage();
   const methodNames = new Set<string>();
   for (const DomainStorage of [
-    IdentityStorage, RegistryStorage, ContentStorage, EventsStorage, DuesStorage,
+    IdentityStorage,
+    RegistryStorage,
+    ContentStorage,
+    EventsStorage,
+    DuesStorage,
   ]) {
     for (const name of Object.getOwnPropertyNames(DomainStorage.prototype)) {
       if (name === "constructor") continue;

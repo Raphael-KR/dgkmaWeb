@@ -5,7 +5,7 @@ import test from "node:test";
 test("official alumni aliases use a separate constrained table and notice proxy lookup", async () => {
   const [schema, storage, policy] = await Promise.all([
     readFile(new URL("../../db/schema/index.ts", import.meta.url), "utf8"),
-    readFile(new URL("./storage.ts", import.meta.url), "utf8"),
+    readFile(new URL("./alumni-record-storage.ts", import.meta.url), "utf8"),
     readFile(new URL("../events/event-member-policy.ts", import.meta.url), "utf8"),
   ]);
 

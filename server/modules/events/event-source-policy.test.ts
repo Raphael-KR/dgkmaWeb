@@ -21,10 +21,7 @@ test("extracts, cleans, deduplicates, and limits event source URLs", () => {
 test("accepts only public HTTP and HTTPS URLs with default ports", () => {
   assert.equal(assertSafeSourceUrl("HTTPS://Example.COM/path").href, "https://example.com/path");
   assert.throws(() => assertSafeSourceUrl("file:///etc/passwd"), /지원하지 않는 주소/);
-  assert.throws(
-    () => assertSafeSourceUrl("https://user:pass@example.com"),
-    /인증 정보/,
-  );
+  assert.throws(() => assertSafeSourceUrl("https://user:pass@example.com"), /인증 정보/);
   assert.throws(() => assertSafeSourceUrl("http://example.com:8080"), /포트/);
   assert.throws(() => assertSafeSourceUrl("https://127.0.0.1/path"), /공개 주소/);
   for (const encodedLoopback of [

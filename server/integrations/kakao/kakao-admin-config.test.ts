@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import {
-  KakaoAdminConfigurationError,
-  resolveKakaoAdminConfig,
-} from "./kakao-admin-config";
+import { KakaoAdminConfigurationError, resolveKakaoAdminConfig } from "./kakao-admin-config";
 
 const completeEnv = {
   KAKAO_DEV_ADMIN_KEY: "development-admin-secret",
@@ -50,11 +47,12 @@ test("missing selected administrator key reports its variable name without its v
 
 test("missing production administrator key reports the production variable only", () => {
   assert.throws(
-    () => resolveKakaoAdminConfig({
-      REPLIT_DEPLOYMENT: "1",
-      KAKAO_DEV_ADMIN_KEY: "development-admin-secret",
-      KAKAO_PROD_ADMIN_KEY: "  ",
-    }),
+    () =>
+      resolveKakaoAdminConfig({
+        REPLIT_DEPLOYMENT: "1",
+        KAKAO_DEV_ADMIN_KEY: "development-admin-secret",
+        KAKAO_PROD_ADMIN_KEY: "  ",
+      }),
     (error) => {
       assert.ok(error instanceof KakaoAdminConfigurationError);
       assert.deepEqual(error.missingVariables, ["KAKAO_PROD_ADMIN_KEY"]);
@@ -68,7 +66,7 @@ test("deployment docs and environment example match the transitional alumni sour
   const [envExample, replitGuide, proposal] = await Promise.all([
     readFile(new URL("../../../.env.example", import.meta.url), "utf8"),
     readFile(new URL("../../../replit.md", import.meta.url), "utf8"),
-    readFile(new URL("../../../planning_proposal.md", import.meta.url), "utf8"),
+    readFile(new URL("../../../docs/product/planning-proposal.md", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(envExample, /^KAKAO_ADMIN_KEY=/m);

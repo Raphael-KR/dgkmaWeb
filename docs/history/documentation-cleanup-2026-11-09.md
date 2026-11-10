@@ -13,11 +13,11 @@
 
 | 문제 | 반영 |
 |---|---|
-| 개발 DB 절차가 운영 전환·전체 시험으로 이어짐, 제거된 테이블이 초기화 목록에 남음 | [DB 런북](../database-operations.md)에 개발/승인된 운영 작업을 분리하고 현행 테이블과 초기화 범위를 명시. 과거 SQL은 완료된 전환 색인으로 이동 |
+| 개발 DB 절차가 운영 전환·전체 시험으로 이어짐, 제거된 테이블이 초기화 목록에 남음 | [DB 런북](../runbooks/database-operations.md)에 개발/승인된 운영 작업을 분리하고 현행 테이블과 초기화 범위를 명시. 과거 SQL은 완료된 전환 색인으로 이동 |
 | README·계획서·Replit의 미적용/최신 상태 충돌 | [현재 적용 상태](../../replit.md#현재-적용-상태)를 PR #28까지 맞추고 main·개발 checkout·실제 게시 커밋·확인 범위를 구분. canonical도 운영 적용 완료로 정리 |
-| 최신 스키마가 누적 추가 설명과 옛 사전에 분산 | [스키마 기준서](../database-schema.md)에 13개 테이블·103개 컬럼, JSONB·event_data·가림·수집 규칙을 통합. 마지막 catalog 관찰일·digest는 유지 |
-| 보안 문서의 공개 콘텐츠·직접 업로드·옛 코드 경로 | [Threat Model](../../threat_model.md)을 회원 전용 콘텐츠, 서버 경유 제한 업로드, OpenAI·수집 worker 경계와 실제 소스 경로에 맞춤. 현재 구현의 제한도 구분 |
-| 관리자 게시글 화면 미구현·API/파일 목록 누락 | [계획서](../../planning_proposal.md)·[구조 문서](../project-structure.md)에 작성자 수정·삭제, 관리자 가리기, 정정 미리보기 API와 실제 관리 연결을 반영. 삭제된 파일을 보존 대상으로 두지 않음 |
+| 최신 스키마가 누적 추가 설명과 옛 사전에 분산 | [스키마 기준서](../reference/database-schema.md)에 13개 테이블·103개 컬럼, JSONB·event_data·가림·수집 규칙을 통합. 마지막 catalog 관찰일·digest는 유지 |
+| 보안 문서의 공개 콘텐츠·직접 업로드·옛 코드 경로 | [Threat Model](../architecture/threat-model.md)을 회원 전용 콘텐츠, 서버 경유 제한 업로드, OpenAI·수집 worker 경계와 실제 소스 경로에 맞춤. 현재 구현의 제한도 구분 |
+| 관리자 게시글 화면 미구현·API/파일 목록 누락 | [계획서](../product/planning-proposal.md)·[구조 문서](../architecture/project-structure.md)에 작성자 수정·삭제, 관리자 가리기, 정정 미리보기 API와 실제 관리 연결을 반영. 삭제된 파일을 보존 대상으로 두지 않음 |
 | session 때문에 db:push가 항상 위험하다는 옛 메모 | [프로젝트 메모](../../.agents/memory/drizzle-push-session-table.md)·색인에 현재 session 제외 설정과 앱 PG*/Drizzle URL 차이를 명시. 과거 executeSql/rename/drop 설명은 당시 관찰로 표시 |
 
 ## 이력 보존과 정적 확인

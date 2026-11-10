@@ -1,3 +1,8 @@
+> **상태: 이력 보관.** 2026-07-11의 설계 원문이며 현행 실행 지시는 아래 기준서를 따릅니다. 이력 표시일: 2026-11-09.
+>
+> 현행 기준: [제품·개발 계획](../../product/planning-proposal.md), [Replit 기준](../../../replit.md), [DB 기준](../../reference/database-schema.md). 당시 결정의 유지·변경 여부는 현재 기준서에서 확인합니다.
+> 아래 원문·체크박스·명령·도구 지시는 과거 기록이며 새 작업·승인·필수 검사를 만들지 않습니다. 남은 체크박스를 현재 미구현 목록으로 해석하지 않습니다.
+
 # 경조사 통합 시스템 설계
 
 ## 목적
@@ -23,7 +28,7 @@
 
 - [경조사 파싱 예제](https://app.notion.com/p/39a2225d9c4d80c3b172d2914aa45f54)
 - [부고문 작성 지침](https://app.notion.com/p/39a2225d9c4d80799e4cd4d43ba05021)
-- 저장소 문서: [docs/obituary-writing-guide.md](../../obituary-writing-guide.md)
+- 저장소 문서: [docs/obituary-writing-guide.md](../../reference/obituary-writing-guide.md)
 
 2026-07-11 조사에서 외부 부고 링크의 상태는 다음과 같았다.
 
@@ -170,7 +175,7 @@
 
 ## 표준 부고문 생성
 
-[부고문 작성 지침](../../obituary-writing-guide.md)의 템플릿을 서버에서 생성한다.
+[부고문 작성 지침](../../reference/obituary-writing-guide.md)의 템플릿을 서버에서 생성한다.
 
 - 선택 정보가 없으면 해당 줄을 출력하지 않는다.
 - 본인상은 `#부고 #동문본인상`으로 시작한다.

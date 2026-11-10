@@ -25,13 +25,22 @@ export function SiteLogo({ size = "header", decorative = false, className }: Sit
   );
 }
 
-export function SiteBrand({ homeHref = "/", className, onClick }: {
+export function SiteBrand({
+  homeHref = "/",
+  className,
+  onClick,
+}: {
   homeHref?: string;
   className?: string;
   onClick?: () => void;
 }) {
   return (
-    <Link href={homeHref} className={cn("site-brand", className)} aria-label={`${SITE_NAME} 홈`} onClick={onClick}>
+    <Link
+      href={homeHref}
+      className={cn("site-brand", className)}
+      aria-label={`${SITE_NAME} 홈`}
+      onClick={onClick}
+    >
       <SiteLogo decorative />
       <span className="site-brand__name">{SITE_NAME}</span>
     </Link>

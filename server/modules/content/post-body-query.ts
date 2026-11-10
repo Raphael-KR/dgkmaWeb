@@ -13,6 +13,9 @@ export function postBodyTextExpression() {
       WITH ORDINALITY AS child(value, ordinality)
   ) SELECT coalesce(string_agg(CASE
     WHEN node->>'type' = 'text' THEN node->>'text'
-    WHEN node->>'type' IN (${sql.join(POST_TEXT_BOUNDARIES.map((type) => sql`${type}`), sql`, `)}) THEN E'\n'
+    WHEN node->>'type' IN (${sql.join(
+      POST_TEXT_BOUNDARIES.map((type) => sql`${type}`),
+      sql`, `,
+    )}) THEN E'\n'
     ELSE '' END, '' ORDER BY position), '') FROM body_nodes)`;
 }

@@ -1,13 +1,13 @@
 # 통합 전 부고 작성 지침（2026-11-09까지）
 
 > 이력 보관본: `main d7184ca`에 있던 문서를 보존했다. 본문 속 “현재”, “최신”, “이번”, 승인·보류 및 명령은 각 작업 당시의 설명이며 현재 상태나 실행 지시가 아니다.
-> 현행 기준은 [docs/obituary-writing-guide.md](../obituary-writing-guide.md)을 따른다. 이 문서를 근거로 완료된 SQL·배포·시험을 다시 실행하지 않는다. 문서 이동은 DB나 운영 환경의 재검증을 뜻하지 않는다.
+> 현행 기준은 [docs/obituary-writing-guide.md](../reference/obituary-writing-guide.md)을 따른다. 이 문서를 근거로 완료된 SQL·배포·시험을 다시 실행하지 않는다. 문서 이동은 DB나 운영 환경의 재검증을 뜻하지 않는다.
 
 # 부고문 작성 지침
 
 동국대학교한의과대학동문회 홈페이지의 통합 전 부고문 작성 지침을 보관한다.
 
-> 2026-11-09 전환 결정: 새 입력·생성 정책은 [제품 계획서](../../planning_proposal.md#경조사-입력과-등록)를 따른다. 상세 입력 폼을 없애고 텍스트·링크를 JSON으로 처리하며, `dgkma-obituary-writer`의 생성 코드·필수 정보·양식을 기준으로 삼는다. 로컬 스킬 원본은 `/Users/raphael/.agents/skills/dgkma-obituary-writer/SKILL.md`다. 아래 과거 양식을 새 스킬보다 우선하지 않는다. 특히 확인된 별세일·장지·조문 사양과 본인상의 유가족 연락처를 보존하고, 학번 또는 졸업기수 중 확인된 값만 사용한다. 코드·DB 전환은 아직 미적용이다.
+> 2026-11-09 전환 결정: 새 입력·생성 정책은 [제품 계획서](../product/planning-proposal.md#경조사-입력과-등록)를 따른다. 상세 입력 폼을 없애고 텍스트·링크를 JSON으로 처리하며, `dgkma-obituary-writer`의 생성 코드·필수 정보·양식을 기준으로 삼는다. 로컬 스킬 원본은 `/Users/raphael/.agents/skills/dgkma-obituary-writer/SKILL.md`다. 아래 과거 양식을 새 스킬보다 우선하지 않는다. 특히 확인된 별세일·장지·조문 사양과 본인상의 유가족 연락처를 보존하고, 학번 또는 졸업기수 중 확인된 값만 사용한다. 코드·DB 전환은 아직 미적용이다.
 
 - 원본: [Notion 부고문 작성 지침](https://app.notion.com/p/39a2225d9c4d80799e4cd4d43ba05021)
 - 저장 기준일: 2026-07-11

@@ -1,7 +1,7 @@
 # DB 운영 적용 이력（2026-11-09까지）
 
 > 이력 보관본: `main d7184ca`에 있던 문서를 보존했다. 본문 속 “현재”, “최신”, “이번”, 승인·보류 및 명령은 각 작업 당시의 설명이며 현재 상태나 실행 지시가 아니다.
-> 현행 기준은 [docs/database-operations.md](../database-operations.md)을 따른다. 이 문서를 근거로 완료된 SQL·배포·시험을 다시 실행하지 않는다. 문서 이동은 DB나 운영 환경의 재검증을 뜻하지 않는다.
+> 현행 기준은 [docs/database-operations.md](../runbooks/database-operations.md)을 따른다. 이 문서를 근거로 완료된 SQL·배포·시험을 다시 실행하지 않는다. 문서 이동은 DB나 운영 환경의 재검증을 뜻하지 않는다.
 
 # 데이터베이스 운영 런북
 
@@ -185,7 +185,7 @@
 현재 사용자 요청은 **Replit 개발 DB 전환·통합 코드 적용·개발 서버 재시작**이다. 개발 서버를 잠시 멈춘 상태에서 준비된 같은 버전의 코드와 SQL을 함께 적용하고 `npm run dev`로 기동한다. GitHub 게시나 main 병합은 포함하지 않는다. 변경 전 schema-only snapshot과 기존 Git 기준·파일 digest를 개발 workspace의 Git 제외 경로 `.superpowers/`에 보존한다. 기존 두 전용 테이블의 테스트 행은 승인대로 폐기하며 데이터 이관·복원은 수행하지 않는다. 전환 SQL 실패 시 커밋되지 않은 트랜잭션은 종료하고, 성공한 변경의 원복은 자동 실행하지 않는다.
 
 
-- [확정 제품 정책](../../planning_proposal.md#게시글과-경조사-통합)에 따라 통합 구현의 삭제 대상은 `community_events`·`obituaries` 두 테이블과 그 안의 기존 경조사·레거시 부고 데이터다. 새 저장 경로는 `posts`·`categories`와 `posts` 내부 JSONB다. PostgreSQL 데이터베이스 전체, 일반 게시글·댓글·명부 또는 Object Storage 파일 삭제를 뜻하지 않는다.
+- [확정 제품 정책](../product/planning-proposal.md#게시글과-경조사-통합)에 따라 통합 구현의 삭제 대상은 `community_events`·`obituaries` 두 테이블과 그 안의 기존 경조사·레거시 부고 데이터다. 새 저장 경로는 `posts`·`categories`와 `posts` 내부 JSONB다. PostgreSQL 데이터베이스 전체, 일반 게시글·댓글·명부 또는 Object Storage 파일 삭제를 뜻하지 않는다.
 - 사용자가 출시 전 데이터·상세 주소 폐기와 마이그레이션 불필요를 확정했다. 보존 이관·ID 매핑·옛 상세 주소 호환을 작업에 추가하지 않는다. 기존 `migrate-obituaries-to-community-events.sql`은 이 전환에 사용하지 않는다.
 - 2026-11-09 정책 선커밋 후 통합 구현 요청을 받았다. 개발 전환에서는 대상 DB와 의존 관계, 삭제 범위·순서와 복구 가능한 구조 기록을 준비한 뒤 확정된 범위에 적용한다. 무관한 객체를 함께 삭제하는 `DROP ... CASCADE`는 사용하지 않는다.
 - 전환 SQL은 `scripts/unify-posts.sql` 한 트랜잭션으로 posts 컬럼·제약·인덱스 추가 → 카테고리 추가 → 두 구 테이블 DROP 순서다. Development 구조 snapshot과 의존 관계·건수 미리보기 후 적용하며 일반 posts/comments와 다른 테이블의 건수는 보존한다. 실패 시 트랜잭션은 rollback된다. 성공 후에는 구 테스트 행 복원 없이 snapshot으로 구조만 복원할 수 있으나 자동 rollback은 하지 않는다.
@@ -260,7 +260,7 @@ npm run test:development-db
 
 ### 스키마 카탈로그 재검증
 
-현행 구조와 객체의 기준은 [database-schema.md](../database-schema.md)다. Development 기본 metadata-only 재검증은 해당 문서의 catalog SQL을 실행하고 `heliumdb`, read-only, `ROLLBACK`, completion marker를 확인한다. 기존 운영 예시는 보존하며, 이 명령은 행 데이터를 조회하지 않는다.
+현행 구조와 객체의 기준은 [database-schema.md](../reference/database-schema.md)다. Development 기본 metadata-only 재검증은 해당 문서의 catalog SQL을 실행하고 `heliumdb`, read-only, `ROLLBACK`, completion marker를 확인한다. 기존 운영 예시는 보존하며, 이 명령은 행 데이터를 조회하지 않는다.
 
 ```bash
 psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \

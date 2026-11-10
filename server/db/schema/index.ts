@@ -19,21 +19,32 @@ import type { NoticeData } from "@shared/contracts/notices";
 import type { PendingRegistrationUserData } from "@shared/contracts";
 import type { MembershipTier } from "@shared/contracts";
 
-export const sourceCollectionRules = pgTable('source_collection_rules', {
-  id: serial('id').primaryKey(), domain: text('domain').notNull(), pagePattern: text('page_pattern').notNull(),
-  rule: jsonb('rule').notNull(), version: integer('version').notNull().default(1),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  lastSuccessAt: timestamp('last_success_at', { withTimezone: true }).notNull(),
-}, table => [
-  unique('source_collection_rules_domain_pattern_unique').on(table.domain,table.pagePattern),
-  check('source_collection_rules_version_check',sql`${table.version}>0`),
-  check('source_collection_rules_json_check',sql`(jsonb_typeof(${table.rule})='object' AND ${table.rule}->>'schemaVersion'='1') IS TRUE`),
-]);
+export const sourceCollectionRules = pgTable(
+  "source_collection_rules",
+  {
+    id: serial("id").primaryKey(),
+    domain: text("domain").notNull(),
+    pagePattern: text("page_pattern").notNull(),
+    rule: jsonb("rule").notNull(),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    unique("source_collection_rules_domain_pattern_unique").on(table.domain, table.pagePattern),
+    check("source_collection_rules_version_check", sql`${table.version}>0`),
+    check(
+      "source_collection_rules_json_check",
+      sql`(jsonb_typeof(${table.rule})='object' AND ${table.rule}->>'schemaVersion'='1') IS TRUE`,
+    ),
+  ],
+);
 
 export {
   PENDING_REGISTRATION_CONFLICT_REASONS,
   insertPostSchema,
+  insertCommentSchema,
   REGION_OPTIONS,
   activityRegionSchema,
   ANNUAL_DUES,
@@ -42,6 +53,7 @@ export {
 export type {
   PendingRegistrationConflictReason,
   PendingRegistrationUserData,
+  InsertComment,
   ClientUser,
   AdminPendingRegistrationDto,
   AdminPendingRegistrationUpdateResult,
@@ -80,32 +92,46 @@ export const categories = pgTable("categories", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const posts = pgTable("posts", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  content: jsonb("content").$type<PostDocument>().notNull(),
-  categoryId: integer("category_id").references(() => categories.id),
-  authorId: integer("author_id").references(() => users.id),
-  isPublished: boolean("is_published").default(true),
-  isHidden: boolean("is_hidden").notNull().default(false),
-  imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
-  eventData: jsonb("event_data").$type<NoticeData>(),
-  sourceText: text("source_text"),
-  revision: integer("revision").notNull().default(0),
-  publishedAt: timestamp("published_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-  check("posts_content_document_check", sql`(jsonb_typeof(${table.content}) = 'object' AND ${table.content}->>'type' = 'doc' AND jsonb_typeof(${table.content}->'content') = 'array') IS TRUE`),
-  check("posts_notice_type_check", sql`${table.eventData} IS NULL OR (${table.eventData}->>'schemaVersion' = '1' AND ${table.eventData}->>'eventType' IN ('obituary', 'wedding', 'opening')) IS TRUE`),
-  check("posts_revision_check", sql`${table.revision} >= 0`),
-  uniqueIndex("posts_notice_draft_unique").on(table.authorId, sql`(${table.eventData}->>'eventType')`).where(sql`${table.isPublished} = false AND ${table.eventData} IS NOT NULL`),
-]);
+export const posts = pgTable(
+  "posts",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    content: jsonb("content").$type<PostDocument>().notNull(),
+    categoryId: integer("category_id").references(() => categories.id),
+    authorId: integer("author_id").references(() => users.id),
+    isPublished: boolean("is_published").default(true),
+    isHidden: boolean("is_hidden").notNull().default(false),
+    imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
+    eventData: jsonb("event_data").$type<NoticeData>(),
+    sourceText: text("source_text"),
+    revision: integer("revision").notNull().default(0),
+    publishedAt: timestamp("published_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    check(
+      "posts_content_document_check",
+      sql`(jsonb_typeof(${table.content}) = 'object' AND ${table.content}->>'type' = 'doc' AND jsonb_typeof(${table.content}->'content') = 'array') IS TRUE`,
+    ),
+    check(
+      "posts_notice_type_check",
+      sql`${table.eventData} IS NULL OR (${table.eventData}->>'schemaVersion' = '1' AND ${table.eventData}->>'eventType' IN ('obituary', 'wedding', 'opening')) IS TRUE`,
+    ),
+    check("posts_revision_check", sql`${table.revision} >= 0`),
+    uniqueIndex("posts_notice_draft_unique")
+      .on(table.authorId, sql`(${table.eventData}->>'eventType')`)
+      .where(sql`${table.isPublished} = false AND ${table.eventData} IS NOT NULL`),
+  ],
+);
 
 // 게시글 댓글. authorId/postId 는 서버에서 세션·URL 로 채움(본문은 content 만).
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
-  postId: integer("post_id").notNull().references(() => posts.id, { onDelete: "cascade" }),
+  postId: integer("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
   authorId: integer("author_id").references(() => users.id),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -140,35 +166,40 @@ export const alumniDatabase = pgTable("alumni_database", {
   matchedUserId: integer("matched_user_id").references(() => users.id),
 });
 
-export const alumniNameAliases = pgTable("alumni_name_aliases", {
-  id: serial("id").primaryKey(),
-  alumniId: integer("alumni_id")
-    .notNull()
-    .references(() => alumniDatabase.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  normalizedName: text("normalized_name").notNull(),
-  aliasType: text("alias_type").notNull(),
-  isPreferred: boolean("is_preferred").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (table) => [
-  check(
-    "alumni_name_aliases_type_check",
-    sql`${table.aliasType} IN ('current_name', 'former_name')`,
-  ),
-  check(
-    "alumni_name_aliases_normalized_not_blank",
-    sql`length(${table.normalizedName}) > 0`,
-  ),
-  uniqueIndex("alumni_name_aliases_alumni_normalized_unique")
-    .on(table.alumniId, table.normalizedName),
-  uniqueIndex("alumni_name_aliases_preferred_unique")
-    .on(table.alumniId)
-    .where(sql`${table.isPreferred} = true`),
-  index("alumni_name_aliases_normalized_idx").on(table.normalizedName),
-]);
+export const alumniNameAliases = pgTable(
+  "alumni_name_aliases",
+  {
+    id: serial("id").primaryKey(),
+    alumniId: integer("alumni_id")
+      .notNull()
+      .references(() => alumniDatabase.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    aliasType: text("alias_type").notNull(),
+    isPreferred: boolean("is_preferred").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    check(
+      "alumni_name_aliases_type_check",
+      sql`${table.aliasType} IN ('current_name', 'former_name')`,
+    ),
+    check("alumni_name_aliases_normalized_not_blank", sql`length(${table.normalizedName}) > 0`),
+    uniqueIndex("alumni_name_aliases_alumni_normalized_unique").on(
+      table.alumniId,
+      table.normalizedName,
+    ),
+    uniqueIndex("alumni_name_aliases_preferred_unique")
+      .on(table.alumniId)
+      .where(sql`${table.isPreferred} = true`),
+    index("alumni_name_aliases_normalized_idx").on(table.normalizedName),
+  ],
+);
 
 export const eventParseRateLimits = pgTable("event_parse_rate_limits", {
-  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
   windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
   requestCount: integer("request_count").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -269,23 +300,9 @@ export const insertCategorySchema = createInsertSchema(categories).omit({
   updatedAt: true,
 });
 
-// 댓글 작성 입력 — 본문(content)만 검증. postId 는 URL, authorId 는 세션에서 채움.
-export const insertCommentSchema = createInsertSchema(comments)
-  .pick({ content: true })
-  .extend({
-    content: z
-      .string()
-      .min(1, "댓글 내용을 입력해주세요")
-      .max(1000, "댓글은 1000자 이내로 입력해주세요"),
-  });
-
 export const insertPaymentSchema = createInsertSchema(payments).omit({
   id: true,
   createdAt: true,
-});
-
-export const insertAlumniSchema = createInsertSchema(alumniDatabase).omit({
-  id: true,
 });
 
 export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistrations).omit({
@@ -301,12 +318,9 @@ export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Post = typeof posts.$inferSelect;
 export type InsertPost = typeof posts.$inferInsert;
 export type Comment = typeof comments.$inferSelect;
-export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type AlumniRecord = typeof alumniDatabase.$inferSelect;
-export type AlumniNameAlias = typeof alumniNameAliases.$inferSelect;
-export type InsertAlumniRecord = z.infer<typeof insertAlumniSchema>;
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
 

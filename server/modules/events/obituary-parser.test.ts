@@ -57,7 +57,8 @@ test("uses a generation shorthand as member evidence and keeps self-obituary ide
 });
 
 test("keeps a renamed self obituary and extracts the named family contact", () => {
-  const parsed = parseObituaryEventSource(`
+  const parsed = parseObituaryEventSource(
+    `
 1기 김현재 (개명 전 김이전) 본인상
 향년 66세
 장남-김유족(010-0000-0000)
@@ -65,7 +66,8 @@ test("keeps a renamed self obituary and extracts the named family contact", () =
 故 김현재
 발인: 2026년 8월 18일 오전 7시
 빈소: 동국장례식장 1호실
-  `.trim());
+  `.trim(),
+  );
 
   assert.deepEqual(parsed.missingFields, []);
   assert.equal(parsed.draft.relatedMemberName, "김현재");
@@ -77,7 +79,8 @@ test("keeps a renamed self obituary and extracts the named family contact", () =
 });
 
 test("infers a father obituary only when a named member is listed as the deceased man's daughter", () => {
-  const parsed = parseObituaryEventSource(`
+  const parsed = parseObituaryEventSource(
+    `
 졸업21기 조은영
 故 조성목
 (남/78세)
@@ -87,7 +90,8 @@ test("infers a father obituary only when a named member is listed as the decease
 2026년 8월 3일 10시 00분
 빈소
 기품장례식장 1호실
-  `.trim());
+  `.trim(),
+  );
 
   assert.equal(parsed.draft.relatedMemberName, "조은영");
   assert.equal(parsed.draft.details.relationship, "부친");
@@ -109,7 +113,8 @@ test("does not infer a parent relationship when the deceased sex is absent", () 
 });
 
 test("maps a standard obituary message into the community-event draft", () => {
-  const parsed = parseObituaryEventSource(`
+  const parsed = parseObituaryEventSource(
+    `
 김동국 동문 부친상
 故김한의 (향년 88세)
 발인: 2026년 6월 12일(금요일) 오전 7시 30분
@@ -119,7 +124,8 @@ test("maps a standard obituary message into the community-event draft", () => {
 마음 전하실 곳: 동국은행 000-000-000000 김동국
 연락처: 010-0000-0000
 https://example.com/obituary
-  `.trim());
+  `.trim(),
+  );
 
   assert.deepEqual(parsed.missingFields, []);
   assert.equal(parsed.draft.eventType, "obituary");
@@ -156,33 +162,39 @@ test("extracts a deceased age from a parenthesized gender-first public profile",
 });
 
 test("skips the obituary section heading when extracting chief mourners", () => {
-  const parsed = parseObituaryEventSource(`
+  const parsed = parseObituaryEventSource(
+    `
 상주 정보
 상주
 김동국 김한방
 사위
 이동국
-  `.trim());
+  `.trim(),
+  );
 
   assert.equal(parsed.draft.details.chiefMourner, "김동국 김한방");
 });
 
 test("does not treat account selection instructions as a condolence account", () => {
-  const parsed = parseObituaryEventSource(`
+  const parsed = parseObituaryEventSource(
+    `
 마음 전하실 곳
 조의금을 받으실 상주를 선택하세요.
-  `.trim());
+  `.trim(),
+  );
 
   assert.equal(parsed.draft.accountInfo, undefined);
   assert.equal(parsed.draft.details.accountInfo, undefined);
 });
 
 test("joins a funeral room split onto the next public page line", () => {
-  const parsed = parseObituaryEventSource(`
+  const parsed = parseObituaryEventSource(
+    `
 빈소
 동국병원 장례식장
 8호실
-  `.trim());
+  `.trim(),
+  );
 
   assert.equal(parsed.draft.location, "동국병원 장례식장 8호실");
   assert.equal(parsed.draft.details.funeralHome, "동국병원 장례식장 8호실");

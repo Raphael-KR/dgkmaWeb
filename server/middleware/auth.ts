@@ -9,9 +9,7 @@ export const requireAuthenticated: RequestHandler = (req, res, next) => {
   next();
 };
 
-export type AdminUserLookup = (
-  userId: number,
-) => Promise<{ isAdmin?: boolean | null } | undefined>;
+export type AdminUserLookup = (userId: number) => Promise<{ isAdmin?: boolean | null } | undefined>;
 
 export function createRequireAdmin(getUser: AdminUserLookup): RequestHandler {
   return async (req, res, next) => {

@@ -1,9 +1,5 @@
 export type KakaoUnlinkErrorKind =
-  | "already_unlinked"
-  | "invalid_response"
-  | "kakao_error"
-  | "network_error"
-  | "response_mismatch";
+  "already_unlinked" | "invalid_response" | "kakao_error" | "network_error" | "response_mismatch";
 
 export class KakaoUnlinkError extends Error {
   constructor(

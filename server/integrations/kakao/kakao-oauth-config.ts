@@ -22,9 +22,7 @@ const KAKAO_REDIRECT_URIS = {
   production: "https://dgkma.org/kakao-callback",
 } as const;
 
-export function resolveKakaoOAuthConfig(
-  env: NodeJS.ProcessEnv = process.env,
-): KakaoOAuthConfig {
+export function resolveKakaoOAuthConfig(env: NodeJS.ProcessEnv = process.env): KakaoOAuthConfig {
   const environment: KakaoOAuthEnvironment =
     env.REPLIT_DEPLOYMENT === "1" ? "production" : "development";
   const prefix = environment === "production" ? "KAKAO_PROD" : "KAKAO_DEV";
@@ -42,10 +40,7 @@ export function resolveKakaoOAuthConfig(
     .filter(([key]) => !values[key as keyof typeof values])
     .map(([, variableName]) => variableName);
 
-  if (
-    values.redirectUri &&
-    values.redirectUri !== KAKAO_REDIRECT_URIS[environment]
-  ) {
+  if (values.redirectUri && values.redirectUri !== KAKAO_REDIRECT_URIS[environment]) {
     missingVariables.push(names.redirectUri);
   }
 
@@ -57,9 +52,7 @@ export function resolveKakaoOAuthConfig(
 }
 
 export function buildKakaoAuthorizeUrl(config: KakaoOAuthConfig, state: string): string {
-  const scope = config.environment === "production"
-    ? KAKAO_PRODUCTION_SCOPE
-    : KAKAO_BASE_SCOPE;
+  const scope = config.environment === "production" ? KAKAO_PRODUCTION_SCOPE : KAKAO_BASE_SCOPE;
   const params = new URLSearchParams({
     client_id: config.restApiKey,
     redirect_uri: config.redirectUri,
@@ -70,10 +63,7 @@ export function buildKakaoAuthorizeUrl(config: KakaoOAuthConfig, state: string):
   return `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 }
 
-export function buildKakaoTokenBody(
-  config: KakaoOAuthConfig,
-  code: string,
-): URLSearchParams {
+export function buildKakaoTokenBody(config: KakaoOAuthConfig, code: string): URLSearchParams {
   return new URLSearchParams({
     grant_type: "authorization_code",
     client_id: config.restApiKey,

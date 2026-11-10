@@ -8,38 +8,55 @@ const GIPOOM_API_ROOT = "https://api.smartnanumi.com/public/member/";
 const PUBLIC_ID_PATTERN = /^[0-9a-f]{24}$/i;
 
 const optionalText = z.string().trim().min(1).nullish();
-const gipoomResponseSchema = z.object({
-  name: optionalText,
-  phoneNumber: optionalText,
-  reverseType: optionalText,
-  bank: optionalText,
-  cashAccount: optionalText,
-  accountHolder: optionalText,
-  fevent: z.object({
-    deceasedInfo: z.object({
-      name: z.string().trim().min(1),
-      age: z.number().int().positive().max(130),
-      sex: z.enum(["남", "여"]).nullish(),
-      cemetery: optionalText,
-      deathDate: optionalText,
-      coffinOut: z.object({
-        date: optionalText,
-        time: optionalText,
-      }).nullish(),
-    }).passthrough(),
-    funeralHome: z.object({
-      info: z.object({ name: optionalText }).passthrough().nullish(),
-    }).passthrough().nullish(),
-    roomCurrent: z.object({
-      name: optionalText,
-      nameDetail: optionalText,
-    }).passthrough().nullish(),
-    room: z.object({
-      name: optionalText,
-      nameDetail: optionalText,
-    }).passthrough().nullish(),
-  }).passthrough(),
-}).passthrough();
+const gipoomResponseSchema = z
+  .object({
+    name: optionalText,
+    phoneNumber: optionalText,
+    reverseType: optionalText,
+    bank: optionalText,
+    cashAccount: optionalText,
+    accountHolder: optionalText,
+    fevent: z
+      .object({
+        deceasedInfo: z
+          .object({
+            name: z.string().trim().min(1),
+            age: z.number().int().positive().max(130),
+            sex: z.enum(["남", "여"]).nullish(),
+            cemetery: optionalText,
+            deathDate: optionalText,
+            coffinOut: z
+              .object({
+                date: optionalText,
+                time: optionalText,
+              })
+              .nullish(),
+          })
+          .passthrough(),
+        funeralHome: z
+          .object({
+            info: z.object({ name: optionalText }).passthrough().nullish(),
+          })
+          .passthrough()
+          .nullish(),
+        roomCurrent: z
+          .object({
+            name: optionalText,
+            nameDetail: optionalText,
+          })
+          .passthrough()
+          .nullish(),
+        room: z
+          .object({
+            name: optionalText,
+            nameDetail: optionalText,
+          })
+          .passthrough()
+          .nullish(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
 
 export type GipoomPublicApiDependencies = {
   fetchJson?: (url: string, signal?: AbortSignal) => Promise<unknown>;
@@ -50,16 +67,17 @@ function sourceUrl(rawUrl: string): URL | undefined {
     const url = new URL(rawUrl);
     const pathParts = url.pathname.split("/").filter(Boolean);
     if (
-      url.protocol !== "https:"
-      || url.username
-      || url.password
-      || (url.port && url.port !== "443")
-      || url.hostname.toLowerCase().replace(/\.$/, "") !== GIPOOM_SOURCE_HOST
-      || pathParts.length !== 1
-      || !PUBLIC_ID_PATTERN.test(pathParts[0])
-      || url.search
-      || url.hash
-    ) return undefined;
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      (url.port && url.port !== "443") ||
+      url.hostname.toLowerCase().replace(/\.$/, "") !== GIPOOM_SOURCE_HOST ||
+      pathParts.length !== 1 ||
+      !PUBLIC_ID_PATTERN.test(pathParts[0]) ||
+      url.search ||
+      url.hash
+    )
+      return undefined;
     return url;
   } catch {
     return undefined;
@@ -73,7 +91,8 @@ export function isGipoomPublicObituaryUrl(rawUrl: string): boolean {
 export function decodeGipoomPublicId(encoded: string): string {
   if (!PUBLIC_ID_PATTERN.test(encoded)) throw new Error("올바르지 않은 기품 공개 링크 ID입니다");
   return Array.from(encoded.toLowerCase(), (character, index) =>
-    ((Number.parseInt(character, 16) - index % 16 + 16) % 16).toString(16))
+    ((Number.parseInt(character, 16) - (index % 16) + 16) % 16).toString(16),
+  )
     .join("")
     .split("")
     .reverse()
@@ -122,14 +141,17 @@ function timeParts(value: string): { hour: number; minute: number } | undefined 
   return match ? { hour: Number(match[1]), minute: Number(match[2]) } : undefined;
 }
 
-function formatFuneralDate(dateValue?: string | null, timeValue?: string | null): string | undefined {
+function formatFuneralDate(
+  dateValue?: string | null,
+  timeValue?: string | null,
+): string | undefined {
   if (!dateValue) return undefined;
   const date = dateParts(dateValue);
   if (!date) return undefined;
   const time = timeValue ? timeParts(timeValue) : undefined;
-  return `${date.year}년 ${date.month}월 ${date.day}일${time
-    ? ` ${time.hour}시 ${String(time.minute).padStart(2, "0")}분`
-    : ""}`;
+  return `${date.year}년 ${date.month}월 ${date.day}일${
+    time ? ` ${time.hour}시 ${String(time.minute).padStart(2, "0")}분` : ""
+  }`;
 }
 
 function normalizedPhone(value?: string | null): string | undefined {
@@ -156,9 +178,7 @@ function relationLines(reverseType?: string | null, memberName?: string | null):
   ]);
   const relationship = canonical.get(reverseType);
   if (relationship) {
-    return memberName
-      ? [`${memberName} 동문 ${relationship}상`]
-      : [`관계: ${relationship}`];
+    return memberName ? [`${memberName} 동문 ${relationship}상`] : [`관계: ${relationship}`];
   }
   return [reverseType, ...(memberName ? [memberName] : [])];
 }
@@ -171,9 +191,10 @@ function renderSelectedFields(value: z.infer<typeof gipoomResponseSchema>): stri
     .join(" ");
   const funeralDate = formatFuneralDate(deceased.coffinOut?.date, deceased.coffinOut?.time);
   const phone = normalizedPhone(value.phoneNumber);
-  const account = value.bank && value.cashAccount && value.accountHolder
-    ? `${value.bank} ${value.cashAccount} ${value.accountHolder}`
-    : undefined;
+  const account =
+    value.bank && value.cashAccount && value.accountHolder
+      ? `${value.bank} ${value.cashAccount} ${value.accountHolder}`
+      : undefined;
   const lines = [
     `故 ${deceased.name}`,
     deceased.sex ? `${deceased.sex}/${deceased.age}세` : `향년 ${deceased.age}세`,
@@ -188,47 +209,64 @@ function renderSelectedFields(value: z.infer<typeof gipoomResponseSchema>): stri
   return lines.filter((line): line is string => Boolean(line)).join("\n");
 }
 
-export async function readGipoomPublicObituary(
-  rawUrl: string,
-  dependencies: GipoomPublicApiDependencies = {},
-  signal?: AbortSignal,
-): Promise<string> {
-  const source = sourceUrl(rawUrl);
-  if (!source) throw new Error("지원하지 않는 기품 공개 링크입니다");
-  const encodedId = source.pathname.slice(1);
-  const fetchJson = dependencies.fetchJson ?? ((url, requestSignal) =>
-    fetchPublicJson(url, undefined, requestSignal));
-  const response = await fetchJson(`${GIPOOM_API_ROOT}${decodeGipoomPublicId(encodedId)}`, signal);
-  const parsed = gipoomResponseSchema.safeParse(response);
-  if (!parsed.success) throw new Error("기품 공개 정보 형식을 확인할 수 없습니다");
-  return renderSelectedFields(parsed.data);
-}
-
 // Website fetch remains bounded and SSRF-checked; upstream Python does selection only.
-export async function readGipoomNotice(rawUrl: string, signal?: AbortSignal): Promise<{ text: string; facts: NoticeFacts }> {
+export async function readGipoomNotice(
+  rawUrl: string,
+  signal?: AbortSignal,
+  dependencies: GipoomPublicApiDependencies = {},
+): Promise<{ text: string; facts: NoticeFacts }> {
   const source = sourceUrl(rawUrl);
   if (!source) throw new Error("Unsupported public obituary URL");
-  const response = await fetchPublicJson(`${GIPOOM_API_ROOT}${decodeGipoomPublicId(source.pathname.slice(1))}`, undefined, signal);
+  const fetchJson =
+    dependencies.fetchJson ??
+    ((url, requestSignal) => fetchPublicJson(url, undefined, requestSignal));
+  const response = await fetchJson(
+    `${GIPOOM_API_ROOT}${decodeGipoomPublicId(source.pathname.slice(1))}`,
+    signal,
+  );
   const data = gipoomResponseSchema.parse(response);
   const selected = await runNoticeWriter<{
     member: { name: string | null; reverseType: string | null };
     deceased: { name: string | null; age: number | null; deathDate?: string };
     contact: { bank: string | null; accountNumber: string | null; accountHolder: string | null };
-    funeral: { funeralHome: string | null; room: string | null; floor: string | null; coffinOutDate: string | null; coffinOutTime: string | null; cemetery?: string; visitationDeclined?: boolean };
+    funeral: {
+      funeralHome: string | null;
+      room: string | null;
+      floor: string | null;
+      coffinOutDate: string | null;
+      coffinOutTime: string | null;
+      cemetery?: string;
+      visitationDeclined?: boolean;
+    };
   }>({ action: "extract", data, url: rawUrl });
   const facts = emptyNoticeFacts();
   Object.assign(facts, {
-    memberName: selected.member.name, relation: selected.member.reverseType?.replace(/상$/, "") ?? null,
-    deceasedName: selected.deceased.name, deceasedAge: selected.deceased.age ? String(selected.deceased.age) : null,
-    deathDate: selected.deceased.deathDate ?? null, date: selected.funeral.coffinOutDate, time: selected.funeral.coffinOutTime,
-    place: selected.funeral.funeralHome, room: selected.funeral.room, floor: selected.funeral.floor,
-    cemetery: selected.funeral.cemetery ?? null, visitationDeclined: selected.funeral.visitationDeclined === true,
+    memberName: selected.member.name,
+    relation: selected.member.reverseType?.replace(/상$/, "") ?? null,
+    deceasedName: selected.deceased.name,
+    deceasedAge: selected.deceased.age ? String(selected.deceased.age) : null,
+    deathDate: selected.deceased.deathDate ?? null,
+    date: selected.funeral.coffinOutDate,
+    time: selected.funeral.coffinOutTime,
+    place: selected.funeral.funeralHome,
+    room: selected.funeral.room,
+    floor: selected.funeral.floor,
+    cemetery: selected.funeral.cemetery ?? null,
+    visitationDeclined: selected.funeral.visitationDeclined === true,
   });
   if (facts.relation === "장인") facts.relation = "빙부";
   if (facts.relation === "장모") facts.relation = "빙모";
   const account = selected.contact;
   if (account.bank && account.accountNumber && account.accountHolder) {
-    facts.accounts = [{ role: "member", label: "", bank: account.bank, number: account.accountNumber, holder: account.accountHolder }];
+    facts.accounts = [
+      {
+        role: "member",
+        label: "",
+        bank: account.bank,
+        number: account.accountNumber,
+        holder: account.accountHolder,
+      },
+    ];
   }
   // A deceased person's phone cannot become the family contact automatically.
   return { text: renderSelectedFields(data), facts };

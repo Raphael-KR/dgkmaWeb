@@ -1,7 +1,7 @@
 # DB 구조 변경·catalog 이력（2026-11-09까지）
 
 > 이력 보관본: `main d7184ca`에 있던 문서를 보존했다. 본문 속 “현재”, “최신”, “이번”, 승인·보류 및 명령은 각 작업 당시의 설명이며 현재 상태나 실행 지시가 아니다.
-> 현행 기준은 [docs/database-schema.md](../database-schema.md)을 따른다. 이 문서를 근거로 완료된 SQL·배포·시험을 다시 실행하지 않는다. 문서 이동은 DB나 운영 환경의 재검증을 뜻하지 않는다.
+> 현행 기준은 [docs/database-schema.md](../reference/database-schema.md)을 따른다. 이 문서를 근거로 완료된 SQL·배포·시험을 다시 실행하지 않는다. 문서 이동은 DB나 운영 환경의 재검증을 뜻하지 않는다.
 
 # 데이터베이스 스키마 기준서
 
@@ -102,7 +102,7 @@
 
 ### 게시글 통합 구조 (2026-11-09)
 
-최초 개발 전환 이력은 **코드 구현·Development 스키마 적용**이다. [제품 정책](../../planning_proposal.md#게시글과-경조사-통합)에 따라 2026-11-09 03:17:22 KST에 `scripts/unify-posts.sql`을 커밋했다. 03:21 KST 새 연결의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 아래 개발 구조를 확인했다. 전환 SQL은 재실행하지 않는다. 당시 Production은 조회하지 않았으며 이후 운영 추가 구조 적용은 위 최신 기록을 따른다.
+최초 개발 전환 이력은 **코드 구현·Development 스키마 적용**이다. [제품 정책](../product/planning-proposal.md#게시글과-경조사-통합)에 따라 2026-11-09 03:17:22 KST에 `scripts/unify-posts.sql`을 커밋했다. 03:21 KST 새 연결의 metadata-only catalog는 read-only gate·ROLLBACK·completion marker로 종료됐고 아래 개발 구조를 확인했다. 전환 SQL은 재실행하지 않는다. 당시 Production은 조회하지 않았으며 이후 운영 추가 구조 적용은 위 최신 기록을 따른다.
 
 - 모든 게시물과 경조사 초안은 `posts`를 사용하고 분류는 `categories`를 사용한다. `community_events`·`obituaries`는 통합 코드와 Development에서 삭제했으며 별도 경조사 상세 테이블로 대체하지 않는다.
 - 기존 공지·자유·행사·소식에 `부고`·`경사` 카테고리를 추가한다. `경사` JSON의 유형은 결혼·개원만 허용하며 기타 유형은 제거한다. 부고·경사의 게시문 회원 호칭은 동문·회원·권리회원으로 통일한다.
@@ -467,6 +467,6 @@ registration/approval, account deletion, alumni claim/sync는 여러 owner의 �
 
 ## 14. revalidation link/checklist
 
-Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](../database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행한다. Production은 연결 문자열을 명시적으로 선택하고 `expected_database=neondb` safety gate, `READ ONLY`, `ROLLBACK`, completion marker를 모두 확인한다.
+Canonical metadata-only SQL은 [`scripts/database-schema-catalog.sql`](../../scripts/database-schema-catalog.sql)이며, 운영 절차는 [`docs/database-operations.md`](../runbooks/database-operations.md)의 **스키마 카탈로그 재검증**을 따른다. Development 기본 재검증은 Replit SSH에서 `psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb -f scripts/database-schema-catalog.sql`로 실행한다. Production은 연결 문자열을 명시적으로 선택하고 `expected_database=neondb` safety gate, `READ ONLY`, `ROLLBACK`, completion marker를 모두 확인한다.
 
 현재 재검증에서는 선택한 환경·소스 버전과 catalog 객체의 이름·타입·기본값·제약·인덱스 정의를 대조한다. Development는 위 2026-11-09 통합 구조를 기준으로 하고, Production의 과거 14개 테이블 수치를 현재 관찰이나 고정 통과 조건으로 대신하지 않는다. metadata-only 결과에는 행·PII·Secret을 저장하지 않는다.

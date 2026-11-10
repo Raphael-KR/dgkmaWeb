@@ -1,14 +1,11 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/features/auth";
 import { AppHeader } from "./app-header";
-import Navigation from "./navigation";
 import { BottomNavigation } from "./bottom-navigation";
 import { Router } from "../routing/router";
 import { isPublicPath } from "../routing/public-paths";
 
 export function AppShell() {
-  const [isNavOpen, setIsNavOpen] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
 
@@ -24,12 +21,7 @@ export function AppShell() {
 
   return (
     <div className={`min-h-screen ${showMemberChrome ? "bg-gray-50 pb-16 md:pb-0" : ""}`}>
-      {showMemberChrome && (
-        <>
-          <AppHeader />
-          <Navigation isOpen={isNavOpen} setIsOpen={setIsNavOpen} />
-        </>
-      )}
+      {showMemberChrome && <AppHeader />}
       <main>
         <Router />
       </main>

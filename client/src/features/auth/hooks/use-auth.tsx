@@ -1,13 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-// Note: Using Supabase for database only, not for authentication
+import { queryClient } from "@/lib/queryClient";
+// 회원 인증 상태는 서버의 카카오 REST OAuth·Express 세션에서 조회한다.
 import type { ClientUser } from "@shared/contracts";
 
 export type LoginResult =
-  | { status: "success"; user: ClientUser }
-  | { status: "requiresApproval" }
-  | { status: "failure" };
+  { status: "success"; user: ClientUser } | { status: "requiresApproval" } | { status: "failure" };
 
 interface AuthContextType {
   user: ClientUser | null;
@@ -87,19 +86,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    let status: number | null = null;
     try {
-      const response = await fetch("/api/auth/logout", { 
-        method: "POST", 
-        credentials: "include" 
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
       });
-      
-      if (!response.ok) {
-        console.warn("Server logout failed, continuing with client-side logout");
-      }
+      status = response.status;
+      if (!response.ok) throw new Error("logout_rejected");
     } catch (error) {
-      console.warn("Logout request failed:", error);
+      console.warn("Logout failed", {
+        errorType: error instanceof Error ? error.name : "UnknownError",
+        httpStatus: status,
+        privateDataOmitted: true,
+      });
+      toast({
+        title: "로그아웃 실패",
+        description: "로그아웃을 완료하지 못했습니다. 다시 시도해 주세요.",
+        variant: "destructive",
+      });
+      return;
     }
-    
+
+    queryClient.clear();
     setUser(null);
     setLocation("/login");
     toast({

@@ -6,7 +6,6 @@ export interface IdentityStorageContract {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByKakaoId(kakaoId: string): Promise<User | undefined>;
   getUserByNormalizedPhone(phoneNumber: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
   updateUser(
     id: number,
     user: Partial<InsertUser>,

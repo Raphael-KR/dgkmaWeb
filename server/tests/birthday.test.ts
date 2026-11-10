@@ -30,6 +30,12 @@ test("leap lunar birthday matches only the leap month", () => {
 
 test("missing or malformed birthday data never matches", () => {
   const now = new Date("2024-01-01T03:00:00.000Z");
-  assert.equal(isBirthdayToday({ birthday: null, birthdayType: null, isLeapMonth: null }, now), false);
-  assert.equal(isBirthdayToday({ birthday: "1332", birthdayType: "SOLAR", isLeapMonth: false }, now), false);
+  assert.equal(
+    isBirthdayToday({ birthday: null, birthdayType: null, isLeapMonth: null }, now),
+    false,
+  );
+  assert.equal(
+    isBirthdayToday({ birthday: "1332", birthdayType: "SOLAR", isLeapMonth: false }, now),
+    false,
+  );
 });

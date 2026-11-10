@@ -45,9 +45,10 @@ test("a missing selected administrator allowlist safely grants nobody", () => {
 
 test("invalid administrator identifiers report only the selected variable name", () => {
   assert.throws(
-    () => resolveKakaoAdminAllowlist({
-      KAKAO_DEV_ADMIN_USER_IDS: "123456789,not-a-kakao-id",
-    }),
+    () =>
+      resolveKakaoAdminAllowlist({
+        KAKAO_DEV_ADMIN_USER_IDS: "123456789,not-a-kakao-id",
+      }),
     (error) => {
       assert.ok(error instanceof KakaoAdminAllowlistConfigurationError);
       assert.equal(error.variableName, "KAKAO_DEV_ADMIN_USER_IDS");

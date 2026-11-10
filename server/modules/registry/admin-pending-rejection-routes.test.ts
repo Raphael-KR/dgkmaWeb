@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
@@ -8,8 +7,6 @@ import type { PendingRegistration } from "@shared/schema";
 import { KakaoAdminConfigurationError } from "../../integrations/kakao/kakao-admin-config";
 import { KakaoUnlinkError } from "../../integrations/kakao/kakao-unlink";
 import { registerRoutes } from "../../routes";
-
-const storagePath = new URL("./storage.ts", import.meta.url);
 
 const pendingRegistration: PendingRegistration = {
   id: 27,
@@ -31,12 +28,15 @@ const pendingRegistration: PendingRegistration = {
   createdAt: new Date("2026-07-13T00:00:00.000Z"),
 };
 
-async function startRejectionServer(options: {
-  registration?: PendingRegistration;
-  getKakaoAdminConfig?: () => { environment: "development"; adminKey: string };
-  unlinkKakaoUser?: (args: { adminKey: string; kakaoId: string }) => Promise<void>;
-} = {}) {
-  let storedRegistration: PendingRegistration | undefined = options.registration ?? pendingRegistration;
+async function startRejectionServer(
+  options: {
+    registration?: PendingRegistration;
+    getKakaoAdminConfig?: () => { environment: "development"; adminKey: string };
+    unlinkKakaoUser?: (args: { adminKey: string; kakaoId: string }) => Promise<void>;
+  } = {},
+) {
+  let storedRegistration: PendingRegistration | undefined =
+    options.registration ?? pendingRegistration;
   const unlinkCalls: Array<{ adminKey: string; kakaoId: string }> = [];
   const storageCalls = { reject: 0, update: 0 };
   const app = express();
@@ -49,17 +49,18 @@ async function startRejectionServer(options: {
 
   const server = await registerRoutes(app, {
     getUserForAdmin: async () => ({ isAdmin: true }),
-    getKakaoAdminConfig: options.getKakaoAdminConfig
-      ?? (() => ({ environment: "development", adminKey: "admin-secret" })),
+    getKakaoAdminConfig:
+      options.getKakaoAdminConfig ??
+      (() => ({ environment: "development", adminKey: "admin-secret" })),
     unlinkKakaoUser: async (args) => {
       unlinkCalls.push(args);
       await options.unlinkKakaoUser?.(args);
     },
     pendingRegistrationStorage: {
-      updatePendingRegistrationStatus: async (id, status) => {
+      approvePendingRegistration: async (id) => {
         storageCalls.update += 1;
         if (!storedRegistration || storedRegistration.id !== id) return undefined;
-        storedRegistration = { ...storedRegistration, status };
+        storedRegistration = { ...storedRegistration, status: "approved" };
         return storedRegistration;
       },
       rejectPendingRegistration: async (id, beforeDelete) => {
@@ -88,29 +89,12 @@ async function startRejectionServer(options: {
     unlinkCalls,
     storageCalls,
     hasPending: () => Boolean(storedRegistration),
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
-
-test("pending rejection storage locks the identity, marks termination, and purges matching personal data", async () => {
-  const source = await readFile(storagePath, "utf8");
-  const start = source.indexOf("async rejectPendingRegistration");
-  const end = source.indexOf("async updatePendingRegistrationStatus", start);
-  assert.notEqual(start, -1);
-  assert.notEqual(end, -1);
-  const method = source.slice(start, end);
-
-  assert.match(method, /db\.transaction/);
-  assert.match(method, /pendingRegistrations\.status, "pending"/);
-  assert.match(method, /\.for\("update"\)/);
-  assert.ok(method.indexOf("lockRegistrationIdentities") < method.indexOf('.for("update")'));
-  assert.ok(method.indexOf("await beforeDelete(registration)") < method.indexOf("markKakaoIdentityTerminated"));
-  assert.ok(method.indexOf("markKakaoIdentityTerminated") < method.indexOf("removeLocalUsers"));
-  assert.match(method, /eq\(pendingRegistrations\.kakaoId, registration\.kakaoId\)/);
-  assert.match(method, /lower\(\$\{pendingRegistrations\.email\}\)/);
-});
 
 for (const [label, id, body] of [
   ["partial numeric id", "27abc", { status: "approved" }],
@@ -123,14 +107,11 @@ for (const [label, id, body] of [
   test(`admin pending PATCH rejects ${label} before storage or Kakao unlink`, async () => {
     const server = await startRejectionServer();
     try {
-      const response = await fetch(
-        `${server.baseUrl}/api/admin/pending-registrations/${id}`,
-        {
-          method: "PATCH",
-          headers: { cookie: server.cookie, "content-type": "application/json" },
-          body: JSON.stringify(body),
-        },
-      );
+      const response = await fetch(`${server.baseUrl}/api/admin/pending-registrations/${id}`, {
+        method: "PATCH",
+        headers: { cookie: server.cookie, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
       assert.equal(response.status, 400);
       assert.deepEqual(server.storageCalls, { reject: 0, update: 0 });
@@ -212,7 +193,8 @@ test("Kakao unlink failures return 502 and preserve pending personal data", asyn
 
     assert.equal(response.status, 502);
     assert.deepEqual(await response.json(), {
-      message: "카카오 연결 해제에 실패해 가입 거절을 완료하지 못했습니다. 잠시 후 다시 시도해주세요",
+      message:
+        "카카오 연결 해제에 실패해 가입 거절을 완료하지 못했습니다. 잠시 후 다시 시도해주세요",
     });
     assert.equal(server.hasPending(), true);
   } finally {

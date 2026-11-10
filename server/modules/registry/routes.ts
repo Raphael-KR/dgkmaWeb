@@ -2,8 +2,12 @@ import type { Express } from "express";
 import type { PendingRegistration } from "@shared/schema";
 import { z } from "zod";
 import {
-  storage, AlumniSyncBlockedError, AlumniSyncFingerprintMismatchError,
-  AlumniSyncInProgressError, PendingRegistrationConflictError, PhoneRegistrationConflictError,
+  storage,
+  AlumniSyncBlockedError,
+  AlumniSyncFingerprintMismatchError,
+  AlumniSyncInProgressError,
+  PendingRegistrationConflictError,
+  PhoneRegistrationConflictError,
 } from "../../storage";
 import { getErrorType } from "../../lib/safe-logging";
 import { parsePositiveInteger } from "../../lib/route-params";
@@ -13,17 +17,23 @@ import { toAdminPendingRegistrationDto } from "./admin-pending-registration";
 import type { RouteContext } from "../../lib/route-context";
 
 const adminPendingRegistrationUpdateSchema = z.object({
-  params: z.object({
-    id: z.string().refine((value) => parsePositiveInteger(value) !== undefined),
-  }).strict(),
-  body: z.object({
-    status: z.enum(["approved", "rejected"]),
-  }).strict(),
+  params: z
+    .object({
+      id: z.string().refine((value) => parsePositiveInteger(value) !== undefined),
+    })
+    .strict(),
+  body: z
+    .object({
+      status: z.enum(["approved", "rejected"]),
+    })
+    .strict(),
 });
 
-const alumniSyncApplySchema = z.object({
-  fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
-}).strict();
+const alumniSyncApplySchema = z
+  .object({
+    fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  })
+  .strict();
 
 class InvalidPendingKakaoIdError extends Error {
   constructor() {
@@ -39,9 +49,9 @@ function getPendingKakaoId(registration: PendingRegistration): string {
   }
   const kakaoId = (userData as Record<string, unknown>).kakaoId;
   if (
-    typeof kakaoId !== "string"
-    || !/^[1-9]\d*$/.test(kakaoId)
-    || kakaoId !== registration.kakaoId
+    typeof kakaoId !== "string" ||
+    !/^[1-9]\d*$/.test(kakaoId) ||
+    kakaoId !== registration.kakaoId
   ) {
     throw new InvalidPendingKakaoIdError();
   }
@@ -72,7 +82,13 @@ export function registerDirectoryRoutes(app: Express): void {
 
 export function registerRegistryAdminRoutes(
   app: Express,
-  { requireAdmin, pendingRegistrationStorage, alumniSyncStorage, getKakaoAdminConfig, unlinkKakaoUser }: RouteContext,
+  {
+    requireAdmin,
+    pendingRegistrationStorage,
+    alumniSyncStorage,
+    getKakaoAdminConfig,
+    unlinkKakaoUser,
+  }: RouteContext,
 ): void {
   // Admin routes
   app.use("/api/admin", requireAdmin);
@@ -120,7 +136,7 @@ export function registerRegistryAdminRoutes(
         return res.json({ deleted: true, id: deleted.id });
       }
 
-      const registration = await pendingRegistrationStorage.updatePendingRegistrationStatus(id, status);
+      const registration = await pendingRegistrationStorage.approvePendingRegistration(id);
 
       if (!registration) {
         return res.status(404).json({ message: "Registration not found" });
@@ -142,7 +158,8 @@ export function registerRegistryAdminRoutes(
       if (error instanceof KakaoUnlinkError) {
         console.error("Kakao unlink blocked pending rejection:", getErrorType(error));
         return res.status(502).json({
-          message: "카카오 연결 해제에 실패해 가입 거절을 완료하지 못했습니다. 잠시 후 다시 시도해주세요",
+          message:
+            "카카오 연결 해제에 실패해 가입 거절을 완료하지 못했습니다. 잠시 후 다시 시도해주세요",
         });
       }
       if (error instanceof PhoneRegistrationConflictError) {
@@ -195,18 +212,6 @@ export function registerRegistryAdminRoutes(
     }
   });
 
-  // 동기화 진행상황 조회 API
-  app.get("/api/admin/sync-progress", async (req, res) => {
-    try {
-      const { googleSheetsService } = await import("../../integrations/google-sheets");
-      const progress = googleSheetsService.getSyncProgress();
-      res.json(progress);
-    } catch (error) {
-      console.error("Sync progress error:", getErrorType(error));
-      res.status(500).json({ error: "진행상황 조회 실패" });
-    }
-  });
-
   // Google Sheets 연결 테스트 API
   app.get("/api/admin/test-google-sheets", async (req, res) => {
     try {
@@ -218,12 +223,12 @@ export function registerRegistryAdminRoutes(
         res.json({
           connected: true,
           message: "Google Sheets 연결 성공",
-          sampleCount: sampleData.length
+          sampleCount: sampleData.length,
         });
       } else {
         res.json({
           connected: false,
-          message: "Google Sheets 설정이 필요합니다"
+          message: "Google Sheets 설정이 필요합니다",
         });
       }
     } catch (error) {

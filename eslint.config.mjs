@@ -13,9 +13,18 @@ const unusedVariables = {
 
 export default defineConfig(
   globalIgnores([
-    "**/node_modules/**", "dist/**", "build/**", "server/public/**",
-    ".superpowers/**", ".worktrees/**", ".agents/**", ".codex/**", ".local/**",
-    "attached_assets/**", "artifacts/**", "graphify-out/**",
+    "**/node_modules/**",
+    "dist/**",
+    "build/**",
+    "server/public/**",
+    ".superpowers/**",
+    ".worktrees/**",
+    ".agents/**",
+    ".codex/**",
+    ".local/**",
+    "attached_assets/**",
+    "artifacts/**",
+    "graphify-out/**",
   ]),
   {
     files: ["**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx}"],
@@ -33,7 +42,13 @@ export default defineConfig(
     rules: { "no-unused-vars": ["error", unusedVariables] },
   },
   {
-    files: ["*.{js,cjs,mjs,ts}", "server/**", "scripts/**", "sandbox/**", "**/*.test.{js,mjs,ts,tsx}"],
+    files: [
+      "*.{js,cjs,mjs,ts}",
+      "server/**",
+      "scripts/**",
+      "sandbox/**",
+      "**/*.test.{js,mjs,ts,tsx}",
+    ],
     languageOptions: { globals: globals.node },
   },
   {

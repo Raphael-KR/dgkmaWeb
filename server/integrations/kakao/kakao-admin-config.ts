@@ -12,9 +12,7 @@ export class KakaoAdminConfigurationError extends Error {
   }
 }
 
-export function resolveKakaoAdminConfig(
-  env: NodeJS.ProcessEnv = process.env,
-): KakaoAdminConfig {
+export function resolveKakaoAdminConfig(env: NodeJS.ProcessEnv = process.env): KakaoAdminConfig {
   const environment: KakaoAdminEnvironment =
     env.REPLIT_DEPLOYMENT === "1" ? "production" : "development";
   const adminKeyVariable =

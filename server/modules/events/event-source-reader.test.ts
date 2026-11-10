@@ -25,12 +25,14 @@ test("reads a URL-only source and appends extracted public text", async () => {
 
   assert.equal(result.combinedText, "부고 안내");
   assert.deepEqual(result.urls, ["https://example.com/notice"]);
-  assert.deepEqual(result.sources, [{
-    url: "https://example.com/notice",
-    status: "fetched",
-    method: "static-html",
-    message: "링크 내용을 불러왔습니다.",
-  }]);
+  assert.deepEqual(result.sources, [
+    {
+      url: "https://example.com/notice",
+      status: "fetched",
+      method: "static-html",
+      message: "링크 내용을 불러왔습니다.",
+    },
+  ]);
 });
 
 test("treats an incomplete Gipoom app shell as unavailable without executing JavaScript", async () => {
@@ -48,13 +50,14 @@ test("uses a complete provider adapter result before static HTML", async () => {
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   let fetched = false;
   const result = await readEventSources(url, {
-    readProviderSource: async () => [
-      "故 김한의",
-      "남/78세",
-      "김동국 동문 부친상",
-      "발인: 2026년 8월 3일 10시 00분",
-      "빈소: 동국장례식장 특실",
-    ].join("\n"),
+    readProviderSource: async () =>
+      [
+        "故 김한의",
+        "남/78세",
+        "김동국 동문 부친상",
+        "발인: 2026년 8월 3일 10시 00분",
+        "빈소: 동국장례식장 특실",
+      ].join("\n"),
     fetchPage: async () => {
       fetched = true;
       throw new Error("must not fetch the page");
@@ -70,14 +73,20 @@ test("uses a complete provider adapter result before static HTML", async () => {
 test("falls back to complete static obituary HTML when the provider adapter fails", async () => {
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   const result = await readEventSources(url, {
-    readProviderSource: async () => { throw new Error("provider changed"); },
-    fetchPage: async () => htmlPage(url, `<main>
+    readProviderSource: async () => {
+      throw new Error("provider changed");
+    },
+    fetchPage: async () =>
+      htmlPage(
+        url,
+        `<main>
       故 김한의
       남/78세
       김동국 동문 부친상
       발인: 2026년 8월 3일 10시 00분
       빈소: 동국장례식장 특실
-    </main>`),
+    </main>`,
+      ),
   });
 
   assert.equal(result.sources[0]?.status, "fetched");
@@ -100,11 +109,13 @@ test("treats a public obituary deletion notice as unavailable", async () => {
   });
 
   assert.equal(result.combinedText, "1기 김동국 본인상");
-  assert.deepEqual(result.sources, [{
-    url,
-    status: "unavailable",
-    message: "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.",
-  }]);
+  assert.deepEqual(result.sources, [
+    {
+      url,
+      status: "unavailable",
+      message: "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.",
+    },
+  ]);
 });
 
 test("does not expose an upstream PHP include warning as fetched source text", async () => {
@@ -126,7 +137,7 @@ test("keeps message fallback when Gipoom provider and static HTML are incomplete
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   const result = await readEventSources(`졸업21기 조은영 ${url}`, {
     readProviderSource: async () => undefined,
-    fetchPage: async () => htmlPage(url, "<div id=\"root\"></div>"),
+    fetchPage: async () => htmlPage(url, '<div id="root"></div>'),
   });
 
   assert.equal(result.combinedText, "졸업21기 조은영");
@@ -135,10 +146,9 @@ test("keeps message fallback when Gipoom provider and static HTML are incomplete
 });
 
 test("combines pasted message text and fetched link content", async () => {
-  const result = await readEventSources(
-    "故김한의 향년 88세 https://example.com/notice 발인 안내",
-    { fetchPage: async (url) => htmlPage(url, "<article>빈소: 동국병원</article>") },
-  );
+  const result = await readEventSources("故김한의 향년 88세 https://example.com/notice 발인 안내", {
+    fetchPage: async (url) => htmlPage(url, "<article>빈소: 동국병원</article>"),
+  });
 
   assert.match(result.combinedText, /^故김한의 향년 88세\s+발인 안내/);
   assert.match(result.combinedText, /빈소: 동국병원$/);
@@ -156,21 +166,25 @@ test("continues after one unavailable link and keeps successful content", async 
   );
 
   assert.equal(result.combinedText, "문자 내용\n공개된 내용");
-  assert.deepEqual(result.sources.map(({ status, message }) => ({ status, message })), [
-    {
-      status: "unavailable",
-      message: "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.",
-    },
-    { status: "fetched", message: "링크 내용을 불러왔습니다." },
-  ]);
+  assert.deepEqual(
+    result.sources.map(({ status, message }) => ({ status, message })),
+    [
+      {
+        status: "unavailable",
+        message: "링크가 종료되었거나 공개되지 않아 입력한 문자만 분석했습니다.",
+      },
+      { status: "fetched", message: "링크 내용을 불러왔습니다." },
+    ],
+  );
   assert.doesNotMatch(JSON.stringify(result.sources), /10\.0\.0\.1|secret body/);
 });
 
 test("preserves original message text when every link is unavailable", async () => {
-  const result = await readEventSources(
-    "김동국 동문 모친상 https://expired.example/notice",
-    { fetchPage: async () => { throw new Error("expired"); } },
-  );
+  const result = await readEventSources("김동국 동문 모친상 https://expired.example/notice", {
+    fetchPage: async () => {
+      throw new Error("expired");
+    },
+  });
 
   assert.equal(result.combinedText, "김동국 동문 모친상");
   assert.equal(result.sources[0]?.status, "unavailable");
@@ -187,11 +201,13 @@ test("reports private destinations as blocked without invoking the fetcher", asy
 
   assert.equal(fetched, false);
   assert.equal(result.combinedText, "안내");
-  assert.deepEqual(result.sources, [{
-    url: "http://127.0.0.1/private",
-    status: "blocked",
-    message: "안전하지 않은 주소는 읽지 않았습니다.",
-  }]);
+  assert.deepEqual(result.sources, [
+    {
+      url: "http://127.0.0.1/private",
+      status: "blocked",
+      message: "안전하지 않은 주소는 읽지 않았습니다.",
+    },
+  ]);
 });
 
 test("stops reading remaining URLs when the request signal is aborted", async () => {
