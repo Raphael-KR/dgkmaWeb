@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { QueryError } from "@/components/query-error";
 import { Search, Users, Info } from "lucide-react";
+import { KakaoGroupCard } from "./kakao-group-card";
 
 export default function Directory() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -156,21 +156,7 @@ export default function Directory() {
             </div>
           )}
 
-          {/* 단체방 참여 주소가 확정되기 전까지 실행 버튼을 제공하지 않는다. */}
-          <Card className="mx-auto mt-6 bg-gradient-to-r from-yellow-50 to-yellow-100 shadow-sm md:max-w-xl">
-            <CardContent className="p-6 text-center">
-              <div className="w-16 h-16 kakao rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z" />
-                </svg>
-              </div>
-              <h3 className="font-bold text-lg mb-2">동문 카카오톡 방</h3>
-              <p className="text-sm text-gray-600 mb-4">단체방 참여 링크를 준비 중입니다.</p>
-              <Button variant="kakao" disabled>
-                카카오톡 방 준비 중
-              </Button>
-            </CardContent>
-          </Card>
+          <KakaoGroupCard />
         </div>
       </div>
     </div>

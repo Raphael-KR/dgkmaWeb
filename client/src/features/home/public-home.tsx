@@ -83,7 +83,7 @@ const orgItems = [
 ];
 
 const quickLinks = [
-  { to: "/about/intro", icon: Info, title: "동문회 소개", desc: "인사말 · 연혁 · 사업 · 조직" },
+  { to: "/about", icon: Info, title: "동문회 소개", desc: "인사말 · 사업 · 조직" },
   { to: "/about/presidents", icon: Award, title: "역대회장", desc: "동문회를 이끌어 온 발자취" },
   {
     to: "/about/heritage",

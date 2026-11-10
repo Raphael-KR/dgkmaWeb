@@ -9,7 +9,7 @@ const routeRecoveryBuildMarkerPlugin = routeRecoveryBuildLabel
       name: "route-recovery-browser-build-marker",
       apply: "build" as const,
       transform(source: string, id: string) {
-        const targetModule = `${path.sep}features${path.sep}about${path.sep}intro.tsx`;
+        const targetModule = `${path.sep}features${path.sep}about${path.sep}executives.tsx`;
         if (!id.endsWith(targetModule)) return null;
         return `${source}\nwindow.__routeRecoveryBrowserBuild = ${JSON.stringify(routeRecoveryBuildLabel)};\n`;
       },
