@@ -47,3 +47,16 @@ Replit의 `.worktrees/unified-posts-check`에는 미커밋 원본이 있어 전�
 - 완료 조건: 현재 변경은 main에, 이전 자료는 보존용 커밋·태그에 남기고 세 환경의 작업 브랜치는 main 하나로 정리한다.
 - 제외: DB·Secrets·운영 배포·재시작·실계정 QA와 사용자 자산·검증 자료·stash 삭제.
 - 검사: Git 커밋·tree·브랜치·작업 트리와 문서 정합성을 정적으로 확인한다. 과거 자료 보존을 현재 기능 검증으로 취급하지 않는다.
+
+## 후속 Git 정리 결과
+
+2026-11-10 20:58 KST 로컬·GitHub·Replit 개발 main이 `c6cddf0291af73a763885d88ef18dc4866620876`, tree `3562e40cbcc206475807085efabee8a4865e5de5`로 일치했다. 이 결과를 남기는 후속 문서 커밋도 같은 방식으로 push·fast-forward하며 운영에는 재게시하지 않는다.
+
+- Replit에 남은 청소 문서 3개는 `330a7e01f6b751c3c6a90ee5dd0eee54960e3dbf`로 커밋한 뒤 로컬의 검토된 문안과 병합했다. main 소스 변경은 문서뿐이다.
+- 과거 detached 검사 사본의 97개 파일 변경은 `f8743fabc67b791add37497bef975e785d57c083`에 원문 그대로 커밋했다. `archive/unified-posts-check-20261110` 태그로 GitHub에도 보존하며 현재 main의 기능 구현과 구분한다. 검사 사본의 작업 트리는 깨끗하다.
+- main에 없는 Replit 게시 이력 279개는 `archive/replit-agent-20261110` 태그로 보존했다. 대상 `192580f8eef7fdcc65b2535d0eda9e6fe2cb3301`의 tree는 마지막 릴리스의 `3e4d8e6d8192eddcdf54a629a537fb3e16915fd1`과 같다.
+- main에 반영된 로컬·GitHub 작업 브랜치 각 9개와 Replit 작업 브랜치 3개를 제거했다. 세 곳의 `refs/heads`는 main 하나다. 로컬의 이전 Replit 가져오기용 추적 참조 5개도 제거했다.
+- 보존 태그 2개는 작업 브랜치가 아니다. Replit이 관리하는 `gitsafe-backup/main` 추적 참조, 기존 stash 4개, detached 검사 사본 폴더와 검증 기록은 유지했다. 기존 stash는 현재 변경으로 재적용하지 않았다.
+- Replit의 파일 기반 문서 계약 6건과 현재 main의 `git diff --check`가 통과했다. 이전 검사 사본에는 `server/modules/events/member-labels.ts:42`의 EOF 빈 줄 경고 1건이 있었으며 원본 보존 커밋에서 수정하지 않았다. 이를 현재 코드의 정적 검사 통과로 보고하지 않는다.
+
+삭제 전 참조·보존 커밋·전송 bundle·검사 결과는 두 환경의 ignored `.superpowers/main-sync-20261110/`에 보관한다. DB 변경·빌드·재시작·운영 배포·실계정 QA는 수행하지 않았다.

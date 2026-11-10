@@ -9,7 +9,7 @@
 | 구분 | 마지막 확인 상태 | 근거 |
 |---|---|---|
 | Git 통합 | PR #29 main 병합 `997bc7ba891ab6a21bac6889b26db93464704f72`. Replit 게시 커밋 `7aadf4cb496193a5bb774cd9a73a43bf5551afc6`도 보존하며 완료 기록은 문서 전용 후속 커밋으로 구분 | [PR #29](https://github.com/Raphael-KR/dgkmaWeb/pull/29), [릴리스 기록](docs/history/cleanup-release-2026-11-10.md) |
-| 개발 사본 | 로컬·Replit main에 같은 소스와 완료 기록 반영. 누적 책임 분리·공통화·소스 서식·문서 정리는 PR #29에 통합 | [구조 기준](docs/architecture/project-structure.md#책임별-모듈-구성), [코드 정리](docs/history/full-code-cleanup-2026-11-10.md), [문서 정리](docs/history/full-documentation-cleanup-2026-11-10.md) |
+| 개발 사본 | 로컬·GitHub·Replit 개발의 main 소스 일치. 후속 Git 정리에서 작업 브랜치는 main 하나로 통일하고 과거 게시 이력·검사 사본은 보존 태그로 구분 | [Git 정리 결과](docs/history/post-release-cleanup-2026-11-10.md#후속-git-정리-결과), [코드 정리](docs/history/full-code-cleanup-2026-11-10.md), [문서 정리](docs/history/full-documentation-cleanup-2026-11-10.md) |
 | 마지막 운영 릴리스 | 2026-11-10 20:19:47 KST 성공 관찰. 게시 커밋과 병합 후보의 tree `3e4d8e6d8192eddcdf54a629a537fb3e16915fd1` 일치 | [Republish 결과](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
 | 릴리스 후 운영 확인 | 2026-11-10 20:20:24 KST 비로그인 공개 페이지 5개·회원 API 인증 차단 8개·정적 자산 해시 57개, 총 70건 통과. 실계정 QA 보류 | [확인 범위](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
 | DB 구조 | posts 통합, content JSONB, is_hidden, source_collection_rules와 구 테이블 2개 제거가 마지막 관찰 기준. 이번 릴리스는 DB 변경·catalog 재조회 없음 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
