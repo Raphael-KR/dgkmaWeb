@@ -9,7 +9,7 @@
 | 구분 | 마지막 확인 상태 | 근거 |
 |---|---|---|
 | Git 통합 | PR #30 main 병합 `aba23b8706f2e4c38f073467d0466398198c9fe6`. 동일 소스의 Replit 게시 커밋 `44944bf36a5419259049282687e2e432132d1c2e`도 보존하며 완료 기록은 문서 전용 후속 커밋으로 구분 | [PR #30](https://github.com/Raphael-KR/dgkmaWeb/pull/30), [수행 기록](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
-| 개발 사본 | 로컬·GitHub·Replit의 main에 통계 소스와 계획서 갱신 반영. 릴리스 소스 525개 일치, 기존 개발 사본·stash 보존. 완료 기록은 문서 전용 후속 main으로 동기화 | [통계 기록](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과), [앞선 Git 정리](docs/history/post-release-cleanup-2026-11-10.md#후속-git-정리-결과) |
+| 개발 사본 | 역사관 6개 메뉴·공통 자료를 로컬·Replit에 미커밋 상태로 반영하고 정적 검사 완료. 로컬 main `86a8a33`, Replit main `6e75cb6`의 기존 게시 메타데이터 커밋은 보존. 새 Git 통합·운영 배포는 없음 | [역사관 개발 기록](docs/history/heritage-2026-11-10.md), [앞선 통계 릴리스](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
 | 마지막 운영 릴리스 | 2026-11-10 22:30:14 KST 성공 관찰. 게시 커밋과 병합 후보의 tree `5c1dd70212b089bdaaeda7a489bc71bf042fac6f` 일치 | [Republish 결과](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
 | 릴리스 후 운영 확인 | 2026-11-10 22:30:44 KST 비로그인 공개 페이지 5개·회원/통계 API 인증 차단 9개·정적 자산 해시 60개, 총 74건 통과. 실계정 QA 보류 | [확인 범위](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
 | DB 구조 | posts 통합, content JSONB, is_hidden, source_collection_rules와 구 테이블 2개 제거가 마지막 관찰 기준. 이번 릴리스는 DB 변경·catalog 재조회 없음 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
@@ -44,6 +44,12 @@ PR #28의 URL 교체 확인은 메모리 대역 18개 사례다. 이번 비로�
 2026-11-10 사용자 요청으로 [기초 통계 정책](docs/product/planning-proposal.md#관리자-기초-통계)에 따라 관리자 집계 API와 통계 탭을 개발한다. 기존 Development DB 테이블을 읽는 코드만 추가하며 새 Secret·외부 서비스·스키마·집계 저장소를 도입하지 않는다. 통계 탭은 Sheets 연결 확인을 시작하지 않고, 기존 연결 확인은 동문 데이터 탭을 열 때 수행한다.
 
 DB 구조나 회비 판정 변경이 필요하면 현재 상태와 변경안을 설명한 뒤 별도 승인을 받는다. 초기 구현은 개발 사본 반영과 타입·의존 경계·변경 파일 lint·문서 정합성의 정적 검사까지 수행했다. 후속 요청의 Git 통합·릴리스에는 아래 배포 절차를 적용한다. DB 직접 조회/변경·실계정 QA는 수행하지 않으며 실제 범위는 [통계 수행 기록](docs/history/admin-statistics-2026-11-10.md)에 구분한다.
+
+### 역사관 개발 범위
+
+확정된 [역사관 정책](docs/product/planning-proposal.md#역사관-콘텐츠-구성-2026-11-10)에 따라 공개 메뉴 여섯 개와 사진첩을 개발 사본에 반영했다. `shared/heritage/`의 공개 JSON과 기존 공통 UI·CSS를 사용한다. Notion은 지정된 자료를 옮길 때 확인하며 홈페이지 요청 중에는 호출하지 않는다. 새 Secret·패키지·DB 테이블·회원 게시글 공개 경로를 추가하지 않는다. 수상자·사진의 실제 자료 반영은 사용자 정리 후 재개한다.
+
+Replit 개발 사본에서 타입·의존 경계·변경 파일 lint·CSS·공개 JSON 참조·문서 정합성을 정적으로 확인했다. 초기 구현에는 DB 접근·변경, 별도 서버 재시작·브라우저 확인·smoke·운영 배포·실계정 QA를 포함하지 않았다. 2026-11-11 후속 요청의 Git 통합·Republish에는 아래 배포 절차를 적용하며 사진·수상자 자료 반영과 실계정 QA는 계속 보류한다. DB 구조 변경이 필요해지면 변경 전후를 설명하고 별도 승인을 받는다. 자료 추가 절차는 [콘텐츠 기준](docs/reference/heritage-content.md), 확인 범위는 [개발 기록](docs/history/heritage-2026-11-10.md)과 [릴리스 기록](docs/history/heritage-release-2026-11-11.md)을 따른다.
 
 ### 설계 미리보기 서비스
 
@@ -197,7 +203,7 @@ node --import tsx --test server/tests/final-recheck-documentation-contract.test.
 
 운영 배포가 명시적으로 승인된 작업에만 적용한다. 개발 DB 변경이나 과거 릴리스 승인을 새 운영 작업의 자동 승인으로 해석하지 않는다. 실계정 QA는 계속 보류하며 별도 요청된 경우에만 실행한다.
 
-현재 승인 범위는 2026-11-10 관리자 기초 통계와 기타 미커밋분 전체의 commit·push·PR 생성·main 병합·Republish다. 같은 소스의 정적 검사 결과를 재사용하고 릴리스 빌드와 비로그인 운영 smoke를 수행한다. DB 구조·데이터·회비 판정 변경과 실계정 QA는 포함하지 않는다. 승인 범위와 실제 결과는 [통계 수행 기록](docs/history/admin-statistics-2026-11-10.md)에 구분하며, 앞선 [정리 릴리스](docs/history/cleanup-release-2026-11-10.md)는 과거 이력으로 유지한다.
+현재 승인 범위는 2026-11-11 역사관 변경사항과 기타 미커밋분 전체의 commit·push·PR 생성·main 병합·Republish다. 같은 소스의 정적 검사 결과를 재사용하고 릴리스 빌드와 비로그인 운영 smoke를 수행한다. 사진·수상자 자료 반영, DB 구조·데이터·회비 판정 변경과 실계정 QA는 포함하지 않는다. 승인 범위와 실제 결과는 [역사관 릴리스 기록](docs/history/heritage-release-2026-11-11.md)에 구분하며, 앞선 [통계 릴리스](docs/history/admin-statistics-2026-11-10.md)와 [정리 릴리스](docs/history/cleanup-release-2026-11-10.md)는 과거 이력으로 유지한다.
 
 1. 배포할 GitHub main·로컬·Replit 후보와 작업 트리를 확인하고 기존 변경을 보존한다.
 2. 같은 소스의 필요한 정적 검사 결과를 확인하고 Replit에서 릴리스 빌드를 만든다.

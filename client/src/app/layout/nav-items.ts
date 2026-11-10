@@ -1,4 +1,5 @@
 import { Home, Users, User, Info, MessageSquare } from "lucide-react";
+import { HERITAGE_PAGES } from "@shared/heritage/navigation";
 
 export type PublicNavItem = {
   path: string;
@@ -11,8 +12,11 @@ export const publicNavItems: PublicNavItem[] = [
   { path: "/about", label: "홈" },
   { path: "/about/intro", label: "소개" },
   { path: "/about/executives", label: "임원명단" },
-  { path: "/about/presidents", label: "역대회장" },
-  { path: "/about/heritage", label: "역사관" },
+  {
+    path: HERITAGE_PAGES.timeline.path,
+    label: "역사관",
+    children: Object.values(HERITAGE_PAGES).map(({ path, label }) => ({ path, label })),
+  },
   {
     path: "/about/bylaws",
     label: "회칙",

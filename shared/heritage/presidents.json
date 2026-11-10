@@ -1,0 +1,178 @@
+[
+  {
+    "term": 1,
+    "name": "이성우",
+    "admissionYear": 1979,
+    "graduationClass": 1,
+    "startYear": 1985,
+    "endYear": 1986
+  },
+  {
+    "term": 2,
+    "name": "이규현",
+    "admissionYear": 1979,
+    "graduationClass": 1,
+    "startYear": 1987,
+    "endYear": 1988
+  },
+  {
+    "term": 3,
+    "name": "김영택",
+    "admissionYear": 1979,
+    "graduationClass": 1,
+    "startYear": 1989,
+    "endYear": 1990
+  },
+  {
+    "term": 4,
+    "name": "이상돈",
+    "admissionYear": 1980,
+    "graduationClass": 2,
+    "startYear": 1991,
+    "endYear": 1992
+  },
+  {
+    "term": 5,
+    "name": "라경찬",
+    "admissionYear": 1980,
+    "graduationClass": 2,
+    "startYear": 1993,
+    "endYear": 1994
+  },
+  {
+    "term": 6,
+    "name": "오정석",
+    "admissionYear": 1980,
+    "graduationClass": 2,
+    "startYear": 1994,
+    "endYear": 1995
+  },
+  {
+    "term": 7,
+    "name": "김상범",
+    "admissionYear": 1980,
+    "graduationClass": 2,
+    "startYear": 1996,
+    "endYear": 1997
+  },
+  {
+    "term": 8,
+    "name": "손창수",
+    "admissionYear": 1981,
+    "graduationClass": 3,
+    "startYear": 1998,
+    "endYear": 1999
+  },
+  {
+    "term": 9,
+    "name": "정주화",
+    "admissionYear": 1981,
+    "graduationClass": 3,
+    "startYear": 2000,
+    "endYear": 2001
+  },
+  {
+    "term": 10,
+    "name": "최호정",
+    "admissionYear": 1981,
+    "graduationClass": 3,
+    "startYear": 2002,
+    "endYear": 2003
+  },
+  {
+    "term": 11,
+    "name": "이상택",
+    "admissionYear": 1982,
+    "graduationClass": 7,
+    "startYear": 2004,
+    "endYear": 2005
+  },
+  {
+    "term": 12,
+    "name": "김현수",
+    "admissionYear": 1979,
+    "graduationClass": 6,
+    "startYear": 2006,
+    "endYear": 2007
+  },
+  {
+    "term": 13,
+    "name": "남상민",
+    "admissionYear": 1979,
+    "graduationClass": 1,
+    "startYear": 2008,
+    "endYear": 2009
+  },
+  {
+    "term": 14,
+    "name": "주승균",
+    "admissionYear": 1982,
+    "graduationClass": 8,
+    "startYear": 2010,
+    "endYear": 2011
+  },
+  {
+    "term": 15,
+    "name": "김경선",
+    "admissionYear": 1982,
+    "graduationClass": 4,
+    "startYear": 2012,
+    "endYear": 2013
+  },
+  {
+    "term": 16,
+    "name": "박진령",
+    "admissionYear": 1982,
+    "graduationClass": 4,
+    "startYear": 2014,
+    "endYear": 2015
+  },
+  {
+    "term": 17,
+    "name": "김형철",
+    "admissionYear": 1985,
+    "graduationClass": 7,
+    "startYear": 2016,
+    "endYear": 2017
+  },
+  {
+    "term": 18,
+    "name": "백기범",
+    "admissionYear": 1982,
+    "graduationClass": 4,
+    "startYear": 2018,
+    "endYear": 2019
+  },
+  {
+    "term": 19,
+    "name": "김소형",
+    "admissionYear": 1983,
+    "graduationClass": 5,
+    "startYear": 2020,
+    "endYear": 2021
+  },
+  {
+    "term": 20,
+    "name": "최유행",
+    "admissionYear": 1988,
+    "graduationClass": 10,
+    "startYear": 2022,
+    "endYear": 2023
+  },
+  {
+    "term": 21,
+    "name": "최유행",
+    "admissionYear": 1988,
+    "graduationClass": 10,
+    "startYear": 2024,
+    "endYear": 2025
+  },
+  {
+    "term": 22,
+    "name": "최윤용",
+    "admissionYear": 1988,
+    "graduationClass": 10,
+    "startYear": 2026,
+    "endYear": 2027
+  }
+]

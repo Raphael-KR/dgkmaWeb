@@ -1,64 +1,84 @@
-import { PublicHeading } from "@/components/public-heading";
-import { useScrollToTop } from "@/hooks/use-scroll-to-top";
-import { Image as ImageIcon } from "lucide-react";
-import { PublicLayout } from "@/app/layout/public-layout";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { usePublicPageSeo } from "@/lib/seo";
+import { Link } from "wouter";
+import {
+  formatHeritageDate,
+  groupHeritageByYear,
+  presidents,
+  timeline,
+} from "@shared/heritage/content";
+import { HERITAGE_PAGES } from "@shared/heritage/navigation";
+import type { HistoryEntry } from "@shared/heritage/types";
+import { HeritagePage } from "./heritage/heritage-page";
+import { DonationDetails, RecordLinks } from "./heritage/record-details";
 
-const sections = [
-  {
-    id: "recent",
-    label: "최근 활동",
-    description: "동문들의 최근 활동 사진과 소식을 준비하고 있습니다.",
-  },
-  {
-    id: "history",
-    label: "역사 자료",
-    description: "동문회의 발자취를 담은 사진과 기록을 준비하고 있습니다.",
-  },
-  {
-    id: "events",
-    label: "주요 행사",
-    description: "동문회 주요 행사의 사진과 기록을 준비하고 있습니다.",
-  },
-];
+function TimelineEntry({ entry }: { entry: HistoryEntry }) {
+  const president = presidents.find((person) => person.term === entry.presidentTerm);
+  return (
+    <li id={entry.id} className="heritage-record">
+      <time dateTime={entry.date} className="heritage-meta">
+        {formatHeritageDate(entry.date)}
+      </time>
+      <h3 className="mt-1 font-semibold">{entry.title}</h3>
+      {entry.description && <p className="heritage-description">{entry.description}</p>}
+      {president && (
+        <Link
+          className="heritage-text-link"
+          href={`${HERITAGE_PAGES.presidents.path}#president-${president.term}`}
+        >
+          제{president.term}대 {president.name} 회장
+        </Link>
+      )}
+      {entry.donations && <DonationDetails donations={entry.donations} />}
+      <RecordLinks
+        albumIds={entry.albumIds}
+        documentIds={entry.documentIds}
+        sources={entry.sources}
+      />
+    </li>
+  );
+}
 
 export default function AboutHeritage() {
-  usePublicPageSeo("/about/heritage");
-  useScrollToTop();
-
+  const years = groupHeritageByYear(timeline);
   return (
-    <PublicLayout>
-      <div className="public-page public-page--wide">
-        <PublicHeading title="역사관">
-          <p className="text-sm text-gray-500 mt-3">사진과 기록으로 보는 동문회 역사</p>
-        </PublicHeading>
-        <Tabs defaultValue="recent">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            {sections.map((section) => (
-              <TabsTrigger key={section.id} value={section.id}>
-                {section.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {sections.map((section) => (
-            <TabsContent key={section.id} value={section.id}>
-              <Card>
-                <CardContent className="p-8 sm:p-12 text-center">
-                  <ImageIcon
-                    size={40}
-                    className="mx-auto mb-4 tp-text-gold-dark"
-                    aria-hidden="true"
-                  />
-                  <h2 className="text-lg font-semibold tp-text-green-dark">{section.label}</h2>
-                  <p className="mt-3 text-sm text-gray-600">{section.description}</p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
-        </Tabs>
+    <HeritagePage section="timeline">
+      <nav aria-label="연혁 연도 바로가기" className="heritage-year-nav">
+        {years.map(([year]) => (
+          <a key={year} href={`#history-year-${year}`} className="heritage-year-link">
+            {year}
+          </a>
+        ))}
+      </nav>
+      <div className="space-y-10">
+        {years.map(([year, entries]) => (
+          <section
+            key={year}
+            id={`history-year-${year}`}
+            className="heritage-year-group"
+            aria-labelledby={`history-heading-${year}`}
+          >
+            <h2 id={`history-heading-${year}`} className="public-section-title">
+              {year}년
+            </h2>
+            <ol className="heritage-records">
+              {entries.slice(0, 4).map((entry) => (
+                <TimelineEntry key={entry.id} entry={entry} />
+              ))}
+            </ol>
+            {entries.length > 4 && (
+              <details className="mt-4">
+                <summary className="heritage-text-link cursor-pointer">
+                  {year}년 기록 {entries.length - 4}건 더 보기
+                </summary>
+                <ol className="heritage-records mt-4">
+                  {entries.slice(4).map((entry) => (
+                    <TimelineEntry key={entry.id} entry={entry} />
+                  ))}
+                </ol>
+              </details>
+            )}
+          </section>
+        ))}
       </div>
-    </PublicLayout>
+    </HeritagePage>
   );
 }
