@@ -101,7 +101,6 @@ test("lazy routing preserves public, member and administrator access", async () 
     "/onboarding/region": "auth/onboarding/region",
     "/terms": "legal/terms",
     "/privacy": "legal/privacy",
-    "/about/intro": "about/intro",
     "/about/executives": "about/executives",
     "/about/presidents": "about/presidents",
     "/about/heritage": "about/heritage",
@@ -140,16 +139,18 @@ test("public legacy redirects remain and retired URLs are absent", () => {
   const source = readFileSync("client/src/app/routing/router.tsx", "utf8");
   for (const [path, target] of Object.entries({
     "/info": "/about",
-    "/history": "/about/intro",
     "/executives": "/about/executives",
     "/officers": "/about/executives",
     "/bylaws": "/about/bylaws",
   })) {
-    assert.ok(
-      source.includes(`path="${path}" component={() => { window.location.href = '${target}'`),
+    assert.match(
+      source,
+      new RegExp(
+        `path="${path}"\\s+component=\\{\\(\\)\\s*=>\\s*\\{\\s*window\\.location\\.href\\s*=\\s*"${target}"`,
+      ),
     );
   }
-  assert.doesNotMatch(source, /path="\/(?:o|events|heritage)(?:\/|")/);
+  assert.doesNotMatch(source, /path="\/(?:o|events|heritage|history|about\/intro)(?:\/|")/);
 });
 
 test("pending screens show status; failed screens offer an explicit full reload", async () => {

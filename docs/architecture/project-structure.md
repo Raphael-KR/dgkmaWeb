@@ -14,6 +14,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 후속 역사관 구현은 `shared/heritage/`의 공개 JSON·타입·메뉴와 `features/about/heritage/`의 공통 페이지·기록 표시·사진첩으로 분리했다. PR #31로 main에 통합하고 2026-11-11 Replit 운영에 반영했다. 아래 경로·소유 위치는 이 커밋된 소스를 포함한다. [콘텐츠 기준](../reference/heritage-content.md)과 [개발 기록](../history/heritage-2026-11-10.md)·[릴리스 기록](../history/heritage-release-2026-11-11.md)을 따른다.
 
+2026-11-11 공개홈 메뉴 개편의 범위도 아래에 반영한다. 공개 메뉴 세 개와 동문회 하위 여섯 메뉴, 중복 소개 페이지·`/history` 별칭 삭제는 `2.0.0` 후보에 포함하며 위 PR #31 운영 릴리스와 구분한다. 개발 결과는 [공개홈 메뉴 개발 범위](../../replit.md#공개홈-메뉴-개편-개발-범위), Git·운영 적용은 [2.0.0 릴리스 기록](../history/release-2.0.0-2026-11-11.md)을 따른다.
+
 ## 코드 소유권
 
 | 소유 위치 | 책임 |
@@ -21,7 +23,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `client/src/app/app.tsx`, `providers.tsx`, `routing/`, `layout/` | 앱 조립, 라우트, 프로바이더, 공통 레이아웃 |
 | `features/auth` | 로그인·콜백·활동지역, 세션 상태와 인증 API |
 | `features/home` | 회원 홈과 `/`·`/about`에서 공유하는 공개 랜딩페이지 |
-| `features/about` | 공개 안내와 역사관 6개 메뉴. `heritage/`에서 공통 페이지·자료 연결·사진 확대를 재사용하며 소개·현 임원도 같은 공개 자료를 읽음 |
+| `features/about` | 공개 안내와 역사관 6개 메뉴. `heritage/`에서 공통 페이지·자료 연결·사진 확대를 재사용하며 현 임원도 같은 공개 자료를 읽음. 소개·조직 설명은 `features/home`의 공개 랜딩페이지에서 제공 |
 | `features/boards` | 게시글·댓글·첨부 |
 | `features/directory` | 권한 범위 내 명부 |
 | `features/profile` | 프로필·납부내역·회원상태 |
@@ -68,7 +70,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 ### 브라우저 경로
 
 `/`, `/login`, `/kakao-callback`, `/onboarding/region`, `/terms`, `/privacy`,
-`/about`, `/about/intro`, `/about/executives`, `/about/presidents`, `/about/heritage`,
+`/about`, `/about/executives`, `/about/presidents`, `/about/heritage`,
 `/about/heritage/officers`, `/about/heritage/awards`, `/about/heritage/donations`, `/about/heritage/albums`,
 `/about/bylaws`, `/about/bylaws/regulations`,
 `/about/join`, `/about/dues`, `/about/condolence`, `/admin`, `/b`, `/directory`,
@@ -76,8 +78,10 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 통합 정책에 따라 `/b/write/:type`를 추가하고 `/o`, `/events`와 그 하위 경로는 제거한다.
 
 - `/about`은 로그인 여부와 관계없이 기존 공개 홈 랜딩페이지를 직접 표시한다. `/heritage` 화면·라우트는 제거한다.
+- 공개 메뉴는 `동문회(/about) · 역사관(/about/heritage) · 공지(/b)`다. 동문회 하위는 임원명단·회칙·규정·회원가입·회비·경조사이며 PC·태블릿·모바일 모두 `app/layout/nav-items.ts`를 사용한다. 공지의 회원 인증과 회원 메뉴는 유지한다.
+- `/about/intro` 페이지와 `/history` 별칭은 삭제하고 리다이렉트 없이 기존 미등록 경로 처리를 따른다. 기존 내부 링크는 각각 `/about`과 `/about/heritage`로 바꾸며 두 경로는 공개 메타데이터·사이트맵에서 제외한다.
 - 역사관 하위 메뉴는 공통 정의를 사용하고 기존 `/about/presidents`를 포함한다. 사진첩의 `year`는 최근 5년·연도·전체 목록을 선택하고 `album`은 상세 앨범을 선택한다. canonical은 각 메뉴 경로를 사용한다.
-- `/info → /about`; `/history → /about/intro`
+- `/info → /about`
 - `/executives`, `/officers → /about/executives`; `/bylaws → /about/bylaws`
 - 회원의 활동지역 미입력 시 `/onboarding/region` 이동, 관리자 진입 제한을 유지한다.
 
@@ -175,7 +179,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 ## 파일명·테스트 규칙과 명령
 
-- 프로젝트의 JS/TS/TSX·CSS 서식은 고정 버전 Prettier와 루트 설정을 사용한다. 문자열·SQL·추출 프롬프트 안의 코드는 자동 재작성하지 않는다. `format`은 명시적 정리, `format:check`는 파일만 읽는 검사이며 배포·Git hook의 새 필수 조건을 만들지 않는다.
+- 프로젝트의 JS/TS/TSX·CSS 서식은 고정 버전 Prettier와 루트 설정을 사용한다. 문자열·SQL·추출 프롬프트 안의 코드는 자동 재작성하지 않는다. `format`은 명시적 정리, `format:check`는 파일만 읽는 검사다. 코드 릴리스 후보에는 [릴리스 전 정리와 검증](../../replit.md#릴리스-전-정리와-검증)에 따라 변경 범위의 서식 검사를 포함한다. 일상 개발에 전체 포맷·빌드를 강제하거나 Git hook을 자동 설치하지 않는다.
 - 로그인 복귀 경로의 저장 키와 소비는 `features/auth/lib/return-path.ts`에서 공유한다. 기존 상대 경로 판정·기본 홈·저장 항목 제거 순서와 저장소 오류 시 흐름을 유지한다.
 - 큰 OAuth 라우트 검사는 `identity/testing/`의 공통 대역과 주제별 등록 함수로 나누고 기존 `.test.ts` 진입점에서 원래 순서대로 등록한다. 테스트 수·대역·assertion과 실행 격리 단위를 유지한다.
 - 신규 파일은 `kebab-case.ts(x)`. 기존 생성 UI와 `queryClient.ts` 같은 공용 호환 파일은 일괄 이름 변경하지 않는다.
@@ -183,7 +187,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
   `__tests__`; 전역 보안·문서·배포 계약은 `server/tests`.
 - `scripts/run-tests.mjs`는 client/src, server, shared를 재귀 탐색한다.
   `artifacts/mockup-sandbox`는 별도 package/lock/toolchain을 유지하며 루트 앱 테스트·타입·빌드에 섞지 않는다.
-- `npm test -- --test-name-pattern='패턴'`: 집중 실행.
+- `node --import tsx --test <선정한 테스트 파일...>`: 파일 범위를 한정한 실행. `npm test -- --test-name-pattern='패턴'`은 전체 발견 파일을 로드하므로 테스트 본문 필터를 파일 격리로 간주하지 않는다.
 - `node scripts/run-tests.mjs --list`: 탐색 목록.
 - `npm run check`: 앱 타입 + 브라우저/공통/feature 경계와 runtime cycle 검사.
 - `npm run check:tests`: 테스트까지 포함한 strict 타입 검사.
@@ -191,7 +195,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 경계 검사는 정적 import/export와 literal dynamic import를 대상으로 한다.
 동적으로 계산한 import 문자열, DI의 의미적 의존성, HTTP 권한을 증명하지 않는다.
-개발 직후에는 필요한 정적 검사만 수행한다. 별도로 요청된 라우트 실행 점검과 구분하며 스키마·실데이터 변경은 정적 검사에 포함하지 않는다.
+개발 직후에는 필요한 정적 검사만 수행한다. 릴리스 후보에는 코드·문서와 [불필요·중복·과잉 검사](../../replit.md#불필요중복과잉-검사-정리)를 정리한 뒤 lint·서식·타입·영향 범위 테스트·빌드를 개정된 적용 범위와 판정 기준에 따라 수행한다. 결과는 최종 소스와 검사 기준에 연결한다. 검사 범위·승인·유효 결과 재사용은 [릴리스 규칙](../../replit.md#릴리스-전-정리와-검증)을 따른다. 스키마·실데이터 변경은 정적 검사에 포함하지 않는다.
 
 ## 보존 파일과 제거된 경로
 

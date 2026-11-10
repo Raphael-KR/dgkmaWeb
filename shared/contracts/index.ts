@@ -161,6 +161,9 @@ export type MembershipStatus = {
   currentYearPayment: { createdAt: string | null } | null;
 };
 
+export const KAKAO_GROUP_INVITE_ENDPOINT = "/api/membership/kakao-group";
+export type KakaoGroupInvite = { url: string };
+
 // 프로필에서 본인이 수정 가능한 항목만 허용 (이름·졸업년도 등 검증 항목 제외).
 export const updateProfileSchema = z.object({
   activityRegion: activityRegionSchema.nullable().optional(),

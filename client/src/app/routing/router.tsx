@@ -15,7 +15,6 @@ import {
   AboutJoin,
   AboutDues,
   AboutCondolence,
-  AboutIntro,
   AboutExecutives,
   AboutPresidents,
   AboutHeritage,
@@ -53,7 +52,6 @@ export function Router() {
 
         {/* Public about pages */}
         <Route path="/about" component={PublicHome} />
-        <Route path="/about/intro" component={AboutIntro} />
         <Route path="/about/executives" component={AboutExecutives} />
         <Route path="/about/presidents" component={AboutPresidents} />
         <Route path="/about/heritage" component={AboutHeritage} />
@@ -140,13 +138,6 @@ export function Router() {
           path="/bylaws"
           component={() => {
             window.location.href = "/about/bylaws";
-            return null;
-          }}
-        />
-        <Route
-          path="/history"
-          component={() => {
-            window.location.href = "/about/intro";
             return null;
           }}
         />

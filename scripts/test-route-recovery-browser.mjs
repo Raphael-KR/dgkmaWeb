@@ -54,7 +54,7 @@ function buildSnapshot(label, destination) {
 function documentRequestCount() {
   return requestLog.filter(
     (entry) =>
-      entry.status === 200 && (entry.pathname === "/" || entry.pathname === "/about/intro"),
+      entry.status === 200 && (entry.pathname === "/" || entry.pathname === "/about/executives"),
   ).length;
 }
 
@@ -139,7 +139,7 @@ async function runBrowserRegression(port, newBuildDir) {
 
     await waitFor(
       socket,
-      "document.querySelector('a[href=\"/about/intro\"]') && document.body.innerText.includes('홈페이지에 오신 것을 환영합니다')",
+      "document.querySelector('a[href=\"/about/executives\"]') && document.body.innerText.includes('홈페이지에 오신 것을 환영합니다')",
       "the old-build public home page",
     );
     assert.equal(await evaluate(socket, "window.__routeRecoveryBrowserBuild || null"), null);
@@ -214,14 +214,15 @@ async function runBrowserRegression(port, newBuildDir) {
       );
     }
 
+    // The executives route stays lazy until navigation; its build marker is set in vite.config.ts.
     // A second local build becomes current while the existing browser tab stays open.
     activateBuild(path.join(tempRoot, "build-new"));
-    const introLinkExists = await evaluate(
+    const routeLinkExists = await evaluate(
       socket,
-      "Boolean(document.querySelector('a[href=\"/about/intro\"]'))",
+      "Boolean(document.querySelector('a[href=\"/about/executives\"]'))",
     );
-    assert.equal(introLinkExists, true, "the delayed route is reached through the public link");
-    await evaluate(socket, "document.querySelector('a[href=\"/about/intro\"]').click()");
+    assert.equal(routeLinkExists, true, "the delayed route is reached through the public link");
+    await evaluate(socket, "document.querySelector('a[href=\"/about/executives\"]').click()");
 
     await waitFor(
       socket,
@@ -285,7 +286,7 @@ async function runBrowserRegression(port, newBuildDir) {
     await evaluate(socket, "document.querySelector('[role=\"alert\"] button').click()");
     await waitFor(
       socket,
-      "window.__routeRecoveryBrowserBuild === 'new' && document.querySelector('h1')?.innerText.includes('동문회 소개')",
+      "window.__routeRecoveryBrowserBuild === 'new' && document.querySelector('h1')?.innerText.includes('임원 명단')",
       "the latest lazy route after the user-triggered reload",
     );
 
@@ -297,7 +298,7 @@ async function runBrowserRegression(port, newBuildDir) {
     );
     const latestDocument = requestLog.findLast(
       (entry) =>
-        (entry.pathname === "/" || entry.pathname === "/about/intro") && entry.status === 200,
+        (entry.pathname === "/" || entry.pathname === "/about/executives") && entry.status === 200,
     );
     assert.equal(
       latestDocument?.buildDir,
@@ -309,12 +310,12 @@ async function runBrowserRegression(port, newBuildDir) {
       "no-cache",
       "the replacement HTML is not reused without revalidation",
     );
-    const newIntroChunks = requestLog.filter(
+    const newRouteChunks = requestLog.filter(
       (entry) =>
         entry.status === 200 && /\.js$/.test(entry.pathname) && entry.buildDir === activeBuildDir,
     );
     assert.ok(
-      newIntroChunks.some((entry) => entry.pathname !== oldChunkPath),
+      newRouteChunks.some((entry) => entry.pathname !== oldChunkPath),
       "the refreshed page loads a different hashed chunk from the latest build",
     );
     assert.equal(
@@ -412,7 +413,7 @@ async function runBrowserRegression(port, newBuildDir) {
     await evaluate(socket, "document.querySelector('#startup-recovery-reload').click()");
     await waitFor(
       socket,
-      "document.querySelector('a[href=\"/about/intro\"]') && !document.querySelector('#root').hidden",
+      "document.querySelector('a[href=\"/about/executives\"]') && !document.querySelector('#root').hidden",
       "the app after the user-triggered startup recovery",
     );
     assert.equal(
@@ -422,17 +423,17 @@ async function runBrowserRegression(port, newBuildDir) {
     );
     const recoveredDocument = requestLog.findLast(
       (entry) =>
-        (entry.pathname === "/" || entry.pathname === "/about/intro") && entry.status === 200,
+        (entry.pathname === "/" || entry.pathname === "/about/executives") && entry.status === 200,
     );
     assert.equal(
       recoveredDocument?.buildDir,
       activeBuildDir,
       "the recovery button receives HTML from the latest build",
     );
-    await evaluate(socket, "document.querySelector('a[href=\"/about/intro\"]').click()");
+    await evaluate(socket, "document.querySelector('a[href=\"/about/executives\"]').click()");
     await waitFor(
       socket,
-      "window.__routeRecoveryBrowserBuild === 'new' && document.querySelector('h1')?.innerText.includes('동문회 소개')",
+      "window.__routeRecoveryBrowserBuild === 'new' && document.querySelector('h1')?.innerText.includes('임원 명단')",
       "a route from the latest build after startup recovery",
     );
     console.log(
