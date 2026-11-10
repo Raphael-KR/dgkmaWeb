@@ -10,7 +10,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 환경별 마지막 적용 상태는 [replit.md](../../replit.md#현재-적용-상태), Git 통합·배포·smoke는 [정리 릴리스 기록](../history/cleanup-release-2026-11-10.md)에서 구분한다. 과거 이동·점검 결과는 [구조 개편 이력](../history/structure-validation-2026-10-20.md)에 보존한다.
 
-2026-11-10 후속 개발 사본에는 관리자 기초 통계의 계약을 `shared/contracts/admin-statistics.ts`, 읽기 집계와 권한 보호 라우트를 `server/modules/statistics`, 조회 상태·기간 선택·결과 표시를 `features/admin`에 추가했다. 아래 통계 항목은 PR #29 이후 개발분이며 후속 릴리스 대상이다. 정적 검사, Git·운영 적용과 미확인 실행 범위는 [통계 수행 기록](../history/admin-statistics-2026-11-10.md)을 따른다.
+2026-11-10 PR #30으로 관리자 기초 통계의 계약을 `shared/contracts/admin-statistics.ts`, 읽기 집계와 권한 보호 라우트를 `server/modules/statistics`, 조회 상태·기간 선택·결과 표시를 `features/admin`에 추가해 main과 Replit 운영에 반영했다. 정적 검사, Git·운영 적용과 미확인 실행 범위는 [통계 수행 기록](../history/admin-statistics-2026-11-10.md)을 따른다.
 
 ## 코드 소유권
 

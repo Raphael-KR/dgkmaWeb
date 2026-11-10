@@ -8,13 +8,13 @@
 
 | 구분 | 마지막 확인 상태 | 근거 |
 |---|---|---|
-| Git 통합 | PR #29 main 병합 `997bc7ba891ab6a21bac6889b26db93464704f72`. Replit 게시 커밋 `7aadf4cb496193a5bb774cd9a73a43bf5551afc6`도 보존하며 완료 기록은 문서 전용 후속 커밋으로 구분 | [PR #29](https://github.com/Raphael-KR/dgkmaWeb/pull/29), [릴리스 기록](docs/history/cleanup-release-2026-11-10.md) |
-| 개발 사본 | 기준 main `6ccdbfdd145ad9194dd58b1b19df28063c4b72a0`. 로컬·Replit에는 관리자 기초 통계와 계획서 갱신을 미커밋 반영. 해당 개발분은 GitHub·운영 미반영 | [통계 개발 기록](docs/history/admin-statistics-2026-11-10.md), [앞선 Git 정리](docs/history/post-release-cleanup-2026-11-10.md#후속-git-정리-결과) |
-| 마지막 운영 릴리스 | 2026-11-10 20:19:47 KST 성공 관찰. 게시 커밋과 병합 후보의 tree `3e4d8e6d8192eddcdf54a629a537fb3e16915fd1` 일치 | [Republish 결과](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
-| 릴리스 후 운영 확인 | 2026-11-10 20:20:24 KST 비로그인 공개 페이지 5개·회원 API 인증 차단 8개·정적 자산 해시 57개, 총 70건 통과. 실계정 QA 보류 | [확인 범위](docs/history/cleanup-release-2026-11-10.md#git배포운영-확인) |
+| Git 통합 | PR #30 main 병합 `aba23b8706f2e4c38f073467d0466398198c9fe6`. 동일 소스의 Replit 게시 커밋 `44944bf36a5419259049282687e2e432132d1c2e`도 보존하며 완료 기록은 문서 전용 후속 커밋으로 구분 | [PR #30](https://github.com/Raphael-KR/dgkmaWeb/pull/30), [수행 기록](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
+| 개발 사본 | 로컬·GitHub·Replit의 main에 통계 소스와 계획서 갱신 반영. 릴리스 소스 525개 일치, 기존 개발 사본·stash 보존. 완료 기록은 문서 전용 후속 main으로 동기화 | [통계 기록](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과), [앞선 Git 정리](docs/history/post-release-cleanup-2026-11-10.md#후속-git-정리-결과) |
+| 마지막 운영 릴리스 | 2026-11-10 22:30:14 KST 성공 관찰. 게시 커밋과 병합 후보의 tree `5c1dd70212b089bdaaeda7a489bc71bf042fac6f` 일치 | [Republish 결과](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
+| 릴리스 후 운영 확인 | 2026-11-10 22:30:44 KST 비로그인 공개 페이지 5개·회원/통계 API 인증 차단 9개·정적 자산 해시 60개, 총 74건 통과. 실계정 QA 보류 | [확인 범위](docs/history/admin-statistics-2026-11-10.md#후속-릴리스-결과) |
 | DB 구조 | posts 통합, content JSONB, is_hidden, source_collection_rules와 구 테이블 2개 제거가 마지막 관찰 기준. 이번 릴리스는 DB 변경·catalog 재조회 없음 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
 
-운영에는 기존 통합 게시판·수집기·경사·공개 메뉴·본문 편집·게시글 관리와 함께 PR #29의 공통 모듈·스타일·책임 분리가 반영됐다. 세부 정책은 [제품 기준](docs/product/planning-proposal.md), 작업별 검사와 제한은 [이력 색인](docs/history/README.md)을 따른다. 게시 커밋의 메타데이터만으로 성공을 판단하지 않고 새 배포 상태 전환과 후보 자산 일치를 확인했다.
+운영에는 기존 통합 게시판·수집기·경사·공개 메뉴·본문 편집·게시글 관리, PR #29의 공통 모듈·스타일·책임 분리와 PR #30의 관리자 기초 통계 코드가 반영됐다. 세부 정책은 [제품 기준](docs/product/planning-proposal.md), 작업별 검사와 제한은 [이력 색인](docs/history/README.md)을 따른다. 게시 커밋의 메타데이터만으로 성공을 판단하지 않고 새 배포 상태 전환과 후보 자산 일치를 확인했다.
 
 PR #28의 URL 교체 확인은 메모리 대역 18개 사례다. 이번 비로그인 smoke는 실제 회원 글 수정·외부 수집·OpenAI 호출·브라우저 상호작용의 확인을 대신하지 않는다. 수집·경사·OCR의 실행 범위는 [수집 이력](docs/history/replit-2026-11-09.md#개발-수집-적용-결과-2026-11-09)을 따른다.
 
