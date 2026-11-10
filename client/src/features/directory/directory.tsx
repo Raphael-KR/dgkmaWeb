@@ -1,37 +1,21 @@
-import { useState, useEffect } from "react";
+import { useScrollToTop } from "@/hooks/use-scroll-to-top";
+import type { DirectoryResult } from "@shared/contracts/directory";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { QueryError } from "@/components/query-error";
 import { Search, Users, Info } from "lucide-react";
-
-interface DirectoryAlumni {
-  id: number;
-  name: string;
-  generation: string;
-  department: string;
-  graduationYear: number | null;
-  position: string | null;
-  isMatched: boolean;
-}
-
-interface DirectoryResult {
-  alumni: DirectoryAlumni[];
-  total: number;
-  hasScope: boolean;
-  scope: { generation: string | null; region: string | null };
-}
 
 export default function Directory() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // 페이지 로드 시 최상단으로 스크롤
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  useScrollToTop();
 
-  const { data, isLoading } = useQuery<DirectoryResult>({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery<DirectoryResult>({
     queryKey: ["/api/alumni"],
   });
 
@@ -50,49 +34,55 @@ export default function Directory() {
   });
 
   return (
-    <div className="min-h-screen bg-kakao-gray">
+    <div className="member-screen">
       <div className="member-container">
         <div>
-          <h1 className="mb-2 text-xl font-bold kakao-brown md:text-3xl">동문록</h1>
+          <h1 className="mb-2 text-xl font-bold  md:text-3xl">동문록</h1>
           <p className="text-sm text-gray-500 mb-6">
             같은 기수 또는 같은 지역 동문을 볼 수 있어요.
           </p>
 
           <div className="mb-6 grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_18rem]">
-          {/* Search */}
-          <div className="relative min-w-0">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <Input
-              placeholder="이름 또는 기수로 검색"
-              aria-label="동문 이름 또는 기수 검색"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              disabled={!hasScope}
-            />
-          </div>
+            {/* Search */}
+            <div className="relative min-w-0">
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <Input
+                placeholder="이름 또는 기수로 검색"
+                aria-label="동문 이름 또는 기수 검색"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                disabled={isError || !hasScope}
+              />
+            </div>
 
-          {/* Statistics */}
-          <Card className="shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="text-blue-600" size={24} />
+            {/* Statistics */}
+            <Card className="shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="text-blue-600" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">열람 가능한 동문</p>
+                    <p className="text-xl font-bold">
+                      {isLoading || isError ? "—" : `${total.toLocaleString()}명`}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">열람 가능한 동문</p>
-                  <p className="text-xl font-bold">
-                    {isLoading ? "—" : `${total.toLocaleString()}명`}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           </div>
 
           {/* 본문 상태별 렌더링 */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {isError ? (
+            <QueryError
+              message="동문 명부를 불러오지 못했습니다."
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+            />
+          ) : isLoading ? (
+            <div className="directory-grid">
               {[0, 1, 2].map((i) => (
                 <Card key={i} className="shadow-sm">
                   <CardContent className="p-4">
@@ -117,8 +107,7 @@ export default function Directory() {
                 <h3 className="font-bold text-gray-800 mb-2">동문을 보려면 정보가 필요해요</h3>
                 <p className="text-sm text-gray-600">
                   기수 또는 활동 지역 정보가 없어 열람할 수 있는 동문을 정할 수 없습니다.
-                  <br />
-                  내 정보에 기수·지역을 등록하면 같은 기수·지역 동문을 볼 수 있어요.
+                  <br />내 정보에 기수·지역을 등록하면 같은 기수·지역 동문을 볼 수 있어요.
                 </p>
               </CardContent>
             </Card>
@@ -126,23 +115,19 @@ export default function Directory() {
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500">
-                  {searchTerm.trim()
-                    ? "검색 결과가 없습니다."
-                    : "열람 가능한 동문이 없습니다."}
+                  {searchTerm.trim() ? "검색 결과가 없습니다." : "열람 가능한 동문이 없습니다."}
                 </p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="directory-grid">
               {filteredAlumni.map((person) => (
                 <Card key={person.id} className="min-w-0 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200">
-                          <span className="font-bold text-gray-600">
-                            {person.name.charAt(0)}
-                          </span>
+                          <span className="font-bold text-gray-600">{person.name.charAt(0)}</span>
                         </div>
                         <div className="min-w-0 [overflow-wrap:anywhere]">
                           <p className="font-bold">
@@ -160,7 +145,9 @@ export default function Directory() {
                         </div>
                       </div>
                       {person.isMatched && (
-                        <Badge variant="default" className="shrink-0">회원</Badge>
+                        <Badge variant="default" className="shrink-0">
+                          회원
+                        </Badge>
                       )}
                     </div>
                   </CardContent>
@@ -169,20 +156,18 @@ export default function Directory() {
             </div>
           )}
 
-          {/* Join KakaoTalk Group */}
+          {/* 단체방 참여 주소가 확정되기 전까지 실행 버튼을 제공하지 않는다. */}
           <Card className="mx-auto mt-6 bg-gradient-to-r from-yellow-50 to-yellow-100 shadow-sm md:max-w-xl">
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 kakao rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                <svg className="kakao-brown" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z"/>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.658-.1L5.5 21l1.072-3.85a7.55 7.55 0 0 1-1.997-5.065C4.575 6.664 9.201 3 15 3z" />
                 </svg>
               </div>
               <h3 className="font-bold text-lg mb-2">동문 카카오톡 방</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                동문들과 실시간으로 소통하세요
-              </p>
-              <Button className="kakao kakao-brown font-bold">
-                카카오톡 방 참여하기
+              <p className="text-sm text-gray-600 mb-4">단체방 참여 링크를 준비 중입니다.</p>
+              <Button variant="kakao" disabled>
+                카카오톡 방 준비 중
               </Button>
             </CardContent>
           </Card>

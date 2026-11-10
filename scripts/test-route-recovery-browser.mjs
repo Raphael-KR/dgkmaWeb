@@ -14,11 +14,15 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { createRequire } from "node:module";
+import {
+  evaluate,
+  openCdpSocket,
+  sendCdp,
+  waitFor as waitForCondition,
+  waitForBrowserEndpoint,
+} from "./lib/browser-cdp.mjs";
 import { serveStatic } from "../server/vite.ts";
 
-const require = createRequire(import.meta.url);
-const WebSocket = require("ws");
 const projectRoot = process.cwd();
 const viteBin = path.join(projectRoot, "node_modules", ".bin", "vite");
 const chromiumBin = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
@@ -27,8 +31,6 @@ const requestLog = [];
 const browserResponses = [];
 let activeBuildDir;
 let activateBuild;
-let nextRequestId = 0;
-const pendingCommands = new Map();
 
 function buildSnapshot(label, destination) {
   const result = spawnSync(viteBin, ["build"], {
@@ -42,9 +44,7 @@ function buildSnapshot(label, destination) {
     stdio: "pipe",
   });
   if (result.status !== 0) {
-    throw new Error(
-      `Vite build ${label} failed:\n${result.stdout}\n${result.stderr}`,
-    );
+    throw new Error(`Vite build ${label} failed:\n${result.stdout}\n${result.stderr}`);
   }
   const output = path.join(projectRoot, "dist", "public");
   assert.ok(existsSync(path.join(output, "index.html")), `build ${label} has an index`);
@@ -52,9 +52,9 @@ function buildSnapshot(label, destination) {
 }
 
 function documentRequestCount() {
-  return requestLog.filter((entry) =>
-    entry.status === 200 &&
-    (entry.pathname === "/" || entry.pathname === "/about/intro"),
+  return requestLog.filter(
+    (entry) =>
+      entry.status === 200 && (entry.pathname === "/" || entry.pathname === "/about/intro"),
   ).length;
 }
 
@@ -81,102 +81,57 @@ async function startStaticServer() {
   return { server, port: server.address().port };
 }
 
-function sendCdp(socket, method, params = {}) {
-  const id = ++nextRequestId;
-  return new Promise((resolve, reject) => {
-    pendingCommands.set(id, { resolve, reject, method, params });
-    socket.send(JSON.stringify({ id, method, params }));
-  });
-}
-
-function openCdpSocket(url) {
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
-    socket.once("open", () => resolve(socket));
-    socket.once("error", reject);
-    socket.on("message", (raw) => {
-      const message = JSON.parse(raw.toString());
-      if (message.method === "Network.responseReceived") {
-        browserResponses.push({
-          url: message.params.response.url,
-          status: message.params.response.status,
-          mimeType: message.params.response.mimeType,
-        });
-      }
-      if (!message.id) return;
-      const pending = pendingCommands.get(message.id);
-      if (!pending) return;
-      pendingCommands.delete(message.id);
-      if (message.error) {
-        pending.reject(new Error(
-          `${pending.method} ${JSON.stringify(pending.params)}: ${message.error.message}`,
-        ));
-      } else {
-        pending.resolve(message.result ?? {});
-      }
+function recordNetworkEvent(message) {
+  if (message.method === "Network.responseReceived") {
+    browserResponses.push({
+      url: message.params.response.url,
+      status: message.params.response.status,
+      mimeType: message.params.response.mimeType,
     });
-  });
+  }
 }
 
-async function waitForBrowserEndpoint(profileDir, browser) {
-  const endpointFile = path.join(profileDir, "DevToolsActivePort");
-  const expiresAt = Date.now() + 15_000;
-  while (Date.now() < expiresAt) {
-    if (browser.exitCode !== null) throw new Error(`Chromium exited (${browser.exitCode})`);
-    if (existsSync(endpointFile)) {
-      const [port] = readFileSync(endpointFile, "utf8").trim().split("\n");
-      return Number(port);
-    }
-    await delay(100);
-  }
-  throw new Error("Chromium remote debugging endpoint did not start");
-}
-
-async function evaluate(socket, expression) {
-  const result = await sendCdp(socket, "Runtime.evaluate", {
-    expression,
-    returnByValue: true,
-    awaitPromise: true,
-  });
-  if (result.exceptionDetails) {
-    throw new Error(result.exceptionDetails.text || "Browser evaluation failed");
-  }
-  return result.result?.value;
-}
-
-async function waitFor(socket, expression, description, timeoutMs = 12_000) {
-  const expiresAt = Date.now() + timeoutMs;
-  while (Date.now() < expiresAt) {
-    if (await evaluate(socket, expression)) return;
-    await delay(100);
-  }
-  throw new Error(`Timed out waiting for ${description}`);
+function waitFor(socket, expression, description) {
+  const timeoutMs = 12_000;
+  return waitForCondition(socket, expression, description, timeoutMs);
 }
 
 async function runBrowserRegression(port, newBuildDir) {
   const profileDir = path.join(tempRoot, "chromium-profile");
-  const browser = spawn(chromiumBin, [
-    "--headless=new",
-    "--no-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-background-networking",
-    "--disable-extensions",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--remote-debugging-port=0",
-    `--user-data-dir=${profileDir}`,
-    "about:blank",
-  ], { stdio: "ignore" });
+  const browser = spawn(
+    chromiumBin,
+    [
+      "--headless=new",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-background-networking",
+      "--disable-extensions",
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--remote-debugging-port=0",
+      `--user-data-dir=${profileDir}`,
+      "about:blank",
+    ],
+    { stdio: "ignore" },
+  );
 
   let socket;
   try {
-    const debugPort = await waitForBrowserEndpoint(profileDir, browser);
+    const debugPort = await waitForBrowserEndpoint(
+      profileDir,
+      browser,
+      "Chromium remote debugging endpoint did not start",
+    );
     const targetResponse = await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`, {
       method: "PUT",
     });
     assert.equal(targetResponse.status, 200, "Chromium creates a clean browser tab");
     const target = await targetResponse.json();
-    socket = await openCdpSocket(target.webSocketDebuggerUrl);
+    socket = await openCdpSocket(target.webSocketDebuggerUrl, {
+      onEvent: recordNetworkEvent,
+      formatCommandError: (method, params, error) =>
+        `${method} ${JSON.stringify(params)}: ${error.message}`,
+    });
     await sendCdp(socket, "Page.enable");
     await sendCdp(socket, "Runtime.enable");
     await sendCdp(socket, "Network.enable");
@@ -196,7 +151,9 @@ async function runBrowserRegression(port, newBuildDir) {
       "the browser must revalidate the HTML so a user-triggered reload gets the current release",
     );
 
-    const fallbackResponses = await evaluate(socket, `Promise.all([
+    const fallbackResponses = await evaluate(
+      socket,
+      `Promise.all([
       fetch("/assets/__route-recovery-missing__.css"),
       fetch("/assets/__route-recovery-missing__.woff2"),
       fetch("/__route_recovery_fallback__"),
@@ -210,7 +167,8 @@ async function runBrowserRegression(port, newBuildDir) {
         contentType: api.headers.get("content-type"),
         body: await api.json(),
       },
-    }))`);
+    }))`,
+    );
     for (const [assetType, response] of Object.entries({
       CSS: fallbackResponses.css,
       font: fallbackResponses.font,
@@ -221,16 +179,28 @@ async function runBrowserRegression(port, newBuildDir) {
         /text\/html/i,
         `a missing ${assetType} does not receive the SPA HTML fallback`,
       );
-      assert.match(String(response.contentType), /^text\/plain(?:;|$)/i,
-        `a missing ${assetType} receives a plain-text error`);
+      assert.match(
+        String(response.contentType),
+        /^text\/plain(?:;|$)/i,
+        `a missing ${assetType} receives a plain-text error`,
+      );
     }
-    assert.equal(fallbackResponses.page.status, 200,
-      "an unknown non-asset path still falls back to the SPA document");
-    assert.match(String(fallbackResponses.page.contentType), /^text\/html(?:;|$)/i,
-      "an unknown non-asset path still receives HTML");
+    assert.equal(
+      fallbackResponses.page.status,
+      200,
+      "an unknown non-asset path still falls back to the SPA document",
+    );
+    assert.match(
+      String(fallbackResponses.page.contentType),
+      /^text\/html(?:;|$)/i,
+      "an unknown non-asset path still receives HTML",
+    );
     assert.equal(fallbackResponses.api.status, 404, "an unknown API path remains a 404");
-    assert.match(String(fallbackResponses.api.contentType), /^application\/json(?:;|$)/i,
-      "an unknown API path remains a JSON response");
+    assert.match(
+      String(fallbackResponses.api.contentType),
+      /^application\/json(?:;|$)/i,
+      "an unknown API path remains a JSON response",
+    );
     assert.ok(fallbackResponses.api.body?.message, "the API 404 keeps its error message");
     for (const pathname of [
       "/assets/__route-recovery-missing__.css",
@@ -238,8 +208,10 @@ async function runBrowserRegression(port, newBuildDir) {
       "/__route_recovery_fallback__",
       "/api/__route_recovery_missing__",
     ]) {
-      assert.ok(requestLog.some((entry) => entry.pathname === pathname),
-        `the local production server handled ${pathname}`);
+      assert.ok(
+        requestLog.some((entry) => entry.pathname === pathname),
+        `the local production server handled ${pathname}`,
+      );
     }
 
     // A second local build becomes current while the existing browser tab stays open.
@@ -264,7 +236,9 @@ async function runBrowserRegression(port, newBuildDir) {
       await evaluate(socket, "document.querySelector('[role=\"alert\"]').innerText"),
       /새로고침/,
     );
-    const missingChunks = requestLog.filter((entry) => entry.status === 404 && /\.js$/.test(entry.pathname));
+    const missingChunks = requestLog.filter(
+      (entry) => entry.status === 404 && /\.js$/.test(entry.pathname),
+    );
     assert.equal(
       missingChunks.length,
       1,
@@ -281,12 +255,18 @@ async function runBrowserRegression(port, newBuildDir) {
       false,
       "the latest production bundle no longer contains the old hashed chunk",
     );
-    assert.equal(missingChunks[0].buildDir, activeBuildDir,
-      "the missing old chunk was requested from the replacement build");
+    assert.equal(
+      missingChunks[0].buildDir,
+      activeBuildDir,
+      "the missing old chunk was requested from the replacement build",
+    );
     const browserChunkFailure = browserResponses.find((entry) => entry.url.endsWith(oldChunkPath));
     assert.equal(browserChunkFailure?.status, 404, "Chromium receives the server's chunk 404");
-    assert.equal(browserChunkFailure?.mimeType, "text/plain",
-      "Chromium does not receive HTML for the missing chunk");
+    assert.equal(
+      browserChunkFailure?.mimeType,
+      "text/plain",
+      "Chromium does not receive HTML for the missing chunk",
+    );
     assert.equal(
       documentRequestCount(),
       originalDocumentRequests,
@@ -317,24 +297,41 @@ async function runBrowserRegression(port, newBuildDir) {
     );
     const latestDocument = requestLog.findLast(
       (entry) =>
-        (entry.pathname === "/" || entry.pathname === "/about/intro") &&
-        entry.status === 200,
+        (entry.pathname === "/" || entry.pathname === "/about/intro") && entry.status === 200,
     );
-    assert.equal(latestDocument?.buildDir, activeBuildDir,
-      "the user-triggered reload receives HTML from the replacement build");
-    assert.equal(latestDocument?.cacheControl, "no-cache",
-      "the replacement HTML is not reused without revalidation");
+    assert.equal(
+      latestDocument?.buildDir,
+      activeBuildDir,
+      "the user-triggered reload receives HTML from the replacement build",
+    );
+    assert.equal(
+      latestDocument?.cacheControl,
+      "no-cache",
+      "the replacement HTML is not reused without revalidation",
+    );
     const newIntroChunks = requestLog.filter(
-      (entry) => entry.status === 200 && /\.js$/.test(entry.pathname) && entry.buildDir === activeBuildDir,
+      (entry) =>
+        entry.status === 200 && /\.js$/.test(entry.pathname) && entry.buildDir === activeBuildDir,
     );
-    assert.ok(newIntroChunks.some((entry) => entry.pathname !== oldChunkPath),
-      "the refreshed page loads a different hashed chunk from the latest build");
-    assert.equal(requestLog.filter(
-      (entry) => entry.status === 404 && /\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(entry.pathname),
-    ).length, 3,
-      "only the intentional stale chunk, missing CSS, and missing font requests fail");
+    assert.ok(
+      newIntroChunks.some((entry) => entry.pathname !== oldChunkPath),
+      "the refreshed page loads a different hashed chunk from the latest build",
+    );
+    assert.equal(
+      requestLog.filter(
+        (entry) =>
+          entry.status === 404 &&
+          /\.(?:js|mjs|css|map|woff2?|ttf|otf|png|jpe?g|svg|avif|webp|gif|ico)$/i.test(
+            entry.pathname,
+          ),
+      ).length,
+      3,
+      "only the intentional stale chunk, missing CSS, and missing font requests fail",
+    );
 
-    console.log("PASS old tab → deployment replacement → stale lazy chunk 404 → explicit reload → latest route; no reload loop");
+    console.log(
+      "PASS old tab → deployment replacement → stale lazy chunk 404 → explicit reload → latest route; no reload loop",
+    );
 
     const entryFailureBuildDir = path.join(tempRoot, "build-entry-failure");
     cpSync(newBuildDir, entryFailureBuildDir, { recursive: true });
@@ -346,9 +343,15 @@ async function runBrowserRegression(port, newBuildDir) {
       /\bsrc="[^"]+"/,
       'src="/assets/__route-recovery-missing-entry__.js"',
     );
-    assert.notEqual(missingEntryScriptTag, entryScriptTag,
-      "the production entry script has a source to replace");
-    writeFileSync(entryFailureIndexPath, entryFailureHtml.replace(entryScriptTag, missingEntryScriptTag));
+    assert.notEqual(
+      missingEntryScriptTag,
+      entryScriptTag,
+      "the production entry script has a source to replace",
+    );
+    writeFileSync(
+      entryFailureIndexPath,
+      entryFailureHtml.replace(entryScriptTag, missingEntryScriptTag),
+    );
 
     activateBuild(entryFailureBuildDir);
     const documentsBeforeEntryFailure = documentRequestCount();
@@ -366,19 +369,28 @@ async function runBrowserRegression(port, newBuildDir) {
       await evaluate(socket, "document.querySelector('#startup-recovery').innerText"),
       /새로고침/,
     );
-    const missingEntry = requestLog.find((entry) =>
-      entry.pathname === "/assets/__route-recovery-missing-entry__.js",
+    const missingEntry = requestLog.find(
+      (entry) => entry.pathname === "/assets/__route-recovery-missing-entry__.js",
     );
     assert.equal(missingEntry?.status, 404, "the module entry request receives a real 404");
-    assert.equal(missingEntry?.buildDir, entryFailureBuildDir,
-      "the current deployment handled the missing entry request");
-    assert.match(String(missingEntry?.contentType), /^text\/plain(?:;|$)/i,
-      "the failed module entry does not receive the SPA HTML fallback");
+    assert.equal(
+      missingEntry?.buildDir,
+      entryFailureBuildDir,
+      "the current deployment handled the missing entry request",
+    );
+    assert.match(
+      String(missingEntry?.contentType),
+      /^text\/plain(?:;|$)/i,
+      "the failed module entry does not receive the SPA HTML fallback",
+    );
     const browserEntryFailure = browserResponses.find((entry) =>
       entry.url.endsWith("/assets/__route-recovery-missing-entry__.js"),
     );
-    assert.equal(browserEntryFailure?.status, 404,
-      "Chromium receives the missing entry script's 404");
+    assert.equal(
+      browserEntryFailure?.status,
+      404,
+      "Chromium receives the missing entry script's 404",
+    );
     assert.equal(
       documentRequestCount(),
       documentsBeforeEntryFailure + 1,
@@ -408,19 +420,24 @@ async function runBrowserRegression(port, newBuildDir) {
       documentsBeforeEntryFailure + 2,
       "the recovery button loads exactly one latest document",
     );
-    const recoveredDocument = requestLog.findLast((entry) =>
-      (entry.pathname === "/" || entry.pathname === "/about/intro") &&
-      entry.status === 200,
+    const recoveredDocument = requestLog.findLast(
+      (entry) =>
+        (entry.pathname === "/" || entry.pathname === "/about/intro") && entry.status === 200,
     );
-    assert.equal(recoveredDocument?.buildDir, activeBuildDir,
-      "the recovery button receives HTML from the latest build");
+    assert.equal(
+      recoveredDocument?.buildDir,
+      activeBuildDir,
+      "the recovery button receives HTML from the latest build",
+    );
     await evaluate(socket, "document.querySelector('a[href=\"/about/intro\"]').click()");
     await waitFor(
       socket,
       "window.__routeRecoveryBrowserBuild === 'new' && document.querySelector('h1')?.innerText.includes('동문회 소개')",
       "a route from the latest build after startup recovery",
     );
-    console.log("PASS missing module entry 404 → HTML recovery → explicit reload → latest page; no reload loop");
+    console.log(
+      "PASS missing module entry 404 → HTML recovery → explicit reload → latest page; no reload loop",
+    );
   } finally {
     if (socket) socket.close();
     if (browser.exitCode === null) {

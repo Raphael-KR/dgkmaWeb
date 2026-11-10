@@ -6,11 +6,24 @@ import ts from "typescript";
 const protectedFiles = [
   "routes.ts",
   "integrations/google-sheets.ts",
+  "integrations/object-storage/routes.ts",
+  "integrations/object-storage/objectStorage.ts",
   "storage.ts",
   "modules/identity/registration-support.ts",
+  "modules/identity/kakao-authorization.ts",
+  "modules/identity/kakao-profile.ts",
+  "modules/identity/kakao-login-session.ts",
+  "modules/identity/kakao-login.ts",
+  "modules/identity/profile-routes.ts",
+  "modules/registry/alumni-record-storage.ts",
+  "modules/registry/directory-storage.ts",
+  "modules/registry/pending-registration-storage.ts",
+  "modules/registry/alumni-sync-storage.ts",
   "modules/events/event-member-policy.ts",
-  ...["identity", "registry", "content", "events", "dues"]
-    .flatMap((domain) => [`modules/${domain}/routes.ts`, `modules/${domain}/storage.ts`]),
+  ...["identity", "registry", "content", "events", "dues"].flatMap((domain) => [
+    `modules/${domain}/routes.ts`,
+    `modules/${domain}/storage.ts`,
+  ]),
 ];
 
 const sensitiveIdentifiers = new Set([
@@ -50,10 +63,12 @@ const sensitiveProperties = new Set([
 ]);
 
 function isConsoleCall(node: ts.Node): node is ts.CallExpression {
-  return ts.isCallExpression(node)
-    && ts.isPropertyAccessExpression(node.expression)
-    && ts.isIdentifier(node.expression.expression)
-    && node.expression.expression.text === "console";
+  return (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isIdentifier(node.expression.expression) &&
+    node.expression.expression.text === "console"
+  );
 }
 
 function containsSensitiveValue(node: ts.Node): boolean {
@@ -61,9 +76,9 @@ function containsSensitiveValue(node: ts.Node): boolean {
     return false;
   }
   if (
-    ts.isCallExpression(node)
-    && ts.isIdentifier(node.expression)
-    && node.expression.text === "getErrorType"
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "getErrorType"
   ) {
     return false;
   }
@@ -80,9 +95,9 @@ function containsSensitiveValue(node: ts.Node): boolean {
     return containsSensitiveValue(node.initializer);
   }
   if (
-    ts.isElementAccessExpression(node)
-    && ts.isIdentifier(node.expression)
-    && (node.expression.text === "rows" || node.expression.text === "row")
+    ts.isElementAccessExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    (node.expression.text === "rows" || node.expression.text === "row")
   ) {
     return true;
   }

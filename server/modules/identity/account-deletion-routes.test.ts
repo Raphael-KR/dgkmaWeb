@@ -64,9 +64,10 @@ async function startServer(dependencies: RouteDependencies) {
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     counters: () => ({ destroyCalls, clearCookieCalls }),
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 
@@ -101,7 +102,9 @@ function deletionDependencies(overrides: Partial<RouteDependencies> = {}) {
       await beforeDelete?.(user as User);
       calls.deletedUsers.push(user as User);
     },
-    unlinkKakaoUser: async (args) => { calls.unlinkArgs.push(args); },
+    unlinkKakaoUser: async (args) => {
+      calls.unlinkArgs.push(args);
+    },
     ...overrides,
   };
   return { calls, dependencies };
@@ -142,7 +145,9 @@ test("account deletion unlinks and deletes only the session user, then clears th
     const response = await deleteAccount(server, { confirmation: "탈퇴", userId: 999 }, cookie);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { success: true });
-    assert.deepEqual(calls.unlinkArgs, [{ adminKey: "admin-secret", kakaoId: sessionUser.kakaoId }]);
+    assert.deepEqual(calls.unlinkArgs, [
+      { adminKey: "admin-secret", kakaoId: sessionUser.kakaoId },
+    ]);
     assert.deepEqual(calls.deletedUsers, [sessionUser]);
     assert.deepEqual(server.counters(), { destroyCalls: 1, clearCookieCalls: 1 });
     assert.match(response.headers.get("set-cookie") ?? "", /connect\.sid=;/);
@@ -153,7 +158,9 @@ test("account deletion unlinks and deletes only the session user, then clears th
 
 test("already-unlinked Kakao accounts continue to local deletion", async () => {
   const { calls, dependencies } = deletionDependencies({
-    unlinkKakaoUser: async () => { throw new KakaoUnlinkError("already_unlinked", 400); },
+    unlinkKakaoUser: async () => {
+      throw new KakaoUnlinkError("already_unlinked", 400);
+    },
   });
   const server = await startServer(dependencies);
   try {
@@ -185,7 +192,9 @@ test("accounts without a Kakao id skip unlink and allow local deletion", async (
 
 test("Kakao unlink failures return 502 and prevent local deletion", async () => {
   const { calls, dependencies } = deletionDependencies({
-    unlinkKakaoUser: async () => { throw new KakaoUnlinkError("network_error"); },
+    unlinkKakaoUser: async () => {
+      throw new KakaoUnlinkError("network_error");
+    },
   });
   const server = await startServer(dependencies);
   try {

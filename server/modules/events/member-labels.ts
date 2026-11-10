@@ -30,9 +30,9 @@ export function admissionYearLabel(value: unknown): string | undefined {
   const day = Number(match[3]);
   const parsed = new Date(Date.UTC(year, month - 1, day));
   if (
-    parsed.getUTCFullYear() !== year
-    || parsed.getUTCMonth() !== month - 1
-    || parsed.getUTCDate() !== day
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
   ) {
     return undefined;
   }

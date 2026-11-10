@@ -1,17 +1,16 @@
+import {
+  IMAGE_UPLOAD_MAX_BYTES,
+  IMAGE_UPLOAD_MAX_MB,
+  isUploadImageContentType,
+} from "@shared/contracts/uploads";
 import type { Express } from "express";
 import { storage } from "../../storage";
 import { createHmac, timingSafeEqual } from "crypto";
 import type { IncomingMessage } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { logObjectStorageFailure } from "../../lib/safe-logging";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const UPLOAD_TOKEN_TTL_MS = 15 * 60 * 1000;
-const ALLOWED_IMAGE_CONTENT_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
 
 type UploadTokenPayload = {
   objectId: string;
@@ -22,7 +21,7 @@ type UploadTokenPayload = {
 
 class UploadTooLargeError extends Error {
   constructor() {
-    super("Upload exceeds the 10 MB limit");
+    super(`Upload exceeds the ${IMAGE_UPLOAD_MAX_MB} MB limit`);
     this.name = "UploadTooLargeError";
   }
 }
@@ -54,10 +53,7 @@ function verifyUploadToken(token: string): UploadTokenPayload | null {
     .digest("base64url");
   const received = Buffer.from(encodedSignature);
   const expected = Buffer.from(expectedSignature);
-  if (
-    received.length !== expected.length ||
-    !timingSafeEqual(received, expected)
-  ) {
+  if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
     return null;
   }
 
@@ -71,9 +67,9 @@ function verifyUploadToken(token: string): UploadTokenPayload | null {
       typeof payload.size !== "number" ||
       !Number.isInteger(payload.size) ||
       payload.size <= 0 ||
-      payload.size > MAX_UPLOAD_BYTES ||
+      payload.size > IMAGE_UPLOAD_MAX_BYTES ||
       typeof payload.contentType !== "string" ||
-      !ALLOWED_IMAGE_CONTENT_TYPES.has(payload.contentType) ||
+      !isUploadImageContentType(payload.contentType) ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt < Date.now()
     ) {
@@ -86,23 +82,14 @@ function verifyUploadToken(token: string): UploadTokenPayload | null {
 }
 
 function normalizeContentType(value: unknown): string {
-  return typeof value === "string"
-    ? value.toLowerCase().split(";")[0].trim()
-    : "";
+  return typeof value === "string" ? value.toLowerCase().split(";")[0].trim() : "";
 }
 
-async function readUploadBody(
-  request: IncomingMessage,
-  maxBytes: number,
-): Promise<Buffer> {
+async function readUploadBody(request: IncomingMessage, maxBytes: number): Promise<Buffer> {
   const contentLengthHeader = request.headers["content-length"];
   if (contentLengthHeader !== undefined) {
     const contentLength = Number(contentLengthHeader);
-    if (
-      !Number.isInteger(contentLength) ||
-      contentLength < 0 ||
-      contentLength > maxBytes
-    ) {
+    if (!Number.isInteger(contentLength) || contentLength < 0 || contentLength > maxBytes) {
       throw new UploadTooLargeError();
     }
   }
@@ -171,17 +158,15 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(400).json({ error: "업로드 파일 크기가 요청과 일치하지 않습니다" });
       }
 
-      await objectStorageService.uploadObjectEntity(
-        token.objectId,
-        contents,
-        token.contentType,
-      );
-      return res.status(200).json({ objectPath: `/objects/uploads/${token.objectId}` });
+      await objectStorageService.uploadObjectEntity(token.objectId, contents, token.contentType);
+      return res.status(200).end();
     } catch (error) {
       if (error instanceof UploadTooLargeError) {
-        return res.status(413).json({ error: "사진은 10MB 이하만 업로드할 수 있습니다" });
+        return res
+          .status(413)
+          .json({ error: `사진은 ${IMAGE_UPLOAD_MAX_MB}MB 이하만 업로드할 수 있습니다` });
       }
-      console.error("Error uploading object:", error);
+      logObjectStorageFailure("upload", error);
       return res.status(500).json({ error: "Failed to upload object" });
     }
   });
@@ -215,9 +200,7 @@ export function registerObjectStorageRoutes(app: Express): void {
       const { name, size, contentType } = req.body;
       const normalizedSize = typeof size === "number" ? size : Number(size);
       const normalizedContentType =
-        typeof contentType === "string"
-          ? contentType.toLowerCase().split(";")[0].trim()
-          : "";
+        typeof contentType === "string" ? contentType.toLowerCase().split(";")[0].trim() : "";
 
       if (!name) {
         return res.status(400).json({
@@ -227,10 +210,12 @@ export function registerObjectStorageRoutes(app: Express): void {
       if (!Number.isFinite(normalizedSize) || normalizedSize <= 0) {
         return res.status(400).json({ error: "올바른 파일 크기가 필요합니다" });
       }
-      if (normalizedSize > MAX_UPLOAD_BYTES) {
-        return res.status(400).json({ error: "사진은 10MB 이하만 업로드할 수 있습니다" });
+      if (normalizedSize > IMAGE_UPLOAD_MAX_BYTES) {
+        return res
+          .status(400)
+          .json({ error: `사진은 ${IMAGE_UPLOAD_MAX_MB}MB 이하만 업로드할 수 있습니다` });
       }
-      if (!ALLOWED_IMAGE_CONTENT_TYPES.has(normalizedContentType)) {
+      if (!isUploadImageContentType(normalizedContentType)) {
         return res.status(400).json({ error: "JPG, PNG, WebP, GIF 이미지만 업로드할 수 있습니다" });
       }
 
@@ -245,11 +230,9 @@ export function registerObjectStorageRoutes(app: Express): void {
       res.json({
         uploadURL: `/api/uploads/${encodeURIComponent(uploadToken)}`,
         objectPath: target.objectPath,
-        // Echo back the metadata for client convenience
-        metadata: { name, size: normalizedSize, contentType: normalizedContentType },
       });
     } catch (error) {
-      console.error("Error generating upload URL:", error);
+      logObjectStorageFailure("upload-url", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
@@ -259,8 +242,8 @@ export function registerObjectStorageRoutes(app: Express): void {
    *
    * GET /objects/:objectPath(*)
    *
-   * This serves files from object storage. For public files, no auth needed.
-   * For protected files, add authentication middleware and ACL checks.
+   * 회원 세션과 게시글 첨부 열람 권한을 확인한 뒤 private, no-store로 응답한다.
+   * 이미지 형식 검사와 nosniff 처리는 downloadObject가 담당한다.
    */
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
@@ -272,13 +255,13 @@ export function registerObjectStorageRoutes(app: Express): void {
       res.set("Cache-Control", "private, no-store");
       const viewer = await storage.getUser(req.session.userId);
       if (!viewer) return res.status(401).json({ error: "로그인이 필요합니다" });
-      if (!await storage.canReadPostAttachment(req.path, viewer)) {
+      if (!(await storage.canReadPostAttachment(req.path, viewer))) {
         return res.status(404).json({ error: "첨부 파일을 찾을 수 없습니다" });
       }
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      console.error("Error serving object:", error);
+      logObjectStorageFailure("serve", error);
       if (error instanceof ObjectNotFoundError) {
         return res.status(404).json({ error: "Object not found" });
       }

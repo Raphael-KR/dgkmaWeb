@@ -75,7 +75,10 @@ test("Kakao callback handles every explicit login result without remaining on th
   assert.match(callback, /result\.status === "failure"/);
   assert.match(callback, /setLocation\("\/login"\)/);
 
-  assert.match(profileEdit, /import \{ REGION_OPTIONS, type ClientUser \} from "@shared\/contracts"/);
+  assert.match(
+    profileEdit,
+    /import \{ REGION_OPTIONS, type ClientUser \} from "@shared\/contracts"/,
+  );
   assert.doesNotMatch(profileEdit, /type User/);
   assert.doesNotMatch(settings, /ClientUser|kakaoSyncEnabled/);
 });

@@ -5,9 +5,7 @@ import { KakaoUnlinkError, unlinkKakaoUser } from "./kakao-unlink";
 const adminKey = "admin-secret";
 const kakaoId = "123456789";
 
-async function expectUnlinkError(
-  operation: Promise<void>,
-): Promise<KakaoUnlinkError> {
+async function expectUnlinkError(operation: Promise<void>): Promise<KakaoUnlinkError> {
   try {
     await operation;
     assert.fail("KakaoUnlinkError was not thrown");

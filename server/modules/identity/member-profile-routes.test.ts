@@ -38,7 +38,9 @@ type UpdateCall = {
 async function startServer(sessionUserId?: number): Promise<TestServer> {
   const app = express();
   app.use(express.json());
-  app.use(session({ secret: "member-profile-route-test", resave: false, saveUninitialized: false }));
+  app.use(
+    session({ secret: "member-profile-route-test", resave: false, saveUninitialized: false }),
+  );
   app.post("/__test/session", (req, res) => {
     if (sessionUserId !== undefined) {
       req.session.userId = sessionUserId;
@@ -57,9 +59,10 @@ async function startServer(sessionUserId?: number): Promise<TestServer> {
 
   return {
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 
@@ -189,10 +192,14 @@ test("POST /api/users/activity-region ignores a spoofed body ID and returns exac
   // Given
   const updateCalls: UpdateCall[] = [];
   const updatedUser = { ...sessionUser, activityRegion: "경기도" };
-  t.mock.method(storage, "updateUser", async (...[userId, data]: Parameters<typeof storage.updateUser>) => {
-    updateCalls.push({ userId, data });
-    return updatedUser;
-  });
+  t.mock.method(
+    storage,
+    "updateUser",
+    async (...[userId, data]: Parameters<typeof storage.updateUser>) => {
+      updateCalls.push({ userId, data });
+      return updatedUser;
+    },
+  );
   const server = await startServer(sessionUser.id);
   try {
     const cookie = await createSession(server);
@@ -216,10 +223,14 @@ test("POST /api/users/activity-region ignores a spoofed body ID and returns exac
 test("POST /api/users/activity-region avoids storage writes for an invalid region", async (t) => {
   // Given
   const updateCalls: UpdateCall[] = [];
-  t.mock.method(storage, "updateUser", async (...[userId, data]: Parameters<typeof storage.updateUser>) => {
-    updateCalls.push({ userId, data });
-    return sessionUser;
-  });
+  t.mock.method(
+    storage,
+    "updateUser",
+    async (...[userId, data]: Parameters<typeof storage.updateUser>) => {
+      updateCalls.push({ userId, data });
+      return sessionUser;
+    },
+  );
   const server = await startServer(sessionUser.id);
   try {
     const cookie = await createSession(server);
@@ -244,10 +255,14 @@ test("PATCH /api/users/me uses the session user and strips protected fields", as
   // Given
   const updateCalls: UpdateCall[] = [];
   const updatedUser = { ...sessionUser, activityRegion: "경기도" };
-  t.mock.method(storage, "updateUser", async (...[userId, data]: Parameters<typeof storage.updateUser>) => {
-    updateCalls.push({ userId, data });
-    return updatedUser;
-  });
+  t.mock.method(
+    storage,
+    "updateUser",
+    async (...[userId, data]: Parameters<typeof storage.updateUser>) => {
+      updateCalls.push({ userId, data });
+      return updatedUser;
+    },
+  );
   const server = await startServer(sessionUser.id);
   try {
     const cookie = await createSession(server);

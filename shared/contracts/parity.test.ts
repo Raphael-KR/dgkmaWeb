@@ -8,11 +8,7 @@ import * as contracts from "./index";
 import * as persistence from "../../server/db/schema";
 import * as compatibility from "../schema";
 
-function assertValidationParity(
-  browser: z.ZodTypeAny,
-  server: z.ZodTypeAny,
-  inputs: unknown[],
-) {
+function assertValidationParity(browser: z.ZodTypeAny, server: z.ZodTypeAny, inputs: unknown[]) {
   for (const input of inputs) {
     const actual = browser.safeParse(input);
     const expected = server.safeParse(input);
@@ -25,30 +21,46 @@ function assertValidationParity(
   }
 }
 
-test("browser post validation preserves persistence input boundaries and stripping", () => {
-  const base = { title: "동문 소식", content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }] } };
+test("post metadata and document validation preserve persistence boundaries and stripping", () => {
+  const base = {
+    title: "동문 소식",
+    content: {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }],
+    },
+  };
   const inputs: unknown[] = [
-    undefined, null, [], {}, base,
+    undefined,
+    null,
+    [],
+    {},
+    base,
     { title: "", content: "" },
     { ...base, id: 1, createdAt: new Date(), unknown: "stripped" },
   ];
   for (const field of ["categoryId", "authorId"]) {
     for (const value of [
-      undefined, null, 0, -1, 1, -2147483648, 2147483647,
-      -2147483649, 2147483648, 1.5, NaN, Infinity, "1", true, {},
+      undefined,
+      null,
+      0,
+      -1,
+      1,
+      -2147483648,
+      2147483647,
+      -2147483649,
+      2147483648,
+      1.5,
+      NaN,
+      Infinity,
+      "1",
+      true,
+      {},
     ]) {
       inputs.push({ ...base, [field]: value });
     }
   }
   for (const value of [undefined, null, true, false, 0, "true"]) {
     inputs.push({ ...base, isPublished: value });
-  }
-  for (const value of [
-    undefined, null, [], [""], ["/image.jpg"], [1], [null], [false],
-    [{}], [["nested"]], [undefined], ["/image.jpg", 1, null, { path: "/other.jpg" }],
-    "image.jpg", 1, false, {}, { 0: "/image.jpg", length: 1 },
-  ]) {
-    inputs.push({ ...base, imageUrls: value });
   }
   for (const field of ["title", "content"]) {
     for (const value of [undefined, null, 1, false, [], {}]) {
@@ -58,25 +70,57 @@ test("browser post validation preserves persistence input boundaries and strippi
   assertValidationParity(contracts.insertPostSchema, persistence.insertPostSchema, inputs);
 });
 
-test("post attachment arrays preserve existing element string coercion", () => {
+test("post API validation shares editable fields and rejects persistence-only coercion", () => {
   const input = {
     title: "동문 소식",
-    content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }] },
-    imageUrls: ["/image.jpg", 1, null, false, { path: "/other.jpg" }, ["nested"], undefined],
+    content: {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }],
+    },
   };
-  const expected = persistence.insertPostSchema.parse(input);
-  const actual = contracts.insertPostSchema.parse(input);
-  assert.deepEqual(actual.imageUrls, [
-    "/image.jpg", "1", "null", "false", "[object Object]", "nested", "undefined",
-  ]);
-  assert.deepEqual(actual, expected);
+  assert.equal(contracts.insertPostSchema.shape.title, contracts.updatePostSchema.shape.title);
+  assert.equal(
+    contracts.insertPostSchema.shape.imageUrls.unwrap().unwrap(),
+    contracts.updatePostSchema.shape.imageUrls,
+  );
+  for (const imageUrls of [undefined, null, []]) {
+    assertValidationParity(contracts.insertPostSchema, persistence.insertPostSchema, [
+      { ...input, imageUrls },
+    ]);
+  }
+  // These are the existing persistence-parity inputs. The API now intentionally rejects them.
+  for (const imageUrls of [
+    [""],
+    ["/image.jpg"],
+    [1],
+    [null],
+    [false],
+    [{}],
+    [["nested"]],
+    [undefined],
+    ["/image.jpg", 1, null, { path: "/other.jpg" }],
+    "image.jpg",
+    1,
+    false,
+    {},
+    { 0: "/image.jpg", length: 1 },
+  ]) {
+    assert.equal(contracts.insertPostSchema.safeParse({ ...input, imageUrls }).success, false);
+  }
 });
 
 test("browser comment validation matches server messages, limits and stripping", () => {
   assertValidationParity(contracts.insertCommentSchema, persistence.insertCommentSchema, [
-    undefined, null, {}, { content: "" }, { content: " " }, { content: "댓글" },
-    { content: "가".repeat(1000) }, { content: "가".repeat(1001) },
-    { content: null }, { content: 1 },
+    undefined,
+    null,
+    {},
+    { content: "" },
+    { content: " " },
+    { content: "댓글" },
+    { content: "가".repeat(1000) },
+    { content: "가".repeat(1001) },
+    { content: null },
+    { content: 1 },
     { content: "댓글", authorId: 2, postId: 3, id: 4 },
   ]);
 });
@@ -84,8 +128,10 @@ test("browser comment validation matches server messages, limits and stripping",
 test("handwritten validators remain shared with server compatibility exports", () => {
   assert.equal(compatibility.updateProfileSchema, contracts.updateProfileSchema);
   assert.equal(compatibility.activityRegionSchema, contracts.activityRegionSchema);
-  assert.equal(compatibility.PENDING_REGISTRATION_CONFLICT_REASONS,
-    contracts.PENDING_REGISTRATION_CONFLICT_REASONS);
+  assert.equal(
+    compatibility.PENDING_REGISTRATION_CONFLICT_REASONS,
+    contracts.PENDING_REGISTRATION_CONFLICT_REASONS,
+  );
   assert.equal(contracts.REGION_OPTIONS.length, 18);
   assert.equal(contracts.ANNUAL_DUES, 50000);
 });
@@ -142,13 +188,19 @@ type JsonDates<T> = {
   [K in keyof T]: T[K] extends Date | null ? string | null : T[K];
 };
 type Equal<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends
-  (<T>() => T extends B ? 1 : 2) ? true : false;
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const typeParity: [
   Equal<contracts.InsertPost, z.infer<typeof persistence.insertPostSchema>>,
   Equal<contracts.InsertComment, persistence.InsertComment>,
   Equal<contracts.Category, JsonDates<persistence.Category>>,
-  Equal<contracts.Post, JsonDates<Omit<persistence.Post, "eventData" | "sourceText"> & { eventType: contracts.NoticeType | null }>>,
+  Equal<
+    contracts.Post,
+    JsonDates<
+      Omit<persistence.Post, "eventData" | "sourceText"> & {
+        eventType: contracts.NoticeType | null;
+      }
+    >
+  >,
   Equal<contracts.Comment, JsonDates<persistence.Comment>>,
   Equal<contracts.ClientUser, persistence.ClientUser>,
 ] = [true, true, true, true, true, true];

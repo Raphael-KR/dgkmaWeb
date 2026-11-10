@@ -96,17 +96,25 @@ test("normalizes plain text whitespace and caps extracted output", () => {
 test("rejects HTML with excessive element depth before building a DOM", () => {
   const body = `${"<div>".repeat(300)}행사 안내${"</div>".repeat(300)}`;
 
-  assert.throws(() => extractPublicPageText({
-    contentType: "text/html",
-    body,
-  }), /복잡/);
+  assert.throws(
+    () =>
+      extractPublicPageText({
+        contentType: "text/html",
+        body,
+      }),
+    /복잡/,
+  );
 });
 
 test("rejects HTML with excessive element count before building a DOM", () => {
   const body = `<main>${"<span>행사</span>".repeat(10_001)}</main>`;
 
-  assert.throws(() => extractPublicPageText({
-    contentType: "text/html",
-    body,
-  }), /복잡/);
+  assert.throws(
+    () =>
+      extractPublicPageText({
+        contentType: "text/html",
+        body,
+      }),
+    /복잡/,
+  );
 });

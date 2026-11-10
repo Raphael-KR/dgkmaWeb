@@ -9,13 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -62,14 +56,16 @@ export function ProfileEditDialog({
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const payload = values.activityRegion
-        ? { activityRegion: values.activityRegion }
-        : {};
+      const payload = values.activityRegion ? { activityRegion: values.activityRegion } : {};
       const res = await apiRequest("PATCH", "/api/users/me", payload);
       const data = await res.json();
       return data.user as ClientUser;
     },
     onSuccess: (updated) => {
+      if (updated.activityRegion !== user.activityRegion) {
+        // 이전 열람 범위의 목록·검색 데이터를 재사용하지 않는다.
+        queryClient.removeQueries({ queryKey: ["/api/alumni"] });
+      }
       setUser(updated);
       queryClient.invalidateQueries({ queryKey: ["/api/membership/status"] });
       toast({ title: "프로필이 저장되었습니다" });
@@ -94,10 +90,7 @@ export function ProfileEditDialog({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
             <FormField
               control={form.control}
               name="activityRegion"
@@ -123,18 +116,10 @@ export function ProfileEditDialog({
             />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 취소
               </Button>
-              <Button
-                type="submit"
-                disabled={mutation.isPending}
-                data-testid="button-save-profile"
-              >
+              <Button type="submit" disabled={mutation.isPending} data-testid="button-save-profile">
                 {mutation.isPending ? "저장 중..." : "저장"}
               </Button>
             </DialogFooter>

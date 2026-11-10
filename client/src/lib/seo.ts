@@ -1,25 +1,26 @@
 import { useEffect } from "react";
+import { PUBLIC_PAGES, type PublicPagePath } from "@shared/public-pages";
 
 import {
-  SITE_NAME, SITE_DESCRIPTION as DEFAULT_DESCRIPTION, SITE_KEYWORDS as DEFAULT_KEYWORDS,
-  SITE_IMAGE as DEFAULT_IMAGE, siteTitle, siteCanonicalUrl,
+  SITE_NAME,
+  SITE_DESCRIPTION as DEFAULT_DESCRIPTION,
+  SITE_KEYWORDS as DEFAULT_KEYWORDS,
+  SITE_IMAGE as DEFAULT_IMAGE,
+  siteTitle,
+  siteCanonicalUrl,
 } from "@shared/site";
 
 export interface SeoOptions {
   title: string;
   description?: string;
-  image?: string;
   path?: string;
-  keywords?: string;
   type?: "website" | "article";
   noIndex?: boolean;
 }
 
 function setMeta(attr: "name" | "property", key: string, content: string) {
   if (!content) return;
-  let el = document.head.querySelector<HTMLMetaElement>(
-    `meta[${attr}="${key}"]`,
-  );
+  let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
   if (!el) {
     el = document.createElement("meta");
     el.setAttribute(attr, key);
@@ -43,24 +44,14 @@ export function applySeo(opts: SeoOptions) {
 
   const fullTitle = siteTitle(opts.title);
   const description = opts.description || DEFAULT_DESCRIPTION;
-  const keywords = opts.keywords || DEFAULT_KEYWORDS;
-  const origin =
-    typeof window !== "undefined" && window.location
-      ? window.location.origin
-      : "";
-  const path =
-    opts.path ??
-    (typeof window !== "undefined" ? window.location.pathname : "/");
+  const origin = typeof window !== "undefined" && window.location ? window.location.origin : "";
+  const path = opts.path ?? (typeof window !== "undefined" ? window.location.pathname : "/");
   const url = siteCanonicalUrl(path, origin);
-  const image = opts.image
-    ? opts.image.startsWith("http")
-      ? opts.image
-      : `${origin}${opts.image}`
-    : `${origin}${DEFAULT_IMAGE}`;
+  const image = `${origin}${DEFAULT_IMAGE}`;
 
   document.title = fullTitle;
   setMeta("name", "description", description);
-  setMeta("name", "keywords", keywords);
+  setMeta("name", "keywords", DEFAULT_KEYWORDS);
   setMeta("name", "robots", opts.noIndex ? "noindex, nofollow" : "index, follow");
   setLink("canonical", url);
 
@@ -82,5 +73,9 @@ export function useSeo(opts: SeoOptions) {
   useEffect(() => {
     applySeo(opts);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts.title, opts.description, opts.image, opts.path, opts.type, opts.keywords, opts.noIndex]);
+  }, [opts.title, opts.description, opts.path, opts.type, opts.noIndex]);
+}
+
+export function usePublicPageSeo(path: PublicPagePath) {
+  useSeo({ ...PUBLIC_PAGES[path], path });
 }

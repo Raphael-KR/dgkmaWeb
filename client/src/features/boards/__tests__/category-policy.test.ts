@@ -3,14 +3,26 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   POST_CATEGORY_NAMES,
+  isRegularPostCategory,
   isSelectablePostCategory,
 } from "@shared/category-policy";
 
-test("only the four approved active post categories are selectable", () => {
-  assert.deepEqual(POST_CATEGORY_NAMES, ["notice", "free", "event", "news"]);
+test("all six active post categories are selectable and regular forms exclude notices", () => {
+  assert.deepEqual(POST_CATEGORY_NAMES, [
+    "notice",
+    "free",
+    "event",
+    "news",
+    "obituary",
+    "celebration",
+  ]);
 
   for (const name of POST_CATEGORY_NAMES) {
     assert.equal(isSelectablePostCategory({ name, isActive: true }), true);
+    assert.equal(
+      isRegularPostCategory({ name, isActive: true }),
+      name !== "obituary" && name !== "celebration",
+    );
   }
 
   assert.equal(isSelectablePostCategory({ name: "all", isActive: true }), false);
@@ -19,13 +31,15 @@ test("only the four approved active post categories are selectable", () => {
   assert.equal(isSelectablePostCategory(undefined), false);
 });
 
-test("server and board form use the shared category policy", async () => {
-  const routes = await readFile(new URL("../../../../../server/modules/content/routes.ts", import.meta.url), "utf8");
-  const boards = await readFile(
-    new URL("../boards.tsx", import.meta.url),
-    "utf8",
-  );
+test("server and board forms use the shared category policy", async () => {
+  const [routes, createForm, editForm] = await Promise.all([
+    readFile(new URL("../../../../../server/modules/content/routes.ts", import.meta.url), "utf8"),
+    readFile(new URL("../create-post-dialog.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../post-edit-form.tsx", import.meta.url), "utf8"),
+  ]);
 
-  assert.match(routes, /isSelectablePostCategory\(category\)/);
-  assert.match(boards, /\.filter\(isSelectablePostCategory\)/);
+  assert.match(routes, /isRegularPostCategory\(category\)/);
+  for (const form of [createForm, editForm]) {
+    assert.match(form, /\.filter\(isRegularPostCategory\)/);
+  }
 });

@@ -1,5 +1,12 @@
 // "/" chooses the public/member layout dynamically based on auth state.
-const PUBLIC_PATHS = ["/about", "/login", "/terms", "/privacy", "/kakao-callback", "/onboarding/region"];
+const PUBLIC_PATHS = [
+  "/about",
+  "/login",
+  "/terms",
+  "/privacy",
+  "/kakao-callback",
+  "/onboarding/region",
+];
 const PUBLIC_PREFIXES = ["/about/"];
 
 export function isPublicPath(path: string) {

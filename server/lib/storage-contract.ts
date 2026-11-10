@@ -5,9 +5,10 @@ import type { EventsStorageContract } from "../modules/events/storage-contract";
 import type { DuesStorageContract } from "../modules/dues/storage-contract";
 
 // The legacy aggregate is composition only; each domain owns its method contract.
-export interface IStorage extends
-  IdentityStorageContract,
-  RegistryStorageContract,
-  ContentStorageContract,
-  EventsStorageContract,
-  DuesStorageContract {}
+export interface IStorage
+  extends
+    IdentityStorageContract,
+    RegistryStorageContract,
+    ContentStorageContract,
+    EventsStorageContract,
+    DuesStorageContract {}

@@ -29,9 +29,7 @@ const METRICS = [
 function median(values) {
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
-  const result = sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2;
+  const result = sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
   return Math.round(result * 100) / 100;
 }
 
@@ -63,7 +61,12 @@ function aggregateAssets(runs) {
     for (const asset of run.assetDetails ?? []) {
       const resource = canonicalAssetResource(asset.resource, asset.scope);
       const key = `${asset.scope}:${resource}`;
-      const current = thisRun.get(key) ?? { scope: asset.scope, resource, requests: 0, transferredBytes: 0 };
+      const current = thisRun.get(key) ?? {
+        scope: asset.scope,
+        resource,
+        requests: 0,
+        transferredBytes: 0,
+      };
       current.requests += 1;
       current.transferredBytes += asset.transferredBytes;
       thisRun.set(key, current);
@@ -91,10 +94,7 @@ function aggregateAssets(runs) {
 }
 
 function summarizeMetrics(runs) {
-  return Object.fromEntries(METRICS.map((metric) => [
-    metric.key,
-    median(runs.map(metric.value)),
-  ]));
+  return Object.fromEntries(METRICS.map((metric) => [metric.key, median(runs.map(metric.value))]));
 }
 
 export function createMobileHomeBaseline(runs, createdAt = new Date().toISOString()) {
@@ -112,7 +112,7 @@ export function createMobileHomeBaseline(runs, createdAt = new Date().toISOStrin
 function buildAssetIncreases(currentAssets, baselineAssets, scope, sortBy = "bytes") {
   const baselineByResource = new Map(
     baselineAssets
-      .filter((asset) => asset.scope === scope)
+      .filter((asset) => scope === "all" || asset.scope === scope)
       .map((asset) => [asset.resource, asset]),
   );
   return currentAssets
@@ -122,24 +122,30 @@ function buildAssetIncreases(currentAssets, baselineAssets, scope, sortBy = "byt
       scope: asset.scope,
       baselineBytes: baselineByResource.get(asset.resource)?.medianTransferredBytes ?? 0,
       currentBytes: asset.medianTransferredBytes,
-      increaseBytes: asset.medianTransferredBytes -
+      increaseBytes:
+        asset.medianTransferredBytes -
         (baselineByResource.get(asset.resource)?.medianTransferredBytes ?? 0),
       baselineRequests: baselineByResource.get(asset.resource)?.medianRequests ?? 0,
       currentRequests: asset.medianRequests,
-      increaseRequests: asset.medianRequests -
-        (baselineByResource.get(asset.resource)?.medianRequests ?? 0),
+      increaseRequests:
+        asset.medianRequests - (baselineByResource.get(asset.resource)?.medianRequests ?? 0),
     }))
     .filter((asset) => asset.increaseBytes > 0 || asset.increaseRequests > 0)
-    .sort((left, right) => sortBy === "requests"
-      ? right.increaseRequests - left.increaseRequests || right.increaseBytes - left.increaseBytes
-      : right.increaseBytes - left.increaseBytes || right.increaseRequests - left.increaseRequests)
+    .sort((left, right) =>
+      sortBy === "requests"
+        ? right.increaseRequests - left.increaseRequests || right.increaseBytes - left.increaseBytes
+        : right.increaseBytes - left.increaseBytes ||
+          right.increaseRequests - left.increaseRequests,
+    )
     .slice(0, 5);
 }
 
 export function evaluateMobileHomeRegression(runs, baseline) {
   assertValidRuns(runs);
   if (baseline?.schemaVersion !== 1 || baseline.scenario !== "coldHome") {
-    throw new Error("Mobile home baseline is missing or has an unsupported schema; use the explicit baseline update command");
+    throw new Error(
+      "Mobile home baseline is missing or has an unsupported schema; use the explicit baseline update command",
+    );
   }
   for (const metric of METRICS) {
     if (!Number.isFinite(baseline.metrics?.[metric.key])) {
@@ -156,9 +162,12 @@ export function evaluateMobileHomeRegression(runs, baseline) {
     const values = runs.map(metric.value);
     const exceedingRuns = values.filter((value) => value > limit).length;
     const passed = currentMetrics[metric.key] <= limit || exceedingRuns < requiredExceedingRuns;
-    const scope = metric.key === "externalTransferredBytes"
-      ? "external"
-      : metric.key === "stableRequests" || metric.key === "lcpMs" ? "all" : "local";
+    const scope =
+      metric.key === "externalTransferredBytes"
+        ? "external"
+        : metric.key === "stableRequests" || metric.key === "lcpMs"
+          ? "all"
+          : "local";
     return {
       key: metric.key,
       label: metric.label,
@@ -169,25 +178,29 @@ export function evaluateMobileHomeRegression(runs, baseline) {
       exceedingRuns,
       requiredExceedingRuns,
       passed,
-      largestAssetIncreases: passed ? [] : buildAssetIncreases(
-        currentAssets,
-        baseline.assets ?? [],
-        scope,
-        metric.key === "stableRequests" ? "requests" : "bytes",
-      ),
+      largestAssetIncreases: passed
+        ? []
+        : buildAssetIncreases(
+            currentAssets,
+            baseline.assets ?? [],
+            scope,
+            metric.key === "stableRequests" ? "requests" : "bytes",
+          ),
     };
   });
-  const failures = checks.filter((check) => !check.passed).map((check) => ({
-    key: check.key,
-    label: check.label,
-    median: check.currentMedian,
-    baseline: check.baseline,
-    limit: check.limit,
-    delta: check.delta,
-    exceedingRuns: check.exceedingRuns,
-    requiredExceedingRuns: check.requiredExceedingRuns,
-    largestAssetIncreases: check.largestAssetIncreases,
-  }));
+  const failures = checks
+    .filter((check) => !check.passed)
+    .map((check) => ({
+      key: check.key,
+      label: check.label,
+      median: check.currentMedian,
+      baseline: check.baseline,
+      limit: check.limit,
+      delta: check.delta,
+      exceedingRuns: check.exceedingRuns,
+      requiredExceedingRuns: check.requiredExceedingRuns,
+      largestAssetIncreases: check.largestAssetIncreases,
+    }));
   return {
     status: failures.length ? "failed" : "passed",
     comparison: "cold home medians against committed baseline",

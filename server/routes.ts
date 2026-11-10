@@ -9,7 +9,6 @@ import { registerMembershipRoutes, registerPaymentRoutes } from "./modules/dues/
 import { registerObjectStorageRoutes } from "./integrations/object-storage/routes";
 
 export type { RouteDependencies } from "./lib/route-context";
-export { createDefaultEventSourceReader } from "./modules/events/routes";
 
 export async function registerRoutes(
   app: Express,

@@ -39,37 +39,55 @@ test("lazy routing preserves public, member and administrator access", async () 
             );
           });
         }`,
-      resolveDir: process.cwd(), loader: "tsx",
+      resolveDir: process.cwd(),
+      loader: "tsx",
     },
-    bundle: true, write: false, platform: "node", format: "cjs", jsx: "automatic",
+    bundle: true,
+    write: false,
+    platform: "node",
+    format: "cjs",
+    jsx: "automatic",
     external: ["react", "react-dom/server", "react/jsx-runtime"],
-    plugins: [{
-      name: "inert-screens",
-      setup(builder) {
-        builder.onLoad({ filter: /features\/.*\.tsx?$/ }, args => {
-          if (args.path.endsWith("/auth/hooks/use-auth.tsx")) return {
-            contents: `let auth; export const setAuth = value => auth = value;
+    plugins: [
+      {
+        name: "inert-screens",
+        setup(builder) {
+          builder.onLoad({ filter: /features\/.*\.tsx?$/ }, (args) => {
+            if (args.path.endsWith("/auth/hooks/use-auth.tsx"))
+              return {
+                contents: `let auth; export const setAuth = value => auth = value;
               export const useAuth = () => auth;
               export const AuthProvider = ({children}) => children;`,
-            loader: "jsx",
-          };
-          if (args.path.endsWith("/auth/components/login-modal.tsx")) return {
-            contents: "export const LoginModal = () => null;", loader: "jsx",
-          };
-          if (args.path.endsWith("/home/public-home.tsx")) return {
-            contents: 'export const PublicHome = () => <p>screen:public-home</p>;', loader: "jsx",
-          };
-          const screen = screens.get(args.path);
-          if (screen) return {
-            contents: `export default () => <p>screen:${screen}</p>;`, loader: "jsx",
-          };
-        });
+                loader: "jsx",
+              };
+            if (args.path.endsWith("/auth/components/login-modal.tsx"))
+              return {
+                contents: "export const LoginModal = () => null;",
+                loader: "jsx",
+              };
+            if (args.path.endsWith("/home/public-home.tsx"))
+              return {
+                contents: "export const PublicHome = () => <p>screen:public-home</p>;",
+                loader: "jsx",
+              };
+            const screen = screens.get(args.path);
+            if (screen)
+              return {
+                contents: `export default () => <p>screen:${screen}</p>;`,
+                loader: "jsx",
+              };
+          });
+        },
       },
-    }],
+    ],
   });
-  const module = { exports: {} as { render: (path: string, user: unknown, loading?: boolean) => Promise<string> } };
+  const module = {
+    exports: {} as { render: (path: string, user: unknown, loading?: boolean) => Promise<string> },
+  };
   new Function("require", "module", "exports", output.outputFiles[0].text)(
-    createRequire(import.meta.url), module, module.exports,
+    createRequire(import.meta.url),
+    module,
+    module.exports,
   );
   const render = module.exports.render;
   const member = { isAdmin: false };
@@ -78,20 +96,31 @@ test("lazy routing preserves public, member and administrator access", async () 
   assert.doesNotMatch(await render("/", null, true), /screen:/);
   const publicRoutes = {
     "/about": "public-home",
-    "/login": "auth/login", "/kakao-callback": "auth/kakao-callback",
-    "/onboarding/region": "auth/onboarding/region", "/terms": "legal/terms", "/privacy": "legal/privacy",
-    "/about/intro": "about/intro", "/about/executives": "about/executives",
-    "/about/presidents": "about/presidents", "/about/heritage": "about/heritage",
-    "/about/bylaws": "about/bylaws", "/about/bylaws/regulations": "about/regulations",
-    "/about/join": "about/join", "/about/dues": "about/dues", "/about/condolence": "about/condolence",
+    "/login": "auth/login",
+    "/kakao-callback": "auth/kakao-callback",
+    "/onboarding/region": "auth/onboarding/region",
+    "/terms": "legal/terms",
+    "/privacy": "legal/privacy",
+    "/about/intro": "about/intro",
+    "/about/executives": "about/executives",
+    "/about/presidents": "about/presidents",
+    "/about/heritage": "about/heritage",
+    "/about/bylaws": "about/bylaws",
+    "/about/bylaws/regulations": "about/regulations",
+    "/about/join": "about/join",
+    "/about/dues": "about/dues",
+    "/about/condolence": "about/condolence",
   };
   for (const [path, screen] of Object.entries(publicRoutes)) {
     assert.ok((await render(path, null)).includes(`screen:${screen}`), path);
     assert.ok((await render(path, member)).includes(`screen:${screen}`), path);
   }
   const memberRoutes = {
-    "/b": "boards/boards", "/p/123": "boards/post-detail", "/post/123": "boards/post-detail",
-    "/directory": "directory/directory", "/profile": "profile/profile",
+    "/b": "boards/boards",
+    "/p/123": "boards/post-detail",
+    "/post/123": "boards/post-detail",
+    "/directory": "directory/directory",
+    "/profile": "profile/profile",
     "/search": "search/search",
     "/b/write/obituary": "events/notice-composer",
   };
@@ -110,13 +139,17 @@ test("lazy routing preserves public, member and administrator access", async () 
 test("public legacy redirects remain and retired URLs are absent", () => {
   const source = readFileSync("client/src/app/routing/router.tsx", "utf8");
   for (const [path, target] of Object.entries({
-    "/info": "/about", "/history": "/about/intro",
-    "/executives": "/about/executives", "/officers": "/about/executives", "/bylaws": "/about/bylaws",
+    "/info": "/about",
+    "/history": "/about/intro",
+    "/executives": "/about/executives",
+    "/officers": "/about/executives",
+    "/bylaws": "/about/bylaws",
   })) {
-    assert.ok(source.includes(`path="${path}" component={() => { window.location.href = '${target}'`));
+    assert.ok(
+      source.includes(`path="${path}" component={() => { window.location.href = '${target}'`),
+    );
   }
   assert.doesNotMatch(source, /path="\/(?:o|events|heritage)(?:\/|")/);
-
 });
 
 test("pending screens show status; failed screens offer an explicit full reload", async () => {
@@ -137,14 +170,21 @@ test("pending screens show status; failed screens offer an explicit full reload"
             firstKey: RouteBoundary({routeKey: "/events", children: null}).key,
             nextKey: RouteBoundary({routeKey: "/login", children: null}).key };
         }`,
-      resolveDir: process.cwd(), loader: "tsx",
+      resolveDir: process.cwd(),
+      loader: "tsx",
     },
-    bundle: true, write: false, platform: "node", format: "cjs", jsx: "automatic",
+    bundle: true,
+    write: false,
+    platform: "node",
+    format: "cjs",
+    jsx: "automatic",
     external: ["react", "react-dom/server", "react/jsx-runtime"],
   });
   const module = { exports: {} as { verify: () => Record<string, string> } };
   new Function("require", "module", "exports", output.outputFiles[0].text)(
-    createRequire(import.meta.url), module, module.exports,
+    createRequire(import.meta.url),
+    module,
+    module.exports,
   );
   const result = module.exports.verify();
   assert.match(result.pending, /role="status"/);

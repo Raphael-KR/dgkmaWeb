@@ -1,14 +1,35 @@
-import { useEffect, useState } from "react";
+import { PublicHeading } from "@/components/public-heading";
+import { useScrollToTop } from "@/hooks/use-scroll-to-top";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoginModal, useAuth } from "@/features/auth";
 import { PublicLayout } from "@/app/layout/public-layout";
-import { useSeo } from "@/lib/seo";
+import { usePublicPageSeo } from "@/lib/seo";
 import {
-  BookOpen, Users2, GraduationCap, HandHeart, Network, Sparkles,
-  FileText, UserPlus, Wallet, Heart, Megaphone, Info, LogIn,
-  Building2, Crown, Users, ShieldCheck, Star, Layers, ArrowRight, Award, Image,
+  BookOpen,
+  Users2,
+  GraduationCap,
+  HandHeart,
+  Network,
+  Sparkles,
+  FileText,
+  UserPlus,
+  Wallet,
+  Heart,
+  Megaphone,
+  Info,
+  LogIn,
+  Building2,
+  Crown,
+  Users,
+  ShieldCheck,
+  Star,
+  Layers,
+  ArrowRight,
+  Award,
+  Image,
 } from "lucide-react";
 import { SiteLogo } from "@/components/site-brand";
 import { SITE_NAME, SITE_SHORT_NAME } from "@shared/site";
@@ -51,7 +72,11 @@ const programs = [
 const orgItems = [
   { icon: Crown, title: "총회", desc: "최고 의결 기구 — 회장·총회의장·감사 선출" },
   { icon: Users, title: "회장단", desc: "회장 · 수석부회장 · 부회장" },
-  { icon: Layers, title: "이사회", desc: "총무 · 기획 · 홍보 · 내외협력 · 법률 · 학술 등 분야별 이사" },
+  {
+    icon: Layers,
+    title: "이사회",
+    desc: "총무 · 기획 · 홍보 · 내외협력 · 법률 · 학술 등 분야별 이사",
+  },
   { icon: ShieldCheck, title: "감사", desc: "회무 및 회계 감사 — 총회에 보고" },
   { icon: Star, title: "고문 · 명예회장", desc: "자문 역할" },
   { icon: Network, title: "하부조직", desc: "기수별 동기회 · 지역지부" },
@@ -60,7 +85,12 @@ const orgItems = [
 const quickLinks = [
   { to: "/about/intro", icon: Info, title: "동문회 소개", desc: "인사말 · 연혁 · 사업 · 조직" },
   { to: "/about/presidents", icon: Award, title: "역대회장", desc: "동문회를 이끌어 온 발자취" },
-  { to: "/about/heritage", icon: Image, title: "역사관", desc: "활동 사진 · 역사 자료 · 주요 행사" },
+  {
+    to: "/about/heritage",
+    icon: Image,
+    title: "역사관",
+    desc: "활동 사진 · 역사 자료 · 주요 행사",
+  },
   { to: "/about/bylaws", icon: FileText, title: "회칙", desc: "동문회 정관 및 규정" },
   { to: "/about/join", icon: UserPlus, title: "회원 가입", desc: "가입 안내 및 절차" },
   { to: "/about/dues", icon: Wallet, title: "2026 회비 안내", desc: "회비 납부 및 납부자 혜택" },
@@ -73,15 +103,9 @@ export function PublicHome() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  useSeo({
-    title: SITE_NAME,
-    description: "모교 기여, 장학, 동문 모임, 경조사 안내",
-    path: location,
-  });
+  usePublicPageSeo(location === "/about" ? "/about" : "/");
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  useScrollToTop();
 
   return (
     <PublicLayout>
@@ -105,7 +129,9 @@ export function PublicHome() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
               {user ? (
                 <Button asChild size="lg" variant="onBrandOutline">
-                  <Link href="/"><Users size={18} /> 커뮤니티로 이동</Link>
+                  <Link href="/">
+                    <Users size={18} /> 커뮤니티로 이동
+                  </Link>
                 </Button>
               ) : (
                 <Button size="lg" variant="kakao" onClick={() => setLoginOpen(true)}>
@@ -113,11 +139,7 @@ export function PublicHome() {
                 </Button>
               )}
               <Link href="/about/join">
-                <Button
-                  size="lg"
-                  variant="onBrandOutline"
-                  className="w-full sm:w-auto"
-                >
+                <Button size="lg" variant="onBrandOutline" className="w-full sm:w-auto">
                   회원가입 안내
                 </Button>
               </Link>
@@ -132,36 +154,33 @@ export function PublicHome() {
       {/* 회장 인사말 */}
       <section className="py-12 sm:py-16 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">GREETING</div>
-            <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">회장 인사말</h2>
-            <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
-          </div>
-          <Card className="border-2 tp-border-gold/30">
+          <PublicHeading level="section" eyebrow="GREETING" title="회장 인사말" />
+          <Card className="border-2">
             <CardContent className="p-6 sm:p-10">
               <div className="flex flex-col sm:flex-row gap-6 items-start">
                 <div className="flex-1 space-y-4">
+                  <p className="leading-relaxed text-gray-700">존경하는 동국 한의 동문 여러분,</p>
                   <p className="leading-relaxed text-gray-700">
-                    존경하는 동국 한의 동문 여러분,
+                    반세기 가까이 이어온 동국 한의의 전통과 자긍심을 함께 지켜오신 동문 여러분께
+                    깊이 감사드립니다.
                   </p>
                   <p className="leading-relaxed text-gray-700">
-                    반세기 가까이 이어온 동국 한의의 전통과 자긍심을 함께 지켜오신 동문 여러분께 깊이 감사드립니다.
+                    제22대 동문회는{" "}
+                    <strong className="tp-text-green-dark">‘따뜻한 연대, 함께하는 성장’</strong>을
+                    기치로, 회원 상호 간의 친목과 정보 교류, 후학 양성과 학술 발전, 그리고 한의계와
+                    사회에 기여하는 동문 네트워크 구축에 한 걸음씩 정진하고 있습니다.
                   </p>
                   <p className="leading-relaxed text-gray-700">
-                    제22대 동문회는 <strong className="tp-text-green-dark">‘따뜻한 연대, 함께하는 성장’</strong>을
-                    기치로, 회원 상호 간의 친목과 정보 교류, 후학 양성과 학술 발전, 그리고 한의계와 사회에 기여하는
-                    동문 네트워크 구축에 한 걸음씩 정진하고 있습니다.
+                    동문 한 분 한 분의 마음을 잇는 따뜻한 연대 속에서, 서로의 길을 응원하며 함께
+                    성장하는 동문회를 만들어 가겠습니다.
                   </p>
                   <p className="leading-relaxed text-gray-700">
-                    동문 한 분 한 분의 마음을 잇는 따뜻한 연대 속에서, 서로의 길을 응원하며 함께 성장하는 동문회를
-                    만들어 가겠습니다.
+                    앞으로도 투명한 운영과 내실 있는 사업으로 자랑스러운 동국 한의의 이름에 걸맞은
+                    동문회가 되도록 최선을 다하겠습니다.
                   </p>
                   <p className="leading-relaxed text-gray-700">
-                    앞으로도 투명한 운영과 내실 있는 사업으로 자랑스러운 동국 한의의 이름에 걸맞은 동문회가 되도록
-                    최선을 다하겠습니다.
-                  </p>
-                  <p className="leading-relaxed text-gray-700">
-                    동문 여러분의 변함없는 관심과 적극적인 참여를 부탁드리며, 가정과 일터에 늘 건강과 평안이 함께하시기를 기원합니다.
+                    동문 여러분의 변함없는 관심과 적극적인 참여를 부탁드리며, 가정과 일터에 늘
+                    건강과 평안이 함께하시기를 기원합니다.
                   </p>
                   <p className="text-right font-semibold tp-text-green-dark mt-6">
                     제22대 회장 최윤용 (졸업10기·88학번) 드림
@@ -181,13 +200,9 @@ export function PublicHome() {
       </section>
 
       {/* 동문회 소개 */}
-      <section className="py-12 sm:py-16 px-4 tp-bg-cream border-y tp-border-gold/20">
+      <section className="public-alt-section tp-bg-cream">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">ABOUT</div>
-            <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">동문회 소개</h2>
-            <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
-          </div>
+          <PublicHeading level="section" eyebrow="ABOUT" title="동문회 소개" />
           <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardContent className="p-6 space-y-2">
@@ -195,13 +210,17 @@ export function PublicHome() {
                 <div>
                   <div className="text-xs text-gray-500">한글</div>
                   <div className="font-bold tp-text-green-dark">
-                    {SITE_NAME} <span className="text-sm font-normal text-gray-600">(약칭: {SITE_SHORT_NAME})</span>
+                    {SITE_NAME}{" "}
+                    <span className="text-sm font-normal text-gray-600">
+                      (약칭: {SITE_SHORT_NAME})
+                    </span>
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-gray-500">한자</div>
                   <div className="text-gray-700">
-                    東國大學校韓醫科大學同門會 <span className="text-sm text-gray-500">(略稱: 東國韓醫同門會)</span>
+                    東國大學校韓醫科大學同門會{" "}
+                    <span className="text-sm text-gray-500">(略稱: 東國韓醫同門會)</span>
                   </div>
                 </div>
                 <div>
@@ -230,7 +249,9 @@ export function PublicHome() {
                   </li>
                   <li className="flex gap-2">
                     <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
-                    <span>회원 상호 간 협력과 내외 상생을 촉진하여 동문과 본회의 사회적 기여가치 제고</span>
+                    <span>
+                      회원 상호 간 협력과 내외 상생을 촉진하여 동문과 본회의 사회적 기여가치 제고
+                    </span>
                   </li>
                 </ul>
               </CardContent>
@@ -241,7 +262,7 @@ export function PublicHome() {
                 <div className="overflow-x-auto -mx-2 px-2">
                   <table className="w-full text-sm min-w-[420px]">
                     <thead>
-                      <tr className="border-b tp-border-gold/40">
+                      <tr className="border-b">
                         <th className="text-left py-2 px-2 tp-text-green-dark">구분</th>
                         <th className="text-left py-2 px-2 tp-text-green-dark">자격</th>
                       </tr>
@@ -249,15 +270,24 @@ export function PublicHome() {
                     <tbody className="text-gray-700">
                       <tr className="border-b border-gray-100">
                         <td className="py-2 px-2 font-medium align-top">회원</td>
-                        <td className="py-2 px-2">동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자로서 본 홈페이지에 가입한 사람</td>
+                        <td className="py-2 px-2">
+                          동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자로서 본 홈페이지에
+                          가입한 사람
+                        </td>
                       </tr>
                       <tr className="border-b border-gray-100">
                         <td className="py-2 px-2 font-medium align-top">권리회원</td>
-                        <td className="py-2 px-2">당해 연도 회비를 완납한 회원. 총회 의결권·임원 피선거권·권리회원 전용 혜택 등을 행사할 수 있음</td>
+                        <td className="py-2 px-2">
+                          당해 연도 회비를 완납한 회원. 총회 의결권·임원 피선거권·권리회원 전용 혜택
+                          등을 행사할 수 있음
+                        </td>
                       </tr>
                       <tr>
                         <td className="py-2 px-2 font-medium align-top">명예회원</td>
-                        <td className="py-2 px-2">회원 자격에 해당하지 않으나, 본회 발전에 현저한 공로가 있어 회장의 추천과 이사회의 승인을 받은 사람</td>
+                        <td className="py-2 px-2">
+                          회원 자격에 해당하지 않으나, 본회 발전에 현저한 공로가 있어 회장의 추천과
+                          이사회의 승인을 받은 사람
+                        </td>
                       </tr>
                     </tbody>
                   </table>
@@ -271,15 +301,13 @@ export function PublicHome() {
       {/* 주요 사업 */}
       <section className="py-12 sm:py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">PROGRAMS</div>
-            <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">주요 사업</h2>
-            <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
+          <PublicHeading level="section" eyebrow="PROGRAMS" title="주요 사업" className="mb-10">
             <p className="text-sm text-gray-600 mt-3">
-              제22대 동문회 슬로건 — <strong className="tp-text-green-dark">따뜻한 연대, 함께하는 성장</strong>
+              제22대 동문회 슬로건 —{" "}
+              <strong className="tp-text-green-dark">따뜻한 연대, 함께하는 성장</strong>
             </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          </PublicHeading>
+          <div className="public-card-grid">
             {programs.map((p) => {
               const Icon = p.icon;
               const highlight = (p as { highlight?: boolean }).highlight;
@@ -309,17 +337,19 @@ export function PublicHome() {
       </section>
 
       {/* 조직 및 임원 */}
-      <section className="py-12 sm:py-16 px-4 tp-bg-cream border-y tp-border-gold/20">
+      <section className="public-alt-section tp-bg-cream">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">ORGANIZATION</div>
-            <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">조직 및 임원</h2>
-            <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
+          <PublicHeading
+            level="section"
+            eyebrow="ORGANIZATION"
+            title="조직 및 임원"
+            className="mb-10"
+          >
             <p className="text-sm text-gray-600 mt-3">
               동문회는 총회를 최고 의결 기구로 하여 회장단·이사회·감사로 구성됩니다.
             </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+          </PublicHeading>
+          <div className="public-card-grid mb-8">
             {orgItems.map((o) => {
               const Icon = o.icon;
               return (
@@ -352,17 +382,13 @@ export function PublicHome() {
       {/* 바로가기 카드 */}
       <section className="py-12 sm:py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="tp-text-gold-dark text-xs font-semibold tracking-widest mb-2">QUICK LINKS</div>
-            <h2 className="text-2xl sm:text-3xl font-bold tp-text-green-dark">바로가기</h2>
-            <div className="tp-divider h-0.5 w-24 mx-auto mt-4" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <PublicHeading level="section" eyebrow="QUICK LINKS" title="바로가기" className="mb-10" />
+          <div className="public-card-grid">
             {quickLinks.map((q) => {
               const Icon = q.icon;
               return (
                 <Link key={q.title + q.to} href={q.to}>
-                  <Card className="cursor-pointer hover:shadow-lg hover:tp-border-gold transition-all border-2 border-transparent h-full">
+                  <Card className="cursor-pointer hover:shadow-lg transition-all border-2 border-transparent h-full">
                     <CardContent className="p-6 flex items-start gap-4">
                       <div className="w-11 h-11 rounded-lg tp-bg-gold flex items-center justify-center flex-shrink-0">
                         <Icon className="tp-text-green-dark" size={22} />
@@ -388,9 +414,7 @@ export function PublicHome() {
             className="h-16 sm:h-20 mx-auto mb-4 opacity-90 [&_svg]:h-full [&_svg]:w-auto [&_svg]:mx-auto"
             dangerouslySetInnerHTML={{ __html: communityLogoSvg }}
           />
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-            동문 여러분의 참여를 기다립니다
-          </h2>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">동문 여러분의 참여를 기다립니다</h2>
           <p className="text-white/85 mb-6 leading-relaxed">
             {user
               ? "회원 커뮤니티에서 동문 소식을 나누고 게시판과 동문 명부를 이용해 보세요."
@@ -398,7 +422,9 @@ export function PublicHome() {
           </p>
           {user ? (
             <Button asChild size="lg" variant="onBrandOutline">
-              <Link href="/"><Users size={18} /> 커뮤니티로 이동</Link>
+              <Link href="/">
+                <Users size={18} /> 커뮤니티로 이동
+              </Link>
             </Button>
           ) : (
             <Button size="lg" variant="kakao" onClick={() => setLoginOpen(true)}>

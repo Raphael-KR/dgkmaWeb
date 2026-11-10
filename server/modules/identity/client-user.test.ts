@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  updateProfileSchema,
-  type ClientUser,
-  type User,
-} from "@shared/schema";
+import { updateProfileSchema, type ClientUser, type User } from "@shared/schema";
 import { toClientUser } from "./client-user";
 
 test("toClientUser returns only fields required by the signed-in member UI", () => {
@@ -112,15 +108,11 @@ test("profile updates strip every protected user field", () => {
 });
 
 test("profile updates accept a valid activity region", () => {
-  assert.deepEqual(
-    updateProfileSchema.parse({ activityRegion: "부산광역시" }),
-    { activityRegion: "부산광역시" },
-  );
+  assert.deepEqual(updateProfileSchema.parse({ activityRegion: "부산광역시" }), {
+    activityRegion: "부산광역시",
+  });
 });
 
 test("profile updates reject an invalid activity region", () => {
-  assert.equal(
-    updateProfileSchema.safeParse({ activityRegion: "서울" }).success,
-    false,
-  );
+  assert.equal(updateProfileSchema.safeParse({ activityRegion: "서울" }).success, false);
 });

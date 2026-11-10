@@ -4,8 +4,15 @@ import test from "node:test";
 
 const adminPath = new URL("../admin.tsx", import.meta.url);
 
+async function readSyncSource() {
+  const files = ["../use-alumni-sync.ts", "../alumni-sync-panel.tsx"];
+  return (
+    await Promise.all(files.map((file) => readFile(new URL(file, import.meta.url), "utf8")))
+  ).join("\n");
+}
+
 test("admin alumni sync uses a PII-free preview before fingerprint apply", async () => {
-  const source = await readFile(adminPath, "utf8");
+  const source = await readSyncSource();
 
   assert.match(source, /fetch\("\/api\/admin\/sync-alumni\/preview"/);
   assert.match(source, /fetch\("\/api\/admin\/sync-alumni"/);
@@ -41,7 +48,7 @@ test("admin alumni sync uses a PII-free preview before fingerprint apply", async
 });
 
 test("admin alumni sync keeps no raw alumni or synthetic progress state", async () => {
-  const source = await readFile(adminPath, "utf8");
+  const source = await readSyncSource();
 
   assert.doesNotMatch(source, /\/api\/admin\/sync-progress/);
   assert.doesNotMatch(source, /syncProgress|isPolling|setInterval|<Progress/);

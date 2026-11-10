@@ -1,6 +1,12 @@
+import { normalizePhoneForComparison } from "../../lib/phone-normalization";
 import {
-  users, posts, payments, alumniDatabase, comments,
-  kakaoIdentityTerminations, type PendingRegistrationConflictReason,
+  users,
+  posts,
+  payments,
+  alumniDatabase,
+  comments,
+  kakaoIdentityTerminations,
+  type PendingRegistrationConflictReason,
 } from "@shared/schema";
 import { and, eq, gte, inArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { db } from "../../db";
@@ -11,13 +17,7 @@ import {
   type KakaoOAuthGeneration,
 } from "./kakao-identity";
 
-export function normalizePhoneForComparison(phoneNumber: string): string {
-  const digits = phoneNumber.replace(/\D/g, "");
-  if (!digits.startsWith("82")) return digits;
-
-  const domesticNumber = digits.slice(2);
-  return domesticNumber.startsWith("0") ? domesticNumber : `0${domesticNumber}`;
-}
+export { normalizePhoneForComparison } from "../../lib/phone-normalization";
 
 export class PhoneRegistrationConflictError extends Error {
   constructor() {
@@ -54,7 +54,9 @@ export async function lockRegistrationIdentities(
   const lockKeys = [
     kakaoId ? `kakao:${kakaoId}` : "",
     email ? `email:${email.trim().toLowerCase()}` : "",
-  ].filter(Boolean).sort();
+  ]
+    .filter(Boolean)
+    .sort();
 
   for (const lockKey of lockKeys) {
     await tx.execute(sql`
@@ -70,16 +72,20 @@ export async function assertKakaoOAuthGenerationActive(
   if (Number.isNaN(generation.startedAt.getTime())) {
     throw new KakaoOAuthTerminatedError();
   }
-  const [termination] = await tx.select({
-    identityHash: kakaoIdentityTerminations.identityHash,
-  }).from(kakaoIdentityTerminations)
-    .where(and(
-      inArray(kakaoIdentityTerminations.identityHash, [
-        hashKakaoIdentity(generation.kakaoId),
-        hashKakaoEmailIdentity(generation.email),
-      ]),
-      gte(kakaoIdentityTerminations.terminatedAt, generation.startedAt),
-    ))
+  const [termination] = await tx
+    .select({
+      identityHash: kakaoIdentityTerminations.identityHash,
+    })
+    .from(kakaoIdentityTerminations)
+    .where(
+      and(
+        inArray(kakaoIdentityTerminations.identityHash, [
+          hashKakaoIdentity(generation.kakaoId),
+          hashKakaoEmailIdentity(generation.email),
+        ]),
+        gte(kakaoIdentityTerminations.terminatedAt, generation.startedAt),
+      ),
+    )
     .limit(1);
   if (termination) throw new KakaoOAuthTerminatedError();
 }
@@ -89,12 +95,10 @@ export async function markKakaoIdentityTerminated(
   kakaoId: string,
   email: string,
 ): Promise<void> {
-  const identityHashes = [
-    hashKakaoIdentity(kakaoId),
-    hashKakaoEmailIdentity(email),
-  ];
+  const identityHashes = [hashKakaoIdentity(kakaoId), hashKakaoEmailIdentity(email)];
   const terminatedAt = sql<Date>`date_trunc('milliseconds', clock_timestamp())`;
-  await tx.insert(kakaoIdentityTerminations)
+  await tx
+    .insert(kakaoIdentityTerminations)
     .values(identityHashes.map((identityHash) => ({ identityHash, terminatedAt })))
     .onConflictDoUpdate({
       target: kakaoIdentityTerminations.identityHash,
@@ -109,17 +113,14 @@ export async function removeLocalUsers(
 ): Promise<void> {
   if (userIds.length > 0) {
     const userCondition = inArray(users.id, userIds);
-    await tx.delete(posts).where(and(inArray(posts.authorId, userIds), eq(posts.isPublished, false)));
-    await tx.update(posts)
-      .set({ authorId: null })
-      .where(inArray(posts.authorId, userIds));
-    await tx.update(comments)
-      .set({ authorId: null })
-      .where(inArray(comments.authorId, userIds));
-    await tx.update(payments)
-      .set({ userId: null })
-      .where(inArray(payments.userId, userIds));
-    await tx.update(alumniDatabase)
+    await tx
+      .delete(posts)
+      .where(and(inArray(posts.authorId, userIds), eq(posts.isPublished, false)));
+    await tx.update(posts).set({ authorId: null }).where(inArray(posts.authorId, userIds));
+    await tx.update(comments).set({ authorId: null }).where(inArray(comments.authorId, userIds));
+    await tx.update(payments).set({ userId: null }).where(inArray(payments.userId, userIds));
+    await tx
+      .update(alumniDatabase)
       .set({ isMatched: false, matchedUserId: null })
       .where(inArray(alumniDatabase.matchedUserId, userIds));
 
@@ -152,7 +153,9 @@ export async function withPhoneRegistrationLock<T>(
     select pg_advisory_xact_lock(hashtextextended(${normalizedPhone}, 0))
   `);
 
-  const [existingUser] = await tx.select().from(users)
+  const [existingUser] = await tx
+    .select()
+    .from(users)
     .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
     .limit(1);
   if (existingUser) throw new PhoneRegistrationConflictError();

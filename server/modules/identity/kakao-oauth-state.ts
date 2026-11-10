@@ -15,14 +15,14 @@ export type KakaoOAuthStateBinding = {
 export type KakaoOAuthStateIssue = Pick<
   KakaoOAuthStateBinding,
   "stateHash" | "sessionBindingHash"
-> & Partial<Pick<KakaoOAuthStateBinding, "startedAt" | "expiresAt">>;
+> &
+  Partial<Pick<KakaoOAuthStateBinding, "startedAt" | "expiresAt">>;
 
 export interface KakaoOAuthStateStore {
   issue(binding: KakaoOAuthStateIssue): Promise<KakaoOAuthStateBinding>;
-  consume(binding: Pick<
-    KakaoOAuthStateBinding,
-    "stateHash" | "sessionBindingHash" | "startedAt"
-  >): Promise<boolean>;
+  consume(
+    binding: Pick<KakaoOAuthStateBinding, "stateHash" | "sessionBindingHash" | "startedAt">,
+  ): Promise<boolean>;
 }
 
 function hashOAuthValue(value: string): string {
@@ -41,10 +41,7 @@ export function oauthStateHashesMatch(expectedHash: string, actualHash: string):
   if (!/^[a-f0-9]{64}$/.test(expectedHash) || !/^[a-f0-9]{64}$/.test(actualHash)) {
     return false;
   }
-  return timingSafeEqual(
-    Buffer.from(expectedHash, "hex"),
-    Buffer.from(actualHash, "hex"),
-  );
+  return timingSafeEqual(Buffer.from(expectedHash, "hex"), Buffer.from(actualHash, "hex"));
 }
 
 class PostgresKakaoOAuthStateStore implements KakaoOAuthStateStore {
@@ -52,11 +49,13 @@ class PostgresKakaoOAuthStateStore implements KakaoOAuthStateStore {
     const now = new Date();
     return db.transaction(async (tx) => {
       await tx.delete(kakaoOAuthStates).where(lt(kakaoOAuthStates.expiresAt, now));
-      const startedAt = binding.startedAt
-        ?? sql<Date>`date_trunc('milliseconds', clock_timestamp())`;
-      const expiresAt = binding.expiresAt
-        ?? sql<Date>`date_trunc('milliseconds', clock_timestamp()) + interval '10 minutes'`;
-      const [issued] = await tx.insert(kakaoOAuthStates)
+      const startedAt =
+        binding.startedAt ?? sql<Date>`date_trunc('milliseconds', clock_timestamp())`;
+      const expiresAt =
+        binding.expiresAt ??
+        sql<Date>`date_trunc('milliseconds', clock_timestamp()) + ${KAKAO_OAUTH_STATE_TTL_MS} * interval '1 millisecond'`;
+      const [issued] = await tx
+        .insert(kakaoOAuthStates)
         .values({
           stateHash: binding.stateHash,
           sessionBindingHash: binding.sessionBindingHash,
@@ -84,22 +83,21 @@ class PostgresKakaoOAuthStateStore implements KakaoOAuthStateStore {
   }
 
   async consume(
-    binding: Pick<
-      KakaoOAuthStateBinding,
-      "stateHash" | "sessionBindingHash" | "startedAt"
-    >,
+    binding: Pick<KakaoOAuthStateBinding, "stateHash" | "sessionBindingHash" | "startedAt">,
   ): Promise<boolean> {
-    const consumed = await db.delete(kakaoOAuthStates)
-      .where(and(
-        eq(kakaoOAuthStates.stateHash, binding.stateHash),
-        eq(kakaoOAuthStates.sessionBindingHash, binding.sessionBindingHash),
-        eq(kakaoOAuthStates.startedAt, binding.startedAt),
-        gt(kakaoOAuthStates.expiresAt, new Date()),
-      ))
+    const consumed = await db
+      .delete(kakaoOAuthStates)
+      .where(
+        and(
+          eq(kakaoOAuthStates.stateHash, binding.stateHash),
+          eq(kakaoOAuthStates.sessionBindingHash, binding.sessionBindingHash),
+          eq(kakaoOAuthStates.startedAt, binding.startedAt),
+          gt(kakaoOAuthStates.expiresAt, new Date()),
+        ),
+      )
       .returning({ stateHash: kakaoOAuthStates.stateHash });
     return consumed.length === 1;
   }
 }
 
-export const kakaoOAuthStateStore: KakaoOAuthStateStore =
-  new PostgresKakaoOAuthStateStore();
+export const kakaoOAuthStateStore: KakaoOAuthStateStore = new PostgresKakaoOAuthStateStore();

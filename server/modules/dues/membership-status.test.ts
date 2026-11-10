@@ -13,11 +13,13 @@ type MembershipTestServer = Awaited<ReturnType<typeof startMembershipTestServer>
 async function startMembershipTestServer() {
   const app = express();
   app.use(express.json());
-  app.use(session({
-    secret: "membership-test-session-secret",
-    resave: false,
-    saveUninitialized: false,
-  }));
+  app.use(
+    session({
+      secret: "membership-test-session-secret",
+      resave: false,
+      saveUninitialized: false,
+    }),
+  );
   app.post("/__test/session/:userId", (req, res) => {
     req.session.userId = Number(req.params.userId);
     res.json({ ok: true });
@@ -36,9 +38,10 @@ async function startMembershipTestServer() {
   }
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
-    close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error ? reject(error) : resolve());
-    }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
 
@@ -104,10 +107,9 @@ test("authenticated membership status uses only the session user id", async (t) 
 
   try {
     const cookie = await createMembershipSession(server, sessionUserId);
-    const response = await fetch(
-      `${server.baseUrl}/api/membership/status?userId=999`,
-      { headers: { Cookie: cookie } },
-    );
+    const response = await fetch(`${server.baseUrl}/api/membership/status?userId=999`, {
+      headers: { Cookie: cookie },
+    });
 
     assert.equal(response.status, 200);
     assert.deepEqual(requestedUserIds, [sessionUserId]);
@@ -125,10 +127,9 @@ test("membership status errors return the fixed response", async (t) => {
 
   try {
     const cookie = await createMembershipSession(server, 77);
-    const response = await fetch(
-      `${server.baseUrl}/api/membership/status`,
-      { headers: { Cookie: cookie } },
-    );
+    const response = await fetch(`${server.baseUrl}/api/membership/status`, {
+      headers: { Cookie: cookie },
+    });
 
     assert.equal(response.status, 500);
     assert.deepEqual(await response.json(), { message: "회원 등급 조회에 실패했습니다" });
@@ -139,9 +140,7 @@ test("membership status errors return the fixed response", async (t) => {
 
 test("keeps general membership below annual dues at 49,999", async (t) => {
   const subject = new DatabaseStorage();
-  t.mock.method(subject, "getPaymentsByUser", async () => [
-    payment({ amount: ANNUAL_DUES - 1 }),
-  ]);
+  t.mock.method(subject, "getPaymentsByUser", async () => [payment({ amount: ANNUAL_DUES - 1 })]);
 
   const status = await subject.getMembershipStatus(77);
 

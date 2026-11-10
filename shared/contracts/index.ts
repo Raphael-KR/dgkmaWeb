@@ -1,9 +1,12 @@
+import { COMMENT_MAX_LENGTH } from "./content-limits";
 import { z } from "zod";
 import { postDocumentSchema, type PostDocument } from "./post-document";
+import { postTitleSchema, postImageUrlsSchema } from "./post-input";
 export * from "./post-document";
 
 export * from "./notices";
 export * from "./alumni-sync";
+export * from "./directory";
 export * from "./post-management";
 
 export const PENDING_REGISTRATION_CONFLICT_REASONS = [
@@ -15,7 +18,7 @@ export const PENDING_REGISTRATION_CONFLICT_REASONS = [
 ] as const;
 
 export type PendingRegistrationConflictReason =
-  typeof PENDING_REGISTRATION_CONFLICT_REASONS[number];
+  (typeof PENDING_REGISTRATION_CONFLICT_REASONS)[number];
 
 export type PendingRegistrationUserData = {
   kakaoId: string;
@@ -101,21 +104,17 @@ export type AdminPendingRegistrationDto = {
   createdAt: string | null;
 };
 export type AdminPendingRegistrationUpdateResult =
-  | AdminPendingRegistrationDto
-  | { deleted: true; id: number };
+  AdminPendingRegistrationDto | { deleted: true; id: number };
 
-// Match the existing persistence insert validator without importing Drizzle.
+// Persistence IDs retain their existing range; editable fields share the API contract.
 const pgIntegerSchema = z.number().min(-2147483648).max(2147483647).int();
 export const insertPostSchema = z.object({
-  title: z.string(),
+  title: postTitleSchema,
   content: postDocumentSchema,
   categoryId: pgIntegerSchema.nullable().optional(),
   authorId: pgIntegerSchema.nullable().optional(),
   isPublished: z.boolean().nullable().optional(),
-  // The existing generator coerces text[] elements to strings at runtime.
-  // Preserve that behavior (including non-string elements) here;
-  // tightening attachment validation is a separate API contract change.
-  imageUrls: z.array(z.coerce.string()).nullable().optional(),
+  imageUrls: postImageUrlsSchema.nullable().optional(),
 });
 export type InsertPost = z.infer<typeof insertPostSchema>;
 
@@ -123,23 +122,36 @@ export const insertCommentSchema = z.object({
   content: z
     .string()
     .min(1, "댓글 내용을 입력해주세요")
-    .max(1000, "댓글은 1000자 이내로 입력해주세요"),
+    .max(COMMENT_MAX_LENGTH, `댓글은 ${COMMENT_MAX_LENGTH}자 이내로 입력해주세요`),
 });
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 
 // 활동 지역(시/도) 18개 — 온보딩·프로필 편집·서버 검증에서 공통 사용.
 export const REGION_OPTIONS = [
-  '서울특별시', '부산광역시', '대구광역시', '인천광역시',
-  '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
-  '경기도', '강원특별자치도', '충청북도', '충청남도',
-  '전북특별자치도', '전라남도', '경상북도', '경상남도',
-  '제주특별자치도', '해외',
+  "서울특별시",
+  "부산광역시",
+  "대구광역시",
+  "인천광역시",
+  "광주광역시",
+  "대전광역시",
+  "울산광역시",
+  "세종특별자치시",
+  "경기도",
+  "강원특별자치도",
+  "충청북도",
+  "충청남도",
+  "전북특별자치도",
+  "전라남도",
+  "경상북도",
+  "경상남도",
+  "제주특별자치도",
+  "해외",
 ] as const;
 export const activityRegionSchema = z.enum(REGION_OPTIONS);
 
 // 연회비 기준액(원). 권리회원 판정 안내 및 미납 표시에 사용.
 export const ANNUAL_DUES = 50000;
-export type MembershipTier = '권리회원' | '일반회원';
+export type MembershipTier = "권리회원" | "일반회원";
 export type MembershipStatus = {
   year: number;
   tier: MembershipTier;

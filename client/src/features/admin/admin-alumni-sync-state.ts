@@ -56,12 +56,7 @@ export function getAlumniSyncControls(
   return {
     canPreview: !busy,
     canApply: Boolean(
-      connected
-        && !busy
-        && state.preview?.fingerprint
-        && report
-        && !report.blocked
-        && hasChanges,
+      connected && !busy && state.preview?.fingerprint && report && !report.blocked && hasChanges,
     ),
   };
 }

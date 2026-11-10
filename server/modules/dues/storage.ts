@@ -1,4 +1,10 @@
-import { payments, ANNUAL_DUES, type Payment, type InsertPayment, type MembershipStatus } from "@shared/schema";
+import {
+  payments,
+  ANNUAL_DUES,
+  type Payment,
+  type InsertPayment,
+  type MembershipStatus,
+} from "@shared/schema";
 import { desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { koreaCalendarYear } from "../../lib/korea-date";
@@ -6,14 +12,11 @@ import type { DuesStorageContract } from "./storage-contract";
 
 export class DuesStorage implements DuesStorageContract {
   async getPaymentsByUser(userId: number): Promise<Payment[]> {
-    return await db.select().from(payments)
+    return await db
+      .select()
+      .from(payments)
       .where(eq(payments.userId, userId))
       .orderBy(desc(payments.createdAt));
-  }
-
-  async getPayment(id: number): Promise<Payment | undefined> {
-    const [payment] = await db.select().from(payments).where(eq(payments.id, id));
-    return payment || undefined;
   }
 
   async createPayment(insertPayment: InsertPayment): Promise<Payment> {
@@ -39,9 +42,7 @@ export class DuesStorage implements DuesStorageContract {
       isPaid,
       paidAmount,
       annualDues: ANNUAL_DUES,
-      currentYearPayment: completedDues[0]
-        ? { createdAt: completedDues[0].createdAt }
-        : null,
+      currentYearPayment: completedDues[0] ? { createdAt: completedDues[0].createdAt } : null,
     };
   }
 }

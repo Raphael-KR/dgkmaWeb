@@ -11,7 +11,9 @@ export function safePostLink(value: string): string | undefined {
   try {
     const parsed = new URL(url);
     if (["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol)) return url;
-  } catch { /* Invalid URLs are never executed or logged. */ }
+  } catch {
+    /* Invalid URLs are never executed or logged. */
+  }
 }
 export function enteredPostLink(value: string): string | undefined {
   const url = value.trim();

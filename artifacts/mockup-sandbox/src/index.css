@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -84,7 +84,7 @@
   --sidebar-border: 220 13% 91%;
   --sidebar-ring: 240 5.9% 10%;
 
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: "Inter", sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 0.5rem;
@@ -145,7 +145,7 @@
 
 @layer utilities {
   /* Hide ugly search cancel button in Chrome */
-  input[type='search']::-webkit-search-cancel-button {
+  input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }
 

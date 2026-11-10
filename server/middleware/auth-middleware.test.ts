@@ -26,13 +26,9 @@ test("requireAuthenticated returns 401 without a session user", () => {
   const { response, state } = responseDouble();
   let nextCalls = 0;
 
-  requireAuthenticated(
-    requestWithUserId(),
-    response,
-    (() => {
-      nextCalls += 1;
-    }) as NextFunction,
-  );
+  requireAuthenticated(requestWithUserId(), response, (() => {
+    nextCalls += 1;
+  }) as NextFunction);
 
   assert.equal(state.status, 401);
   assert.equal(nextCalls, 0);
@@ -42,13 +38,9 @@ test("requireAuthenticated calls next with a session user", () => {
   const { response, state } = responseDouble();
   let nextCalls = 0;
 
-  requireAuthenticated(
-    requestWithUserId(7),
-    response,
-    (() => {
-      nextCalls += 1;
-    }) as NextFunction,
-  );
+  requireAuthenticated(requestWithUserId(7), response, (() => {
+    nextCalls += 1;
+  }) as NextFunction);
 
   assert.equal(state.status, undefined);
   assert.equal(nextCalls, 1);
@@ -91,13 +83,9 @@ test("requireAdmin calls next for an admin user", async () => {
   const { response, state } = responseDouble();
   let nextCalls = 0;
 
-  await middleware(
-    requestWithUserId(7),
-    response,
-    (() => {
-      nextCalls += 1;
-    }) as NextFunction,
-  );
+  await middleware(requestWithUserId(7), response, (() => {
+    nextCalls += 1;
+  }) as NextFunction);
 
   assert.equal(nextCalls, 1);
   assert.equal(state.status, undefined);
