@@ -42,4 +42,5 @@
 - Replit `publish_app` 이후 `pending → building → running → promoting → success`를 관찰했다. 2026-11-10 22:30:14 KST [운영 홈페이지](https://dgkma.org/)의 새 배포 성공을 확인했다.
 - 22:30:44 KST 비로그인 smoke 74건이 통과했다. 공개 페이지 5개의 HTTP·제목·canonical·후보 엔트리, 통계 API를 포함한 보호 API 9개의 401 JSON, 후보 정적 자산 60개의 SHA-256을 확인했다. 실제 관리자 통계 SQL·화면 조작·실계정 QA를 대신하는 결과가 아니다.
 - Replit 게시 커밋 `44944bf36a5419259049282687e2e432132d1c2e`과 병합 후보의 tree `5c1dd70212b089bdaaeda7a489bc71bf042fac6f`가 같다. 게시 커밋을 main 이력에 보존하고 완료 기록만 문서 전용 후속 커밋으로 반영한다. 이 문서 기록을 위해 다시 Republish하지 않는다.
+- 병합한 `codex/admin-statistics-release` 브랜치를 제거했다. Republish가 재생성한 `replit-agent`의 별도 게시 이력 `1abbb02d718e6f4d2fe584d64f73ed8bde09b3dd`도 같은 릴리스 tree이며, `archive/replit-agent-pr30-20261110` 태그로 로컬·GitHub·Replit에 보존한 뒤 브랜치를 제거했다. 세 환경의 작업 브랜치는 main만 유지한다.
 - 실행 증거는 ignored `.superpowers/admin-statistics-release-20261110/`의 빌드·PR 대조·게시·HTTP·Git 기록에 보존한다. DB 구조·데이터·회비 판정·Secrets를 직접 변경하지 않았고 실계정 QA·개발 서버 별도 재시작·자동 롤백은 수행하지 않았다.
