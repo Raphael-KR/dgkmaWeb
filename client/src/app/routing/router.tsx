@@ -19,6 +19,10 @@ import {
   AboutExecutives,
   AboutPresidents,
   AboutHeritage,
+  AboutHistoricalOfficers,
+  AboutAwards,
+  AboutDonations,
+  AboutAlbums,
 } from "@/features/about";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import NotFound from "./not-found";
@@ -53,6 +57,10 @@ export function Router() {
         <Route path="/about/executives" component={AboutExecutives} />
         <Route path="/about/presidents" component={AboutPresidents} />
         <Route path="/about/heritage" component={AboutHeritage} />
+        <Route path="/about/heritage/officers" component={AboutHistoricalOfficers} />
+        <Route path="/about/heritage/awards" component={AboutAwards} />
+        <Route path="/about/heritage/donations" component={AboutDonations} />
+        <Route path="/about/heritage/albums" component={AboutAlbums} />
         <Route path="/about/bylaws" component={AboutBylaws} />
         <Route path="/about/bylaws/regulations" component={AboutRegulations} />
         <Route path="/about/join" component={AboutJoin} />

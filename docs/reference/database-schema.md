@@ -6,6 +6,8 @@
 
 DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../history/README.md)에 둔다.
 
+공개 역사관의 연혁·회장·임원·수상자·기부·앨범·사진·문서는 `shared/heritage/`의 정적 자료로 관리한다. 이번 역사관 구현은 DB 구조·JSONB 계약을 변경하지 않으며 회원 전용 `posts`·`payments`를 공개 자료로 사용하지 않는다. 데이터 계약은 [역사관 콘텐츠 기준](heritage-content.md)을 따른다. 아래 catalog 관찰 시각은 유지한다.
+
 ## 기준 소스와 마지막 DB 관찰
 
 - 코드 기준: 문서 정리 시작 시 main `d7184ca`, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.

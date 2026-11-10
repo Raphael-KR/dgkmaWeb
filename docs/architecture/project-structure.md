@@ -12,6 +12,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 2026-11-10 PR #30으로 관리자 기초 통계의 계약을 `shared/contracts/admin-statistics.ts`, 읽기 집계와 권한 보호 라우트를 `server/modules/statistics`, 조회 상태·기간 선택·결과 표시를 `features/admin`에 추가해 main과 Replit 운영에 반영했다. 정적 검사, Git·운영 적용과 미확인 실행 범위는 [통계 수행 기록](../history/admin-statistics-2026-11-10.md)을 따른다.
 
+후속 역사관 구현은 `shared/heritage/`의 공개 JSON·타입·메뉴와 `features/about/heritage/`의 공통 페이지·기록 표시·사진첩으로 분리했다. 아래 경로·소유 위치에는 이 개발 사본의 미커밋 변경을 포함하며 아직 Git 통합·운영 배포하지 않았다. [콘텐츠 기준](../reference/heritage-content.md)과 [개발 기록](../history/heritage-2026-11-10.md)을 따른다.
+
 ## 코드 소유권
 
 | 소유 위치 | 책임 |
@@ -19,7 +21,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `client/src/app/app.tsx`, `providers.tsx`, `routing/`, `layout/` | 앱 조립, 라우트, 프로바이더, 공통 레이아웃 |
 | `features/auth` | 로그인·콜백·활동지역, 세션 상태와 인증 API |
 | `features/home` | 회원 홈과 `/`·`/about`에서 공유하는 공개 랜딩페이지 |
-| `features/about` | 소개·임원·역대회장·역사관·회칙·가입·회비·경조사 지원 안내. 기존 heritage 목업은 제거 |
+| `features/about` | 공개 안내와 역사관 6개 메뉴. `heritage/`에서 공통 페이지·자료 연결·사진 확대를 재사용하며 소개·현 임원도 같은 공개 자료를 읽음 |
 | `features/boards` | 게시글·댓글·첨부 |
 | `features/directory` | 권한 범위 내 명부 |
 | `features/profile` | 프로필·납부내역·회원상태 |
@@ -40,6 +42,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `server/db/schema/index.ts` | 영속성; 기존 경로는 서버 전용 호환 export |
 | `shared/contracts` | 독립 JSON 계약, Zod 검증 |
 | `shared/domain` | 브라우저 안전 순수 정책 |
+| `shared/heritage` | 공개 JSON·자료 타입·날짜 표시·연도별 묶음·공통 메뉴. DB·회원 자료와 분리 |
 
 프런트엔드 경로는 모두 `client/src/` 기준이다. 각 feature의 `index.ts`가 공개 API다.
 기능에만 쓰는 API 호출·query·mutation·폼 상태는 그 기능 안에 두고,
@@ -66,12 +69,14 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 `/`, `/login`, `/kakao-callback`, `/onboarding/region`, `/terms`, `/privacy`,
 `/about`, `/about/intro`, `/about/executives`, `/about/presidents`, `/about/heritage`,
+`/about/heritage/officers`, `/about/heritage/awards`, `/about/heritage/donations`, `/about/heritage/albums`,
 `/about/bylaws`, `/about/bylaws/regulations`,
 `/about/join`, `/about/dues`, `/about/condolence`, `/admin`, `/b`, `/directory`,
 `/profile`, `/search`, `/p/:id`, `/post/:id`, `/p/:id/edit`를 제공한다.
 통합 정책에 따라 `/b/write/:type`를 추가하고 `/o`, `/events`와 그 하위 경로는 제거한다.
 
 - `/about`은 로그인 여부와 관계없이 기존 공개 홈 랜딩페이지를 직접 표시한다. `/heritage` 화면·라우트는 제거한다.
+- 역사관 하위 메뉴는 공통 정의를 사용하고 기존 `/about/presidents`를 포함한다. 사진첩의 `year`는 최근 5년·연도·전체 목록을 선택하고 `album`은 상세 앨범을 선택한다. canonical은 각 메뉴 경로를 사용한다.
 - `/info → /about`; `/history → /about/intro`
 - `/executives`, `/officers → /about/executives`; `/bylaws → /about/bylaws`
 - 회원의 활동지역 미입력 시 `/onboarding/region` 이동, 관리자 진입 제한을 유지한다.

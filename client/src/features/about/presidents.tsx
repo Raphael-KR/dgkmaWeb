@@ -1,39 +1,37 @@
-import { PublicHeading } from "@/components/public-heading";
-import { useScrollToTop } from "@/hooks/use-scroll-to-top";
 import { Link } from "wouter";
-import { Award } from "lucide-react";
-import { PublicLayout } from "@/app/layout/public-layout";
+import { currentOfficerTerm, presidents } from "@shared/heritage/content";
 import { Card, CardContent } from "@/components/ui/card";
-import { usePublicPageSeo } from "@/lib/seo";
+import { HeritagePage } from "./heritage/heritage-page";
+import { personDetails } from "./heritage/record-details";
 
 export default function AboutPresidents() {
-  usePublicPageSeo("/about/presidents");
-  useScrollToTop();
-
   return (
-    <PublicLayout>
-      <div className="public-page">
-        <PublicHeading title="역대회장">
-          <p className="text-sm text-gray-500 mt-3">동문회를 이끌어 온 발자취</p>
-        </PublicHeading>
-        <Card>
-          <CardContent className="p-8 sm:p-12 text-center">
-            <Award size={40} className="mx-auto mb-4 tp-text-gold-dark" aria-hidden="true" />
-            <h2 className="text-lg font-semibold tp-text-green-dark">
-              역대회장 안내를 준비하고 있습니다
-            </h2>
-            <p className="mt-3 text-sm text-gray-600">
-              역대 회장 명단과 재임 기간을 정리한 뒤 안내하겠습니다.
-            </p>
-            <Link
-              href="/about/executives"
-              className="inline-block mt-6 tp-text-gold-dark underline underline-offset-4"
-            >
-              현재 임원 명단 보기
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    </PublicLayout>
+    <HeritagePage section="presidents">
+      <ol className="public-card-grid">
+        {presidents.map((president) => (
+          <li
+            key={president.term}
+            id={`president-${president.term}`}
+            className="heritage-year-group"
+          >
+            <Card className="h-full">
+              <CardContent className="p-5">
+                <p className="heritage-meta">
+                  제{president.term}대{president.term === currentOfficerTerm ? " · 현 회장" : ""}
+                </p>
+                <h2 className="public-card-title mt-1">{president.name}</h2>
+                <p className="heritage-meta mt-2">{personDetails(president)}</p>
+                <p className="mt-3 text-sm">
+                  {president.startYear}년 ~ {president.endYear}년
+                </p>
+              </CardContent>
+            </Card>
+          </li>
+        ))}
+      </ol>
+      <Link href="/about/executives" className="heritage-text-link mt-6 inline-block">
+        현재 임원 명단 보기
+      </Link>
+    </HeritagePage>
   );
 }

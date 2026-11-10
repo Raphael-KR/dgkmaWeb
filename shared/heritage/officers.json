@@ -1,0 +1,218 @@
+{
+  "currentTerm": 22,
+  "terms": [
+    {
+      "term": 5,
+      "groups": [
+        {
+          "title": "회장단",
+          "members": [
+            {
+              "name": "라경찬",
+              "title": "회장",
+              "graduationClass": 2
+            },
+            {
+              "name": "우성하",
+              "title": "수석 부회장",
+              "graduationClass": 2
+            },
+            {
+              "name": "김광은",
+              "title": "총무",
+              "graduationClass": 3
+            },
+            {
+              "name": "손창수",
+              "title": "재무",
+              "graduationClass": 3
+            }
+          ],
+          "id": "leaders"
+        },
+        {
+          "title": "지부장(부회장)",
+          "members": [
+            {
+              "name": "박유환",
+              "title": "대구 지부장(부회장)",
+              "graduationClass": 2
+            },
+            {
+              "name": "이성우",
+              "title": "부산 지부장(부회장)",
+              "graduationClass": 1
+            },
+            {
+              "name": "권철현",
+              "title": "경남 지부장(부회장)",
+              "graduationClass": 2
+            },
+            {
+              "name": "남원기",
+              "title": "서울 지부장(부회장)",
+              "graduationClass": 3
+            },
+            {
+              "name": "이영태",
+              "title": "울산 지부장(부회장)",
+              "graduationClass": 4
+            },
+            {
+              "name": "이상권",
+              "title": "포항 지부장(부회장)",
+              "graduationClass": 2
+            },
+            {
+              "name": "김유신",
+              "title": "대전 지부장(부회장)",
+              "graduationClass": 3
+            },
+            {
+              "name": "윤종원",
+              "title": "경주 지부장(부회장)",
+              "graduationClass": 3
+            }
+          ],
+          "id": "branches"
+        },
+        {
+          "title": "감사",
+          "members": [
+            {
+              "name": "문승호",
+              "title": "감사",
+              "graduationClass": 3
+            },
+            {
+              "name": "김대식",
+              "title": "감사",
+              "graduationClass": 4
+            }
+          ],
+          "id": "auditors"
+        }
+      ]
+    },
+    {
+      "term": 22,
+      "groups": [
+        {
+          "title": "지도부",
+          "members": [
+            {
+              "name": "최윤용",
+              "title": "회장",
+              "photo": "/images/executives/choi-yun-yong-president.avif"
+            },
+            {
+              "name": "최유행",
+              "title": "총회의장",
+              "photo": "/images/executives/choi-yu-haeng-speaker.avif"
+            },
+            {
+              "name": "박종웅",
+              "title": "수석부회장",
+              "photo": "/images/executives/park-jong-wung-svp.avif"
+            },
+            {
+              "name": "송상화",
+              "title": "부회장(부산지부장)",
+              "photo": "/images/executives/song-sang-hwa-vp.avif"
+            },
+            {
+              "name": "박경미",
+              "title": "부회장",
+              "photo": "/images/executives/park-kyung-mi-vp.avif"
+            }
+          ],
+          "id": "leaders"
+        },
+        {
+          "title": "감사",
+          "members": [
+            {
+              "name": "이상운",
+              "title": "감사",
+              "photo": "/images/executives/lee-sang-un-auditor.avif"
+            },
+            {
+              "name": "오창영",
+              "title": "감사",
+              "photo": "/images/executives/oh-chang-young-auditor.avif"
+            }
+          ],
+          "id": "auditors"
+        },
+        {
+          "title": "이사",
+          "members": [
+            {
+              "name": "위지훈",
+              "title": "총무이사",
+              "photo": "/images/executives/wi-ji-hun-director.png"
+            },
+            {
+              "name": "성현호",
+              "title": "기획이사",
+              "photo": "/images/executives/sung-hyun-ho-director.avif"
+            },
+            {
+              "name": "성시현",
+              "title": "법률이사",
+              "photo": "/images/executives/sung-si-hyun-director.avif"
+            },
+            {
+              "name": "전가윤",
+              "title": "내외협력이사",
+              "subtitle": "41기 기장",
+              "photo": "/images/executives/jeon-ga-yun-director.avif"
+            },
+            {
+              "name": "정수아",
+              "title": "홍보이사",
+              "subtitle": "41기 부기장",
+              "photo": "/images/executives/jung-su-a-director.avif"
+            },
+            {
+              "name": "김선중",
+              "title": "이사",
+              "subtitle": "42기 기장",
+              "photo": "/images/executives/kim-sun-jung-director.avif"
+            },
+            {
+              "name": "장우진",
+              "title": "이사",
+              "subtitle": "42기 부기장",
+              "photo": "/images/executives/jang-woo-jin-director.avif"
+            },
+            {
+              "name": "김정룡",
+              "title": "이사",
+              "subtitle": "부산지부 부회장",
+              "photo": "/images/executives/kim-jung-ryong-director.avif"
+            },
+            {
+              "name": "김효정",
+              "title": "이사",
+              "subtitle": "부산지부 총무",
+              "photo": "/images/executives/kim-hyo-jung-director.avif"
+            },
+            {
+              "name": "박주희",
+              "title": "이사",
+              "subtitle": "부산지부 재무",
+              "photo": "/images/executives/park-ju-hee-director.avif"
+            },
+            {
+              "name": "이채은",
+              "title": "이사",
+              "photo": "/images/executives/lee-chae-eun-director.avif"
+            }
+          ],
+          "id": "directors"
+        }
+      ]
+    }
+  ]
+}

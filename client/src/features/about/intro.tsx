@@ -4,6 +4,8 @@ import { useScrollToTop } from "@/hooks/use-scroll-to-top";
 import { Link } from "wouter";
 import { PublicLayout } from "@/app/layout/public-layout";
 import { usePublicPageSeo } from "@/lib/seo";
+import { currentOfficerTerm, timeline } from "@shared/heritage/content";
+import { HERITAGE_PAGES, heritageEntryHref } from "@shared/heritage/navigation";
 
 export default function AboutIntro() {
   usePublicPageSeo("/about/intro");
@@ -18,25 +20,25 @@ export default function AboutIntro() {
         <article className="tp-prose">
           <h2>설립 목적</h2>
           <p>
-            {SITE_NAME}는 1985년 첫 졸업생 배출 이후, 동문 간의 친목과 학술 교류, 모교 발전 기여,
-            그리고 후학 양성 지원을 목적으로 설립되었습니다.
+            {SITE_NAME}는 1985년 설립되어 동문 간의 친목과 학술 교류, 모교 발전 기여, 그리고 후학
+            양성 지원을 목적으로 설립되었습니다.
           </p>
 
           <h2>연혁</h2>
           <ul>
-            <li>
-              <strong>1985</strong> 동국대학교 한의과대학 첫 졸업생 배출 및 동문회 창립
-            </li>
-            <li>
-              <strong>2000</strong> 동문회 사무국 정식 개설
-            </li>
-            <li>
-              <strong>2015</strong> 창립 30주년 기념 학술대회 개최
-            </li>
-            <li>
-              <strong>2025</strong> 온라인 통합 플랫폼 출범
-            </li>
+            {timeline
+              .filter((entry) => entry.highlight)
+              .map((entry) => (
+                <li key={entry.id}>
+                  <strong>{entry.date.slice(0, 4)}</strong>{" "}
+                  <Link href={heritageEntryHref(entry.id)}>{entry.title}</Link>
+                  {entry.description && <p>{entry.description}</p>}
+                </li>
+              ))}
           </ul>
+          <p>
+            <Link href={HERITAGE_PAGES.timeline.path}>전체 연혁 보기 →</Link>
+          </p>
 
           <h2>조직</h2>
           <p>
@@ -48,7 +50,7 @@ export default function AboutIntro() {
               href="/about/executives"
               className="inline-flex items-center gap-1 tp-text-gold-dark font-medium hover:underline"
             >
-              22대 임원 명단 보기 →
+              {currentOfficerTerm}대 임원 명단 보기 →
             </Link>
           </p>
 

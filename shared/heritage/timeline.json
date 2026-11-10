@@ -1,0 +1,490 @@
+[
+  {
+    "id": "history-1985-1",
+    "date": "1985",
+    "title": "동국대학교 한의과대학 동문회 설립",
+    "description": "모교 발전과 한의학 발전, 국민보건 향상을 목적으로 창립.",
+    "highlight": true
+  },
+  {
+    "id": "history-1985-2",
+    "date": "1985",
+    "title": "초대 회장 취임",
+    "description": "동문회 초대 회장 취임",
+    "presidentTerm": 1
+  },
+  {
+    "id": "history-1992-1",
+    "date": "1992-12",
+    "title": "신구회장단 회무·회계 인수 모임",
+    "description": "(대전 유성 무궁화관광호텔) — 회무·회계 전반 인수 및 전임회장단과 본회 향방에 관한 의견 교환"
+  },
+  {
+    "id": "history-1993-1",
+    "date": "1993-01",
+    "title": "본교 본4 국가고시 격려 방문",
+    "description": "(서울 소공동 롯데호텔) — 졸업생 국가고시 격려 및 신임 최달영 학장님과의 간담회"
+  },
+  {
+    "id": "history-1993-2",
+    "date": "1993-01",
+    "title": "이사회 개최 결정",
+    "description": "(고슴도치레스토랑) — 1.16 전국이사회 안건 토의 (예산안, 사업계획, 회칙정관 개정, 회원기수 확정)"
+  },
+  {
+    "id": "history-1993-3",
+    "date": "1993-01",
+    "title": "전국이사회",
+    "description": "(대구 프린스호텔, 1.16~17) — 회장단 준비 원안대로 안건 전체 통과; 서울·경기·대전·마산·대구·울산지부 참석"
+  },
+  {
+    "id": "history-1993-4",
+    "date": "1993-02",
+    "title": "학생회와의 간담회",
+    "description": "(대구 앞산식당) — 신입생 오리엔테이션 협조 및 학생회 연대 토론"
+  },
+  {
+    "id": "history-1993-5",
+    "date": "1993-02",
+    "title": "본교 신입생 연수회",
+    "description": "경주 유스호스텔에서 동창회 소개",
+    "donations": [
+      {
+        "purpose": "신입생 연수회 찬조금",
+        "amountWon": 300000,
+        "status": "전달"
+      }
+    ]
+  },
+  {
+    "id": "history-1993-6",
+    "date": "1993-02",
+    "title": "마산·창원지부 방문",
+    "description": "(꼬꼬영양식당) — 이사회 결정사항·동창회 예산 토의"
+  },
+  {
+    "id": "history-1993-7",
+    "date": "1993-03",
+    "title": "대구지부 방문",
+    "description": "(대구 엠파이어호텔) — 이사회 결정사항·동창회 예산 토의"
+  },
+  {
+    "id": "history-1993-8",
+    "date": "1993-04",
+    "title": "울산지부 방문",
+    "description": "(울산 영양불고기식당) — 약사법개정 입장정리 및 학생 전폭 지원 약속"
+  },
+  {
+    "id": "history-1993-9",
+    "date": "1993-05",
+    "title": "본4 졸업준비위원과의 간담회",
+    "description": "(아리아나식당) — 동창회 지원·약사법 대응·졸업 준비 당부"
+  },
+  {
+    "id": "history-1993-10",
+    "date": "1993-05",
+    "title": "모교 학장·병원장 면담",
+    "description": "모교 발전 건의, 약사법 대응 청취",
+    "donations": [
+      {
+        "purpose": "한의학연구소 논문출판비",
+        "amountWon": 4000000,
+        "status": "기탁"
+      }
+    ]
+  },
+  {
+    "id": "history-1993-11",
+    "date": "1993-06",
+    "title": "회장단 회의",
+    "description": "(성서한의원) — 학생 유급사태 비대위 구성 및 동창회 명의 성명서 발표"
+  },
+  {
+    "id": "history-1993-12",
+    "date": "1993-06",
+    "title": "전국 비상이사회",
+    "description": "(자금성, 대구) — 약사법 대응 비상대책위원회 구성(위원장: 전임 이상돈), 특별비상회비 10만원 이상 결의"
+  },
+  {
+    "id": "history-1993-13",
+    "date": "1993-11",
+    "title": "회장단 회의",
+    "description": "대구호텔 회장단 회의에서 약사법 국회 로비를 위한 황명수 총장 면담 결정",
+    "donations": [
+      {
+        "purpose": "동대동창회 발전기금",
+        "amountWon": 5000000,
+        "status": "찬조 결의"
+      }
+    ]
+  },
+  {
+    "id": "history-1993-14",
+    "date": "1993-11",
+    "title": "회장단 회의",
+    "description": "(마이하우스) — 총장 면담 준비, 비대위 해산 결정, 전국이사회 개최 토의"
+  },
+  {
+    "id": "history-1993-15",
+    "date": "1993-11",
+    "title": "정기이사회",
+    "description": "(파크호텔) — 비대위 해산 결산 심의(원안통과), 정기총회 94년 1월 9일 개최 결정"
+  },
+  {
+    "id": "history-1993-16",
+    "date": "1993-12",
+    "title": "회장단 회의",
+    "description": "(아리아나호텔) — 정기총회 세부사항 토론"
+  },
+  {
+    "id": "history-2005-1",
+    "date": "2005-02-11",
+    "title": "동국대 한의과대학 총동창회 정기총회 개최",
+    "description": "제19차 정기총회 및 이상택 제11대 회장 선출",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=6632"
+      }
+    ],
+    "presidentTerm": 11
+  },
+  {
+    "id": "history-2007-1",
+    "date": "2007-12-11",
+    "title": "“인내와 끈기로 어려움 극복하자”",
+    "description": "제21차 정기총회 및 임상특강 소식",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=7350"
+      }
+    ]
+  },
+  {
+    "id": "history-2008-1",
+    "date": "2008-06-09",
+    "title": "동국대 한의대 총동창회, 총장배 동문골프대회",
+    "description": "제13회 총장배 동문 골프대회 개최 소식",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=7616"
+      }
+    ]
+  },
+  {
+    "id": "history-2008-2",
+    "date": "2008-10-07",
+    "title": "동국대학교 한의과대학 총동창회 개최",
+    "description": "2008년 제1차 임상특강 진행",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=7736"
+      }
+    ]
+  },
+  {
+    "id": "history-2008-3",
+    "date": "2008-11-14",
+    "title": "동국대 한의과대학 30주년 기념 홈커밍데이",
+    "description": "남상민 동창회장 주관 행사",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/7787?device=pc"
+      }
+    ]
+  },
+  {
+    "id": "history-2009-1",
+    "date": "2009-02-27",
+    "title": "동국대 한의대 총동창회 정기총회",
+    "description": "제22차 정기총회 및 남상민 제13대 회장 연임",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=7895"
+      }
+    ],
+    "presidentTerm": 13
+  },
+  {
+    "id": "history-2010-1",
+    "date": "2010-03-03",
+    "title": "“하나되는 동국한의 총동창회 만들 것”",
+    "description": "제23차 정기총회 및 주승균 제14대 회장 선출",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=8326"
+      }
+    ],
+    "presidentTerm": 14
+  },
+  {
+    "id": "history-2012-1",
+    "date": "2012-01-14",
+    "title": "“함께 걸으니 함께 행복해진다”",
+    "description": "제24차 정기총회 및 김경선 제15대 회장 선출",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=9028"
+      }
+    ],
+    "presidentTerm": 15
+  },
+  {
+    "id": "history-2012-2",
+    "date": "2012-02-17",
+    "title": "동국대 한의대 부산동창회, 박정현 회장 선출",
+    "description": "지역 지부 행사",
+    "sources": [
+      {
+        "label": "기사 보기",
+        "url": "https://www.akomnews.com/bbs/board.php?bo_table=news&wr_id=16578"
+      }
+    ]
+  },
+  {
+    "id": "history-2014-1",
+    "date": "2014-06",
+    "title": "제19회 동국대학교 한의과대학 동문 골프대회"
+  },
+  {
+    "id": "history-2016-1",
+    "date": "2016-11",
+    "title": "한의과대학 83학번 입학 33주년 홈커밍데이",
+    "donations": [
+      {
+        "purpose": "한의과대학 발전기금",
+        "amountWon": 40000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2017-1",
+    "date": "2017-06",
+    "title": "제22회 동국대학교 총장배 한의과대학 동문 골프대회 및 등반대회",
+    "description": "김형철 총동창회장이 학교에 전달",
+    "donations": [
+      {
+        "purpose": "한의과대학 발전기금",
+        "amountWon": 50000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2019-1",
+    "date": "2019-10",
+    "title": "동국대학교 한의과대학 40주년 기념행사",
+    "donations": [
+      {
+        "purpose": "한의과대학 발전기금",
+        "amountWon": 94500000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2020-1",
+    "date": "2020-11",
+    "title": "한의과대학 80학번 입학 40주년 기념행사",
+    "donations": [
+      {
+        "purpose": "한의과대학 발전기금",
+        "amountWon": 57000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2020-2",
+    "date": "2020-12",
+    "title": "한의과대학 총동창회 및 외래교수회 기부",
+    "donations": [
+      {
+        "donor": "한의과대학 총동창회 및 외래교수회",
+        "amountWon": 30000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2021-1",
+    "date": "2021-12",
+    "title": "한의과대학 81학번 입학 40주년 기념 행사",
+    "donations": [
+      {
+        "donor": "81학번",
+        "amountWon": 83000000,
+        "status": "기부"
+      },
+      {
+        "donor": "한의과대학 외래교수회",
+        "amountWon": 50000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2022-1",
+    "date": "2022-03",
+    "title": "제32차 정기총회",
+    "description": "제20대 회장으로 최유행(졸업10기·88학번) 선출, 본회 명칭을 '동국대학교 한의과대학 동문회'로 변경",
+    "presidentTerm": 20,
+    "highlight": true
+  },
+  {
+    "id": "history-2022-2",
+    "date": "2022-04",
+    "title": "제20대 제1차 이사회"
+  },
+  {
+    "id": "history-2022-3",
+    "date": "2022-07",
+    "title": "제20대 제2차 이사회"
+  },
+  {
+    "id": "history-2023-1",
+    "date": "2023-02",
+    "title": "제20대 제3차 이사회"
+  },
+  {
+    "id": "history-2023-2",
+    "date": "2023-04",
+    "title": "제33차 정기총회"
+  },
+  {
+    "id": "history-2023-3",
+    "date": "2023-08",
+    "title": "제20대 제4차 이사회"
+  },
+  {
+    "id": "history-2023-4",
+    "date": "2023-08",
+    "title": "한의과대학 건학장학기금 기부",
+    "donations": [
+      {
+        "purpose": "한의과대학 건학장학기금",
+        "amountWon": 10000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2024-1",
+    "date": "2024-02",
+    "title": "제34차 정기총회"
+  },
+  {
+    "id": "history-2024-2",
+    "date": "2024-03",
+    "title": "제21대 제1차 이사회"
+  },
+  {
+    "id": "history-2024-3",
+    "date": "2024-03",
+    "title": "'법인으로 보는 단체' 등록",
+    "highlight": true
+  },
+  {
+    "id": "history-2024-4",
+    "date": "2024-06",
+    "title": "제27회 동국대학교 총장배 한의과대학 동문 골프대회 및 트레킹 대회"
+  },
+  {
+    "id": "history-2024-5",
+    "date": "2024-09",
+    "title": "졸업준비위원회 초청 진로특강"
+  },
+  {
+    "id": "history-2024-6",
+    "date": "2024-09",
+    "title": "제4회 동문교류회"
+  },
+  {
+    "id": "history-2024-7",
+    "date": "2024-11",
+    "title": "한의과대학 교육환경 개선·장학기금 기부",
+    "donations": [
+      {
+        "purpose": "한의과대학 교육환경 개선",
+        "amountWon": 13640000,
+        "status": "기부"
+      },
+      {
+        "purpose": "장학기금",
+        "amountWon": 100000000,
+        "status": "기부"
+      }
+    ]
+  },
+  {
+    "id": "history-2024-8",
+    "date": "2024-12",
+    "title": "제21대 제2차·제3차 이사회"
+  },
+  {
+    "id": "history-2025-1",
+    "date": "2025-01",
+    "title": "2024 회계연도 정기감사"
+  },
+  {
+    "id": "history-2025-2",
+    "date": "2025-01",
+    "title": "제35차 정기총회"
+  },
+  {
+    "id": "history-2025-3",
+    "date": "2025-06",
+    "title": "동국한의동문회 교수 간담회"
+  },
+  {
+    "id": "history-2025-4",
+    "date": "2025-06",
+    "title": "제28회 동국대학교 총장배 한의과대학 동문 골프대회 및 트레킹 대회"
+  },
+  {
+    "id": "history-2025-5",
+    "date": "2025-11",
+    "title": "제5회 동문교류회"
+  },
+  {
+    "id": "history-2025-6",
+    "date": "2025-11",
+    "title": "제21대 제4차 이사회"
+  },
+  {
+    "id": "history-2026-1",
+    "date": "2026-02",
+    "title": "제21대 제5차 이사회"
+  },
+  {
+    "id": "history-2026-2",
+    "date": "2026-02",
+    "title": "2025 회계연도 정기감사"
+  },
+  {
+    "id": "history-2026-3",
+    "date": "2026-02",
+    "title": "제36차 정기총회",
+    "description": "개최 — 제22대 회장 최윤용(졸업 10기·88학번) 선출",
+    "presidentTerm": 22,
+    "highlight": true
+  },
+  {
+    "id": "history-2026-4",
+    "date": "2026-03",
+    "title": "제22대 제1차 이사회"
+  },
+  {
+    "id": "history-2026-5",
+    "date": "2026-03",
+    "title": "동국한의동문회 부산지부 출범"
+  }
+]
