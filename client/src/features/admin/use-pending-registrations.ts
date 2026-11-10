@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
 import type {
   AdminPendingRegistrationDto,
   AdminPendingRegistrationUpdateResult,
@@ -58,6 +59,7 @@ export function usePendingRegistrations(enabled: boolean) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-registrations"] });
+      queryClient.invalidateQueries({ queryKey: [ADMIN_STATISTICS_PATH] });
       toast({
         title: "처리 완료",
         description: "회원 가입 요청이 처리되었습니다.",
