@@ -6,6 +6,7 @@
 |---|---|---|
 | DB 조회·개발/운영 전환·과거 seed | [DB 스크립트 분류](../docs/reference/database-scripts.md) | 실제 DB 접속·변경 여부와 완료된 전환을 개별 구분 |
 | 코드 경계 | [check-boundaries.mjs](check-boundaries.mjs) | 소스 import·의존 방향 정적 확인 |
+| 역사관 자료 | [check-heritage-content.mjs](check-heritage-content.mjs) | 공개 JSON·ID 참조·날짜·공개 파일 존재 확인. 앱·DB·외부 서비스 실행 없음 |
 | 코드 서식 | 루트 `npm run format`, `npm run format:check` | 고정 버전 Prettier로 JS/TS/TSX·CSS 정리 또는 읽기 전용 검사. 실행 경계는 [구조 기준](../docs/architecture/project-structure.md#파일명테스트-규칙과-명령)을 따름 |
 | 배포 산출물 | [check-route-chunks.mjs](check-route-chunks.mjs) | 생성된 번들 구조 확인; 앱 타입 검사와 구분 |
 | 테스트 탐색·실행 | [run-tests.mjs](run-tests.mjs) | `--list`는 목록, 일반 실행은 실제 테스트 실행 |

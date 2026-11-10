@@ -1,7 +1,15 @@
 import { PUBLIC_HOME_DESCRIPTION, SITE_NAME } from "./site";
+import { HERITAGE_PAGES, type HeritagePagePath } from "./heritage/navigation";
+import officers from "./heritage/officers.json";
 
 type PublicPageMetadata = { title: string; description: string };
 const home = { title: SITE_NAME, description: PUBLIC_HOME_DESCRIPTION };
+const heritagePages = Object.fromEntries(
+  Object.values(HERITAGE_PAGES).map(({ path, title, description }) => [
+    path,
+    { title, description },
+  ]),
+) as Record<HeritagePagePath, PublicPageMetadata>;
 
 // Shared by client navigation metadata, initial HTML and the public sitemap.
 export const PUBLIC_PAGES = {
@@ -13,16 +21,9 @@ export const PUBLIC_PAGES = {
   },
   "/about/executives": {
     title: "임원 명단",
-    description: `${SITE_NAME} 22대 임원 명단입니다.`,
+    description: `${SITE_NAME} ${officers.currentTerm}대 임원 명단입니다.`,
   },
-  "/about/presidents": {
-    title: "역대회장",
-    description: `${SITE_NAME} 역대회장 안내입니다.`,
-  },
-  "/about/heritage": {
-    title: "역사관",
-    description: `${SITE_NAME}의 활동, 역사 자료와 주요 행사를 담는 역사관입니다.`,
-  },
+  ...heritagePages,
   "/about/bylaws": {
     title: "동문회 회칙",
     description: `${SITE_NAME} 회칙 전문 — 회원, 임원, 총회·이사회, 재정, 경조, 기부금 등 전체 조항을 확인하세요.`,
