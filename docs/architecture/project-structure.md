@@ -12,7 +12,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 2026-11-10 PR #30으로 관리자 기초 통계의 계약을 `shared/contracts/admin-statistics.ts`, 읽기 집계와 권한 보호 라우트를 `server/modules/statistics`, 조회 상태·기간 선택·결과 표시를 `features/admin`에 추가해 main과 Replit 운영에 반영했다. 정적 검사, Git·운영 적용과 미확인 실행 범위는 [통계 수행 기록](../history/admin-statistics-2026-11-10.md)을 따른다.
 
-후속 역사관 구현은 `shared/heritage/`의 공개 JSON·타입·메뉴와 `features/about/heritage/`의 공통 페이지·기록 표시·사진첩으로 분리했다. 아래 경로·소유 위치에는 이 개발 사본의 미커밋 변경을 포함하며 아직 Git 통합·운영 배포하지 않았다. [콘텐츠 기준](../reference/heritage-content.md)과 [개발 기록](../history/heritage-2026-11-10.md)을 따른다.
+후속 역사관 구현은 `shared/heritage/`의 공개 JSON·타입·메뉴와 `features/about/heritage/`의 공통 페이지·기록 표시·사진첩으로 분리했다. PR #31로 main에 통합하고 2026-11-11 Replit 운영에 반영했다. 아래 경로·소유 위치는 이 커밋된 소스를 포함한다. [콘텐츠 기준](../reference/heritage-content.md)과 [개발 기록](../history/heritage-2026-11-10.md)·[릴리스 기록](../history/heritage-release-2026-11-11.md)을 따른다.
 
 ## 코드 소유권
 
