@@ -51,6 +51,19 @@
 
 셸 `LC_ALL` locale 안내가 있었으며 타입·번들 오류는 없었다. 기존 검사·CI의 삭제나 기준 변경은 없으며 실행형 테스트·브라우저·DB 검사를 수행한 것으로 보고하지 않는다. 검사 입력·명령·설정·출력·자산 해시와 변경 전 `dist`는 `.superpowers/release-2.0.2-20261111/`에 보존한다. 검사 후 문서 결과만 추가했으며 앱 입력은 변경하지 않았다.
 
-### Git 통합·배포·마무리
+## 운영 배포와 smoke
 
-후보 검사를 마쳤으며 PR·main 병합, 새 배포·운영 smoke와 태그·최종 Git 상태는 실행 후 기록한다.
+- [PR #34](https://github.com/Raphael-KR/dgkmaWeb/pull/34)의 후보는 `d80ff90a393299c1a8f37626f682b813e13f3acc`, 병합·실제 배포 후보는 `3c963e9a842035d5a9d8ba8989db4407088a00d0`이다. 두 tree는 `f438231f0f463e7798a7144e303936b997d40239`로 같다. 병합 직전 리뷰·등록된 status·PR workflow 결과가 없었으며 이를 CI 통과로 계산하지 않았다.
+- GitHub main을 로컬·Replit에 fast-forward한 뒤 후보 파일 543개와 빌드 파일 86개의 해시 일치를 확인했다. 직접 반영한 개발 작업은 모두 PR에 포함됐음을 대조한 뒤 snapshot `cb4a2d62be25870af6212e5ec36eb9879d08db9e`로 보존했다.
+- Replit `publish_app`의 `pending → building → running → promoting → success`를 관찰했고 **2026-11-11 20:21:42 KST**에 [dgkma.org](https://dgkma.org/) 배포 성공을 확인했다. 커넥터 deployment ID `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`는 이전과 같아 새 ID로 기록하지 않는다. 이번 상태 전환·게시 커밋·새 자산 해시로 새 배포를 식별한다.
+- **20:22:31 KST 비로그인 HTTP 104건 통과**: 현행 `PUBLIC_PAGES`의 공개 페이지 16개·사이트맵 1개·게시판/명부 API 2개·정적 자산 85개. `/`·`/about` canonical은 `https://dgkma.org/`, 하위 페이지는 각자의 주소이며 사이트맵은 현행 canonical과 일치했다. `/api/posts`·`/api/alumni`는 401이고 모든 자산 SHA-256이 검사한 후보 빌드와 같았다.
+- 실제 이름 버튼 클릭·회원 화면·브라우저 반응형·실계정 QA는 수행하지 않았다. DB·Secret 변경, 개발 서버 별도 재시작, 실제 수집·OpenAI·카카오·Sheets 호출도 없었다. 공개 GET 결과를 이러한 기능의 검증으로 대신하지 않는다.
+
+## Git 통합·태그와 보존
+
+- annotated tag `v2.0.2`는 실제 배포 후보 `3c963e9a842035d5a9d8ba8989db4407088a00d0`를 가리킨다. 이 태그만 push하고 로컬·GitHub·Replit에서 같은 대상을 확인했다. 완료 문서 때문에 태그를 옮기거나 재배포하지 않는다.
+- Replit 게시 커밋 `354650dcec2b08f654b145d1dd49f22e35220ba8`와 `0d9b9fdd5d2d638ad484fe5c50c579fb78a1559d`는 후보와 같은 tree다. Git 번들의 복구 가능성을 검증하고 두 커밋을 main에 fast-forward해 GitHub에도 보존했다.
+- PR 병합·고유 커밋·활성 worktree를 확인하고 로컬·GitHub의 `codex/release-2.0.2`, Replit의 `replit-agent`를 삭제했다. 모두 main에 포함된 커밋이며 강제 push·hard reset·강제 브랜치 삭제를 사용하지 않았다. origin의 stale 추적 참조도 prune했다.
+- 브랜치 정리 시점에 로컬·GitHub·Replit main은 `0d9b9fdd5d2d638ad484fe5c50c579fb78a1559d`로 일치하고 Git 관리 대상 미커밋분과 main 외 브랜치는 없었다. 이후 완료 기록을 문서 전용 커밋으로 반영한다. 최종 main SHA·dirty·브랜치·태그 대조는 `.superpowers/release-2.0.2-20261111/completion.json`에 보존한다.
+- 기존 stash 11개와 이번 후보 snapshot 1개, detached `unified-posts-check` worktree(`f8743fa`), gitsafe-backup·archive 참조를 유지했다. `.superpowers/`의 원본·검사·빌드·Git 번들, Git에서 제외된 의존성·캐시·빌드를 삭제하거나 강제 추적하지 않았다. 제외한 Git 관리 대상 코드·문서는 없다.
+- 완료 문서 5개의 상대 링크 165개(절 참조 83개 포함)와 `git diff --check`를 확인했다. 배포 후 변경은 문서뿐이므로 앱 검사·빌드·운영 배포는 반복하지 않는다.
