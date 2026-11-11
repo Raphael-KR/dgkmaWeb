@@ -56,7 +56,7 @@ cd /home/runner/workspace
 
 ## 개발 변경
 
-2026-11-12 댓글 확장 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않는다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행한다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 운영은 미적용 상태로 유지한다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. Drag Handle 자체는 DB 변경이 없다.
+2026-11-12 댓글 확장 최초 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위였다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않았다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행했다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. 이후 별도 승인된 운영 전환은 아래 운영 절과 [3.0.0 릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다. Drag Handle 자체는 DB 변경이 없다.
 
 2026-11-12 Placeholder·체크리스트·CharacterCount·YouTube 추가는 기존 JSONB의 앱 스키마 확장이다. 체크리스트 상태·영상 주소는 표준 Tiptap 노드 속성에 저장하며 DB DDL·기존 행 변환·catalog 재조회·`db:push`를 실행하지 않는다. 실제 개발 적용·검사 범위는 [추가 확장 기록](../history/editor-extensions-2026-11-12.md)을 따른다.
 

@@ -2,7 +2,7 @@
 
 - 목표: 누적된 게시글 편집기·업로드·댓글 확장을 운영에 반영한다.
 - 범위: 프로젝트 미커밋분 전체, 버전·변경 기록, Git 통합·Replit 배포·태그·세 환경 main 일치와 브랜치 정리.
-- 완료 조건: 선택한 후보 검사, 운영 댓글 구조 전환의 별도 승인·보존 확인, 새 배포·비로그인 smoke, Git 마무리.
+- 완료 조건: 선택한 후보 검사, 운영 댓글 구조 전환의 별도 승인·적용 확인, 새 배포·비로그인 smoke, Git 마무리.
 - 제외: 실계정 QA, 실제 외부 provider 호출, 파일 물리 삭제, 기존 worktree·stash·보존 태그 삭제.
 - 검증: 공통 필수 정적 검사·빌드와 영향받은 기존 계약·facade·권한 HTTP·개인정보 로그 검사. 기존 메모리 대역만 사용하며 시험 DB나 새 합성 자료를 만들지 않는다.
 
@@ -38,7 +38,7 @@
 
 후속 사용자 결정: 기존 본문·댓글 보존은 필수가 아니며 필요하면 posts와 종속 comments 데이터를 초기화할 수 있다. 현재 컬럼 추가에는 초기화가 필요 없어 원래 additive SQL을 유지한다. 실제 삭제를 수행한 것으로 기록하지 않는다.
 
-개발 DB에는 댓글 네 컬럼·두 CHECK가 적용됐으며 운영은 미적용이다. 운영 전용 SQL은 `neondb`만 허용하며 기존 댓글의 id·post_id·author_id·content·created_at과 시퀀스를 보존한다. 읽기 전용 preview·비공개 보존본·승인·트랜잭션 적용·새 연결 검증 순서를 따른다.
+사전조회 당시 개발 DB에는 댓글 네 컬럼·두 CHECK가 적용됐으며 운영은 미적용이었다. 운영 전용 SQL은 `neondb`만 허용하며 기존 댓글의 id·post_id·author_id·content·created_at과 시퀀스를 보존한다. 읽기 전용 preview·비공개 보존본·승인·트랜잭션 적용·새 연결 검증 순서를 따랐다.
 
 2026-11-12 03:34 KST `neondb` PostgreSQL 16.15를 읽기 전용으로 조회했다. 기존 댓글 1건, 다섯 컬럼과 PK·FK 두 개, 시퀀스 상태를 확인했다. 전체 catalog는 기존 운영 관찰과 같은 SHA-256 `27588cbda434da037691dbf79f754ed8956b5b01fdc082a83227f3479eed8262`다. 원본 스키마·댓글·시퀀스 백업은 Replit의 `/home/runner/workspace/.superpowers/release-3.0.0-20261112/production-backup-final`에 디렉터리 0700·파일 0600으로 보관하며 Mac·Git에 복제하지 않았다. 원문 대신 건수·digest·백업 해시만 로컬 근거에 남겼다.
 
@@ -65,7 +65,7 @@
 
 환경은 Replit Node 20.20.0·npm 10.8.2, TypeScript 5.6.3·ESLint 10.14.0·Prettier 3.9.10·Vite 6.4.3이다. 셸의 C.UTF-8 locale 경고 외 검사·빌드 실패는 없다. 명령·UTC 일시·실행 시간·표준 출력과 파일 해시는 `.superpowers/release-3.0.0-20261112/candidate-results.json`에 남겼다. 기존 개발 결과를 이번 실행으로 바꿔 보고하지 않았다.
 
-로컬 문서 19개의 상대 링크 420개·앵커 131개를 확인했다. 신규 문서까지 stage한 공백 검사에서 일반 파일 개발 기록의 끝 빈 줄 한 개를 발견해 제거하고 재검사했다. 코드·의존성과 검사 결과는 바뀌지 않았다. 근거 파일은 `.superpowers/release-3.0.0-20261112/`에 보관한다.
+최초 후보 문서 19개의 상대 링크 420개·앵커 131개를 확인했다. 신규 문서까지 stage한 공백 검사에서 일반 파일 개발 기록의 끝 빈 줄 한 개를 발견해 제거하고 재검사했다. 배포 완료 문서까지 포함한 최종 검사는 상대 링크 426개·앵커 136개와 `git diff --check`를 통과했다. 코드·의존성과 검사 결과는 바뀌지 않았다. 근거 파일은 `.superpowers/release-3.0.0-20261112/`에 보관한다.
 
 ## Git 통합과 개발 반영
 
@@ -73,4 +73,23 @@
 - 03:39 KST Replit을 GitHub main으로 fast-forward했다. 기존 직접 반영본을 stash `fcf37eb0e6531c0f5c1fd8044a6e4e7c1bd25f1d`에 보존하고 소스 575개·정적 산출물 90개의 해시 일치를 확인했다. 기존 stash 13개와 detached worktree를 보존했다.
 - 병합 후보 tree는 `1be421e21ad4d95c209395c29fdae56790c68ad5`다. 검사 이후 달라진 파일은 Markdown뿐이며 앱·의존성과 빌드는 동일하다. 문서 후속 기록만으로 다시 빌드하지 않는다.
 
-운영 DB 전환 승인을 받아 기존 릴리스 작업을 계속한다. Republish·운영 smoke·`v3.0.0` 태그는 아직 실행하지 않았고 현재 운영은 `2.0.3`이다. 준비 문서·main 병합을 운영 배포 성공으로 간주하지 않는다.
+## 운영 배포와 smoke
+
+운영 DB 적용 기록을 포함한 `342f57b2121f47fde77fbfba31db7a2bf11d00aa`를 Replit main에 동기화한 뒤 `publish_app`으로 배포했다. 후보 tree는 `aa0d74b35e4eb570d00198eee9b171876693b0fa`다. Replit이 반환한 deployment ID는 `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`로 이전 배포와 같았으므로 ID만으로 새 배포를 판단하지 않았다. 이번 요청의 pending → building → running → promoting → success 전환과 2026-11-12 03:57:18 KST 성공 응답을 확인했다. 서비스 주소는 [dgkma.org](https://dgkma.org)다.
+
+03:57:52 KST 비로그인 HTTP 확인 111건이 통과했다.
+
+- 공통 공개 페이지 17개: HTTP 200·HTML·제목·canonical과 후보 entry `/assets/index-DkZdmZA1.js` 일치. `/`와 `/about`의 canonical은 모두 `https://dgkma.org/`다.
+- 사이트맵 1개: 현재 공개 페이지의 canonical 목록 일치.
+- 회원 경로 4개: 게시글·명부·댓글·업로드 객체의 비로그인 GET은 401 JSON으로 차단.
+- 정적 자산 89개: 운영 응답의 SHA-256과 후보 산출물 일치.
+
+앱 배포는 완료했지만 편집기의 이미지 붙여넣기·표·체크리스트·YouTube·블록 이동, 실제 파일 업로드·다운로드·제한 경계, 댓글 편집·가리기·첨부의 회원 상호작용은 확인하지 않았다. 실계정 QA·외부 provider 호출·개발 서버 별도 재시작은 수행하지 않았다. Secret 변경·데이터 초기화·파일 물리 삭제도 없었다. 원본 응답과 검사는 비공개 근거 경로의 `publish-success.json`·`production-http-smoke.json`에 기록했다.
+
+## 태그·게시 이력과 Git 마무리
+
+운영 성공과 smoke 후 annotated tag `v3.0.0`을 실제 운영 후보 `342f57b2121f47fde77fbfba31db7a2bf11d00aa`에 생성·push했다. 패키지·lockfile 버전도 `3.0.0`이다. 태그 객체는 `bbfc3857da250dd6c9a128389b2256ec91ea453e`이며 기존 태그 이동이나 일괄 태그 push는 하지 않았다.
+
+Replit 게시 커밋 `c5c78891a9be2c0092ecf29b697aacf13a9e2885`와 `a080b6417c1ddac8dc8544afa98426ab40cae9e2`의 부모·tree를 확인했다. 두 커밋의 tree는 위 운영 후보와 같다. 게시 이력을 bundle로 가져와 로컬·GitHub main에 fast-forward로 보존했다. 완료 기록은 Markdown만 바꾸는 후속 커밋이며 운영 태그를 옮기거나 문서 때문에 다시 빌드·배포하지 않는다.
+
+PR 브랜치 `codex/release-3.0.0`과 main에 포함된 Replit `replit-agent`를 정리했다. 로컬·GitHub·Replit의 브랜치는 main만 남기고 Replit의 stash 14개와 detached `unified-posts-check` worktree, 기존 보존 태그는 유지한다. 최종 문서 커밋의 세 환경 main SHA·clean 상태·태그 대상과 검사 입력·산출물 일치 결과는 비공개 근거 `completion.json`에 남긴다. 이 문서의 Git SHA와 실제 운영 태그 대상은 구분한다.

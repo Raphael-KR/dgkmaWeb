@@ -22,6 +22,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 ## 코드 소유권
 
+편집기 파일·표·체크리스트·영상·블록 이동과 댓글 전용 모듈은 PR #36으로 main에 통합하고 `3.0.0`으로 운영에 반영했다. 아래 소유 위치는 이 소스를 포함하며 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에서 실제 검사·적용·미검증 범위를 구분한다.
+
 | 소유 위치 | 책임 |
 |---|---|
 | `client/src/app/app.tsx`, `providers.tsx`, `routing/`, `layout/` | 앱 조립, 라우트, 프로바이더, 공통 레이아웃 |
