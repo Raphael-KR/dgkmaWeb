@@ -60,7 +60,15 @@ export class ObjectStorageService {
         "Content-Length": metadata.size,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
-        ...(isImage ? {} : { "Content-Disposition": "attachment" }),
+        ...(isImage
+          ? {}
+          : {
+              "Content-Disposition":
+                typeof metadata.metadata?.downloadName === "string" &&
+                /^[A-Za-z0-9%_.!~*'()-]+$/.test(metadata.metadata.downloadName)
+                  ? `attachment; filename="download"; filename*=UTF-8''${metadata.metadata.downloadName}`
+                  : "attachment",
+            }),
       });
 
       const stream = file.createReadStream();
@@ -100,7 +108,12 @@ export class ObjectStorageService {
   }
 
   // Stores an upload after the request route has validated its size and type.
-  async uploadObjectEntity(objectId: string, contents: Buffer, contentType: string): Promise<void> {
+  async uploadObjectEntity(
+    objectId: string,
+    contents: Buffer,
+    contentType: string,
+    name: string,
+  ): Promise<void> {
     if (!/^[0-9a-f-]{36}$/i.test(objectId)) {
       throw new Error("Invalid object ID");
     }
@@ -114,6 +127,12 @@ export class ObjectStorageService {
       resumable: false,
       metadata: {
         contentType,
+        metadata: {
+          downloadName: encodeURIComponent(name).replace(
+            /['()*]/g,
+            (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+          ),
+        },
       },
     });
   }

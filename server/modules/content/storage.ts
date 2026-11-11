@@ -10,16 +10,10 @@ import {
   type InsertPost,
   type Category,
   type InsertCategory,
-  type Comment,
 } from "@shared/schema";
-import { and, asc, desc, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import type {
-  CommentWithAuthor,
-  ContentStorageContract,
-  PublishedPost,
-  PostViewer,
-} from "./storage-contract";
+import type { ContentStorageContract, PublishedPost, PostViewer } from "./storage-contract";
 
 const publicColumns = {
   id: posts.id,
@@ -141,14 +135,33 @@ export class ContentStorage implements ContentStorageContract {
         isHidden: posts.isHidden,
         isPublished: posts.isPublished,
       })
-      .from(posts)
-      .where(sql`${path} = ANY(${posts.imageUrls})`);
-    // Unattached uploads retain the existing member-only preview boundary.
+      .from(posts).where(sql`${path} = ANY(${posts.imageUrls}) OR jsonb_path_exists(
+        ${posts.content}, '$.** ? ((@.type == "image" && @.attrs.src == $path) || (@.type == "link" && @.attrs.href == $path))',
+        ${JSON.stringify({ path })}::jsonb
+      )`);
+    const commentReferences = await db
+      .select({
+        authorId: comments.authorId,
+        isHidden: comments.isHidden,
+        postAuthorId: posts.authorId,
+        postHidden: posts.isHidden,
+        postPublished: posts.isPublished,
+      })
+      .from(comments)
+      .innerJoin(posts, eq(comments.postId, posts.id))
+      .where(sql`${comments.attachment}->>'objectPath' = ${path}`);
+    // A hidden comment reference is not an unattached upload.
     return (
-      references.length === 0 ||
+      (references.length === 0 && commentReferences.length === 0) ||
       references.some(
         (post) =>
           viewer.isAdmin || post.authorId === viewer.id || (post.isPublished && !post.isHidden),
+      ) ||
+      commentReferences.some(
+        (comment) =>
+          comment.postPublished &&
+          (!comment.postHidden || viewer.isAdmin || comment.postAuthorId === viewer.id) &&
+          (!comment.isHidden || viewer.isAdmin || comment.authorId === viewer.id),
       )
     );
   }
@@ -210,59 +223,6 @@ export class ContentStorage implements ContentStorageContract {
       )
       .returning({ id: posts.id });
     return rows.length === 1;
-  }
-
-  async getCommentsByPost(postId: number): Promise<CommentWithAuthor[]> {
-    const rows = await db
-      .select({
-        id: comments.id,
-        postId: comments.postId,
-        authorId: comments.authorId,
-        content: comments.content,
-        createdAt: comments.createdAt,
-        authorName: users.name,
-      })
-      .from(comments)
-      .innerJoin(posts, eq(comments.postId, posts.id))
-      .leftJoin(users, eq(comments.authorId, users.id))
-      .where(and(eq(comments.postId, postId), visible()))
-      .orderBy(asc(comments.createdAt));
-
-    return rows.map((r) => ({
-      id: r.id,
-      postId: r.postId,
-      authorId: r.authorId,
-      content: r.content,
-      createdAt: r.createdAt,
-      author: r.authorId ? { id: r.authorId, name: r.authorName ?? "회원" } : null,
-    }));
-  }
-
-  async getComment(id: number): Promise<Comment | undefined> {
-    const [comment] = await db.select().from(comments).where(eq(comments.id, id));
-    return comment || undefined;
-  }
-
-  async createComment(data: {
-    postId: number;
-    authorId: number;
-    content: string;
-  }): Promise<Comment | undefined> {
-    return db.transaction(async (tx) => {
-      const [parent] = await tx
-        .select({ id: posts.id })
-        .from(posts)
-        .where(and(eq(posts.id, data.postId), visible()))
-        .for("update");
-      if (!parent) return undefined;
-      const [comment] = await tx.insert(comments).values(data).returning();
-      return comment;
-    });
-  }
-
-  async deleteComment(id: number): Promise<boolean> {
-    const result = await db.delete(comments).where(eq(comments.id, id));
-    return (result.rowCount ?? 0) > 0;
   }
 
   async searchPosts(query: string): Promise<(PublishedPost & { category: Category })[]> {

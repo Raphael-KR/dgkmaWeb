@@ -1,7 +1,12 @@
 import { POST_TITLE_MAX_LENGTH } from "@shared/contracts/content-limits";
-import { IMAGE_UPLOAD_ACCEPT, POST_IMAGE_LIMIT } from "@shared/contracts/uploads";
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  POST_ATTACHMENT_LIMIT,
+  DOCUMENT_ATTACHMENT_LIMIT,
+} from "@shared/contracts/uploads";
+import { postDocumentFilePaths } from "@shared/contracts/post-document";
 import { createUpdatePostSchema } from "@shared/contracts/post-management";
-import { postTitleSchema } from "@shared/contracts/post-input";
+import { postAttachmentPaths, postTitleSchema } from "@shared/contracts/post-input";
 import { Suspense, useState, type ChangeEvent, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -12,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { QueryError } from "@/components/query-error";
-import { useUpload } from "@/hooks/use-upload";
+import { usePostUploads } from "./use-post-uploads";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { postRequest } from "@/lib/post-management";
 
@@ -38,11 +43,13 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
     isFetching: categoriesFetching,
     refetch: refetchCategories,
   } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
-  const { uploadFile, isUploading } = useUpload({ onError: (cause) => setError(cause.message) });
+  const uploads = usePostUploads(() => ({ content, imageUrls }), setError);
+  const { isUploading } = uploads;
 
   useUnsavedChangesWarning(dirty);
 
   const cancel = () => {
+    if (busy || uploads.pending.current) return;
     if (!dirty || window.confirm("수정 내용을 저장하지 않고 돌아갈까요?")) {
       navigate(`/p/${post.id}`);
     }
@@ -50,7 +57,14 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy || isUploading || !valid || !categoryId || categoriesLoading || categoriesError)
+    if (
+      busy ||
+      uploads.pending.current ||
+      !valid ||
+      !categoryId ||
+      categoriesLoading ||
+      categoriesError
+    )
       return;
     const parsed = createUpdatePostSchema(post).safeParse({
       revision: post.revision,
@@ -80,22 +94,16 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
   const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
-    if (files.length + imageUrls.length > POST_IMAGE_LIMIT) {
-      setError(
-        `현재 ${imageUrls.length}개에 ${files.length}개를 추가하면 한도 ${POST_IMAGE_LIMIT}개를 초과합니다.`,
-      );
-      return;
-    }
-    for (const file of files) {
-      const result = await uploadFile(file);
-      if (result) {
-        setImageUrls((current) => [...current, result.objectPath]);
-        setDirty(true);
-      }
+    if (busy) return;
+    const paths = await uploads.uploadImages(files);
+    if (paths.length) {
+      setImageUrls((current) => [...current, ...paths]);
+      setDirty(true);
     }
   };
 
   const removeImage = (path: string) => {
+    if (busy || uploads.pending.current) return;
     setImageUrls((current) => current.filter((value) => value !== path));
     setDirty(true);
   };
@@ -108,10 +116,12 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
         </p>
       )}
       {(!postTitleSchema.safeParse(post.title).success ||
-        (post.imageUrls?.length ?? 0) > POST_IMAGE_LIMIT) && (
+        postAttachmentPaths(post).length > POST_ATTACHMENT_LIMIT ||
+        postDocumentFilePaths(post.content).length > DOCUMENT_ATTACHMENT_LIMIT) && (
         <p className="text-sm text-gray-600">
           기존 제목·첨부를 유지하거나 첨부를 줄여 저장할 수 있습니다. 제목을 바꾸거나 첨부를 추가할
-          때는 제목 {POST_TITLE_MAX_LENGTH}자·이미지 {POST_IMAGE_LIMIT}개 제한이 적용됩니다.
+          때는 제목 {POST_TITLE_MAX_LENGTH}자·일반 파일 {DOCUMENT_ATTACHMENT_LIMIT}개·이미지와 파일
+          합계 {POST_ATTACHMENT_LIMIT}개 제한이 적용됩니다.
         </p>
       )}
       {categoriesError && (
@@ -162,6 +172,7 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
             <LazyPostBodyEditor
               value={content}
               disabled={busy || isUploading}
+              onUploadFiles={uploads.uploadFiles}
               onChange={(value) => {
                 setContent(value);
                 setDirty(true);

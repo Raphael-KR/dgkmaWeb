@@ -1,3 +1,4 @@
+import { CommentStorage } from "./modules/content/comment-storage";
 import { IdentityStorage } from "./modules/identity/storage";
 import { RegistryStorage } from "./modules/registry/storage";
 import { ContentStorage } from "./modules/content/storage";
@@ -20,7 +21,6 @@ export type {
   CreateOrRefreshPendingRegistrationResult,
 } from "./modules/registry/storage-contract";
 export type { IStorage } from "./lib/storage-contract";
-export type { CommentWithAuthor } from "./modules/content/storage-contract";
 
 // Preserve one receiver and the original prototype-method semantics: callers and
 // tests can replace methods on this facade without losing cross-method dispatch.
@@ -40,6 +40,7 @@ for (const DomainStorage of [
   IdentityStorage,
   RegistryStorage,
   ContentStorage,
+  CommentStorage,
   EventsStorage,
   DuesStorage,
 ]) {

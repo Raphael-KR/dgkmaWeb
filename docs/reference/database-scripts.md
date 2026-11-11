@@ -10,6 +10,8 @@
 
 ## 완료된 Development 전환
 
+2026-11-12 승인된 [add-comment-management.sql](../../scripts/add-comment-management.sql)은 `heliumdb`의 댓글 네 컬럼·두 CHECK를 추가했다. 개발 적용·백업·catalog 근거는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)을 따른다. 운영에는 아래 별도 운영 SQL을 적용했으며 어느 스크립트도 반복 적용용이 아니다.
+
 | 파일 | 대상·효과 | 재사용 경계 |
 |---|---|---|
 | [unify-posts.sql](../../scripts/unify-posts.sql) | `heliumdb` 확인; posts 경조사 컬럼·분류 추가, 구 테이블 제거 | 통합 당시 전환. 테이블 삭제 포함; 새 DB 기본 설치로 사용하지 않음 |
@@ -19,6 +21,8 @@
 | [add-post-visibility.sql](../../scripts/add-post-visibility.sql) | `heliumdb` 확인; is_hidden 컬럼 추가 | 완료된 additive 변경. 무조건 반복 가능한 스크립트가 아님 |
 
 ## 완료된 Production 전환과 준비 자료
+
+- [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql): `3.0.0` 댓글 확장. `neondb`만 허용하며 네 컬럼·두 CHECK를 한 트랜잭션에 추가한다. 2026-11-12 03:47 KST 적용 완료. 반복 적용용이 아니며 운영 승인·백업·preview·새 연결 확인은 [DB 런북](../runbooks/database-operations.md#운영-변경)과 [릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다.
 
 운영 전용 파일이 존재해도 실행 승인이 생기지 않는다. 승인된 운영 작업은 대상·백업·preview·코드 호환·새 연결의 확인을 준비한다.
 

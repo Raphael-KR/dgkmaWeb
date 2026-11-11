@@ -1,3 +1,4 @@
+import { CommentStorage } from "../modules/content/comment-storage";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseStorage } from "../storage";
@@ -14,6 +15,7 @@ test("storage compatibility facade retains every domain prototype method and des
     IdentityStorage,
     RegistryStorage,
     ContentStorage,
+    CommentStorage,
     EventsStorage,
     DuesStorage,
   ]) {

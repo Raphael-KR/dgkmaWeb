@@ -11,6 +11,24 @@ export function PostBody({ content, className }: { content: PostDocument; classN
       renderToReactElement({
         extensions: postExtensions,
         content: normalizePostDocument(content),
+        options: {
+          nodeMapping: {
+            taskItem: ({ node, children }) => (
+              <li data-type="taskItem" data-checked={node.attrs.checked}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={node.attrs.checked}
+                    readOnly
+                    disabled
+                    aria-label="완료 여부"
+                  />
+                </label>
+                <div>{children}</div>
+              </li>
+            ),
+          },
+        },
       }),
     [content],
   );

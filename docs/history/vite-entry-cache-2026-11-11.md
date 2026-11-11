@@ -53,3 +53,7 @@ Replit `/home/runner/workspace`, Node 20.20.0·npm 10.8.2에서 수행했다.
 상세 자료는 로컬·Replit의 `.superpowers/vite-entry-cache-20261111/`에 보존한다. `baseline-local.json`·`baseline-remote.json`은 기존 변경과 적용 전 파일 해시, `checks.json`은 실제 검사 명령·출력, 로컬 `before-browser.json`·`after-browser.json`·`comparison.json`은 전후 측정값이다. `dependency-diff.json`에는 직접 의존성 외 패키지 변경이 없음을 기록했다.
 
 기존 미커밋 UI·문서 변경을 보존했다. 이번 변경은 개발 환경에만 적용했으며 커밋·push·PR·운영 릴리스·실계정 QA는 수행하지 않았다.
+
+## 2.0.3 후속 릴리스
+
+위 종료 상태는 개발 작업 당시의 기록이다. 이 변경을 포함한 전체 후보는 PR #35로 통합하고 2026-11-11 `2.0.3`으로 릴리스했다. 후보 검사와 운영 확인은 [릴리스 기록](release-2.0.3-2026-11-11.md)을 따른다. 캐시 수정의 적용 대상은 계속 개발 Vite이며 운영 성능 개선을 의미하지 않는다.

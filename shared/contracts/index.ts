@@ -1,13 +1,13 @@
-import { COMMENT_MAX_LENGTH } from "./content-limits";
 import { z } from "zod";
 import { postDocumentSchema, type PostDocument } from "./post-document";
-import { postTitleSchema, postImageUrlsSchema } from "./post-input";
+import { postTitleSchema, postImageUrlsSchema, checkPostAttachmentLimit } from "./post-input";
 export * from "./post-document";
 
 export * from "./notices";
 export * from "./alumni-sync";
 export * from "./directory";
 export * from "./post-management";
+export * from "./comments";
 
 export const PENDING_REGISTRATION_CONFLICT_REASONS = [
   "email_conflict",
@@ -88,14 +88,6 @@ export type PaymentSummary = {
   createdAt: string | null;
 };
 
-export type Comment = {
-  id: number;
-  postId: number;
-  authorId: number | null;
-  content: string;
-  createdAt: string | null;
-};
-
 export type AdminPendingRegistrationDto = {
   id: number;
   name: string;
@@ -108,23 +100,17 @@ export type AdminPendingRegistrationUpdateResult =
 
 // Persistence IDs retain their existing range; editable fields share the API contract.
 const pgIntegerSchema = z.number().min(-2147483648).max(2147483647).int();
-export const insertPostSchema = z.object({
-  title: postTitleSchema,
-  content: postDocumentSchema,
-  categoryId: pgIntegerSchema.nullable().optional(),
-  authorId: pgIntegerSchema.nullable().optional(),
-  isPublished: z.boolean().nullable().optional(),
-  imageUrls: postImageUrlsSchema.nullable().optional(),
-});
+export const insertPostSchema = z
+  .object({
+    title: postTitleSchema,
+    content: postDocumentSchema,
+    categoryId: pgIntegerSchema.nullable().optional(),
+    authorId: pgIntegerSchema.nullable().optional(),
+    isPublished: z.boolean().nullable().optional(),
+    imageUrls: postImageUrlsSchema.nullable().optional(),
+  })
+  .superRefine((post, context) => checkPostAttachmentLimit(post, context));
 export type InsertPost = z.infer<typeof insertPostSchema>;
-
-export const insertCommentSchema = z.object({
-  content: z
-    .string()
-    .min(1, "댓글 내용을 입력해주세요")
-    .max(COMMENT_MAX_LENGTH, `댓글은 ${COMMENT_MAX_LENGTH}자 이내로 입력해주세요`),
-});
-export type InsertComment = z.infer<typeof insertCommentSchema>;
 
 // 활동 지역(시/도) 18개 — 온보딩·프로필 편집·서버 검증에서 공통 사용.
 export const REGION_OPTIONS = [

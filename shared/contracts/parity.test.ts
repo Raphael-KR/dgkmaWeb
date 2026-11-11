@@ -70,17 +70,43 @@ test("comments preserve limits and strip persistence-only fields", () => {
     undefined,
     {},
     { content: "" },
+    { content: " " },
     { content: "가".repeat(1001) },
     { content: 1 },
   ]) {
     assert.equal(contracts.insertCommentSchema.safeParse(input).success, false);
   }
-  for (const content of [" ", "댓글", "가".repeat(1000)]) {
-    assert.deepEqual(contracts.insertCommentSchema.parse({ content }), { content });
+  for (const content of ["댓글", "가".repeat(1000)]) {
+    assert.deepEqual(contracts.insertCommentSchema.parse({ content }), {
+      content,
+      attachmentPath: null,
+    });
   }
   assert.deepEqual(
-    contracts.insertCommentSchema.parse({ content: "댓글", authorId: 2, postId: 3, id: 4 }),
-    { content: "댓글" },
+    contracts.insertCommentSchema.parse({
+      content: "댓글",
+      authorId: 2,
+      postId: 3,
+      id: 4,
+      isHidden: false,
+      revision: 9,
+    }),
+    { content: "댓글", attachmentPath: null },
+  );
+  const attachmentPath = "/objects/uploads/example";
+  assert.deepEqual(contracts.insertCommentSchema.parse({ content: "", attachmentPath }), {
+    content: "",
+    attachmentPath,
+  });
+  assert.equal(
+    contracts.insertCommentSchema.safeParse({ content: "", attachmentPath: [attachmentPath] })
+      .success,
+    false,
+  );
+  assert.equal(contracts.updateCommentSchema.safeParse({ content: "댓글" }).success, false);
+  assert.equal(
+    contracts.commentVisibilitySchema.safeParse({ revision: 0, isHidden: true }).success,
+    true,
   );
 });
 

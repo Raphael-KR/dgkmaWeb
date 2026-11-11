@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/react";
-import { normalizePostDocument, postDocumentMarkdown } from "@shared/editor/post-document";
+import { normalizePostDocument, markdownProjection } from "@shared/editor/post-document";
 
 export async function copyEditorContent(
   editor: Editor | null,
@@ -8,6 +8,8 @@ export async function copyEditorContent(
 ) {
   if (!editor) return;
   try {
+    const projection =
+      format === "markdown" ? markdownProjection(normalizePostDocument(editor.getJSON())) : null;
     if (format === "html" && typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
       await navigator.clipboard.write([
         new ClipboardItem({
@@ -17,12 +19,16 @@ export async function copyEditorContent(
       ]);
     } else {
       await navigator.clipboard.writeText(
-        format === "html"
-          ? editor.getHTML()
-          : postDocumentMarkdown(normalizePostDocument(editor.getJSON())),
+        format === "html" ? editor.getHTML() : projection!.source,
       );
     }
-    setCopyStatus(format === "html" ? "HTML로 복사했습니다." : "마크다운으로 복사했습니다.");
+    setCopyStatus(
+      format === "html"
+        ? "HTML로 복사했습니다."
+        : projection?.lossless
+          ? "마크다운으로 복사했습니다."
+          : "마크다운으로 복사했습니다. 일부 서식·표 구조는 표현되지 않습니다. 본문 원본은 유지됩니다.",
+    );
   } catch (error) {
     console.warn("Post clipboard write failed", {
       format,

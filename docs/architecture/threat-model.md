@@ -2,7 +2,7 @@
 
 ## Scope and evidence
 
-This is a source-based description of the current trust boundaries, aligned with `main d7184ca` on 2026-11-09. It is not a new security scan, production inspection, or real-account QA result. Product authority remains in [제품·개발 계획](../product/planning-proposal.md); environment and last release evidence are in [replit.md](../../replit.md#현재-적용-상태).
+This is a source-based description of the current trust boundaries, aligned with `main d7184ca` on 2026-11-09. The upload/body sections include the uncommitted 2026-11-12 development changes described in the [general-file record](../history/general-files-2026-11-12.md). It is not a new security scan, production inspection, or real-account QA result. Product authority remains in [제품·개발 계획](../product/planning-proposal.md); environment and last release evidence are in [replit.md](../../replit.md#현재-적용-상태).
 
 The React/Vite and Node.js/Express application uses PostgreSQL/Drizzle and Kakao REST OAuth with server sessions. Public information pages are separate from member content and administrator workflows. Obituary, wedding, and clinic-opening notices share `posts` and `categories` with other posts.
 
@@ -25,7 +25,9 @@ Only the author may edit or delete a post, including an administrator's own post
 
 ### Content to storage and rendering
 
-`posts.content` is the single Tiptap JSONB body source; `posts.event_data` stores notice facts separately. The shared document schema validates allowed nodes, marks, attributes, size and links. The editor and renderer use the same supported formats. HTML/Markdown are converted input/output, not trusted raw HTML stored alongside another body source. Unsupported or lossy Markdown edits use the documented error/confirmation path. Attachments remain separate from body markup.
+`posts.content` is the single Tiptap JSONB body source; `posts.event_data` stores notice facts separately. The shared document schema validates allowed nodes, marks, attributes, size and links. The editor and renderer use the same supported formats. HTML/Markdown are converted input/output, not trusted raw HTML stored alongside another body source. Unsupported or lossy Markdown edits use the documented error/confirmation path. Existing image attachment arrays remain separate; inline images and general-file links use standard Tiptap nodes/marks in the body. File bytes remain in App Storage.
+
+The uncommitted [editor extension change](../history/editor-extensions-2026-11-12.md) also admits standard task-list and YouTube nodes. Published checkboxes are read-only. Only validated YouTube video URLs and numeric display attributes reach the official iframe renderer; canonical watch URLs enforce the configured `youtube-nocookie.com` embed and disabled autoplay even for pasted embed HTML. Arbitrary iframe HTML, custom hosts, credentials and non-default ports remain unsupported. The browser contacts YouTube for playback; the application does not fetch video bytes or forward member sessions to YouTube.
 
 ### Application to PostgreSQL and identity providers
 
@@ -35,9 +37,11 @@ Google Sheets is the managed roster source; PostgreSQL is the login/registration
 
 ### Browser to application to object storage
 
-The browser requests `/api/uploads/request-url`, then PUTs to the returned **application** URL `/api/uploads/:uploadToken`. Both require a logged-in session. The HMAC token binds an object ID, allowed content type, size and expiry. The application checks MIME and actual byte count before writing to storage; the browser does not receive a direct object-storage PUT URL. The current token does not bind a user ID, so token possession is not proof of ownership.
+The browser requests `/api/uploads/request-url`, then PUTs to the returned **application** URL `/api/uploads/:uploadToken`. Both require a logged-in session. The HMAC token binds the requesting session user ID, object ID, download name, allowed content type, size and expiry. The application checks the same user, byte count and file contents before writing to storage; the browser does not receive a direct object-storage PUT URL. Request logs redact the upload-token path.
 
-Uploads allow JPEG/PNG/WebP/GIF and at most 10 MiB. These are MIME/size checks, not a documented malware scan or image decoder validation. Downloads require an existing user, use `private, no-store`, and enforce object-path, response-type and `nosniff` handling. Attached objects additionally require a readable referencing post; uploads not yet referenced by a post retain the existing member-only preview boundary. Hiding an attachment's only readable post restricts that attachment too.
+Uploads allow JPEG/PNG/WebP/GIF at most 5 MiB each and PDF/HWPX/DOCX/XLSX/PPTX/TXT/MD/CSV at most 10 MiB each. Posts allow at most 5 distinct general-file links within the existing 40 body/attachment references. The shared create/update contract enforces these counts; over-limit legacy posts may retain or reduce their existing references. The server checks extensions, binary signatures, bounded Office/HWPX structure metadata and text decoding. These checks are not a malware scan, complete document validation or image decoder validation. General files always download as attachments with their stored original name; their content is not rendered in the app. Downloads require an existing user, use `private, no-store`, and enforce object-path, response-type and `nosniff` handling. Attached objects (image arrays, body images and body file links) additionally require a readable referencing post; uploads not referenced by either a post or a comment retain the existing member-only preview boundary. Hiding an attachment's only readable post restricts that attachment too.
+
+Comment attachments use the same validated storage flow, with one image (5 MiB) or general file (10 MiB) per comment. The server reads trusted object metadata and checks attachment access before accepting a reference. Hidden comment bodies and attachments are redacted for viewers other than the comment author and administrators. Direct downloads must satisfy both parent-post and comment visibility. Hidden references must not fall through to the unattached-preview rule. Only authors edit/delete comments; administrators hide/restore, with revision checks for stale writes. Plain-text URLs are rendered as safe HTTP(S) links without interpreting HTML.
 
 ### Application to public pages and collection workers
 

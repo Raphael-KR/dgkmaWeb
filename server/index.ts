@@ -57,7 +57,10 @@ app.use("/attached_assets", express.static("attached_assets"));
 
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
+  const path =
+    req.path.startsWith("/api/uploads/") && req.path !== "/api/uploads/request-url"
+      ? "/api/uploads/[token]"
+      : req.path;
 
   res.on("finish", () => {
     const duration = Date.now() - start;

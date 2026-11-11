@@ -10,6 +10,7 @@ const protectedFiles = [
   "integrations/object-storage/routes.ts",
   "integrations/object-storage/objectStorage.ts",
   "storage.ts",
+  "modules/content/comment-routes.ts",
   "modules/identity/registration-support.ts",
   "modules/identity/kakao-authorization.ts",
   "modules/identity/kakao-profile.ts",
