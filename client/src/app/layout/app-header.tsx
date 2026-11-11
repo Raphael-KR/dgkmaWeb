@@ -1,10 +1,11 @@
-import { Search, List, LogOut } from "lucide-react";
+import { Search, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useAuth } from "@/features/auth";
 import { isMemberNavActive, memberHeaderNavItems } from "./nav-items";
-import { HeaderProfileLink } from "./header-profile-link";
+import { HeaderLogoutButton, HeaderProfileLink } from "./header-actions";
 import { SiteHeader } from "./site-header";
+import { SiteNavLink } from "./site-nav-link";
 
 export function AppHeader() {
   const [location, setLocation] = useLocation();
@@ -44,33 +45,20 @@ export function AppHeader() {
           >
             <List size={18} />
           </Button>
-          {user && (
-            <Button
-              variant="onBrand"
-              size="sm"
-              className="p-2"
-              onClick={() => logout()}
-              aria-label="로그아웃"
-              title="로그아웃"
-            >
-              <LogOut size={18} />
-            </Button>
-          )}
+          {user && <HeaderLogoutButton onLogout={() => logout()} />}
         </>
       }
       navigation={memberHeaderNavItems.map((item) => {
         const active = isMemberNavActive(location, item.path);
-        const Icon = item.icon;
         return (
-          <Link
+          <SiteNavLink
             key={item.path}
             href={item.path}
+            icon={item.icon}
             aria-current={active ? "page" : undefined}
-            className="site-nav-link"
           >
-            <Icon size={17} aria-hidden="true" />
             {item.label}
-          </Link>
+          </SiteNavLink>
         );
       })}
     />

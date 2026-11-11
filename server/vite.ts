@@ -4,7 +4,6 @@ import path from "path";
 import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
 import { injectSeo } from "./seo";
 
 const viteLogger = createLogger();
@@ -61,9 +60,8 @@ export async function setupVite(app: Express, server: Server) {
     try {
       const clientTemplate = path.resolve(import.meta.dirname, "..", "client", "index.html");
 
-      // always reload the index.html file from disk incase it changes
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(`src="/src/main.tsx"`, `src="/src/main.tsx?v=${nanoid()}"`);
+      // Keep the entry URL stable; Vite handles invalidation when source files change.
+      const template = await fs.promises.readFile(clientTemplate, "utf-8");
       const transformed = await vite.transformIndexHtml(url, template);
       const page = await injectSeo(req, transformed);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
