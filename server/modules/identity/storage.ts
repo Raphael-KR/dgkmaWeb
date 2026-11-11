@@ -10,6 +10,7 @@ import {
   removeLocalUsers,
 } from "./registration-support";
 import { KakaoOAuthTerminatedError, type KakaoOAuthGeneration } from "./kakao-identity";
+import { findRegistrationHold, RegistrationApprovalRequiredError } from "./registration-approval";
 import type { IdentityStorageContract } from "./storage-contract";
 
 export class IdentityStorage implements IdentityStorageContract {
@@ -89,6 +90,12 @@ export class IdentityStorage implements IdentityStorageContract {
         .where(and(eq(users.id, userId), eq(users.kakaoId, generation.kakaoId)))
         .limit(1);
       if (!user) throw new KakaoOAuthTerminatedError();
+      if (!user.isVerified) {
+        const hold = await findRegistrationHold(tx, generation.kakaoId);
+        throw new RegistrationApprovalRequiredError(
+          hold?.status === "rejected" ? "rejected" : "pending",
+        );
+      }
       await saveSession();
       return user;
     });

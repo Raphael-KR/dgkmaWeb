@@ -60,10 +60,24 @@ export async function completeKakaoAuthorization(
       delete req.session.userId;
       await saveSession(req);
     }
-    return res.status(202).json({ message, description, requiresApproval: true });
+    const rejected = result.registration.status === "rejected";
+    return res.status(202).json({
+      message: rejected ? "가입 승인이 거부되었습니다" : message,
+      description: rejected
+        ? "관리자의 재심사 후 다시 승인받아야 이용할 수 있습니다."
+        : description,
+      requiresApproval: true,
+    });
   };
 
   let user = await kakaoAuthStorage.getUserByKakaoId(kakaoId);
+  if (user && !user.isVerified) {
+    return createPendingReview(
+      "approval_cancelled",
+      "가입 승인 대기 중입니다",
+      "기존 계정은 보존되어 있으며 관리자 승인 후 이용할 수 있습니다.",
+    );
+  }
   if (!user) {
     const existingUserByEmail = await kakaoAuthStorage.getUserByEmail(email);
     if (existingUserByEmail) {

@@ -112,15 +112,6 @@ export default function Profile() {
                   {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
                 </p>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
-                  <Badge
-                    className={
-                      user.isVerified
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }
-                  >
-                    {user.isVerified ? "인증완료" : "인증대기"}
-                  </Badge>
                   {!membershipError && membership && <MembershipBadge tier={membership.tier} />}
                 </div>
               </CardHeader>

@@ -1,4 +1,5 @@
 import { AlumniRecordStorage } from "./alumni-record-storage";
+import { RegistrationDecisionStorage } from "./registration-decision-storage";
 import { DirectoryStorage } from "./directory-storage";
 import { PendingRegistrationStorage } from "./pending-registration-storage";
 import { AlumniSyncStorage } from "./alumni-sync-storage";
@@ -23,6 +24,7 @@ export {
 export type RegistryStorage = AlumniRecordStorage &
   DirectoryStorage &
   PendingRegistrationStorage &
+  RegistrationDecisionStorage &
   AlumniSyncStorage;
 
 // DatabaseStorage와 같은 descriptor 조립으로 교체 가능한 메서드와 단일 this를 보존한다.
@@ -36,6 +38,7 @@ for (const DomainStorage of [
   AlumniRecordStorage,
   DirectoryStorage,
   PendingRegistrationStorage,
+  RegistrationDecisionStorage,
   AlumniSyncStorage,
 ]) {
   const { constructor: _constructor, ...methods } = Object.getOwnPropertyDescriptors(

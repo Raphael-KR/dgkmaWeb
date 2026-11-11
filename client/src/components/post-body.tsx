@@ -32,7 +32,11 @@ export function PostBody({ content, className }: { content: PostDocument; classN
       }),
     [content],
   );
-  return <div className={cn("post-body text-sm text-gray-800", className)}>{body}</div>;
+  return (
+    <div className={cn("post-body site-reading-width text-sm text-gray-800", className)}>
+      {body}
+    </div>
+  );
 }
 
 export function PostExcerpt({ content, className }: { content: PostDocument; className?: string }) {
