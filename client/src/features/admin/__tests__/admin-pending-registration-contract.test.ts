@@ -6,6 +6,7 @@ import session from "express-session";
 import type { PendingRegistration } from "../../../../../server/db/schema";
 import { registerRoutes } from "../../../../../server/routes";
 import { storage } from "../../../../../server/storage";
+import { createPendingRegistrationReview } from "../../../../../server/modules/registry/pending-registration-review";
 
 test("admin pending list and approval responses expose only the approved DTO", async (t) => {
   const createdAt = new Date("2026-07-13T01:02:03.000Z");
@@ -30,7 +31,9 @@ test("admin pending list and approval responses expose only the approved DTO", a
     createdAt,
   };
   const approvedRegistration = { ...registration, status: "approved" };
-  t.mock.method(storage, "getPendingRegistrations", async () => [registration]);
+  t.mock.method(storage, "getPendingRegistrationReviews", async () => [
+    createPendingRegistrationReview(registration, [], [], createdAt.toISOString()),
+  ]);
 
   const app = express();
   app.use(express.json());
@@ -61,6 +64,7 @@ test("admin pending list and approval responses expose only the approved DTO", a
       headers: { cookie },
     });
     assert.equal(listResponse.status, 200);
+    assert.equal(listResponse.headers.get("cache-control"), "no-store");
     assert.deepEqual(await listResponse.json(), [
       {
         id: 17,
@@ -68,6 +72,19 @@ test("admin pending list and approval responses expose only the approved DTO", a
         email: "pending@example.com",
         status: "pending",
         createdAt: createdAt.toISOString(),
+        recordType: "registration",
+        memberId: null,
+        review: {
+          checkedAt: createdAt.toISOString(),
+          applicantName: userData.name,
+          phoneNumber: userData.phoneNumber,
+          reasonAtApplication: "not_found",
+          status: "no_match",
+          accountConflicts: [],
+          exactMatchCount: 0,
+          candidateCount: 0,
+          candidates: [],
+        },
       },
     ]);
 

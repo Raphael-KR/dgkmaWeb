@@ -199,7 +199,7 @@ PK `alumni_name_aliases_pkey(id)`; FK `alumni_name_aliases_alumni_id_alumni_data
 
 ### TABLE_ROW: pending_registrations
 
-소유: Membership Registry. 목적: 가입 심사 대기.
+소유: Membership Registry. 목적: 가입 신청과 현재 심사 상태 보존.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
@@ -211,7 +211,7 @@ PK `alumni_name_aliases_pkey(id)`; FK `alumni_name_aliases_alumni_id_alumni_data
 | `status` | `text` | 허용 | `'pending'::text` |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
 
-PK·인덱스 `pending_registrations_pkey(id)`; FK·별도 UNIQUE 없음. user_data는 제한된 가입 payload이며 승인/거절은 회원·명부 처리와 함께 수행한다.
+PK·인덱스 `pending_registrations_pkey(id)`; FK·별도 UNIQUE 없음. user_data는 제한된 가입 payload이며 승인 취소로 생성·갱신한 신청은 conflictReason=`approval_cancelled`로 구분한다. 앱은 `pending`(승인 대기)·`approved`(인증 완료)·`rejected`(승인 거부)를 사용한다. 거부는 행을 보존하고 재심사는 rejected → pending으로만 이동한다. rejected 신청의 명시적 삭제는 unlink 성공 후 해당 카카오 신원의 신청 행을 지우고 기존 users·콘텐츠·회비·명부 연결은 보존한다. 기존 회원은 is_verified=false를 유지하며 kakao_sync_enabled=false로 연결 상태를 표시한다. 새 OAuth 재접속은 관리자 심사 신청으로 재등록한다. 자동 가입 회원은 신청 행이 없을 수 있어 인증 완료 목록은 users.is_verified=true를 기준으로 조회한다. 승인 취소는 회원의 is_verified=false와 pending 신청을 같은 트랜잭션에서 확정하고 세션을 삭제한다. 재승인 시 기존 회원 ID와 본인 명부 연결을 재사용한다. 구조·DDL 변경과 과거 자료 마이그레이션은 없으며 이번 문서 갱신은 catalog 재검증을 의미하지 않는다.
 
 ### TABLE_ROW: kakao_oauth_states
 
@@ -323,7 +323,7 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 - 같은 DB를 쓰는 modular monolith를 유지한다. Identity/Registry의 가입·승인·탈퇴와 명부 claim은 관련 행을 한 트랜잭션으로 처리한다. 도메인을 나눴다는 이유로 트랜잭션을 분산하지 않는다.
 - Sheets sync는 원본 fingerprint·advisory lock·단일 트랜잭션을 사용하고 DB 전용 행과 회원 연결을 보존한다. matched_user_id 단일 연결, pending/payment 상태 허용값, category와 post의 표시 관계는 앱 계약이며 모두 DB CHECK로 강제된 것은 아니다.
-- 회원 탈퇴·가입 거절은 Kakao unlink 확인 후 처리한다. 미발행 경조사 초안은 삭제하고 게시 콘텐츠·납부 기록의 회원 연결은 해제한다. 명부는 회원 연결만 해제하고 종료 marker는 최신 상태를 유지한다.
+- 가입 거부·승인 취소는 계정·콘텐츠·납부·명부 연결을 보존하고 대기·거부 상태와 세션 접근을 관리한다. 진행 중 OAuth는 기존 종료 marker로 무효화하고, 서버는 저장된 회원 승인 상태를 다시 확인한다. 거부 신청 삭제는 Kakao unlink 확인 후 신청만 삭제하며 기존 회원 자료를 유지한다. 회원 탈퇴는 Kakao unlink 확인 후 아래 계정 정리를 수행한다. 미발행 경조사 초안은 삭제하고 게시 콘텐츠·납부 기록의 회원 연결은 해제한다. 명부는 회원 연결만 해제하고 종료 marker는 최신 상태를 유지한다.
 - 작성자 게시글 삭제는 댓글 CASCADE를 사용하고 Object Storage 파일은 물리 삭제하지 않는다. 가리기는 본문·댓글을 보존한다. Object Storage 고아 파일 정리와 추가 보존 기간은 별도 제품 결정 사항이다.
 - 회원·명부·본문·연락처·계좌는 필요한 업무 저장소에서만 취급한다. Secret·연결 문자열·행 원문은 이 스키마 문서나 catalog에 포함하지 않는다. 세션/OAuth의 명시된 만료와 회원 탈퇴 동작 외에 미확정 보존 기간을 만들어 적지 않는다.
 

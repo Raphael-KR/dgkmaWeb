@@ -62,6 +62,8 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
       { method: "GET", path: ADMIN_STATISTICS_PATH },
       { method: "GET", path: "/api/admin/pending-registrations" },
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
+      { method: "DELETE", path: "/api/admin/pending-registrations/1" },
+      { method: "POST", path: "/api/admin/members/1/cancel-approval", body: "{}" },
       { method: "POST", path: "/api/admin/sync-alumni/preview" },
       { method: "POST", path: "/api/admin/sync-alumni" },
       { method: "GET", path: "/api/admin/test-google-sheets" },

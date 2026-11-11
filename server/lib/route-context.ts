@@ -30,7 +30,15 @@ export type RouteDependencies = {
   ) => Promise<void>;
   unlinkKakaoUser?: typeof unlinkKakaoUserFromKakao;
   pendingRegistrationStorage?: Partial<
-    Pick<typeof storage, "rejectPendingRegistration" | "approvePendingRegistration">
+    Pick<
+      typeof storage,
+      | "getPendingRegistrationReviews"
+      | "rejectPendingRegistration"
+      | "approvePendingRegistration"
+      | "deleteRejectedRegistration"
+      | "reopenPendingRegistration"
+      | "cancelMemberApproval"
+    >
   >;
   alumniSyncStorage?: Pick<typeof storage, "previewAlumniSync" | "applyAlumniSync">;
   kakaoOAuthStateStore?: KakaoOAuthStateStore;
@@ -57,12 +65,24 @@ export function createRouteContext(dependencies: RouteDependencies = {}) {
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
   const kakaoAuthStorage = dependencies.kakaoAuthStorage ?? storage;
   const pendingRegistrationStorage = {
+    getPendingRegistrationReviews:
+      dependencies.pendingRegistrationStorage?.getPendingRegistrationReviews ??
+      storage.getPendingRegistrationReviews.bind(storage),
     rejectPendingRegistration:
       dependencies.pendingRegistrationStorage?.rejectPendingRegistration ??
       storage.rejectPendingRegistration.bind(storage),
     approvePendingRegistration:
       dependencies.pendingRegistrationStorage?.approvePendingRegistration ??
       storage.approvePendingRegistration.bind(storage),
+    deleteRejectedRegistration:
+      dependencies.pendingRegistrationStorage?.deleteRejectedRegistration ??
+      storage.deleteRejectedRegistration.bind(storage),
+    reopenPendingRegistration:
+      dependencies.pendingRegistrationStorage?.reopenPendingRegistration ??
+      storage.reopenPendingRegistration.bind(storage),
+    cancelMemberApproval:
+      dependencies.pendingRegistrationStorage?.cancelMemberApproval ??
+      storage.cancelMemberApproval.bind(storage),
   };
   const alumniSyncStorage = dependencies.alumniSyncStorage ?? storage;
   const kakaoOAuthStateStore = dependencies.kakaoOAuthStateStore ?? postgresKakaoOAuthStateStore;

@@ -4,7 +4,10 @@ import test from "node:test";
 import express from "express";
 import session from "express-session";
 import type { PendingRegistration } from "@shared/schema";
-import { KakaoAdminConfigurationError } from "../../integrations/kakao/kakao-admin-config";
+import {
+  RegistrationStateConflictError,
+  RegistrationDecisionStorage,
+} from "./registration-decision-storage";
 import { KakaoUnlinkError } from "../../integrations/kakao/kakao-unlink";
 import { registerRoutes } from "../../routes";
 
@@ -38,7 +41,7 @@ async function startRejectionServer(
   let storedRegistration: PendingRegistration | undefined =
     options.registration ?? pendingRegistration;
   const unlinkCalls: Array<{ adminKey: string; kakaoId: string }> = [];
-  const storageCalls = { reject: 0, update: 0 };
+  const storageCalls = { reject: 0, update: 0, reopen: 0 };
   const app = express();
   app.use(express.json());
   app.use(session({ secret: "pending-rejection-secret", resave: false, saveUninitialized: false }));
@@ -63,13 +66,26 @@ async function startRejectionServer(
         storedRegistration = { ...storedRegistration, status: "approved" };
         return storedRegistration;
       },
-      rejectPendingRegistration: async (id, beforeDelete) => {
+      rejectPendingRegistration: async (id) => {
         storageCalls.reject += 1;
         if (!storedRegistration || storedRegistration.id !== id) return undefined;
+        if (storedRegistration.status !== "pending") throw new RegistrationStateConflictError();
+        storedRegistration = { ...storedRegistration, status: "rejected" };
+        return storedRegistration;
+      },
+      deleteRejectedRegistration: async (id, beforeDelete) => {
+        if (!storedRegistration || storedRegistration.id !== id) return undefined;
+        if (storedRegistration.status !== "rejected") throw new RegistrationStateConflictError();
         await beforeDelete(storedRegistration);
-        const deleted = { id: storedRegistration.id };
         storedRegistration = undefined;
-        return deleted;
+        return { id };
+      },
+      reopenPendingRegistration: async (id) => {
+        storageCalls.reopen += 1;
+        if (!storedRegistration || storedRegistration.id !== id) return undefined;
+        if (storedRegistration.status !== "rejected") throw new RegistrationStateConflictError();
+        storedRegistration = { ...storedRegistration, status: "pending" };
+        return storedRegistration;
       },
     },
   });
@@ -88,6 +104,7 @@ async function startRejectionServer(
     cookie,
     unlinkCalls,
     storageCalls,
+    saved: () => storedRegistration,
     hasPending: () => Boolean(storedRegistration),
     close: () =>
       new Promise<void>((resolve, reject) => {
@@ -114,7 +131,7 @@ for (const [label, id, body] of [
       });
 
       assert.equal(response.status, 400);
-      assert.deepEqual(server.storageCalls, { reject: 0, update: 0 });
+      assert.deepEqual(server.storageCalls, { reject: 0, update: 0, reopen: 0 });
       assert.equal(server.unlinkCalls.length, 0);
       assert.equal(server.hasPending(), true);
     } finally {
@@ -131,98 +148,135 @@ async function rejectPending(baseUrl: string, cookie: string) {
   });
 }
 
-test("admin rejection unlinks the pending Kakao user before deleting personal data", async () => {
-  const server = await startRejectionServer();
-  try {
-    const response = await rejectPending(server.baseUrl, server.cookie);
-
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { deleted: true, id: 27 });
-    assert.deepEqual(server.unlinkCalls, [{ adminKey: "admin-secret", kakaoId: "987654321" }]);
-    assert.equal(server.hasPending(), false);
-  } finally {
-    await server.close();
-  }
-});
-
-test("already-unlinked pending Kakao users are still deleted", async () => {
-  const server = await startRejectionServer({
-    unlinkKakaoUser: async () => {
-      throw new KakaoUnlinkError("already_unlinked", 400);
-    },
-  });
-  try {
-    const response = await rejectPending(server.baseUrl, server.cookie);
-
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { deleted: true, id: 27 });
-    assert.equal(server.hasPending(), false);
-  } finally {
-    await server.close();
-  }
-});
-
-test("missing Kakao admin configuration returns 500 and preserves pending personal data", async () => {
+test("rejection preserves the application and re-review returns it to pending without unlink", async () => {
   const server = await startRejectionServer({
     getKakaoAdminConfig: () => {
-      throw new KakaoAdminConfigurationError(["KAKAO_DEV_ADMIN_KEY"]);
+      throw new Error("rejection must not read Kakao admin configuration");
+    },
+    unlinkKakaoUser: async () => {
+      throw new Error("rejection must not unlink");
     },
   });
   try {
     const response = await rejectPending(server.baseUrl, server.cookie);
-
-    assert.equal(response.status, 500);
+    assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
-      message: "가입 거절 설정 오류입니다. 관리자에게 문의해주세요",
+      id: 27,
+      name: pendingRegistration.name,
+      email: pendingRegistration.email,
+      status: "rejected",
+      createdAt: pendingRegistration.createdAt!.toISOString(),
     });
-    assert.equal(server.hasPending(), true);
+    assert.deepEqual(server.saved()?.userData, pendingRegistration.userData);
+    assert.equal(server.unlinkCalls.length, 0);
+    assert.equal((await rejectPending(server.baseUrl, server.cookie)).status, 409);
+    const reopen = () =>
+      fetch(`${server.baseUrl}/api/admin/pending-registrations/27`, {
+        method: "PATCH",
+        headers: { cookie: server.cookie, "content-type": "application/json" },
+        body: JSON.stringify({ status: "pending" }),
+      });
+    const reopened = await reopen();
+    assert.equal(reopened.status, 200);
+    assert.equal((await reopened.json()).status, "pending");
+    assert.equal((await reopen()).status, 409);
+    assert.equal(server.saved()?.status, "pending");
     assert.equal(server.unlinkCalls.length, 0);
   } finally {
     await server.close();
   }
 });
 
-test("Kakao unlink failures return 502 and preserve pending personal data", async () => {
-  const server = await startRejectionServer({
-    unlinkKakaoUser: async () => {
-      throw new KakaoUnlinkError("network_error");
-    },
-  });
-  try {
-    const response = await rejectPending(server.baseUrl, server.cookie);
+test("administrator cannot cancel their own approval", async () => {
+  await assert.rejects(
+    new RegistrationDecisionStorage().cancelMemberApproval(1, 1),
+    RegistrationStateConflictError,
+  );
+});
 
-    assert.equal(response.status, 502);
-    assert.deepEqual(await response.json(), {
-      message:
-        "카카오 연결 해제에 실패해 가입 거절을 완료하지 못했습니다. 잠시 후 다시 시도해주세요",
+for (const userData of [null, { kakaoId: "not-a-kakao-id" }, { kakaoId: "123456789" }]) {
+  test("rejecting incomplete legacy data preserves it for review without provider calls", async () => {
+    const server = await startRejectionServer({
+      registration: {
+        ...pendingRegistration,
+        userData: userData as PendingRegistration["userData"],
+      },
     });
-    assert.equal(server.hasPending(), true);
+    try {
+      assert.equal((await rejectPending(server.baseUrl, server.cookie)).status, 200);
+      assert.deepEqual(server.saved()?.userData, userData);
+      assert.equal(server.unlinkCalls.length, 0);
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+async function deleteRejected(baseUrl: string, cookie: string) {
+  return fetch(`${baseUrl}/api/admin/pending-registrations/27`, {
+    method: "DELETE",
+    headers: { cookie },
+  });
+}
+
+test("application deletion is limited to rejected applications", async () => {
+  const server = await startRejectionServer();
+  try {
+    assert.equal((await deleteRejected(server.baseUrl, server.cookie)).status, 409);
+    assert.equal(server.saved()?.status, "pending");
+    assert.equal(server.unlinkCalls.length, 0);
   } finally {
     await server.close();
   }
 });
 
-for (const [label, userData] of [
-  ["missing", { email: "pending@example.com" }],
-  ["malformed", { kakaoId: "not-a-kakao-id" }],
-  ["mismatched", { kakaoId: "123456789" }],
-] as const) {
-  test(`${label} legacy pending Kakao id returns 409 without unlinking or deleting`, async () => {
+for (const alreadyUnlinked of [false, true]) {
+  test(`rejected deletion removes the application after unlink (already unlinked=${alreadyUnlinked})`, async () => {
     const server = await startRejectionServer({
-      // Legacy persisted JSON can predate the required registration fields.
-      registration: {
-        ...pendingRegistration,
-        userData: userData as unknown as PendingRegistration["userData"],
+      registration: { ...pendingRegistration, status: "rejected" },
+      unlinkKakaoUser: async () => {
+        if (alreadyUnlinked) throw new KakaoUnlinkError("already_unlinked", 400);
       },
     });
     try {
-      const response = await rejectPending(server.baseUrl, server.cookie);
+      const response = await deleteRejected(server.baseUrl, server.cookie);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { deleted: true, id: 27 });
+      assert.equal(server.saved(), undefined);
+      assert.equal(server.unlinkCalls.length, 1);
+    } finally {
+      await server.close();
+    }
+  });
+}
 
-      assert.equal(response.status, 409);
-      assert.deepEqual(await response.json(), {
-        message: "가입 신청의 카카오 식별정보를 확인할 수 없어 거절할 수 없습니다",
-      });
-      assert.equal(server.hasPending(), true);
+test("unlink failure preserves the rejected application", async () => {
+  const registration = { ...pendingRegistration, status: "rejected" };
+  const server = await startRejectionServer({
+    registration,
+    unlinkKakaoUser: async () => {
+      throw new KakaoUnlinkError("network_error");
+    },
+  });
+  try {
+    assert.equal((await deleteRejected(server.baseUrl, server.cookie)).status, 502);
+    assert.deepEqual(server.saved(), registration);
+  } finally {
+    await server.close();
+  }
+});
+
+for (const userData of [null, { kakaoId: "not-a-kakao-id" }, { kakaoId: "123456789" }]) {
+  test("deletion refuses an untrusted legacy Kakao identity and preserves its data", async () => {
+    const registration = {
+      ...pendingRegistration,
+      status: "rejected",
+      userData: userData as PendingRegistration["userData"],
+    };
+    const server = await startRejectionServer({ registration });
+    try {
+      assert.equal((await deleteRejected(server.baseUrl, server.cookie)).status, 409);
+      assert.deepEqual(server.saved(), registration);
       assert.equal(server.unlinkCalls.length, 0);
     } finally {
       await server.close();

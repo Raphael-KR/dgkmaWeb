@@ -52,14 +52,14 @@
 | [router](../../client/src/app/routing/router.test.ts) | 공개/회원/관리자 접근 분기·lazy route·오류 fallback 변경 | React 렌더링·파일 탐색. 실제 브라우저 클릭·CSS 확인 없음 |
 | [관리자 동기화 상태](../../client/src/features/admin/__tests__/admin-alumni-sync-state.test.ts) | preview·apply 상태 전이와 오래된 응답 처리 변경 | 메모리 reducer |
 | [카테고리 정책](../../client/src/features/boards/__tests__/category-policy.test.ts) | 작성 가능 분류·카테고리 판정 변경 | 순수 정책 함수 |
-| [권한 HTTP](../../server/tests/route-security.test.ts), [관리자 예외](../../server/middleware/auth-middleware.test.ts) | endpoint 인증·관리자 접근과 사용자 조회 예외 변경 | HTTP/미들웨어 대역. DB·실계정 접근 없음 |
+| [권한 HTTP](../../server/tests/route-security.test.ts), [관리자 예외](../../server/middleware/auth-middleware.test.ts) | endpoint 인증·회원 승인 상태 재확인·관리자 접근과 사용자 조회 예외 변경 | HTTP/미들웨어 대역. DB·실계정 접근 없음 |
 | [OAuth 설정](../../server/integrations/kakao/kakao-oauth-config.test.ts), [admin key 설정](../../server/integrations/kakao/kakao-admin-config.test.ts), [관리자 allowlist](../../server/integrations/kakao/kakao-admin-allowlist.test.ts) | 개발/운영 설정 선택·잘못된 키/ID 구성 처리 변경 | 제공된 환경값 대역. 실제 Secret 가용성 확인 아님 |
 | [Kakao 전송](../../server/integrations/kakao/kakao-client.test.ts), [연결 해제](../../server/integrations/kakao/kakao-unlink.test.ts) | 토큰·사용자 요청 또는 unlink 계약 변경 | fetch 대역. 실제 카카오 호출 없음 |
 | [OAuth 흐름](../../server/modules/identity/kakao-oauth-routes.test.ts) | state·세션 저장·신규/기존 회원·충돌·관리자 승인 흐름 변경 | HTTP, `identity/testing/` 보조·메모리 대역. 실제 로그인 없음 |
 | [OAuth state](../../server/modules/identity/kakao-oauth-state.test.ts) | state 해시·만료·단일 소비 계약 변경 | 해시 함수와 DB 사례가 한 파일에 있음 |
 | [회원 프로필](../../server/modules/identity/member-profile-routes.test.ts), [회원 DTO](../../server/modules/identity/client-user.test.ts) | 세션 회원 선택·활동 지역·보호 필드·날짜 직렬화 변경 | HTTP·입력 대역 |
 | [탈퇴 요청](../../server/modules/identity/account-deletion-routes.test.ts) | 본인 확인·탈퇴 확인문·unlink 실패·세션 종료 변경 | HTTP·카카오/저장소 대역 |
-| [가입 대기 DTO](../../client/src/features/admin/__tests__/admin-pending-registration-contract.test.ts), [가입 거절](../../server/modules/registry/admin-pending-rejection-routes.test.ts) | 관리자 응답 개인정보 범위·거절/unlink 처리 변경 | 클라이언트 폴더의 DTO 검사도 서버 HTTP 실행형 |
+| [가입 대기 DTO](../../client/src/features/admin/__tests__/admin-pending-registration-contract.test.ts), [가입 거절](../../server/modules/registry/admin-pending-rejection-routes.test.ts) | 관리자 응답 개인정보 범위·거부 보존·재심사·승인 취소·거부 신청 삭제/unlink 변경 | 클라이언트 폴더의 DTO 검사도 서버 HTTP 실행형 |
 | [명부 일치](../../server/modules/registry/alumni-match.test.ts), [동기화 계획](../../server/modules/registry/alumni-sync-plan.test.ts) | 명부 후보 선택·중복/충돌·preview 계산 변경 | 메모리 명부 대역 |
 | [동기화 API](../../server/modules/registry/alumni-sync-routes.test.ts), [Sheets 오류](../../server/integrations/google-sheets.test.ts) | fingerprint·오래된 preview·원본 오류 처리 변경 | HTTP 또는 Sheets 대역. 실제 Sheets 읽기/쓰기 없음 |
 | [회비 API](../../server/modules/dues/admin-payment-routes.test.ts), [회원 등급](../../server/modules/dues/membership-status.test.ts) | 관리자 결제 입력·완료 상태/연도 집계·응답 공개 범위 변경 | HTTP/저장소 대역. 현재 회비 판정을 검사하며 정책 변경 승인은 아님 |

@@ -6,6 +6,10 @@ import type {
   InsertPendingRegistration,
   PendingRegistrationUserData,
 } from "@shared/schema";
+import type {
+  AdminPendingRegistrationReviewDto,
+  RegistrationApprovalStatus,
+} from "@shared/contracts";
 import type { AlumniSyncReport } from "@shared/alumni-sync";
 import type { DirectoryResult } from "@shared/contracts/directory";
 
@@ -30,14 +34,20 @@ export interface RegistryStorageContract {
   previewAlumniSync(): Promise<AlumniSyncReport>;
   applyAlumniSync(fingerprint: string): Promise<AlumniSyncReport>;
   getDirectoryAlumni(viewer: User, q?: string): Promise<DirectoryResult>;
-  getPendingRegistrations(): Promise<PendingRegistration[]>;
+  getPendingRegistrations(status?: "pending" | "rejected"): Promise<PendingRegistration[]>;
+  getPendingRegistrationReviews(
+    status?: RegistrationApprovalStatus,
+  ): Promise<AdminPendingRegistrationReviewDto[]>;
   createOrRefreshPendingRegistration(
     registration: PendingRegistrationReviewInput,
     oauthStartedAt: Date,
   ): Promise<CreateOrRefreshPendingRegistrationResult>;
-  rejectPendingRegistration(
+  rejectPendingRegistration(id: number): Promise<PendingRegistration | undefined>;
+  deleteRejectedRegistration(
     id: number,
     beforeDelete: (registration: PendingRegistration) => Promise<void>,
   ): Promise<{ id: number } | undefined>;
+  reopenPendingRegistration(id: number): Promise<PendingRegistration | undefined>;
+  cancelMemberApproval(userId: number, actorId: number): Promise<PendingRegistration | undefined>;
   approvePendingRegistration(id: number): Promise<PendingRegistration | undefined>;
 }

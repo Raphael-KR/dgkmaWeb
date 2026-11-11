@@ -14,6 +14,7 @@ import {
 import { KakaoOAuthTerminatedError, type KakaoOAuthGeneration } from "./kakao-identity";
 import { saveSession } from "./session";
 import { readKakaoProfile } from "./kakao-profile";
+import { RegistrationApprovalRequiredError } from "./registration-approval";
 import { completeKakaoAuthorization } from "./kakao-login";
 
 async function consumeKakaoLoginState(req: Request, res: Response, context: RouteContext) {
@@ -125,6 +126,27 @@ export function registerKakaoAuthorizationRoutes(app: Express, context: RouteCon
       };
       return await completeKakaoAuthorization(req, res, context, profile, oauthGeneration);
     } catch (error) {
+      if (error instanceof RegistrationApprovalRequiredError) {
+        delete req.session.userId;
+        try {
+          await saveSession(req);
+        } catch (saveError) {
+          console.error("Approval response session cleanup failed", {
+            errorType: getErrorType(saveError),
+          });
+          return res
+            .status(500)
+            .json({ message: "로그인 상태를 정리하지 못했습니다. 다시 시도해 주세요." });
+        }
+        const rejected = error.status === "rejected";
+        return res.status(202).json({
+          message: rejected ? "가입 승인이 거부되었습니다" : "가입 승인 대기 중입니다",
+          description: rejected
+            ? "관리자의 재심사 후 다시 승인받아야 이용할 수 있습니다."
+            : "관리자가 승인하면 이용할 수 있습니다.",
+          requiresApproval: true,
+        });
+      }
       if (error instanceof KakaoOAuthTerminatedError) {
         delete req.session.userId;
         return res.status(409).json({

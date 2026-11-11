@@ -8,7 +8,7 @@ import {
   kakaoIdentityTerminations,
   type PendingRegistrationConflictReason,
 } from "@shared/schema";
-import { and, eq, gte, inArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { and, eq, gte, inArray, ne, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { db } from "../../db";
 import {
   KakaoOAuthTerminatedError,
@@ -143,6 +143,7 @@ export async function withPhoneRegistrationLock<T>(
   tx: RegistrationTransaction,
   phoneNumber: string,
   register: (normalizedPhone: string) => Promise<T>,
+  existingUserId?: number,
 ): Promise<T> {
   const normalizedPhone = normalizePhoneForComparison(phoneNumber);
   if (!normalizedPhone) {
@@ -156,7 +157,12 @@ export async function withPhoneRegistrationLock<T>(
   const [existingUser] = await tx
     .select()
     .from(users)
-    .where(sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`)
+    .where(
+      and(
+        sql`${normalizedPhoneSql(users.phoneNumber)} = ${normalizedPhone}`,
+        existingUserId === undefined ? undefined : ne(users.id, existingUserId),
+      ),
+    )
     .limit(1);
   if (existingUser) throw new PhoneRegistrationConflictError();
 

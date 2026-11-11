@@ -15,6 +15,7 @@ export const PENDING_REGISTRATION_CONFLICT_REASONS = [
   "alumni_claimed",
   "alumni_race",
   "not_found",
+  "approval_cancelled",
 ] as const;
 
 export type PendingRegistrationConflictReason =
@@ -97,6 +98,49 @@ export type AdminPendingRegistrationDto = {
 };
 export type AdminPendingRegistrationUpdateResult =
   AdminPendingRegistrationDto | { deleted: true; id: number };
+export const REGISTRATION_APPROVAL_STATUSES = ["pending", "approved", "rejected"] as const;
+export type RegistrationApprovalStatus = (typeof REGISTRATION_APPROVAL_STATUSES)[number];
+
+export type PendingRegistrationReviewStatus =
+  | "ready"
+  | "missing_data"
+  | "no_match"
+  | "multiple_matches"
+  | "already_linked"
+  | "account_conflict";
+
+export type AdminPendingRegistrationReviewDto = AdminPendingRegistrationDto & {
+  recordType: "registration" | "member";
+  memberId: number | null;
+  review: {
+    checkedAt: string;
+    applicantName: string;
+    phoneNumber: string | null;
+    reasonAtApplication: PendingRegistrationConflictReason | null;
+    status: PendingRegistrationReviewStatus;
+    accountConflicts: Array<"kakao" | "email" | "phone">;
+    exactMatchCount: number;
+    candidateCount: number;
+    candidates: Array<{
+      id: number;
+      name: string;
+      department: string;
+      generation: string;
+      admissionDate: string | null;
+      graduationDate: string | null;
+      address: string | null;
+      mobile: string | null;
+      phone: string | null;
+      group: string | null;
+      status: string | null;
+      alumniPosition: string | null;
+      memo: string | null;
+      nameMatches: boolean;
+      phoneMatches: boolean;
+      isLinked: boolean;
+    }>;
+  };
+};
 
 // Persistence IDs retain their existing range; editable fields share the API contract.
 const pgIntegerSchema = z.number().min(-2147483648).max(2147483647).int();
