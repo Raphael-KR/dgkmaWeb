@@ -1,12 +1,14 @@
 import { useRef, type ReactNode, type RefObject } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
+import { CellSelection } from "@tiptap/pm/tables";
 import {
   Bold,
   Italic,
   Strikethrough,
   List,
   ListOrdered,
+  ListTodo,
   Link2,
   Unlink,
   Underline,
@@ -17,9 +19,12 @@ import {
   Pilcrow,
   Undo2,
   Redo2,
+  Table2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { EditorLinkController } from "./use-editor-link";
+import { EditorTool } from "./editor-tool";
+import { EditorTableTools } from "./editor-table-tools";
 
 export function usePostEditorState(editor: Editor | null) {
   return useEditorState({
@@ -37,7 +42,10 @@ export function usePostEditorState(editor: Editor | null) {
             strike: current.isActive("strike"),
             bullet: current.isActive("bulletList"),
             ordered: current.isActive("orderedList"),
+            task: current.isActive("taskList"),
+            characters: current.storage.characterCount.characters(),
             link: current.isActive("link"),
+            table: current.isActive("table"),
             heading: [1, 2, 3, 4].find((level) => current.isActive("heading", { level })),
           }
         : null,
@@ -68,18 +76,9 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
     action: () => void,
     icon: ReactNode,
   ) => (
-    <button
-      key={label}
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={Boolean(active)}
-      className={`h-8 min-w-8 rounded px-2 text-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${active ? "bg-blue-100 text-blue-800" : "text-gray-700"}`}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={action}
-    >
+    <EditorTool key={label} label={label} active={active} onClick={action}>
       {icon}
-    </button>
+    </EditorTool>
   );
 
   return (
@@ -92,7 +91,8 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
       shouldShow={({ editor: current, state: currentState, from, to }) =>
         current.isEditable &&
         !currentState.selection.empty &&
-        Boolean(currentState.doc.textBetween(from, to).trim()) &&
+        (currentState.selection instanceof CellSelection ||
+          Boolean(currentState.doc.textBetween(from, to).trim())) &&
         (current.isFocused || Boolean(toolbar.current?.contains(document.activeElement)))
       }
     >
@@ -100,7 +100,7 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
         ref={toolbar}
         className="z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border bg-white p-1.5 shadow-lg"
         role="toolbar"
-        aria-label="선택한 글자 서식"
+        aria-label="선택한 내용 서식"
       >
         <div className="flex flex-wrap gap-1">
           {tool(
@@ -172,6 +172,12 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
             <List size={16} />,
           )}
           {tool(
+            "체크리스트",
+            state?.task,
+            () => editor.chain().focus().toggleTaskList().run(),
+            <ListTodo size={16} />,
+          )}
+          {tool(
             "링크",
             state?.link,
             () => {
@@ -196,7 +202,31 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
               `H${level}`,
             ),
           )}
+          {!state?.table && (
+            <EditorTool
+              label="표 삽입"
+              disabled={
+                !editor
+                  .can()
+                  .chain()
+                  .setTextSelection(editor.state.selection.to)
+                  .insertTable()
+                  .run()
+              }
+              onClick={() => {
+                editor
+                  .chain()
+                  .focus()
+                  .setTextSelection(editor.state.selection.to)
+                  .insertTable()
+                  .run();
+              }}
+            >
+              <Table2 size={16} />
+            </EditorTool>
+          )}
         </div>
+        {state?.table && <EditorTableTools editor={editor} />}
         {linkEditing && (
           <div className="mt-2 space-y-2 border-t pt-2">
             <input

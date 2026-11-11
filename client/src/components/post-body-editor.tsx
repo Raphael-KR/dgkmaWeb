@@ -7,6 +7,16 @@ import { useMarkdownMode } from "./post-editor/use-markdown-mode";
 import { useEditorLink } from "./post-editor/use-editor-link";
 import { EditorToolbar, usePostEditorState } from "./post-editor/editor-toolbar";
 import { copyEditorContent } from "./post-editor/editor-clipboard";
+import { EditorFileUpload } from "./post-editor/editor-file-upload";
+import { EditorYoutube } from "./post-editor/editor-youtube";
+import { EditorDragHandle } from "./post-editor/editor-drag-handle";
+import {
+  DOCUMENT_UPLOAD_LABEL,
+  DOCUMENT_UPLOAD_MAX_MB,
+  DOCUMENT_ATTACHMENT_LIMIT,
+  IMAGE_UPLOAD_MAX_MB,
+  POST_ATTACHMENT_LIMIT,
+} from "@shared/contracts/uploads";
 import "./post-content.css";
 
 type Props = DocumentEditorProps & {
@@ -23,6 +33,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
     onChange,
     onValidityChange,
     disabled = false,
+    onUploadFiles,
     onBlur,
     id,
     name,
@@ -42,6 +53,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
     onChange,
     onValidityChange,
     disabled,
+    onUploadFiles,
     editorRef,
     setSourceError,
     setCopyStatus,
@@ -103,7 +115,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
             size="sm"
             variant={mode === "visual" ? "secondary" : "ghost"}
             aria-pressed={mode === "visual"}
-            disabled={!editor}
+            disabled={!editor || disabled}
             onClick={() => switchMode("visual")}
           >
             서식
@@ -113,13 +125,23 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
             size="sm"
             variant={mode === "markdown" ? "secondary" : "ghost"}
             aria-pressed={mode === "markdown"}
-            disabled={!editor}
+            disabled={!editor || disabled}
             onClick={() => switchMode("markdown")}
           >
             마크다운
           </Button>
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
+          <EditorYoutube
+            editor={editor}
+            disabled={!editor || disabled || mode !== "visual" || Boolean(sourceError)}
+          />
+          {onUploadFiles && (
+            <EditorFileUpload
+              disabled={!editor || disabled || mode !== "visual" || Boolean(sourceError)}
+              onFiles={documentEditor.insertFiles}
+            />
+          )}
           <Button
             type="button"
             size="sm"
@@ -141,18 +163,25 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        HTML 서식을 붙여 넣거나 마크다운으로 작성하세요. 글자를 선택하면 서식 도구가 나타납니다.
+        HTML 서식을 붙여 넣거나 마크다운으로 작성하세요. 글자나 표 셀을 선택하면 서식 도구가
+        나타납니다.
+        {" YouTube 영상 주소는 서식 모드에서 붙여 넣거나 YouTube 버튼으로 추가하세요."}
+        {onUploadFiles &&
+          " 서식 모드에서는 사진·문서 파일을 복사해 붙여 넣거나 본문으로 끌어 넣을 수 있습니다."}
       </p>
+      {onUploadFiles && (
+        <p className="text-xs text-muted-foreground">
+          일반 파일: {DOCUMENT_UPLOAD_LABEL}. 파일당 {DOCUMENT_UPLOAD_MAX_MB}MB, 게시글당{" "}
+          {DOCUMENT_ATTACHMENT_LIMIT}개. 이미지는 파일당 {IMAGE_UPLOAD_MAX_MB}MB이며 본문·첨부 전체
+          합계는 {POST_ATTACHMENT_LIMIT}개입니다.
+        </p>
+      )}
       <div
         className="post-editor relative rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring"
         hidden={mode !== "visual"}
       >
-        {state?.empty && (
-          <span className="pointer-events-none absolute left-3 top-3 text-sm text-muted-foreground">
-            게시글 내용을 입력하세요
-          </span>
-        )}
         <EditorContent editor={editor} />
+        {editor && !disabled && mode === "visual" && <EditorDragHandle editor={editor} />}
       </div>
       {mode === "markdown" && !lossless && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm" role="status">
@@ -162,13 +191,20 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
           </p>
           {!allowConversion && (
             <div className="mt-2 flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => setMode("visual")}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => setMode("visual")}
+              >
                 서식 편집 계속
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
+                disabled={disabled}
                 onClick={() => setAllowConversion(true)}
               >
                 변환본으로 편집
@@ -184,6 +220,7 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
           name={name}
           value={source}
           readOnly={!lossless && !allowConversion}
+          disabled={disabled}
           aria-label="게시글 마크다운 내용"
           aria-describedby={descriptionId}
           aria-invalid={invalid}
@@ -197,12 +234,22 @@ export const PostBodyEditor = forwardRef<HTMLElement, Props>(function PostBodyEd
           {sourceError}
         </p>
       )}
+      <p className="text-right text-xs text-muted-foreground">
+        본문 {(state?.characters ?? 0).toLocaleString("ko-KR")}자
+        {mode === "markdown" && sourceError && " (마지막 유효 본문 기준)"}
+      </p>
       {mode === "markdown" && (
-        <Button type="button" size="sm" variant="ghost" onClick={cancelMarkdown}>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={disabled}
+          onClick={cancelMarkdown}
+        >
           마크다운 변경 취소
         </Button>
       )}
-      {editor && mode === "visual" && (
+      {editor && !disabled && mode === "visual" && (
         <EditorToolbar editor={editor} container={container} state={state} link={link} />
       )}
       {copyStatus && (

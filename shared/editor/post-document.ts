@@ -1,5 +1,9 @@
 import { getSchema, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import { TableKit } from "@tiptap/extension-table";
+import { TaskList } from "@tiptap/extension-list/task-list";
+import { TaskItem } from "@tiptap/extension-list/task-item";
 import { Markdown, MarkdownManager } from "@tiptap/markdown";
 import {
   emptyPostDocument,
@@ -7,6 +11,9 @@ import {
   type PostDocument,
 } from "../contracts/post-document";
 import { safePostLink } from "../post-link";
+import { postAttachmentPathSchema } from "../contracts/post-input";
+import { isTableCell, validTableCellAttributes, validPostTables } from "./post-table";
+import { PostYoutube, postYoutubeAttributes } from "./post-youtube";
 
 export const postExtensions = [
   StarterKit.configure({
@@ -20,6 +27,11 @@ export const postExtensions = [
       HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
     },
   }),
+  Image.configure({ allowBase64: false }),
+  TableKit.configure({ table: { renderWrapper: true } }),
+  TaskList,
+  TaskItem.configure({ nested: true }),
+  PostYoutube,
 ];
 export const postMarkdownOptions = { gfm: true, breaks: true };
 export const postEditorExtensions = [
@@ -27,6 +39,7 @@ export const postEditorExtensions = [
   Markdown.configure({ markedOptions: postMarkdownOptions }),
 ];
 export const postSchema = getSchema(postExtensions);
+const MAX_DOCUMENT_NODES = 10_000;
 const markdown = new MarkdownManager({
   extensions: postExtensions,
   markedOptions: postMarkdownOptions,
@@ -49,7 +62,8 @@ export function normalizePostDocument(value: unknown): PostDocument {
   const document = structuredClone(value) as PostDocument;
   let count = 0;
   const walk = (node: JSONContent, path: string, depth: number) => {
-    if (++count > 10_000 || depth > 64) throw new PostDocumentError("document_complexity", path);
+    if (++count > MAX_DOCUMENT_NODES || depth > 64)
+      throw new PostDocumentError("document_complexity", path);
     if (
       !node ||
       typeof node !== "object" ||
@@ -64,6 +78,7 @@ export function normalizePostDocument(value: unknown): PostDocument {
     const attrs = (
       input: Record<string, unknown> | undefined,
       allowed: Record<string, unknown> | undefined,
+      arrayAttribute?: string,
     ) => {
       if (
         input !== undefined &&
@@ -73,13 +88,47 @@ export function normalizePostDocument(value: unknown): PostDocument {
           Object.entries(input).some(
             ([key, val]) =>
               !Object.prototype.hasOwnProperty.call(allowed ?? {}, key) ||
-              (val !== null && !["string", "number", "boolean"].includes(typeof val)),
+              (val !== null &&
+                !["string", "number", "boolean"].includes(typeof val) &&
+                !(key === arrayAttribute && Array.isArray(val))),
           ))
       ) {
         throw new PostDocumentError("attributes", path);
       }
     };
-    attrs(node.attrs, postSchema.nodes[node.type].spec.attrs);
+    attrs(
+      node.attrs,
+      postSchema.nodes[node.type].spec.attrs,
+      isTableCell(node.type) ? "colwidth" : undefined,
+    );
+    if (isTableCell(node.type) && !validTableCellAttributes(node.attrs))
+      throw new PostDocumentError("table_cell_attributes", path);
+    if (
+      node.type === "taskItem" &&
+      node.attrs?.checked !== undefined &&
+      typeof node.attrs.checked !== "boolean"
+    )
+      throw new PostDocumentError("task_checked", path);
+    if (node.type === "youtube") {
+      const youtube = postYoutubeAttributes(node.attrs);
+      if (!youtube) throw new PostDocumentError("youtube_attributes", path);
+      node.attrs = youtube;
+    }
+    if (node.type === "image") {
+      if (!postAttachmentPathSchema.safeParse(node.attrs?.src).success)
+        throw new PostDocumentError("image_uri", path);
+      for (const key of ["alt", "title"])
+        if (node.attrs?.[key] != null && typeof node.attrs[key] !== "string")
+          throw new PostDocumentError("image_text", path);
+      for (const key of ["width", "height"])
+        if (
+          node.attrs?.[key] != null &&
+          (!["number", "string"].includes(typeof node.attrs[key]) ||
+            !Number.isFinite(Number(node.attrs[key])) ||
+            Number(node.attrs[key]) <= 0)
+        )
+          throw new PostDocumentError("image_dimensions", path);
+    }
     if (node.type === "heading" && ![1, 2, 3, 4].includes(node.attrs?.level))
       throw new PostDocumentError("heading_level", path);
     if (node.text !== undefined && (node.type !== "text" || typeof node.text !== "string"))
@@ -98,6 +147,8 @@ export function normalizePostDocument(value: unknown): PostDocument {
       if (mark.type === "link") {
         const href = typeof mark.attrs?.href === "string" && safePostLink(mark.attrs.href);
         if (!href) throw new PostDocumentError("link_uri", path);
+        if (href.startsWith("/objects/") && !postAttachmentPathSchema.safeParse(href).success)
+          throw new PostDocumentError("attachment_uri", path);
         mark.attrs = {
           ...mark.attrs,
           href,
@@ -115,8 +166,10 @@ export function normalizePostDocument(value: unknown): PostDocument {
   try {
     const node = postSchema.nodeFromJSON(document);
     node.check();
+    if (!validPostTables(node, MAX_DOCUMENT_NODES)) throw new PostDocumentError("table_structure");
     return node.toJSON() as PostDocument;
-  } catch {
+  } catch (error) {
+    if (error instanceof PostDocumentError) throw error;
     throw new PostDocumentError("schema_content");
   }
 }
@@ -126,14 +179,13 @@ export function postDocumentFromMarkdown(source: string): PostDocument {
   markdown.instance.walkTokens(
     markdown.instance.lexer(source, markdown.instance.defaults),
     (token) => {
-      if (
-        ["table", "image", "html"].includes(token.type) ||
-        (token.type === "list_item" && token.task)
-      ) {
+      if (token.type === "html" && !/^<br\s*\/?>$/i.test(token.raw.trim())) {
         throw new PostDocumentError(`markdown_${token.type}`);
       }
       if (token.type === "link" && !safePostLink(token.href))
         throw new PostDocumentError("link_uri");
+      if (token.type === "image" && !postAttachmentPathSchema.safeParse(token.href).success)
+        throw new PostDocumentError("image_uri");
     },
   );
   const parsed = markdown.parse(source);

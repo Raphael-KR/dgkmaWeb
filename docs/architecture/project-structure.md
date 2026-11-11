@@ -136,7 +136,7 @@ OAuth state 만료 기간은 `KAKAO_OAUTH_STATE_TTL_MS` 한 곳에 정의하고 
 트랜잭션 안에 둔다. 명부 동기화는 원본 fingerprint 재검증, advisory lock과 단일 transaction,
 DB-only 행 보존을 유지한다. 테스트는 실제 Google Sheets 적용이나 Kakao unlink를 하지 않는다.
 Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nosniff를 유지한다.
-첨부 오류는 처리 단계·오류 종류·확인 가능한 HTTP 상태만 공통 로그 함수에 남긴다. 원시 SDK 오류/응답·파일 경로·인증정보는 기록하지 않으며 로그 실패가 원래 오류 처리를 덮지 않게 한다.
+첨부 오류는 처리 단계·오류 종류·확인 가능한 HTTP 상태와 파일 형식 검사의 고정 원인 코드·허용 형식·크기/구조 판정 수치만 공통 로그 함수에 남긴다. 업로드 요청 로그에서는 서명 토큰 경로를 가린다. 원시 SDK 오류/응답·파일 경로·인증정보는 기록하지 않으며 로그 실패가 원래 오류 처리를 덮지 않게 한다.
 
 ## 본문·공통 표시
 
@@ -173,6 +173,8 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 | `features/legal/` | 약관·개인정보 원문과 각 페이지 SEO를 소유한다. `legal-page.tsx`는 제목·개정일·본문을 받아 기존 PublicLayout·Card·뒤로가기 동작과 스타일을 공유한다 |
 | `scripts/lib/browser-cdp.mjs` | 오래된 탭 복구 검사의 CDP 연결·명령·평가·대기. 모바일 비교 도구 폐기에 따라 복구 도구가 사용하는 인수만 유지한다 |
 
+댓글 계약은 `shared/contracts/comments.ts`, 라우트·저장·첨부 확인은 `server/modules/content/comment-*`에 분리한다. `CommentStorage`도 기존 facade에 연결하며 부모 게시글 잠금 뒤 댓글 잠금·revision 검사를 적용한다. 화면은 `comment-composer`·`comment-item`·`comment-text`·`comment-attachment`로 구성하며 본문 Tiptap과 분리된 일반 텍스트를 유지한다. 공식 Drag Handle은 `components/post-editor/editor-drag-handle.tsx`에서 기존 편집기에 연결한다.
+
 ### 공통 계약과 구현 위치
 
 | 영역 | 정본·소비 위치와 보존할 계약 |
@@ -180,7 +182,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 | 사이트·표시 | `shared/site.ts`는 이름·canonical, `shared/public-pages.ts`는 공개 페이지 SEO·사이트맵, `shared/association.ts`는 공식 연락처·계좌, `app/layout/nav-items.ts`는 메뉴를 관리한다 |
 | 입력·응답 | `shared/contracts/`의 DTO·Zod 검증을 서버와 클라이언트가 공유한다. 일반 글 제목·첨부는 `post-input.ts`, 댓글 검증·타입도 같은 계약 계층이 정본이다. DB 스키마의 재내보내기는 컬럼 변경이 아니다 |
 | 이전 글 편집 | 현재 글을 서버에서 읽어 제목 유지·기존 첨부 유지/감소를 구분한다. 경로 문법·열람 권한·작성자·revision 검사는 항상 적용한다. 입력 한도와 수집 결과 한도는 의미가 달라 합치지 않는다 |
-| 업로드 | `use-upload.ts`는 파일 입력 → 앱 URL 발급 → PUT을 담당한다. URL 응답은 `uploadURL`·`objectPath`, PUT 성공은 본문 없는 HTTP 200이다. 파일명·크기·MIME·서명·만료·회원 및 첨부 권한은 서버가 확인한다 |
+| 업로드 | `use-upload.ts`는 파일 입력 → 앱 URL 발급 → PUT을 담당한다. URL 응답은 `uploadURL`·`objectPath`·`name`·`size`·`contentType`, PUT 성공은 본문 없는 HTTP 200이다. 파일명·크기·확장자·내용 형식·서명·만료·발급 회원 및 첨부 권한은 서버가 확인한다 |
 | 인증·가입 | `resolveSessionSecret()`은 호출 시 환경을 읽고 세션·신원 해시가 공유한다. 신원 종류 구분·이메일 정규화·HMAC을 유지한다. 기존/신규 회원의 세션 확정과 충돌의 가입 심사, 승인과 unlink를 포함한 거절 경로를 구분한다 |
 | 경조사 | 회원 판정·필수 사실·필드별 출처·정적 문안·서명 미리보기는 각 책임 모듈에 둔다. `readGipoomNotice`는 공개 자료 검증과 작성기 선택을 담당한다. 공통 사실 JSON과 개별 파서의 내부 반환형을 혼동하지 않는다 |
 | 스타일 | 공통 UI와 `client/src/index.css`, 편집·표시의 `post-content.css`를 재사용한다. 공개 테마 클래스는 `tp-bg-brand`·`tp-text-body`·`tp-text-accent`처럼 역할로 이름을 정하고 CSS 선언과 소비자를 함께 관리한다. Tailwind 기본 유틸리티를 중복 CSS로 만들지 않는다. 화면 고유 콘텐츠·공개 규정 원문·provider 규격·공식 UI를 값이 같다는 이유만으로 합치지 않는다 |

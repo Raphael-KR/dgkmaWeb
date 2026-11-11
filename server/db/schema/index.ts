@@ -126,16 +126,36 @@ export const posts = pgTable(
   ],
 );
 
-// 게시글 댓글. authorId/postId 는 서버에서 세션·URL 로 채움(본문은 content 만).
-export const comments = pgTable("comments", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id")
-    .notNull()
-    .references(() => posts.id, { onDelete: "cascade" }),
-  authorId: integer("author_id").references(() => users.id),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// 작성자·게시글 식별자와 첨부 메타데이터는 서버가 채운다.
+export const comments = pgTable(
+  "comments",
+  {
+    id: serial("id").primaryKey(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    authorId: integer("author_id").references(() => users.id),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    isHidden: boolean("is_hidden").notNull().default(false),
+    editedAt: timestamp("edited_at"),
+    revision: integer("revision").notNull().default(0),
+    attachment: jsonb("attachment").$type<import("@shared/contracts/uploads").UploadedFile>(),
+  },
+  (table) => [
+    check("comments_revision_check", sql`${table.revision} >= 0`),
+    check(
+      "comments_attachment_check",
+      sql`${table.attachment} IS NULL OR (
+    jsonb_typeof(${table.attachment}) = 'object'
+    AND jsonb_typeof(${table.attachment}->'objectPath') = 'string'
+    AND jsonb_typeof(${table.attachment}->'name') = 'string'
+    AND jsonb_typeof(${table.attachment}->'size') = 'number'
+    AND jsonb_typeof(${table.attachment}->'contentType') = 'string'
+  ) IS TRUE`,
+    ),
+  ],
+);
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
