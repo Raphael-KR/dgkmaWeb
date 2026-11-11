@@ -42,6 +42,10 @@ export const memberNavItems = [
   { path: "/profile", icon: User, label: "내정보", gated: true },
 ];
 
+export const memberHeaderNavItems = memberNavItems.filter(
+  ({ path }) => path !== "/" && path !== "/profile",
+);
+
 export function isMemberNavActive(location: string, path: string) {
   if (path === "/about") {
     return location === "/about" || location.startsWith("/about/");
