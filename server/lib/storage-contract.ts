@@ -1,3 +1,4 @@
+import type { CommentStorageContract } from "../modules/content/comment-storage-contract";
 import type { IdentityStorageContract } from "../modules/identity/storage-contract";
 import type { RegistryStorageContract } from "../modules/registry/storage-contract";
 import type { ContentStorageContract } from "../modules/content/storage-contract";
@@ -10,5 +11,6 @@ export interface IStorage
     IdentityStorageContract,
     RegistryStorageContract,
     ContentStorageContract,
+    CommentStorageContract,
     EventsStorageContract,
     DuesStorageContract {}

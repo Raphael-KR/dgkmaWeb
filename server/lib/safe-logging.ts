@@ -8,6 +8,7 @@ export function getErrorType(error: unknown): string {
 export function logObjectStorageFailure(
   stage: "upload" | "upload-url" | "serve" | "download" | "stream",
   error: unknown,
+  validation: Record<string, string | number | boolean> = {},
 ): void {
   try {
     const details =
@@ -15,6 +16,7 @@ export function logObjectStorageFailure(
     const status = details.statusCode ?? details.code;
     console.error("Object storage operation failed", {
       stage,
+      validation,
       errorType: getErrorType(error),
       httpStatus:
         typeof status === "number" && Number.isInteger(status) && status >= 100 && status <= 599

@@ -48,6 +48,7 @@ export function CreatePostDialog({
     operation,
     busy,
     uploadImages,
+    uploadEditorFiles,
     removeImage,
     submit,
   } = useCreatePost();
@@ -145,6 +146,7 @@ export function CreatePostDialog({
                         <LazyPostBodyEditor
                           {...field}
                           disabled={busy}
+                          onUploadFiles={uploadEditorFiles}
                           onValidityChange={setBodyValid}
                         />
                       </FormControl>

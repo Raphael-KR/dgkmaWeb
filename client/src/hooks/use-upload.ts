@@ -1,8 +1,8 @@
 import { useState, useCallback } from "react";
+import type { UploadedFile } from "@shared/contracts/uploads";
 
-interface UploadResponse {
+interface UploadResponse extends UploadedFile {
   uploadURL: string;
-  objectPath: string;
 }
 
 interface UseUploadOptions {
@@ -33,19 +33,23 @@ export function useUpload(options: UseUploadOptions = {}) {
     return response.json();
   }, []);
 
-  const uploadToBoundedUrl = useCallback(async (file: File, uploadURL: string): Promise<void> => {
-    const response = await fetch(uploadURL, {
-      method: "PUT",
-      body: file,
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-      },
-    });
+  const uploadToBoundedUrl = useCallback(
+    async (file: File, upload: UploadResponse): Promise<void> => {
+      const response = await fetch(upload.uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": upload.contentType,
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to upload file to storage");
-    }
-  }, []);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "파일을 저장하지 못했습니다.");
+      }
+    },
+    [],
+  );
 
   const uploadFile = useCallback(
     async (file: File): Promise<UploadResponse | null> => {
@@ -53,7 +57,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       try {
         const uploadResponse = await requestUploadUrl(file);
-        await uploadToBoundedUrl(file, uploadResponse.uploadURL);
+        await uploadToBoundedUrl(file, uploadResponse);
         return uploadResponse;
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Upload failed");

@@ -1,4 +1,4 @@
-import type { Post, InsertPost, Category, InsertCategory, Comment } from "@shared/schema";
+import type { Post, InsertPost, Category, InsertCategory } from "@shared/schema";
 import type { NoticeType, UpdatePost } from "@shared/contracts";
 
 export type PublishedPost = Pick<
@@ -17,11 +17,6 @@ export type PublishedPost = Pick<
   | "publishedAt"
 > & { eventType: NoticeType | null };
 export type PostViewer = { id: number; isAdmin?: boolean | null };
-
-// 댓글 + 작성자 표시 정보(이름). authorId 가 없는(탈퇴 등) 경우 author=null.
-export type CommentWithAuthor = Comment & {
-  author: { id: number; name: string } | null;
-};
 
 export interface ContentStorageContract {
   getCategories(): Promise<Category[]>;
@@ -46,12 +41,4 @@ export interface ContentStorageContract {
   deletePost(id: number, authorId: number, revision: number): Promise<boolean>;
   setPostHidden(id: number, adminId: number, revision: number, isHidden: boolean): Promise<boolean>;
   searchPosts(query: string): Promise<(PublishedPost & { category: Category })[]>;
-  getCommentsByPost(postId: number): Promise<CommentWithAuthor[]>;
-  getComment(id: number): Promise<Comment | undefined>;
-  createComment(data: {
-    postId: number;
-    authorId: number;
-    content: string;
-  }): Promise<Comment | undefined>;
-  deleteComment(id: number): Promise<boolean>;
 }

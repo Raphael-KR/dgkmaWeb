@@ -1,8 +1,4 @@
-import {
-  IMAGE_UPLOAD_MAX_BYTES,
-  IMAGE_UPLOAD_MAX_MB,
-  isUploadImageContentType,
-} from "@shared/contracts/uploads";
+import { uploadSizeLimit, validateUploadType, formatUploadSize } from "@shared/contracts/uploads";
 import type { Express } from "express";
 import { storage } from "../../storage";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -10,18 +6,29 @@ import type { IncomingMessage } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { logObjectStorageFailure } from "../../lib/safe-logging";
 
+import {
+  validUploadName,
+  validateUploadContents,
+  UploadFormatError,
+} from "./upload-file-validation";
+
 const UPLOAD_TOKEN_TTL_MS = 15 * 60 * 1000;
 
 type UploadTokenPayload = {
   objectId: string;
+  name: string;
+  userId: number;
   size: number;
   contentType: string;
   expiresAt: number;
 };
 
 class UploadTooLargeError extends Error {
-  constructor() {
-    super(`Upload exceeds the ${IMAGE_UPLOAD_MAX_MB} MB limit`);
+  constructor(
+    public readonly maximumBytes: number,
+    public readonly actualBytes: number,
+  ) {
+    super(`Upload exceeds the requested ${maximumBytes} byte limit`);
     this.name = "UploadTooLargeError";
   }
 }
@@ -61,15 +68,21 @@ function verifyUploadToken(token: string): UploadTokenPayload | null {
     const payload = JSON.parse(
       Buffer.from(encodedPayload, "base64url").toString("utf8"),
     ) as UploadTokenPayload;
+    const type =
+      validUploadName(payload.name) && typeof payload.contentType === "string"
+        ? validateUploadType(payload.name, payload.contentType)
+        : undefined;
     if (
       typeof payload.objectId !== "string" ||
       !/^[0-9a-f-]{36}$/i.test(payload.objectId) ||
       typeof payload.size !== "number" ||
       !Number.isInteger(payload.size) ||
       payload.size <= 0 ||
-      payload.size > IMAGE_UPLOAD_MAX_BYTES ||
-      typeof payload.contentType !== "string" ||
-      !isUploadImageContentType(payload.contentType) ||
+      !type?.ok ||
+      type.contentType !== payload.contentType ||
+      payload.size > uploadSizeLimit(type.contentType).bytes ||
+      !Number.isInteger(payload.userId) ||
+      payload.userId <= 0 ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt < Date.now()
     ) {
@@ -90,7 +103,7 @@ async function readUploadBody(request: IncomingMessage, maxBytes: number): Promi
   if (contentLengthHeader !== undefined) {
     const contentLength = Number(contentLengthHeader);
     if (!Number.isInteger(contentLength) || contentLength < 0 || contentLength > maxBytes) {
-      throw new UploadTooLargeError();
+      throw new UploadTooLargeError(maxBytes, contentLength);
     }
   }
 
@@ -114,7 +127,7 @@ async function readUploadBody(request: IncomingMessage, maxBytes: number): Promi
     });
     request.on("end", () => {
       if (tooLarge) {
-        reject(new UploadTooLargeError());
+        reject(new UploadTooLargeError(maxBytes, totalBytes));
       } else {
         resolve(Buffer.concat(chunks, totalBytes));
       }
@@ -144,7 +157,7 @@ export function registerObjectStorageRoutes(app: Express): void {
       }
 
       const token = verifyUploadToken(req.params.uploadToken);
-      if (!token) {
+      if (!token || token.userId !== req.session.userId) {
         return res.status(403).json({ error: "유효하지 않거나 만료된 업로드 URL입니다" });
       }
 
@@ -158,13 +171,28 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(400).json({ error: "업로드 파일 크기가 요청과 일치하지 않습니다" });
       }
 
-      await objectStorageService.uploadObjectEntity(token.objectId, contents, token.contentType);
+      await validateUploadContents(contents, token.name, token.contentType);
+      await objectStorageService.uploadObjectEntity(
+        token.objectId,
+        contents,
+        token.contentType,
+        token.name,
+      );
       return res.status(200).end();
     } catch (error) {
+      if (error instanceof UploadFormatError) {
+        logObjectStorageFailure("upload", error, error.details);
+        return res.status(400).json({ error: error.message });
+      }
       if (error instanceof UploadTooLargeError) {
-        return res
-          .status(413)
-          .json({ error: `사진은 ${IMAGE_UPLOAD_MAX_MB}MB 이하만 업로드할 수 있습니다` });
+        logObjectStorageFailure("upload", error, {
+          reason: "upload_size_limit",
+          maximum: error.maximumBytes,
+          actual: Number.isFinite(error.actualBytes) ? error.actualBytes : "invalid_content_length",
+        });
+        return res.status(413).json({
+          error: `업로드 데이터가 요청한 파일 크기(${formatUploadSize(error.maximumBytes)})를 초과했습니다.`,
+        });
       }
       logObjectStorageFailure("upload", error);
       return res.status(500).json({ error: "Failed to upload object" });
@@ -202,34 +230,38 @@ export function registerObjectStorageRoutes(app: Express): void {
       const normalizedContentType =
         typeof contentType === "string" ? contentType.toLowerCase().split(";")[0].trim() : "";
 
-      if (!name) {
-        return res.status(400).json({
-          error: "Missing required field: name",
-        });
-      }
-      if (!Number.isFinite(normalizedSize) || normalizedSize <= 0) {
-        return res.status(400).json({ error: "올바른 파일 크기가 필요합니다" });
-      }
-      if (normalizedSize > IMAGE_UPLOAD_MAX_BYTES) {
+      if (!validUploadName(name)) {
         return res
           .status(400)
-          .json({ error: `사진은 ${IMAGE_UPLOAD_MAX_MB}MB 이하만 업로드할 수 있습니다` });
+          .json({ error: "파일명은 경로·제어문자 없이 1~180자로 지정해 주세요" });
       }
-      if (!isUploadImageContentType(normalizedContentType)) {
-        return res.status(400).json({ error: "JPG, PNG, WebP, GIF 이미지만 업로드할 수 있습니다" });
+      const type = validateUploadType(name, normalizedContentType);
+      if (!type.ok) return res.status(400).json({ error: type.message });
+      if (!Number.isSafeInteger(normalizedSize) || normalizedSize <= 0) {
+        return res.status(400).json({ error: "올바른 파일 크기가 필요합니다" });
       }
-
+      const limit = uploadSizeLimit(type.contentType);
+      if (normalizedSize > limit.bytes) {
+        return res.status(400).json({
+          error: `파일은 ${limit.mb}MB 이하만 업로드할 수 있습니다. 입력 크기: ${normalizedSize}바이트.`,
+        });
+      }
       const target = objectStorageService.createObjectEntityUploadTarget();
       const uploadToken = signUploadToken({
         objectId: target.objectId,
+        name,
+        userId: req.session.userId,
         size: normalizedSize,
-        contentType: normalizedContentType,
+        contentType: type.contentType,
         expiresAt: Date.now() + UPLOAD_TOKEN_TTL_MS,
       });
 
       res.json({
         uploadURL: `/api/uploads/${encodeURIComponent(uploadToken)}`,
         objectPath: target.objectPath,
+        name,
+        size: normalizedSize,
+        contentType: type.contentType,
       });
     } catch (error) {
       logObjectStorageFailure("upload-url", error);

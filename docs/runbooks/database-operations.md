@@ -21,8 +21,8 @@
 | 역할 | 구현과 승인된 개발 DB 작업 | Republish된 서비스의 DB |
 | 확인된 DB 이름 | `heliumdb` | `neondb` |
 | 기본 연결 | Replit PG* | 명시적으로 선택한 Replit Secret URL |
-| 마지막 전체 catalog | 2026-11-09 20:09 KST | 2026-11-09 20:30 KST |
-| 관찰 구조 | posts JSONB·is_hidden·수집 규칙, 구 테이블 제거 | 같은 계약 |
+| 마지막 전체 catalog | 2026-11-12 03:14 KST | 2026-11-12 03:34 KST (읽기 전용) |
+| 관찰 구조 | 공통 posts JSONB·수집 규칙 + 댓글 가림·수정·revision·첨부 | 공통 posts JSONB·수집 규칙; 댓글 확장 미적용 |
 
 위 시각은 마지막 DB 작업의 관찰 이력이다. 문서 수정일과 구분한다. Google Sheets가 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Sheets를 직접 조회하지 않는다.
 
@@ -56,6 +56,18 @@ cd /home/runner/workspace
 
 ## 개발 변경
 
+2026-11-12 댓글 확장 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않는다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행한다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 운영은 미적용 상태로 유지한다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. Drag Handle 자체는 DB 변경이 없다.
+
+2026-11-12 Placeholder·체크리스트·CharacterCount·YouTube 추가는 기존 JSONB의 앱 스키마 확장이다. 체크리스트 상태·영상 주소는 표준 Tiptap 노드 속성에 저장하며 DB DDL·기존 행 변환·catalog 재조회·`db:push`를 실행하지 않는다. 실제 개발 적용·검사 범위는 [추가 확장 기록](../history/editor-extensions-2026-11-12.md)을 따른다.
+
+2026-11-12 일반 파일 8종은 기존 `posts.content` JSONB의 표준 링크 문단과 App Storage를 사용한다. DDL·데이터 변환·catalog 재조회·`db:push`는 수행하지 않는다. 기존 이미지·본문·객체는 보존하며 적용 상태는 [일반 파일 개발 기록](../history/general-files-2026-11-12.md)에 기록한다.
+
+후속 일반 파일 10MB·5개 제한도 업로드/게시글 입력 검증의 변경이다. DB 작업과 기존 객체 삭제는 필요하지 않으며 한도를 넘는 기존 글은 해당 첨부 유지·감소를 허용한다.
+
+2026-11-12 TableKit 추가도 기존 `posts.content` JSONB의 앱 계약 확장이다. 표를 위한 컬럼·CHECK 변경·기존 행 변환·catalog 재조회·`db:push`는 수행하지 않는다. 공식 스키마의 저장/복원과 미확인 실행 범위는 [TableKit 개발 기록](../history/table-kit-2026-11-12.md)에 남긴다.
+
+본문 이미지의 2026-11-11 확장은 `posts.content` JSONB 안의 공식 image 노드와 참조 읽기 계약만 변경한다. DB DDL·데이터 변환·catalog 재조회는 필요하지 않다. 기존 본문과 `image_urls` 첨부는 보존하며 이번 작업에서 `db:push`나 마이그레이션을 실행하지 않는다. 적용·정적 검사 상태는 [개발 기록](../history/inline-images-2026-11-11.md)을 따른다.
+
 1. 요청된 대상·변경과 보존 범위를 정하고 Replit 개발 checkout·실제 연결 DB를 확인한다.
 2. 스키마 작업이면 schema-only snapshot·metadata-only catalog와 의존 객체를, 데이터 작업이면 필요한 백업·변경 전 집계를 준비한다. 원문이 필요하면 Replit의 접근 제한 경로에만 보존한다.
 3. 해당 변경의 SQL·변환 preview를 확인한다. `session`은 Drizzle 관리 대상에서 제외돼 있다. `db:push`가 rename/drop 후보를 제시하면 자동 응답하지 말고 diff와 실제 대상을 확인한다.
@@ -85,6 +97,8 @@ psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
 ## 운영 변경
 
 운영 DB 변경이 승인된 작업에만 아래 절차를 사용한다. 새 운영 변경이 없는 문서·개발 작업은 이 절로 넘어오지 않는다.
+
+`3.0.0` 댓글 확장의 운영 후보는 [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql)이다. `neondb`의 comments에 개발과 같은 네 컬럼·두 CHECK만 추가하며 기존 다섯 컬럼·행·시퀀스를 보존한다. 읽기 전용 구조·건수·백업과 원본 값 비교를 준비한 뒤 이 범위의 승인을 받는다. 승인 전에는 적용하지 않으며 신규 컬럼을 참조하는 앱 배포도 시작하지 않는다. 당시 승인·실행·새 연결 검증은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에 남긴다.
 
 1. 승인 대상과 적용할 후보 SQL/변환 코드를 확정한다. Replit Secrets의 운영 URL을 해당 프로세스에만 전달한다. 개발 PG* 기본값이나 Secret 자체를 변경하지 않는다.
 2. 사전 읽기는 `PROD_DATABASE_READONLY_URL`을 우선하고, 없으면 owner URL을 `BEGIN READ ONLY` 트랜잭션으로 제한한다. `current_database()=neondb`, 실제 구조·변경 전 건수·의존 관계를 확인한다.

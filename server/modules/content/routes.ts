@@ -1,13 +1,14 @@
 import { PostDocumentError } from "@shared/editor/post-document";
+import { postAttachmentPaths } from "@shared/contracts/post-input";
 import type { Express, Request, Response } from "express";
 import { insertCategorySchema } from "@shared/schema";
 import {
   insertPostSchema,
-  insertCommentSchema,
   createUpdatePostSchema,
   postRevisionSchema,
   postVisibilitySchema,
 } from "@shared/contracts";
+import { registerCommentRoutes } from "./comment-routes";
 import { requireAuthenticated } from "../../middleware/auth";
 import { isRegularPostCategory } from "@shared/category-policy";
 import { z } from "zod";
@@ -151,8 +152,8 @@ export function registerContentRoutes(app: Express): void {
       if (!isRegularPostCategory(category)) {
         return res.status(400).json({ message: "일반 게시글 카테고리를 선택해 주세요." });
       }
-      if (!(await readableAttachments(data.imageUrls, req.session.userId!))) {
-        return res.status(403).json({ message: "열람할 수 없는 이미지는 첨부할 수 없습니다." });
+      if (!(await readableAttachments(postAttachmentPaths(data), req.session.userId!))) {
+        return res.status(403).json({ message: "열람할 수 없는 파일은 첨부할 수 없습니다." });
       }
       const saved = await storage.updatePost(post.id, req.session.userId!, data);
       if (!saved) return conflict(res);
@@ -222,8 +223,8 @@ export function registerContentRoutes(app: Express): void {
           message: "일반 게시글 카테고리를 선택해주세요. 부고·경사는 경조사 작성에서 등록합니다",
         });
       }
-      if (!(await readableAttachments(validatedData.imageUrls ?? [], req.session.userId))) {
-        return res.status(403).json({ message: "열람할 수 없는 이미지는 첨부할 수 없습니다." });
+      if (!(await readableAttachments(postAttachmentPaths(validatedData), req.session.userId))) {
+        return res.status(403).json({ message: "열람할 수 없는 파일은 첨부할 수 없습니다." });
       }
       const post = await storage.createPost({
         ...validatedData,
@@ -244,79 +245,5 @@ export function registerContentRoutes(app: Express): void {
     }
   });
 
-  // 게시된 글의 댓글만 회원에게 제공한다.
-  app.get("/api/posts/:postId/comments", async (req, res) => {
-    try {
-      const postId = parseInt(req.params.postId);
-      if (Number.isNaN(postId)) {
-        return res.status(400).json({ message: "잘못된 게시글입니다" });
-      }
-      if (!(await storage.getPost(postId)))
-        return res.status(404).json({ message: "게시글을 찾을 수 없습니다" });
-      const list = await storage.getCommentsByPost(postId);
-      res.json(list);
-    } catch (error) {
-      console.error("Failed to fetch comments", { errorType: getErrorType(error) });
-      res.status(500).json({ message: "댓글을 불러오지 못했습니다" });
-    }
-  });
-
-  // 댓글 작성 — 로그인 필수. authorId 는 세션, postId 는 URL 에서만 채움.
-  app.post("/api/posts/:postId/comments", async (req, res) => {
-    try {
-      if (!req.session?.userId) {
-        return res.status(401).json({ message: "로그인이 필요합니다" });
-      }
-      const postId = parseInt(req.params.postId);
-      if (Number.isNaN(postId)) {
-        return res.status(400).json({ message: "잘못된 게시글입니다" });
-      }
-      const post = await storage.getPost(postId);
-      if (!post) {
-        return res.status(404).json({ message: "게시글을 찾을 수 없습니다" });
-      }
-      const { content } = insertCommentSchema.parse(req.body);
-      const comment = await storage.createComment({
-        postId,
-        authorId: req.session.userId,
-        content,
-      });
-      if (!comment) return res.status(404).json({ message: "게시글을 찾을 수 없습니다." });
-      res.status(201).json(comment);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
-      }
-      res.status(500).json({ message: "댓글 작성에 실패했습니다" });
-    }
-  });
-
-  // 댓글 삭제 — 작성자 본인 또는 관리자만.
-  app.delete("/api/comments/:id", async (req, res) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ message: "로그인이 필요합니다" });
-      }
-      const id = parseInt(req.params.id);
-      if (Number.isNaN(id)) {
-        return res.status(400).json({ message: "잘못된 댓글입니다" });
-      }
-      const comment = await storage.getComment(id);
-      if (!comment) {
-        return res.status(404).json({ message: "댓글을 찾을 수 없습니다" });
-      }
-      if (comment.authorId !== userId) {
-        const viewer = await storage.getUser(userId);
-        if (!viewer?.isAdmin) {
-          return res.status(403).json({ message: "권한이 없습니다" });
-        }
-      }
-      await storage.deleteComment(id);
-      res.status(204).end();
-    } catch (error) {
-      console.error("Failed to delete comment", { errorType: getErrorType(error) });
-      res.status(500).json({ message: "댓글 삭제에 실패했습니다" });
-    }
-  });
+  registerCommentRoutes(app);
 }

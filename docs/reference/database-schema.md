@@ -10,20 +10,22 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 
 ## 기준 소스와 마지막 DB 관찰
 
-- 코드 기준: 문서 정리 시작 시 main `d7184ca`, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
-- DB 관찰: Development 2026-11-09 20:09 KST, Production 20:30 KST 가림 컬럼 추가 후 metadata-only catalog. 문서 정리에서는 DB에 연결하거나 catalog를 재수집하지 않았다.
+- 코드 기준: 공유 main `b4d55da`와 `3.0.0` 릴리스 후보의 댓글 확장, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
+- DB 관찰: Development 2026-11-12 03:14 KST 댓글 확장 후 metadata-only catalog, Production 2026-11-12 03:34 KST 읽기 전용 catalog. 운영 조회·백업은 수행했고 댓글 확장은 아직 미적용이다.
 - 양쪽 구조는 posts.content JSONB·is_hidden, posts 경조사 JSON, source_collection_rules를 포함한다. community_events·obituaries는 두 환경에서 제거됐다. 컬럼 표는 논리 순서이며 환경별 물리 순서 차이를 변경 지시로 삼지 않는다.
 
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
 | DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.15 |
-| tables / columns | 13 / 103 | 13 / 103 |
-| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 6 / 7 | 13 / 8 / 6 / 7 |
+| tables / columns | 13 / 107 | 13 / 103 |
+| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 6 / 9 | 13 / 8 / 6 / 7 |
 | indexes / sequences | 24 / 9 | 24 / 9 |
 | view / trigger / policy / routine / enum / domain | 모두 0 | 모두 0 |
 | RLS | 모든 public 테이블 비활성 | 모든 public 테이블 비활성 |
 
-관찰 근거는 [가리기 적용 catalog](../history/database-schema-2026-11-09.md#게시글-관리-추가-계약-2026-11-09)와 [운영 런북 이력](../history/database-operations-2026-11-09.md#게시글-가리기-운영-적용-결과)이다. 개발 catalog SHA-256은 `453a1924708cc258dec6385be2f461753813747d8ee2a7226f63dd47c2c11e5a`, 운영은 `27588cbda434da037691dbf79f754ed8956b5b01fdc082a83227f3479eed8262`다. 수치는 마지막 관찰의 요약이며 향후 고정 통과 기준이 아니다.
+개발의 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영의 마지막 catalog SHA-256 `27588cbda434da037691dbf79f754ed8956b5b01fdc082a83227f3479eed8262`는 [3.0.0 사전조회](../history/release-3.0.0-2026-11-12.md#운영-db-준비)에서 기존 [가리기 적용 catalog](../history/database-schema-2026-11-09.md#게시글-관리-추가-계약-2026-11-09)와 같음을 확인했다. 운영에는 댓글 확장을 적용하지 않았다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
+
+운영 댓글 전환 후보는 [운영 SQL](../../scripts/add-comment-management-production.sql)이며 아래 개발 계약과 같은 구조를 추가한다. `3.0.0` 릴리스 준비·운영 승인과 적용 결과는 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에 구분하며 실제 적용 전에는 위 개발·운영 차이를 유지한다.
 
 ## 현행 관계
 
@@ -115,6 +117,8 @@ PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id → users.id)`, `
 
 소유: Community Content. 목적: 게시글 댓글.
 
+2026-11-12 03:14 KST 개발 DB에 네 컬럼·두 CHECK를 추가했다. 기존 다섯 컬럼의 타입·제약은 유지하며 적용 전후 댓글은 0건이었다. [작업 기록](../history/comments-drag-handle-2026-11-12.md)을 따르며 운영은 아래 추가 컬럼·CHECK가 없는 이전 계약이다.
+
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
 | `id` | `integer` | 불가 | `nextval('comments_id_seq'::regclass)` |
@@ -124,6 +128,17 @@ PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id → users.id)`, `
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
 
 PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.id)` NO ACTION, `comments_post_id_posts_id_fk(post_id → posts.id)` ON DELETE CASCADE. 인덱스는 PK. 계정 정리 시 게시된 댓글의 작성자 연결은 앱이 해제한다.
+
+| 추가 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
+|---|---|---|---|
+| `is_hidden` | `boolean` | 불가 | `false` |
+| `edited_at` | `timestamp without time zone` | 허용 | — |
+| `revision` | `integer` | 불가 | `0` |
+| `attachment` | `jsonb` | 허용 | — |
+
+`comments_revision_check`는 revision ≥ 0, `comments_attachment_check`는 NULL 또는 `objectPath`·`name`·`size`·`contentType`을 가진 단일 객체를 확인한다. attachment는 서버가 App Storage에서 확인한 메타데이터이며 배열·파일 내용·업로드 토큰을 저장하지 않는다. 크기·허용 형식·경로·열람 권한은 앱에서 검증한다. 댓글 content는 일반 텍스트 1,000자이며 첨부가 있으면 빈 문자열을 허용한다. 과거 공백 댓글은 일괄 변환하지 않는다.
+
+작성자만 수정·삭제하고 관리자는 가리기·복원한다. 수정만 edited_at을 갱신하며 수정·가리기·복원은 revision을 증가시킨다. 일반 회원의 가린 댓글 응답은 content·attachment를 NULL로 지워 전달한다. 작성자·관리자에게도 부모 게시글 열람 권한을 적용하며 첨부 직접 접근은 부모 게시글과 댓글 상태를 모두 확인한다.
 
 ### TABLE_ROW: payments
 
@@ -269,9 +284,13 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 `posts.content jsonb NOT NULL`이 유일한 본문 정본이다. 표준 `{ "type": "doc", "content": [...] }` 문서를 저장한다. HTML·Markdown·일반 텍스트는 입력 또는 파생 결과이며 별도 편집 가능한 원본 컬럼이 없다. 본문 CHECK는 object·type=doc·content array를 IS TRUE로 확인한다.
 
-- 노드: doc, paragraph, text, heading(H1~H4), hardBreak, blockquote, codeBlock, horizontalRule, bulletList, orderedList, listItem.
+- 노드: doc, paragraph, text, heading(H1~H4), hardBreak, blockquote, codeBlock, horizontalRule, bulletList, orderedList, listItem, taskList, taskItem, image, youtube, table, tableRow, tableCell, tableHeader.
 - 마크: bold, italic, strike, underline, code, link.
-- [공통 문서 계약](../../shared/contracts/post-document.ts)과 [공식 Tiptap 스키마·변환](../../shared/editor/post-document.ts)이 세부 노드·속성·크기·링크를 검사한다. 임의 HTML·외부 이미지 노드를 저장하지 않는다.
+- 2026-11-12 체크리스트는 공식 `taskList`·`taskItem`과 checked boolean, YouTube는 공식 `youtube` 노드에 검증된 영상 주소·표시 속성을 저장한다. 편집·서버 검증·상세가 같은 스키마를 사용하며 원래 JSONB 컬럼과 루트 CHECK를 유지한다. Placeholder·CharacterCount는 본문에 저장할 새 필드를 만들지 않는다. DDL·기존 행 변환·catalog 재조회는 필요하지 않으며 [개발 기록](../history/editor-extensions-2026-11-12.md)에 실제 적용 범위를 남긴다.
+- 2026-11-12 일반 파일 첨부는 기존 `posts.content` JSONB의 `paragraph`·`text`·`link`만 사용한다. 링크 `href`는 `/objects/` 경로이며 파일명·크기는 본문 텍스트로 저장한다. 원본 파일과 다운로드 이름·실제 크기는 App Storage에 둔다. `image_urls`에는 일반 파일을 넣지 않는다. 링크 경로도 이미지와 함께 개수·열람 권한을 검사하며 가린 글의 파일 참조 조회에 포함한다. 테이블·컬럼·CHECK·기존 행 변환·catalog 재조회가 필요하지 않다.
+- 2026-11-12 TableKit 표 구조와 공식 셀 속성 `colspan`·`rowspan`(양의 정수), `colwidth`(null 또는 열 수에 맞는 비음수 정수 배열), `align`(null/left/center/right)을 같은 JSONB에 저장한다. 문서 스키마·격자 검증을 거치며 임의 배열/객체 속성은 허용하지 않는다. 병합을 펼친 전체 표 격자에도 기존 10,000 복잡도 한도를 적용하고 행별 셀 수를 먼저 확인한 뒤 공식 TableMap으로 충돌·누락을 검사한다. 표 안의 이미지에도 기존 경로·개수·권한 검사를 적용한다. 앱 JSON 계약 확장으로서 DB DDL·기존 행 변환·catalog 재조회는 없다. 구현·정적 검사 상태는 [TableKit 개발 기록](../history/table-kit-2026-11-12.md)을 따른다.
+- [공통 문서 계약](../../shared/contracts/post-document.ts)과 [공식 Tiptap 스키마·변환](../../shared/editor/post-document.ts)이 세부 노드·속성·크기·링크를 검사한다. 본문 `image` 노드는 공식 Image 스키마를 사용하며 `src`는 유효한 `/objects/` 상대 경로만 허용한다. 이미지 바이너리·data/blob URL·외부 이미지 URL·임의 HTML은 저장하지 않는다.
+- 2026-11-11 본문 이미지 확장은 기존 JSONB의 앱 계약 변경이며 컬럼·CHECK·마이그레이션·기존 행 변환은 없다. `image_urls`는 별도 첨부를 그대로 보존하고 본문 이미지 경로를 중복 저장하지 않는다. 이미지 합계 제한·저장 권한은 본문 노드와 별도 첨부를 함께 검사한다. 열람 참조 조회도 두 위치를 확인해 가린 글의 이미지가 미첨부 파일로 취급되지 않게 한다. [개발 반영과 정적 검사](../history/inline-images-2026-11-11.md)까지 수행했으며 운영 코드 적용·DB 실행·catalog 재조회는 하지 않았다.
 - 입력·복원·미리보기·상세·저장 API는 같은 JSON을 사용한다. 목록 요약과 검색은 text 노드 및 줄 경계에서 파생하고 JSON 속성명·링크 속성을 검색 본문으로 취급하지 않는다.
 - Markdown 보기·복사는 원본을 바꾸지 않는다. 왕복 변환이 다르면 읽기 전용과 손실 안내를 표시하고 명시적 변환본 편집 뒤 실제 입력이 바뀔 때만 교체한다. 편집기 버전·호환성은 [본문 편집기 기준](post-editor.md)을 따른다.
 
@@ -279,7 +298,7 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 ## 게시글과 경조사 JSON 계약
 
-일반 게시글 API의 제목 1~300자·이미지 20개 및 기존 값 보존 기준은 [제품 정책](../product/planning-proposal.md#일반-게시글-입력과-초안-수명)을 따른다. 이는 앱 입력 계약이며 PostgreSQL 컬럼·CHECK·저장 본문을 변경하거나 기존 행을 일괄 변환하지 않는다.
+일반 게시글 API의 제목 1~300자·본문 이미지·일반 파일/별도 첨부 합계 40개 및 기존 값 보존 기준은 [제품 정책](../product/planning-proposal.md#일반-게시글-입력과-초안-수명)을 따른다. 일반 파일은 표준 링크의 고유 `/objects/` 경로 기준으로 게시글당 5개이며 파일당 10MB다. 이미지는 파일당 5MB를 유지한다. 이는 앱 입력 계약이며 PostgreSQL 컬럼·CHECK·기존 저장 본문을 변경하거나 기존 행을 일괄 변환하지 않는다.
 
 - 모든 posts·categories·댓글·검색·첨부 API는 회원 전용이다. 본문 공개 여부를 JSON·클라이언트가 정하지 않는다. 작성자 본인 수정·삭제와 관리자 가리기/다시 표시하기를 서버가 분리한다.
 - is_published는 초안/게시, is_hidden은 가림 상태다. 정상 목록·검색은 게시됨+가리지 않음으로 제한한다. 가린 글은 작성자/관리자만 관리하고 댓글 추가는 막는다. 작성자 수정은 가림·최초 게시 시각을 바꾸지 않는다.
