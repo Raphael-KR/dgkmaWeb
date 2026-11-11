@@ -10,6 +10,7 @@ import { NoticeComposer } from "@/features/events";
 import { Search } from "@/features/search";
 import { Terms, Privacy } from "@/features/legal";
 import {
+  AboutIntro,
   AboutBylaws,
   AboutRegulations,
   AboutJoin,
@@ -52,6 +53,7 @@ export function Router() {
 
         {/* Public about pages */}
         <Route path="/about" component={PublicHome} />
+        <Route path="/about/intro" component={AboutIntro} />
         <Route path="/about/executives" component={AboutExecutives} />
         <Route path="/about/presidents" component={AboutPresidents} />
         <Route path="/about/heritage" component={AboutHeritage} />

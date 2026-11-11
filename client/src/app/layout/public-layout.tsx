@@ -1,13 +1,14 @@
 import { ASSOCIATION_CONTACT } from "@shared/association";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, Menu, X, LogIn, LogOut, Users } from "lucide-react";
+import { Menu, X, LogIn, LogOut, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoginModal, useAuth } from "@/features/auth";
 import { SITE_NAME } from "@shared/site";
 import { SiteBrand } from "@/components/site-brand";
 import { SiteHeader } from "./site-header";
-import { HeaderProfileLink } from "./header-profile-link";
+import { HeaderLogoutButton, HeaderProfileLink } from "./header-actions";
+import { SiteNavLink } from "./site-nav-link";
 import { isPublicNavActive, publicNavItems, type PublicNavItem } from "./nav-items";
 
 export function PublicLayout({ children }: { children: ReactNode }) {
@@ -38,15 +39,11 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             <div className="hidden items-center gap-2 md:flex">
               {user ? (
                 <>
-                  <Button asChild size="sm" variant="onBrand">
-                    <Link href="/">
-                      <Users size={16} /> 커뮤니티
-                    </Link>
-                  </Button>
+                  <SiteNavLink href="/" icon={Users}>
+                    커뮤니티
+                  </SiteNavLink>
                   <HeaderProfileLink name={user.name} />
-                  <Button size="sm" variant="onBrandOutline" onClick={() => logout()}>
-                    <LogOut size={14} /> 로그아웃
-                  </Button>
+                  <HeaderLogoutButton onLogout={() => logout()} />
                 </>
               ) : (
                 <Button size="sm" variant="kakao" onClick={() => setLoginOpen(true)}>
@@ -70,14 +67,13 @@ export function PublicLayout({ children }: { children: ReactNode }) {
           if (item.children) {
             return (
               <div key={item.path} className="group relative">
-                <Link
+                <SiteNavLink
                   href={item.path}
-                  className="site-nav-link"
+                  icon={item.icon}
                   aria-current={active ? "page" : undefined}
                 >
                   {item.label}
-                  <ChevronDown size={14} aria-hidden="true" />
-                </Link>
+                </SiteNavLink>
                 <div className="absolute left-0 top-full hidden pt-1 group-hover:block group-focus-within:block">
                   <div className="w-32 rounded-md border border-border bg-background p-1 shadow-lg">
                     {item.children.map((child) => (
@@ -96,15 +92,15 @@ export function PublicLayout({ children }: { children: ReactNode }) {
             );
           }
           return (
-            <Link
+            <SiteNavLink
               key={item.path}
               href={item.path}
+              icon={item.icon}
               onClick={(e) => handleNavClick(e, item)}
-              className="site-nav-link"
               aria-current={active ? "page" : undefined}
             >
               {item.label}
-            </Link>
+            </SiteNavLink>
           );
         })}
       />

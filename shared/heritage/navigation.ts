@@ -1,6 +1,12 @@
 import { SITE_NAME } from "../site";
 
 export const HERITAGE_PAGES = {
+  albums: {
+    path: "/about/heritage/albums",
+    label: "사진첩",
+    title: "사진첩",
+    description: "사진으로 돌아보는 동문회의 활동과 역사입니다.",
+  },
   timeline: {
     path: "/about/heritage",
     label: "연혁",
@@ -30,12 +36,6 @@ export const HERITAGE_PAGES = {
     label: "기부 내역",
     title: "역대 동문 기부 내역",
     description: "동문과 동문 단체의 기부·기탁·찬조 기록을 전합니다.",
-  },
-  albums: {
-    path: "/about/heritage/albums",
-    label: "사진첩",
-    title: "사진첩",
-    description: "사진으로 돌아보는 동문회의 활동과 역사입니다.",
   },
 } as const;
 
