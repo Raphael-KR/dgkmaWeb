@@ -54,6 +54,10 @@
   --public-section-border: rgb(31 77 46 / 20%);
 }
 
+.theme-public {
+  --site-header-offset: 6rem;
+}
+
 /* 회원 화면에서만 기존 노란색을 사용한다. 공개 페이지는 기본값을 유지한다. */
 .theme-member {
   --site-brand-background: var(--kakao);
@@ -241,6 +245,17 @@
     @apply col-span-2 hidden flex-wrap items-center justify-center gap-1 border-t pt-2 md:flex;
     border-color: color-mix(in srgb, var(--site-brand-foreground) 20%, transparent);
   }
+
+  .theme-public .site-header__inner {
+    @apply flex justify-between;
+  }
+  .theme-public .site-header__actions {
+    @apply order-last;
+  }
+  .theme-public .site-header__nav {
+    @apply flex-1 flex-nowrap border-0 pt-0;
+  }
+
   .site-header-action {
     @apply bg-transparent;
     color: color-mix(in srgb, var(--site-brand-foreground) 90%, transparent);
