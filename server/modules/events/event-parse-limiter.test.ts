@@ -6,10 +6,9 @@ import express from "express";
 import {
   consumePostgresEventParseQuota,
   createEventParseLimiter,
-  createInMemoryEventParseQuota,
   type ConsumeEventParseQuota,
 } from "./event-parse-limiter";
-import { pool } from "../../db";
+import { developmentDbSkip, getDevelopmentDbPool } from "../../tests/development-db-target";
 
 async function listen(app: express.Express) {
   const server = app.listen(0, "127.0.0.1");
@@ -34,8 +33,14 @@ function sessionUser(app: express.Express) {
   });
 }
 
-test("shared quota state limits requests across limiter instances", async () => {
-  const sharedQuota = createInMemoryEventParseQuota();
+test("limiter instances return 429 when their shared quota denies a request", async () => {
+  let remaining = 3;
+  const sharedQuota: ConsumeEventParseQuota = async (userId, windowMs, max) => {
+    assert.equal(userId, 7);
+    assert.equal(windowMs, 60_000);
+    assert.equal(max, 3);
+    return remaining-- > 0;
+  };
   const app = express();
   sessionUser(app);
   app.get("/a", createEventParseLimiter({ max: 3, consumeQuota: sharedQuota }), (_req, res) =>
@@ -92,23 +97,29 @@ test("limits concurrent parsing work per user and releases capacity", async () =
   }
 });
 
-test("PostgreSQL quota atomically limits requests across callers", async () => {
-  const email = `event-parse-${randomUUID()}@example.test`;
-  const inserted = await pool.query<{ id: number }>(
-    `
+test(
+  "PostgreSQL quota atomically limits requests across callers",
+  { skip: developmentDbSkip },
+  async (t) => {
+    const pool = await getDevelopmentDbPool();
+    t.after(() => pool.end());
+    const email = `event-parse-${randomUUID()}@example.test`;
+    const inserted = await pool.query<{ id: number }>(
+      `
     INSERT INTO users (email, name) VALUES ($1, '파싱 제한 테스트') RETURNING id
   `,
-    [email],
-  );
-  const userId = inserted.rows[0]!.id;
-
-  try {
-    const results = await Promise.all(
-      Array.from({ length: 12 }, () => consumePostgresEventParseQuota(userId, 60_000, 10)),
+      [email],
     );
-    assert.equal(results.filter(Boolean).length, 10);
-    assert.equal(results.filter((allowed) => !allowed).length, 2);
-  } finally {
-    await pool.query("DELETE FROM users WHERE id = $1", [userId]);
-  }
-});
+    const userId = inserted.rows[0]!.id;
+
+    try {
+      const results = await Promise.all(
+        Array.from({ length: 12 }, () => consumePostgresEventParseQuota(userId, 60_000, 10)),
+      );
+      assert.equal(results.filter(Boolean).length, 10);
+      assert.equal(results.filter((allowed) => !allowed).length, 2);
+    } finally {
+      await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+    }
+  },
+);

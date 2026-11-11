@@ -225,8 +225,6 @@ export function registerKakaoOAuthStartCases() {
       assert.equal(response.status, 500);
       const responseBody = await response.json();
       assert.deepEqual(responseBody, { message: "Kakao 앱 설정 오류" });
-      const body = JSON.stringify(responseBody);
-      assert.doesNotMatch(body, /KAKAO_DEV_CLIENT_SECRET|route-rest-key|route-client-secret/);
     } finally {
       await server.close();
     }

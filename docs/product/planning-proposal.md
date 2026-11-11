@@ -319,7 +319,7 @@
 | Replit 환경, 환경변수, GitHub 동기화와 배포 | [replit.md](../../replit.md) |
 | DB 구조와 객체별 무결성 | [DB 스키마 기준서](../reference/database-schema.md) |
 | 개발·운영 DB 선택, 변경, 백업·복구 | [DB 운영 런북](../runbooks/database-operations.md) |
-| 별도 요청된 점검의 범위·현재 계약 | [별도 기능 점검](../runbooks/feature-checks.md) |
+| 검사 목적·선택 조건·실행과 재사용 | [검사 카탈로그](../runbooks/feature-checks.md) |
 | 날짜별 실행·구조 이력 | [docs/history/](../history) |
 | 개발·릴리스 변경 요약 | [CHANGELOG.md](../../CHANGELOG.md) |
 

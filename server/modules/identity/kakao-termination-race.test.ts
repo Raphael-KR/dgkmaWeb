@@ -1,3 +1,4 @@
+import { developmentDbSkip, getDevelopmentDbPool } from "../../tests/development-db-target";
 import assert from "node:assert/strict";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import type { Server } from "node:http";
@@ -16,15 +17,6 @@ declare module "express-session" {
   }
 }
 
-const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
-const hasDatabaseEnvironment = Boolean(
-  (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE) || process.env.DATABASE_URL,
-);
-const databaseSkip = isProduction
-  ? "운영 환경에서는 종료 마커 경쟁 테스트를 실행하지 않습니다."
-  : !hasDatabaseEnvironment
-    ? "PostgreSQL 개발 DB 환경변수가 없어 건너뜁니다."
-    : false;
 const sessionSecret = process.env.SESSION_SECRET || "dev-secret-change-in-production";
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -52,15 +44,6 @@ function identityHash(kind: "kakao" | "email", value: string): string {
 
 function stateHash(state: string): string {
   return createHash("sha256").update(state, "utf8").digest("hex");
-}
-
-async function assertDevelopmentDatabase(pool: Pool): Promise<void> {
-  const result = await pool.query<{ database: string }>("select current_database() as database");
-  assert.equal(
-    result.rows[0]?.database,
-    "heliumdb",
-    "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
-  );
 }
 
 async function terminationTableExists(pool: Pool): Promise<boolean> {
@@ -182,13 +165,12 @@ async function createCookie(baseUrl: string, path: string): Promise<string> {
 test(
   "development PostgreSQL rejection purges the whole identity and blocks an older pending refresh",
   {
-    skip: databaseSkip,
+    skip: developmentDbSkip,
   },
   async () => {
-    const { pool } = await import("../../db");
+    const pool = await getDevelopmentDbPool();
     const { storage } = await import("../../storage");
     developmentPool = pool;
-    await assertDevelopmentDatabase(pool);
 
     const token = randomUUID().replaceAll("-", "");
     const kakaoIdNumber = (BigInt(`0x${token.slice(0, 14)}`) % 900_000_000_000n) + 100_000_000_000n;
@@ -405,12 +387,11 @@ test(
 test(
   "development PostgreSQL account deletion blocks an older OAuth callback without blocking a new generation",
   {
-    skip: databaseSkip,
+    skip: developmentDbSkip,
   },
   async () => {
-    const { pool } = await import("../../db");
+    const pool = await getDevelopmentDbPool();
     developmentPool = pool;
-    await assertDevelopmentDatabase(pool);
 
     const token = randomUUID().replaceAll("-", "");
     const kakaoNumericId = String(
@@ -619,13 +600,12 @@ test(
 test(
   "development PostgreSQL deletion waits for a finalizing login and removes its saved session",
   {
-    skip: databaseSkip,
+    skip: developmentDbSkip,
   },
   async () => {
-    const { pool } = await import("../../db");
+    const pool = await getDevelopmentDbPool();
     const { storage } = await import("../../storage");
     developmentPool = pool;
-    await assertDevelopmentDatabase(pool);
 
     const token = randomUUID().replaceAll("-", "");
     const kakaoId = String(

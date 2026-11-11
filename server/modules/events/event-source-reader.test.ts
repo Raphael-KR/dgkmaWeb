@@ -35,7 +35,7 @@ test("reads a URL-only source and appends extracted public text", async () => {
   ]);
 });
 
-test("treats an incomplete Gipoom app shell as unavailable without executing JavaScript", async () => {
+test("treats an incomplete Gipoom app shell as unavailable in the injected static path", async () => {
   const url = "https://bugo.gipoom.com/e9597b47c1ec3fcc66e61b0d";
   const result = await readEventSources(`졸업21기 조은영 ${url}`, {
     readProviderSource: async () => undefined,

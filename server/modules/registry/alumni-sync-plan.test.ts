@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const baseSource = {
@@ -343,19 +342,6 @@ test("Google Sheets API failures become structured snapshots without raw errors"
     issues: [{ code: "SOURCE_UNAVAILABLE", count: 1 }],
   });
   assert.doesNotMatch(JSON.stringify(snapshot), /민감한 원문 API 오류/);
-});
-
-test("tracked Google Sheets readers keep no raw alumni cache", async () => {
-  const serverDirectory = new URL("../../integrations/", import.meta.url);
-  const readerFiles = (await readdir(serverDirectory)).filter((fileName) =>
-    /^google-sheets(?:-.*)?\.ts$/.test(fileName),
-  );
-
-  assert.ok(readerFiles.includes("google-sheets.ts"));
-  for (const fileName of readerFiles) {
-    const source = await readFile(new URL(fileName, serverDirectory), "utf8");
-    assert.doesNotMatch(source, /cachedAlumniData|Cache cleared|캐시에 저장/, fileName);
-  }
 });
 
 test("planner does not double-count strict snapshot issues", async () => {

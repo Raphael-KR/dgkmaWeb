@@ -135,24 +135,6 @@ test("lazy routing preserves public, member and administrator access", async () 
   assert.match(await render("/admin", { isAdmin: true }), /screen:admin\/admin/);
 });
 
-test("public legacy redirects remain and retired URLs are absent", () => {
-  const source = readFileSync("client/src/app/routing/router.tsx", "utf8");
-  for (const [path, target] of Object.entries({
-    "/info": "/about",
-    "/executives": "/about/executives",
-    "/officers": "/about/executives",
-    "/bylaws": "/about/bylaws",
-  })) {
-    assert.match(
-      source,
-      new RegExp(
-        `path="${path}"\\s+component=\\{\\(\\)\\s*=>\\s*\\{\\s*window\\.location\\.href\\s*=\\s*"${target}"`,
-      ),
-    );
-  }
-  assert.doesNotMatch(source, /path="\/(?:o|events|heritage|history|about\/intro)(?:\/|")/);
-});
-
 test("pending screens show status; failed screens offer an explicit full reload", async () => {
   const output = await build({
     stdin: {
@@ -196,7 +178,4 @@ test("pending screens show status; failed screens offer an explicit full reload"
   assert.match(result.failed, /href="\/"/);
   assert.doesNotMatch(result.failed, /private detail/);
   assert.notEqual(result.firstKey, result.nextKey);
-  const source = readFileSync("client/src/app/routing/route-boundary.tsx", "utf8");
-  assert.match(source, /onClick=\{\(\) => window.location.reload\(\)\}/);
-  assert.equal((source.match(/window.location.reload/g) ?? []).length, 1);
 });

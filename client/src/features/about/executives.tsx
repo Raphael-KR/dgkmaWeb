@@ -38,7 +38,7 @@ function ExecCard({ exec, size = "md" }: { exec: Officer; size?: "lg" | "md" | "
       )}
       <div className="text-center">
         <p className={`${nameSize} text-gray-900`}>{exec.name}</p>
-        <p className={`${titleSize} font-medium tp-text-gold-dark mt-0.5`}>{exec.title}</p>
+        <p className={`${titleSize} font-medium tp-text-emphasis mt-0.5`}>{exec.title}</p>
         {exec.subtitle && <p className={`${titleSize} text-gray-500 mt-0.5`}>{exec.subtitle}</p>}
       </div>
     </div>

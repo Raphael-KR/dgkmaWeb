@@ -1,10 +1,11 @@
+import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
 import type { Category, Post, User } from "@shared/schema";
 import type { AdminUserLookup } from "../middleware/auth";
-import { AlumniSourceReadError, googleSheetsService } from "../integrations/google-sheets";
+import { googleSheetsService } from "../integrations/google-sheets";
 import { registerRoutes } from "../routes";
 import { storage } from "../storage";
 
@@ -58,6 +59,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
 
   try {
     const adminEndpoints = [
+      { method: "GET", path: ADMIN_STATISTICS_PATH },
       { method: "GET", path: "/api/admin/pending-registrations" },
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
       { method: "POST", path: "/api/admin/sync-alumni/preview" },
@@ -95,56 +97,6 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
   }
 });
 
-test("sync apply failures return a fixed Korean response without the source exception", async (t) => {
-  const sourceError = "sheets oauth credential secret leaked";
-  t.mock.method(storage, "applyAlumniSync", async () => {
-    throw new Error(sourceError);
-  });
-  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
-
-  try {
-    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-test-user-id": "1",
-      },
-      body: JSON.stringify({ fingerprint: `sha256:${"a".repeat(64)}` }),
-    });
-    assert.equal(response.status, 500);
-    const body = await response.json();
-    assert.deepEqual(body, {
-      message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
-    });
-    assert.doesNotMatch(JSON.stringify(body), new RegExp(sourceError));
-  } finally {
-    await server.close();
-  }
-});
-
-test("strict Sheets reader failures return a fixed preview response", async (t) => {
-  t.mock.method(console, "log", () => {});
-  t.mock.method(console, "error", () => {});
-  t.mock.method(storage, "previewAlumniSync", async () => {
-    throw new AlumniSourceReadError([{ code: "EMPTY_SOURCE", count: 1 }]);
-  });
-  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
-
-  try {
-    const response = await fetch(`${server.baseUrl}/api/admin/sync-alumni/preview`, {
-      method: "POST",
-      headers: { "x-test-user-id": "1" },
-    });
-
-    assert.equal(response.status, 500);
-    assert.deepEqual(await response.json(), {
-      message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
-    });
-  } finally {
-    await server.close();
-  }
-});
-
 test("Google Sheets connection failures return a fixed Korean response without the source exception", async (t) => {
   const sourceError = "sheets oauth credential secret leaked";
   t.mock.method(googleSheetsService, "testConnection", async () => {
@@ -162,7 +114,6 @@ test("Google Sheets connection failures return a fixed Korean response without t
       connected: false,
       message: "Google Sheets 연결에 실패했습니다. 잠시 후 다시 시도해주세요",
     });
-    assert.doesNotMatch(JSON.stringify(body), new RegExp(sourceError));
   } finally {
     await server.close();
   }

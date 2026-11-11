@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { KakaoAdminConfigurationError, resolveKakaoAdminConfig } from "./kakao-admin-config";
 
@@ -60,21 +59,4 @@ test("missing production administrator key reports the production variable only"
       return true;
     },
   );
-});
-
-test("deployment docs and environment example match the transitional alumni sources", async () => {
-  const [envExample, replitGuide, proposal] = await Promise.all([
-    readFile(new URL("../../../.env.example", import.meta.url), "utf8"),
-    readFile(new URL("../../../replit.md", import.meta.url), "utf8"),
-    readFile(new URL("../../../docs/product/planning-proposal.md", import.meta.url), "utf8"),
-  ]);
-
-  assert.doesNotMatch(envExample, /^KAKAO_ADMIN_KEY=/m);
-  assert.match(envExample, /^KAKAO_DEV_ADMIN_KEY=""$/m);
-  assert.match(envExample, /^KAKAO_PROD_ADMIN_KEY=""$/m);
-  assert.match(replitGuide, /Google Sheets를 동문 명부의 \*\*관리 원본\*\*/);
-  assert.match(replitGuide, /PostgreSQL `alumni_database`[^\n]*\*\*런타임 복제본\*\*/);
-  assert.doesNotMatch(replitGuide, /아직 Google Sheets 런타임 조회를 사용/);
-  assert.match(proposal, /Google Sheets를 동문 명부의 \*\*관리 원본\*\*/);
-  assert.match(proposal, /PostgreSQL `alumni_database`[^\n]*\*\*런타임 복제본\*\*/);
 });

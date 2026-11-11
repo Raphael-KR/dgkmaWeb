@@ -27,20 +27,13 @@ test("recognizes explicit relationship expressions and normalizes in-laws", () =
   assert.equal(parseObituarySms("김동국 동문 모친께서 별세하셨습니다").deceasedRelation, "모친");
 });
 
-test("Given a dated possessive obituary sentence, When parsing, Then it keeps the relationship", () => {
-  const parsed = parseObituarySms(
-    "동국한의 07학번 김동국동문의 부친께서 2026년 10월 28일 별세하셨기에 삼가 알려드립니다.",
-  );
-
-  assert.equal(parsed.deceasedRelation, "부친");
-});
-
-test("Given a possessive alumni obituary sentence, When parsing, Then it keeps the member name", () => {
+test("keeps the member name and relationship from a dated possessive obituary sentence", () => {
   const parsed = parseObituaryEventSource(
     "동국한의 07학번 김동국동문의 부친께서 2026년 10월 28일 별세하셨기에 삼가 알려드립니다.",
   );
 
   assert.equal(parsed.draft.relatedMemberName, "김동국");
+  assert.equal(parsed.draft.details.relationship, "부친");
 });
 
 test("uses a generation shorthand as member evidence and keeps self-obituary identity", () => {

@@ -306,44 +306,41 @@
   }
 }
 
-/* =====================================================================
-   Public Theme — DGKMA Design System (PANTONE 144/173/124/159 C)
-   기존 tp-* 유틸리티 클래스를 새 디자인 토큰에 재매핑.
-   ===================================================================== */
+/* 공개 테마: 역할별 클래스가 공통 디자인 토큰을 사용한다. */
 .theme-public {
   background-color: var(--dg-white);
   color: var(--dg-neutral-dark);
 }
 
 /* 큰 면적 주조 배경 — Brand BG #CB591F */
-.theme-public .tp-bg-green {
+.theme-public .tp-bg-brand {
   background-color: var(--dg-brand-bg);
   color: var(--dg-white);
 }
 /* 섹션 알트 배경 — Warm Tint */
-.theme-public .tp-bg-cream {
+.theme-public .tp-bg-muted {
   background-color: var(--dg-neutral-light);
 }
 /* 강조 배지·활성 네비 — Accent (텍스트는 반드시 Neutral-Dark) */
-.theme-public .tp-bg-gold {
+.theme-public .tp-bg-accent {
   background-color: var(--dg-accent);
   color: var(--dg-neutral-dark);
 }
 
 /* 본문·헤딩 텍스트 — Neutral-Dark */
-.theme-public .tp-text-green-dark {
+.theme-public .tp-text-body {
   color: var(--dg-neutral-dark);
 }
 /* 강조색. 대비는 실제 전경·배경 조합에 따라 달라진다. */
-.theme-public .tp-text-gold {
+.theme-public .tp-text-accent {
   color: var(--dg-accent);
 }
 /* 흰 배경의 보조 강조색 */
-.theme-public .tp-text-gold-dark {
+.theme-public .tp-text-emphasis {
   color: var(--dg-secondary);
 }
 
-.theme-public .tp-border-gold {
+.theme-public .tp-border-accent {
   border-color: var(--dg-accent);
 }
 

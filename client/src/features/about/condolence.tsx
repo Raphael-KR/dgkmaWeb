@@ -19,7 +19,7 @@ export default function AboutCondolence() {
           <p className="text-sm text-gray-600 mt-3">문자 · 화환 · 근조기 신청 절차를 안내합니다.</p>
         </PublicHeading>
 
-        <Card className="mb-6 border-l-4 tp-border-gold">
+        <Card className="mb-6 border-l-4 tp-border-accent">
           <CardContent className="p-6">
             <h2 className="public-card-title mb-3">신청 대상</h2>
             <p className="text-sm text-gray-700 leading-relaxed">
@@ -36,12 +36,12 @@ export default function AboutCondolence() {
 
             <ol className="space-y-6">
               <li>
-                <h3 className="font-semibold tp-text-green-dark mb-2">1단계. 동문회 밴드 가입</h3>
+                <h3 className="font-semibold tp-text-body mb-2">1단계. 동문회 밴드 가입</h3>
                 <a
                   href={ASSOCIATION_CONTACT.bandUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm tp-text-gold-dark underline underline-offset-2"
+                  className="text-sm tp-text-emphasis underline underline-offset-2"
                   onClick={() =>
                     trackEvent("external_contact_clicked", {
                       destination: "band",
@@ -54,7 +54,7 @@ export default function AboutCondolence() {
               </li>
 
               <li>
-                <h3 className="font-semibold tp-text-green-dark mb-2">2단계. 동문회비 납부</h3>
+                <h3 className="font-semibold tp-text-body mb-2">2단계. 동문회비 납부</h3>
                 <div className="support-note">
                   <p>
                     <strong>{ASSOCIATION_ACCOUNT_LABEL}</strong>
@@ -70,15 +70,13 @@ export default function AboutCondolence() {
               </li>
 
               <li>
-                <h3 className="font-semibold tp-text-green-dark mb-2">
-                  3단계. 신청 항목 비용 입금
-                </h3>
+                <h3 className="font-semibold tp-text-body mb-2">3단계. 신청 항목 비용 입금</h3>
                 <div className="overflow-x-auto -mx-2 px-2 mb-4">
                   <table className="w-full text-sm min-w-[360px]">
                     <thead>
                       <tr className="border-b text-left">
-                        <th className="py-3 px-2 font-semibold tp-text-green-dark">항목</th>
-                        <th className="py-3 px-2 font-semibold tp-text-green-dark">비용</th>
+                        <th className="py-3 px-2 font-semibold tp-text-body">항목</th>
+                        <th className="py-3 px-2 font-semibold tp-text-body">비용</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 text-gray-700">
@@ -109,7 +107,7 @@ export default function AboutCondolence() {
               </li>
 
               <li>
-                <h3 className="font-semibold tp-text-green-dark mb-2">
+                <h3 className="font-semibold tp-text-body mb-2">
                   4단계. 홈페이지 게시 및 발송 요청
                 </h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
@@ -118,7 +116,7 @@ export default function AboutCondolence() {
                     href={ASSOCIATION_CONTACT.inquiryUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-semibold tp-text-gold-dark underline underline-offset-2"
+                    className="font-semibold tp-text-emphasis underline underline-offset-2"
                     onClick={() =>
                       trackEvent("external_contact_clicked", {
                         destination: "kakao",
@@ -137,7 +135,7 @@ export default function AboutCondolence() {
               </li>
 
               <li>
-                <h3 className="font-semibold tp-text-green-dark mb-2">5단계. 문자 발송 승인</h3>
+                <h3 className="font-semibold tp-text-body mb-2">5단계. 문자 발송 승인</h3>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   문자를 신청한 경우 카카오톡으로 전달받은 <strong>발송 문구 시안</strong>을
                   검토하고 발송을 승인해 주세요. 승인을 거쳐 발송된 문자 내용에 대해서는 동문회가
@@ -171,7 +169,7 @@ export default function AboutCondolence() {
           </CardContent>
         </Card>
 
-        <div className="tp-bg-cream border rounded-lg p-6 flex items-start gap-4">
+        <div className="tp-bg-muted border rounded-lg p-6 flex items-start gap-4">
           <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
             <Heart className="text-red-600" size={20} />
           </div>

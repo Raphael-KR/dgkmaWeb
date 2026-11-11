@@ -40,7 +40,7 @@ export default function AboutJoin() {
           <p className="text-sm text-gray-600 mt-3">
             동국대학교 한의과대학 졸업자 또는 동 대학원 졸업자라면 누구나 회원으로 가입할 수
             있습니다.{" "}
-            <Link href="/about/bylaws" className="tp-text-gold-dark underline underline-offset-2">
+            <Link href="/about/bylaws" className="tp-text-emphasis underline underline-offset-2">
               (회칙 제7조 ~ 제9조)
             </Link>
           </p>
@@ -51,27 +51,27 @@ export default function AboutJoin() {
             <h2 className="public-card-title mb-4">회원 구성</h2>
             <ul className="space-y-3 text-gray-700">
               <li className="flex gap-2">
-                <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} />
+                <CheckCircle2 className="tp-text-emphasis flex-shrink-0 mt-0.5" size={18} />
                 <span>
-                  <strong className="tp-text-green-dark">회원</strong> · 동국대학교 한의과대학 또는
-                  동 대학원 졸업자 중 본회의 목적과 설립 취지에 찬동하여 입회신청서를 제출하고
-                  승인된 자
+                  <strong className="tp-text-body">회원</strong> · 동국대학교 한의과대학 또는 동
+                  대학원 졸업자 중 본회의 목적과 설립 취지에 찬동하여 입회신청서를 제출하고 승인된
+                  자
                 </span>
               </li>
               <li className="flex gap-2">
-                <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} />
+                <CheckCircle2 className="tp-text-emphasis flex-shrink-0 mt-0.5" size={18} />
                 <span>
-                  <strong className="tp-text-green-dark">권리회원</strong> · 회비·부담금을 정상
-                  납부하여 회원의 권리가 유지되는 회원. 총회 의결권 · 임원 선거권 및 피선거권 · 사업
-                  혜택을 행사할 수 있음
+                  <strong className="tp-text-body">권리회원</strong> · 회비·부담금을 정상 납부하여
+                  회원의 권리가 유지되는 회원. 총회 의결권 · 임원 선거권 및 피선거권 · 사업 혜택을
+                  행사할 수 있음
                 </span>
               </li>
               <li className="flex gap-2">
-                <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={18} />
+                <CheckCircle2 className="tp-text-emphasis flex-shrink-0 mt-0.5" size={18} />
                 <span>
-                  <strong className="tp-text-green-dark">명예회원</strong> · 회원 자격에 해당하지
-                  않으나, 본회 발전에 현저한 공로가 있어 회장의 추천과 이사회의 승인을 받은 사람
-                  (발언권 보유)
+                  <strong className="tp-text-body">명예회원</strong> · 회원 자격에 해당하지 않으나,
+                  본회 발전에 현저한 공로가 있어 회장의 추천과 이사회의 승인을 받은 사람 (발언권
+                  보유)
                 </span>
               </li>
             </ul>
@@ -84,18 +84,18 @@ export default function AboutJoin() {
             <ul className="space-y-2 text-sm text-gray-700">
               {duties.map((d) => (
                 <li key={d} className="flex gap-2">
-                  <CheckCircle2 className="tp-text-gold-dark flex-shrink-0 mt-0.5" size={16} />
+                  <CheckCircle2 className="tp-text-emphasis flex-shrink-0 mt-0.5" size={16} />
                   <span>{d}</span>
                 </li>
               ))}
             </ul>
             <p className="text-xs text-gray-500 mt-4">
               회비 납부 방법과 권리회원 혜택은{" "}
-              <Link href="/about/dues" className="tp-text-gold-dark underline">
+              <Link href="/about/dues" className="tp-text-emphasis underline">
                 회비 안내
               </Link>
               를, 전체 조항은{" "}
-              <Link href="/about/bylaws" className="tp-text-gold-dark underline">
+              <Link href="/about/bylaws" className="tp-text-emphasis underline">
                 회칙
               </Link>
               을 참고해 주세요.
@@ -103,22 +103,22 @@ export default function AboutJoin() {
           </CardContent>
         </Card>
 
-        <h2 className="text-xl font-bold tp-text-green-dark mb-4">가입 절차</h2>
+        <h2 className="text-xl font-bold tp-text-body mb-4">가입 절차</h2>
         <ol className="space-y-4 mb-10">
           {steps.map((s, i) => (
             <li key={s.title} className="flex gap-4">
-              <div className="w-9 h-9 rounded-full tp-bg-green text-white font-bold flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-full tp-bg-brand text-white font-bold flex items-center justify-center flex-shrink-0">
                 {i + 1}
               </div>
               <div className="flex-1 pt-1">
-                <div className="font-semibold tp-text-green-dark">{s.title}</div>
+                <div className="font-semibold tp-text-body">{s.title}</div>
                 <div className="text-sm text-gray-600 mt-0.5">{s.desc}</div>
               </div>
             </li>
           ))}
         </ol>
 
-        <div className="tp-bg-cream border rounded-lg p-6 text-center">
+        <div className="tp-bg-muted border rounded-lg p-6 text-center">
           <p className="text-gray-700 mb-4">지금 바로 카카오 로그인으로 가입을 시작해보세요.</p>
           <Button
             variant="community"
