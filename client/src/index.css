@@ -252,6 +252,9 @@
     @apply flex min-h-10 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium transition-colors;
     color: color-mix(in srgb, var(--site-brand-foreground) 90%, transparent);
   }
+  .site-nav-link > svg {
+    @apply size-4 shrink-0;
+  }
   .site-nav-link:hover {
     background-color: color-mix(in srgb, var(--site-brand-foreground) 10%, transparent);
   }
@@ -259,7 +262,6 @@
   .site-menu-link {
     @apply block rounded-md px-4 py-3 text-sm font-medium text-foreground hover:bg-muted;
   }
-  .site-header-action[aria-current="page"],
   .site-nav-link[aria-current="page"],
   .site-menu-link[aria-current="page"] {
     background-color: var(--site-nav-active-background);

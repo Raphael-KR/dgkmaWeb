@@ -18,14 +18,16 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 2026-11-11 필수 검사만 유지하는 후속 정리와 공통 스타일·회원 테마 분리를 PR #33으로 main에 통합하고 `2.0.1`로 운영에 반영했다. 정리 근거는 [추가 축소 기록](../history/essential-checks-2026-11-11.md), 실제 검사·Git·운영 확인 범위는 [2.0.1 릴리스 기록](../history/release-2.0.1-2026-11-11.md)을 따른다.
 
+소개 페이지 복원·본문 이동은 후속 미배포 개발 변경이며 아래 소유권·경로에는 이 범위를 반영한다. 공개홈과 소개 본문을 분리하고 동문회 하위 메뉴 첫 항목으로 소개를 복원한다. [개발 기록](../history/header-navigation-2026-11-11.md#소개-페이지-복원)에서 소스 반영·정적 검사 상태를 구분한다.
+
 ## 코드 소유권
 
 | 소유 위치 | 책임 |
 |---|---|
 | `client/src/app/app.tsx`, `providers.tsx`, `routing/`, `layout/` | 앱 조립, 라우트, 프로바이더, 공통 레이아웃 |
 | `features/auth` | 로그인·콜백·활동지역, 세션 상태와 인증 API |
-| `features/home` | 회원 홈과 `/`·`/about`에서 공유하는 공개 랜딩페이지 |
-| `features/about` | 공개 안내와 역사관 6개 메뉴. `heritage/`에서 공통 페이지·자료 연결·사진 확대를 재사용하며 현 임원도 같은 공개 자료를 읽음. 소개·조직 설명은 `features/home`의 공개 랜딩페이지에서 제공 |
+| `features/home` | 회원 홈과 `/`·`/about`에서 공유하는 공개 랜딩페이지. 공개홈 본문은 히어로·회장 인사말·바로가기·참여 안내 |
+| `features/about` | `intro.tsx`의 동문회 소개·주요 사업·조직 및 임원, 공개 안내와 역사관 6개 메뉴. `heritage/`에서 공통 페이지·자료 연결·사진 확대를 재사용하며 현 임원도 같은 공개 자료를 읽음 |
 | `features/boards` | 게시글·댓글·첨부 |
 | `features/directory` | 권한 범위 내 명부 |
 | `features/profile` | 프로필·납부내역·회원상태 |
@@ -72,7 +74,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 ### 브라우저 경로
 
 `/`, `/login`, `/kakao-callback`, `/onboarding/region`, `/terms`, `/privacy`,
-`/about`, `/about/executives`, `/about/presidents`, `/about/heritage`,
+`/about`, `/about/intro`, `/about/executives`, `/about/presidents`, `/about/heritage`,
 `/about/heritage/officers`, `/about/heritage/awards`, `/about/heritage/donations`, `/about/heritage/albums`,
 `/about/bylaws`, `/about/bylaws/regulations`,
 `/about/join`, `/about/dues`, `/about/condolence`, `/admin`, `/b`, `/directory`,
@@ -80,8 +82,9 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 통합 정책에 따라 `/b/write/:type`를 추가하고 `/o`, `/events`와 그 하위 경로는 제거한다.
 
 - `/about`은 로그인 여부와 관계없이 기존 공개 홈 랜딩페이지를 직접 표시한다. `/heritage` 화면·라우트는 제거한다.
-- 공개 메뉴는 `동문회(/about) · 역사관(/about/heritage) · 공지(/b)`다. 동문회 하위는 임원명단·회칙·규정·회원가입·회비·경조사이며 PC·태블릿·모바일 모두 `app/layout/nav-items.ts`를 사용한다. 공지의 회원 인증과 회원 메뉴는 유지한다.
-- `/about/intro` 페이지와 `/history` 별칭은 삭제하고 리다이렉트 없이 기존 미등록 경로 처리를 따른다. 기존 내부 링크는 각각 `/about`과 `/about/heritage`로 바꾸며 두 경로는 공개 메타데이터·사이트맵에서 제외한다.
+- 공개 메뉴는 `동문회(/about) · 역사관(/about/heritage/albums) · 공지(/b)`다. 동문회 하위는 소개·임원명단·회칙·규정·회원가입·회비·경조사이며 PC·태블릿·모바일 모두 `app/layout/nav-items.ts`를 사용한다. 역사관 하위·내부 메뉴는 `shared/heritage/navigation.ts`의 사진첩 우선 순서를 공유하며 연혁 주소와 기록별 앵커는 유지한다. 공지의 회원 인증과 회원 메뉴는 유지한다.
+- `/about/intro`는 공개 소개 페이지이며 같은 목적지 정의를 하위 메뉴와 공개홈 바로가기에서 재사용한다. `shared/public-pages.ts`에 등록한 제목·설명이 서버 HTML과 클라이언트 SEO·사이트맵에 함께 적용된다. 소개 canonical은 자신의 경로를 사용하고 `/`·`/about`의 대표 주소 정책은 유지한다.
+- `/history` 별칭은 삭제 상태로 유지하고 리다이렉트 없이 기존 미등록 경로 처리를 따른다. 기존 내부 링크는 `/about/heritage`로 연결하며 공개 메타데이터·사이트맵에서 제외한다.
 - 역사관 하위 메뉴는 공통 정의를 사용하고 기존 `/about/presidents`를 포함한다. 사진첩의 `year`는 최근 5년·연도·전체 목록을 선택하고 `album`은 상세 앨범을 선택한다. canonical은 각 메뉴 경로를 사용한다.
 - `/info → /about`
 - `/executives`, `/officers → /about/executives`; `/bylaws → /about/bylaws`
@@ -144,6 +147,8 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 공통 헤더·메뉴의 색상은 `client/src/index.css`의 역할별 CSS 변수로 관리한다. 공개 화면은 주황색 기본값을 사용하고, `AppShell`의 기존 회원 화면 판정에만 `theme-member`를 적용해 노란색으로 바꾼다. 회원 테마에서 공개 `/about` 화면으로 이동하면 이 범위가 해제되므로 공개 헤더·푸터와 모바일 메뉴도 공개 색을 사용한다. 공통 로고·이름·레이아웃을 복제하거나 로그인 상태만으로 공개 페이지의 색을 바꾸지 않는다.
 
 공개·회원 헤더의 한 줄 배치는 `SiteHeader`와 공통 CSS에서 관리한다. 로고·가운데 메뉴·오른쪽 도구를 DOM과 화면에서 같은 순서로 두며, 기존 공개 햄버거와 메뉴 표시 구간을 유지한다. `HeaderProfileLink`는 두 헤더에서 같은 이름 버튼·`/profile` 링크·현재 위치 표시를 제공하고 색상은 테마 변수를 따른다. `nav-items.ts`의 전체 회원 메뉴는 하단에서 유지하며, 상단은 같은 목록에서 홈·내정보를 제외한 항목을 사용한다.
+
+상단 메뉴·이름·커뮤니티 이동은 `SiteNavLink`와 `site-nav-link` CSS를 공유한다. 이름에만 적용하던 별도 크기·굵기·아이콘 크기는 두지 않는다. `header-actions.tsx`는 이름 링크와 공통 아이콘 로그아웃 버튼을 제공한다. 공개 메뉴·바로가기의 데이터는 `nav-items.ts`에서 관리하며 같은 항목의 경로·아이콘을 재사용한다. 카드와 서랍의 배치는 각 사용처에서 유지한다.
 
 회원 헤더의 최근 글 버튼은 홈의 `recent-posts-section` 이동을 제공한다. 접근성 이름·툴팁·목록 아이콘을 이 역할에 맞추고, 미읽음 상태가 없는 고정 알림 점은 표시하지 않는다. 알림 조회·발송 기능은 이 버튼의 계약에 포함하지 않는다.
 

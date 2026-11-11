@@ -15,6 +15,10 @@ const heritagePages = Object.fromEntries(
 export const PUBLIC_PAGES = {
   "/": home,
   "/about": home,
+  "/about/intro": {
+    title: "동문회 소개",
+    description: `${SITE_NAME}의 설립 목적과 회원 구성, 주요 사업, 조직 및 임원을 소개합니다.`,
+  },
   "/about/executives": {
     title: "임원 명단",
     description: `${SITE_NAME} ${officers.currentTerm}대 임원 명단입니다.`,
