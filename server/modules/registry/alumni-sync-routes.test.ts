@@ -1,3 +1,4 @@
+import { AlumniSourceReadError } from "../../integrations/google-sheets";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
@@ -154,31 +155,36 @@ test("unexpected sync failures do not expose source errors in response or logs",
   t.mock.method(console, "error", (...values: unknown[]) => {
     logs.push(values.map(String).join(" "));
   });
-  const server = await startServer({
-    previewAlumniSync: async () => {
-      throw new Error(sourceError);
-    },
-    applyAlumniSync: async () => {
-      throw new Error(sourceError);
-    },
-  });
+  for (const error of [
+    new Error(sourceError),
+    new AlumniSourceReadError([{ code: "EMPTY_SOURCE", count: 1 }]),
+  ]) {
+    const server = await startServer({
+      previewAlumniSync: async () => {
+        throw error;
+      },
+      applyAlumniSync: async () => {
+        throw error;
+      },
+    });
 
-  try {
-    for (const path of ["/api/admin/sync-alumni/preview", "/api/admin/sync-alumni"]) {
-      const response = await fetch(`${server.baseUrl}${path}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: path.endsWith("preview")
-          ? undefined
-          : JSON.stringify({ fingerprint: report.sourceFingerprint }),
-      });
-      assert.equal(response.status, 500);
-      assert.deepEqual(await response.json(), {
-        message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
-      });
+    try {
+      for (const path of ["/api/admin/sync-alumni/preview", "/api/admin/sync-alumni"]) {
+        const response = await fetch(`${server.baseUrl}${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: path.endsWith("preview")
+            ? undefined
+            : JSON.stringify({ fingerprint: report.sourceFingerprint }),
+        });
+        assert.equal(response.status, 500);
+        assert.deepEqual(await response.json(), {
+          message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요",
+        });
+      }
+      assert.doesNotMatch(logs.join("\n"), new RegExp(sourceError));
+    } finally {
+      await server.close();
     }
-    assert.doesNotMatch(logs.join("\n"), new RegExp(sourceError));
-  } finally {
-    await server.close();
   }
 });

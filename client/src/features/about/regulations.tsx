@@ -25,12 +25,12 @@ export default function AboutRegulations() {
           <p className="text-sm text-gray-500 mt-3">제정·시행 2026. 9. 4.</p>
         </PublicHeading>
 
-        <div className="mb-8 rounded-lg border tp-bg-cream p-5 text-sm text-gray-700 leading-relaxed">
-          <strong className="block tp-text-green-dark mb-1">현행 규정</strong>
+        <div className="mb-8 rounded-lg border tp-bg-muted p-5 text-sm text-gray-700 leading-relaxed">
+          <strong className="block tp-text-body mb-1">현행 규정</strong>
           2026년 9월 4일, 제22대 제2차 이사회(서면결의) 제1호로 원안 가결되었습니다.
           <span className="block mt-2">
             상위 규범:{" "}
-            <Link href="/about/bylaws" className="tp-text-gold-dark underline underline-offset-2">
+            <Link href="/about/bylaws" className="tp-text-emphasis underline underline-offset-2">
               동국대학교한의과대학동문회 회칙
             </Link>
           </span>

@@ -9,7 +9,7 @@
 | 제품 목표·확정 정책·남은 기능 | `product/` — [제품·개발 계획](product/planning-proposal.md) |
 | 구조·의존 경계·보안 설명 | `architecture/` — [프로젝트 구조](architecture/project-structure.md), [위협 모델](architecture/threat-model.md), [정적 자산 배포 정책](architecture/static-asset-release-policy.md) |
 | 데이터·기능 계약과 도구 사전 | `reference/` — [DB 스키마](reference/database-schema.md), [DB 스크립트 분류](reference/database-scripts.md), [역사관 콘텐츠](reference/heritage-content.md), [본문 편집기](reference/post-editor.md), [부고 작성](reference/obituary-writing-guide.md) |
-| 작업 수행 절차 | `runbooks/` — [개발 시작](runbooks/development.md), [DB 운영](runbooks/database-operations.md), [별도 기능 점검](runbooks/feature-checks.md), [카카오 동의 심사](runbooks/kakao-consent-review-guide.md) |
+| 작업 수행 절차 | `runbooks/` — [개발 시작](runbooks/development.md), [DB 운영](runbooks/database-operations.md), [검사 카탈로그](runbooks/feature-checks.md), [카카오 동의 심사](runbooks/kakao-consent-review-guide.md) |
 | 결정 배경·대안·결과 | `decisions/` — [ADR 색인](decisions/README.md) |
 | 수행 결과·당시 상태 | `history/` — [이력 색인](history/README.md) |
 | 과거 설계·구현 계획 원문 | `superpowers/` — [보관 계획 색인](superpowers/README.md) |

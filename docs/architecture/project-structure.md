@@ -14,7 +14,9 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 후속 역사관 구현은 `shared/heritage/`의 공개 JSON·타입·메뉴와 `features/about/heritage/`의 공통 페이지·기록 표시·사진첩으로 분리했다. PR #31로 main에 통합하고 2026-11-11 Replit 운영에 반영했다. 아래 경로·소유 위치는 이 커밋된 소스를 포함한다. [콘텐츠 기준](../reference/heritage-content.md)과 [개발 기록](../history/heritage-2026-11-10.md)·[릴리스 기록](../history/heritage-release-2026-11-11.md)을 따른다.
 
-2026-11-11 공개홈 메뉴 개편의 범위도 아래에 반영한다. 공개 메뉴 세 개와 동문회 하위 여섯 메뉴, 중복 소개 페이지·`/history` 별칭 삭제는 `2.0.0` 후보에 포함하며 위 PR #31 운영 릴리스와 구분한다. 개발 결과는 [공개홈 메뉴 개발 범위](../../replit.md#공개홈-메뉴-개편-개발-범위), Git·운영 적용은 [2.0.0 릴리스 기록](../history/release-2.0.0-2026-11-11.md)을 따른다.
+2026-11-11 공개홈 메뉴 개편의 범위도 아래에 반영한다. 공개 메뉴 세 개와 동문회 하위 여섯 메뉴, 중복 소개 페이지·`/history` 별칭 삭제를 PR #32로 main에 통합하고 `2.0.0`으로 운영에 반영했다. 개발 결과는 [공개홈 메뉴 개발 범위](../../replit.md#공개홈-메뉴-개편-개발-범위), Git·운영 적용은 [2.0.0 릴리스 기록](../history/release-2.0.0-2026-11-11.md)을 따른다.
+
+2026-11-11 필수 검사만 유지하는 후속 정리의 기준을 아래 검사 절에 반영했다. 로컬·Replit 개발 사본 대상이며 Git·운영 반영 여부와 실제 확인 결과는 [추가 축소 기록](../history/essential-checks-2026-11-11.md)을 따른다.
 
 ## 코드 소유권
 
@@ -139,6 +141,8 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 회원 탐색은 `AppHeader`·`BottomNavigation`, 공개 서랍은 `PublicLayout`이 담당한다. 열기 경로 없는 회원 사이드 메뉴와 전용 상태·항목은 유지하지 않는다. 관리자 진입은 회원 홈에서 제공한다. 공개 문서의 `tp-prose`와 게시글의 `post-body`는 자체 CSS이며, 사용하는 클래스가 없는 루트 Typography 플러그인은 제거한다. sandbox의 별도 구성은 이 정리에 포함하지 않는다.
 
+공통 헤더·메뉴의 색상은 `client/src/index.css`의 역할별 CSS 변수로 관리한다. 공개 화면은 주황색 기본값을 사용하고, `AppShell`의 기존 회원 화면 판정에만 `theme-member`를 적용해 노란색으로 바꾼다. 회원 테마에서 공개 `/about` 화면으로 이동하면 이 범위가 해제되므로 공개 헤더·푸터와 모바일 메뉴도 공개 색을 사용한다. 공통 로고·이름·레이아웃을 복제하거나 로그인 상태만으로 공개 페이지의 색을 바꾸지 않는다.
+
 회원 헤더의 최근 글 버튼은 홈의 `recent-posts-section` 이동을 제공한다. 접근성 이름·툴팁·목록 아이콘을 이 역할에 맞추고, 미읽음 상태가 없는 고정 알림 점은 표시하지 않는다. 알림 조회·발송 기능은 이 버튼의 계약에 포함하지 않는다.
 
 `client/src/lib/analytics.ts`는 운영 배포 계층이 제공하는 `window.umami`에 기존 이벤트를 전달한다. 개발에서는 SDK가 없을 수 있어 optional 호출을 유지한다. 앱 내부의 loader 부재와 기능 미사용을 구분하며, 외부 주입 근거는 [Replit 운영 기준](../../replit.md#운영-분석-스크립트)을 따른다.
@@ -160,7 +164,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 | `server/modules/events/` | `notice-extraction-contract.ts`는 AI 추출 지침·요청 JSON Schema·응답 형태, `notice-extraction.ts`는 요청·응답 해석과 정적 추출을 소유한다. `routes.ts`의 초안·생성·게시와 `notice-edit.ts`의 서명 미리보기·수정 순서, URL 우선순위·회원 판정·제한시간을 유지한다 |
 | `integrations/public-sources/` | 저장 규칙 → HTML·스크립트 → 익명 API 재호출 → 브라우저 순서. 요청별 예산·관찰·진단 상태를 공유하고 URL 검사·격리·개인정보 경계를 유지한다 |
 | `features/legal/` | 약관·개인정보 원문과 각 페이지 SEO를 소유한다. `legal-page.tsx`는 제목·개정일·본문을 받아 기존 PublicLayout·Card·뒤로가기 동작과 스타일을 공유한다 |
-| `scripts/lib/browser-cdp.mjs` | 측정·복구 스크립트의 CDP 연결·명령·평가·대기. 공통 대기 함수의 제한시간 인수는 복구 도구가 실제 사용하는 계약이므로 유지한다. 도구 내부 함수의 미사용 시간 선택 인수는 두지 않으며 모바일 네트워크 대기의 700ms 안정 시간·20초 제한, 복구 대기의 12초 제한과 실제 CDP 소켓 사용을 보존한다 |
+| `scripts/lib/browser-cdp.mjs` | 오래된 탭 복구 검사의 CDP 연결·명령·평가·대기. 모바일 비교 도구 폐기에 따라 복구 도구가 사용하는 인수만 유지한다 |
 
 ### 공통 계약과 구현 위치
 
@@ -172,8 +176,8 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 | 업로드 | `use-upload.ts`는 파일 입력 → 앱 URL 발급 → PUT을 담당한다. URL 응답은 `uploadURL`·`objectPath`, PUT 성공은 본문 없는 HTTP 200이다. 파일명·크기·MIME·서명·만료·회원 및 첨부 권한은 서버가 확인한다 |
 | 인증·가입 | `resolveSessionSecret()`은 호출 시 환경을 읽고 세션·신원 해시가 공유한다. 신원 종류 구분·이메일 정규화·HMAC을 유지한다. 기존/신규 회원의 세션 확정과 충돌의 가입 심사, 승인과 unlink를 포함한 거절 경로를 구분한다 |
 | 경조사 | 회원 판정·필수 사실·필드별 출처·정적 문안·서명 미리보기는 각 책임 모듈에 둔다. `readGipoomNotice`는 공개 자료 검증과 작성기 선택을 담당한다. 공통 사실 JSON과 개별 파서의 내부 반환형을 혼동하지 않는다 |
-| 스타일 | 공통 UI와 `client/src/index.css`, 편집·표시의 `post-content.css`를 재사용한다. Tailwind 기본 유틸리티를 중복 CSS로 만들지 않는다. 화면 고유 콘텐츠·공개 규정 원문·provider 규격·공식 UI를 값이 같다는 이유만으로 합치지 않는다 |
-| 정적 계약 검사 | 책임별 소스 파일만 읽고 대상 선언·필수 호출의 존재를 확인한 뒤 순서를 비교한다. 문서는 정본 연결·핵심 의미·이력 구분을 검사한다. 단순 줄바꿈·과거 PR 번호·전체 문장을 고정하지 않는다 |
+| 스타일 | 공통 UI와 `client/src/index.css`, 편집·표시의 `post-content.css`를 재사용한다. 공개 테마 클래스는 `tp-bg-brand`·`tp-text-body`·`tp-text-accent`처럼 역할로 이름을 정하고 CSS 선언과 소비자를 함께 관리한다. Tailwind 기본 유틸리티를 중복 CSS로 만들지 않는다. 화면 고유 콘텐츠·공개 규정 원문·provider 규격·공식 UI를 값이 같다는 이유만으로 합치지 않는다 |
+| 정적 보호 검사 | 브라우저의 서버/DB 참조·개인정보 로그와 DB 운영/보존 설정만 확인한다. UI 문구·CSS·함수 이름/나열 순서·소스 선언 모양을 고정하는 검사는 제거한다. 실행형 검사가 보호하는 동작을 정규식으로 중복 확인하지 않는다 |
 
 세부 입력·게시 정책은 [제품 기준](../product/planning-proposal.md), 본문 확장·변환은 [편집기 기준](../reference/post-editor.md), 업로드·수집 실행 경계는 [위협 모델](threat-model.md)을 따른다. 개별 미사용 필드·분기를 제거한 이유와 당시 확인 범위는 [정리 이력](../history/README.md#코드공통화와-미사용-정리)에 보존한다.
 
@@ -181,21 +185,16 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 - 프로젝트의 JS/TS/TSX·CSS 서식은 고정 버전 Prettier와 루트 설정을 사용한다. 문자열·SQL·추출 프롬프트 안의 코드는 자동 재작성하지 않는다. `format`은 명시적 정리, `format:check`는 파일만 읽는 검사다. 코드 릴리스 후보에는 [릴리스 전 정리와 검증](../../replit.md#릴리스-전-정리와-검증)에 따라 변경 범위의 서식 검사를 포함한다. 일상 개발에 전체 포맷·빌드를 강제하거나 Git hook을 자동 설치하지 않는다.
 - 로그인 복귀 경로의 저장 키와 소비는 `features/auth/lib/return-path.ts`에서 공유한다. 기존 상대 경로 판정·기본 홈·저장 항목 제거 순서와 저장소 오류 시 흐름을 유지한다.
-- 큰 OAuth 라우트 검사는 `identity/testing/`의 공통 대역과 주제별 등록 함수로 나누고 기존 `.test.ts` 진입점에서 원래 순서대로 등록한다. 테스트 수·대역·assertion과 실행 격리 단위를 유지한다.
+- 큰 OAuth 라우트 검사는 `identity/testing/`의 공통 대역과 주제별 등록 함수로 나누고 기존 `.test.ts` 진입점에서 원래 순서대로 등록한다. 인증·세션·권한·개인정보 계약과 실행 격리 단위를 유지한다. 검사 수나 중복 assertion 자체를 고정하지 않는다.
 - 신규 파일은 `kebab-case.ts(x)`. 기존 생성 UI와 `queryClient.ts` 같은 공용 호환 파일은 일괄 이름 변경하지 않는다.
-- 순수 로직/서버 테스트는 구현 옆 `*.test.ts`; UI source-contract 테스트는 기능의
-  `__tests__`; 전역 보안·문서·배포 계약은 `server/tests`.
+- 순수 로직/서버 테스트는 구현 옆 `*.test.ts`, 클라이언트 동작은 기능의 `__tests__`, 전역 보안·저장소 facade 계약은 `server/tests`에 둔다. UI source-contract 파일은 제거했다. `security-source-contract.test.ts`는 Drizzle session 제외와 결제 익명 보존 설정만 읽고 앱/DB를 실행하지 않는다.
 - `scripts/run-tests.mjs`는 client/src, server, shared를 재귀 탐색한다.
   `artifacts/mockup-sandbox`는 별도 package/lock/toolchain을 유지하며 루트 앱 테스트·타입·빌드에 섞지 않는다.
-- `node --import tsx --test <선정한 테스트 파일...>`: 파일 범위를 한정한 실행. `npm test -- --test-name-pattern='패턴'`은 전체 발견 파일을 로드하므로 테스트 본문 필터를 파일 격리로 간주하지 않는다.
-- `node scripts/run-tests.mjs --list`: 탐색 목록.
-- `npm run check`: 앱 타입 + 브라우저/공통/feature 경계와 runtime cycle 검사.
-- `npm run check:tests`: 테스트까지 포함한 strict 타입 검사.
-- `npm test`, `npm run build`: 전체 회귀·배포 번들 검증.
+- 검사별 명령·목적·실행 조건·환경·부수 효과와 결과 재사용은 [검사 카탈로그](../runbooks/feature-checks.md)를 따른다. 공통 필수 검사에 영향받는 선택 검사를 더하며 파일 탐색 목록을 전체 실행 지시로 사용하지 않는다.
 
 경계 검사는 정적 import/export와 literal dynamic import를 대상으로 한다.
 동적으로 계산한 import 문자열, DI의 의미적 의존성, HTTP 권한을 증명하지 않는다.
-개발 직후에는 필요한 정적 검사만 수행한다. 릴리스 후보에는 코드·문서와 [불필요·중복·과잉 검사](../../replit.md#불필요중복과잉-검사-정리)를 정리한 뒤 lint·서식·타입·영향 범위 테스트·빌드를 개정된 적용 범위와 판정 기준에 따라 수행한다. 결과는 최종 소스와 검사 기준에 연결한다. 검사 범위·승인·유효 결과 재사용은 [릴리스 규칙](../../replit.md#릴리스-전-정리와-검증)을 따른다. 스키마·실데이터 변경은 정적 검사에 포함하지 않는다.
+개발 직후에는 필요한 정적 검사만 수행한다. 릴리스 후보에는 코드·문서와 [불필요·중복·과잉 검사](../../replit.md#불필요중복과잉-검사-정리)를 정리한 뒤 카탈로그의 적용 조건으로 검사를 선택한다. 결과는 최종 소스·검사 기준과 연결하고 실행 권한은 [릴리스 규칙](../../replit.md#릴리스-전-정리와-검증)을 따른다. 스키마·실데이터 변경은 정적 검사에 포함하지 않는다.
 
 ## 보존 파일과 제거된 경로
 

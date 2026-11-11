@@ -9,13 +9,6 @@ import { registerRoutes, type RouteDependencies } from "../../../routes";
 import type { KakaoOAuthStateBinding, KakaoOAuthStateStore } from "../kakao-oauth-state";
 import { KAKAO_OAUTH_STATE_TTL_MS } from "../kakao-oauth-state";
 
-export const clientAuthPath = new URL(
-  "../../../../client/src/features/auth/lib/auth.ts",
-  import.meta.url,
-);
-
-export const routesPath = new URL("../kakao-authorization.ts", import.meta.url);
-
 export const config: KakaoOAuthConfig = {
   environment: "development",
   restApiKey: "route-rest-key",

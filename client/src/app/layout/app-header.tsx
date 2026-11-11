@@ -24,7 +24,7 @@ export function AppHeader() {
       actions={
         <>
           {user && (
-            <span className="hidden max-w-[7rem] truncate text-xs text-white/90 sm:inline">
+            <span className="hidden max-w-[7rem] truncate text-xs opacity-90 sm:inline">
               {user.name}님
             </span>
           )}

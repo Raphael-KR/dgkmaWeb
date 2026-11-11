@@ -39,12 +39,29 @@
   --kakao: #fee500;
   --kakao-brown: #191919;
 
+  /* 공통 헤더·탐색의 공개 테마 기본값 */
+  --site-brand-background: var(--dg-brand-bg-dark);
+  --site-brand-foreground: var(--dg-white);
+  --site-nav-active-background: var(--dg-accent);
+  --site-bottom-active-foreground: var(--dg-accent);
+  --list-accent-color: var(--dg-secondary);
+
   /* 공개·회원 화면의 공통 레이아웃 */
   --site-content-max: 80rem;
   --site-mobile-max: 28rem;
   --site-gutter: 1rem;
   --site-header-offset: 8.5rem;
   --public-section-border: rgb(31 77 46 / 20%);
+}
+
+/* 회원 화면에서만 기존 노란색을 사용한다. 공개 페이지는 기본값을 유지한다. */
+.theme-member {
+  --site-brand-background: var(--kakao);
+  --site-brand-foreground: var(--kakao-brown);
+  --site-nav-active-background: color-mix(in srgb, var(--kakao), white 65%);
+  --site-bottom-active-foreground: var(--kakao-brown);
+  --list-accent-color: var(--dg-accent);
+  --ring: var(--kakao-brown);
 }
 
 /* :root 기본값과 같은 레이어에서 선언해 Tailwind 출력 순서에 덮이지 않게 한다. */
@@ -166,7 +183,7 @@
   }
   .list-accent-dot {
     @apply mt-2 h-2 w-2 shrink-0 rounded-full;
-    background-color: var(--dg-secondary);
+    background-color: var(--list-accent-color);
   }
 
   .site-container,
@@ -182,8 +199,8 @@
   }
 
   .site-brand-surface {
-    background-color: var(--dg-brand-bg-dark);
-    color: var(--dg-white);
+    background-color: var(--site-brand-background);
+    color: var(--site-brand-foreground);
   }
 
   .site-brand {
@@ -221,17 +238,27 @@
     @apply flex shrink-0 items-center justify-end gap-1 sm:gap-2;
   }
   .site-header__nav {
-    @apply col-span-2 hidden flex-wrap items-center justify-center gap-1 border-t border-white/20 pt-2 md:flex;
+    @apply col-span-2 hidden flex-wrap items-center justify-center gap-1 border-t pt-2 md:flex;
+    border-color: color-mix(in srgb, var(--site-brand-foreground) 20%, transparent);
   }
   .site-header-action {
-    @apply bg-transparent text-white/90 hover:bg-white/10 hover:text-white;
+    @apply bg-transparent;
+    color: color-mix(in srgb, var(--site-brand-foreground) 90%, transparent);
+  }
+  .site-header-action:hover {
+    background-color: color-mix(in srgb, var(--site-brand-foreground) 10%, transparent);
+    color: var(--site-brand-foreground);
   }
   .site-header-action--outline {
-    @apply border-white/40;
+    border-color: color-mix(in srgb, var(--site-brand-foreground) 40%, transparent);
   }
 
   .site-nav-link {
-    @apply flex min-h-10 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-white/10;
+    @apply flex min-h-10 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-2 text-sm font-medium transition-colors;
+    color: color-mix(in srgb, var(--site-brand-foreground) 90%, transparent);
+  }
+  .site-nav-link:hover {
+    background-color: color-mix(in srgb, var(--site-brand-foreground) 10%, transparent);
   }
 
   .site-menu-link {
@@ -239,7 +266,7 @@
   }
   .site-nav-link[aria-current="page"],
   .site-menu-link[aria-current="page"] {
-    background-color: var(--dg-accent);
+    background-color: var(--site-nav-active-background);
     color: var(--dg-neutral-dark);
   }
 
@@ -251,17 +278,26 @@
   }
 
   .site-bottom-navigation {
-    @apply fixed inset-x-0 bottom-0 z-40 border-t border-white/20 md:hidden;
+    @apply fixed inset-x-0 bottom-0 z-40 border-t md:hidden;
+    border-color: color-mix(in srgb, var(--site-brand-foreground) 20%, transparent);
   }
   .site-bottom-navigation__inner {
     @apply mx-auto flex;
     max-width: var(--site-mobile-max);
   }
   .site-bottom-link {
-    @apply flex h-auto flex-1 flex-col items-center justify-center space-y-1 px-2 py-3 text-white/70 transition-colors hover:bg-white/10 hover:text-white;
+    @apply flex h-auto flex-1 flex-col items-center justify-center space-y-1 px-2 py-3 transition-colors;
+    color: color-mix(in srgb, var(--site-brand-foreground) 70%, transparent);
+  }
+  .site-bottom-link:hover {
+    background-color: color-mix(in srgb, var(--site-brand-foreground) 10%, transparent);
+    color: var(--site-brand-foreground);
   }
   .site-bottom-link[aria-current="page"] {
-    color: var(--dg-accent);
+    color: var(--site-bottom-active-foreground);
+  }
+  .theme-member .site-bottom-link[aria-current="page"] {
+    background-color: var(--site-nav-active-background);
   }
 
   .site-scroll-target {
@@ -306,44 +342,41 @@
   }
 }
 
-/* =====================================================================
-   Public Theme — DGKMA Design System (PANTONE 144/173/124/159 C)
-   기존 tp-* 유틸리티 클래스를 새 디자인 토큰에 재매핑.
-   ===================================================================== */
+/* 공개 테마: 역할별 클래스가 공통 디자인 토큰을 사용한다. */
 .theme-public {
   background-color: var(--dg-white);
   color: var(--dg-neutral-dark);
 }
 
 /* 큰 면적 주조 배경 — Brand BG #CB591F */
-.theme-public .tp-bg-green {
+.theme-public .tp-bg-brand {
   background-color: var(--dg-brand-bg);
   color: var(--dg-white);
 }
 /* 섹션 알트 배경 — Warm Tint */
-.theme-public .tp-bg-cream {
+.theme-public .tp-bg-muted {
   background-color: var(--dg-neutral-light);
 }
 /* 강조 배지·활성 네비 — Accent (텍스트는 반드시 Neutral-Dark) */
-.theme-public .tp-bg-gold {
+.theme-public .tp-bg-accent {
   background-color: var(--dg-accent);
   color: var(--dg-neutral-dark);
 }
 
 /* 본문·헤딩 텍스트 — Neutral-Dark */
-.theme-public .tp-text-green-dark {
+.theme-public .tp-text-body {
   color: var(--dg-neutral-dark);
 }
 /* 강조색. 대비는 실제 전경·배경 조합에 따라 달라진다. */
-.theme-public .tp-text-gold {
+.theme-public .tp-text-accent {
   color: var(--dg-accent);
 }
 /* 흰 배경의 보조 강조색 */
-.theme-public .tp-text-gold-dark {
+.theme-public .tp-text-emphasis {
   color: var(--dg-secondary);
 }
 
-.theme-public .tp-border-gold {
+.theme-public .tp-border-accent {
   border-color: var(--dg-accent);
 }
 
