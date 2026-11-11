@@ -50,12 +50,8 @@
   --site-content-max: 80rem;
   --site-mobile-max: 28rem;
   --site-gutter: 1rem;
-  --site-header-offset: 8.5rem;
-  --public-section-border: rgb(31 77 46 / 20%);
-}
-
-.theme-public {
   --site-header-offset: 6rem;
+  --public-section-border: rgb(31 77 46 / 20%);
 }
 
 /* 회원 화면에서만 기존 노란색을 사용한다. 공개 페이지는 기본값을 유지한다. */
@@ -77,11 +73,6 @@
 @screen lg {
   :root {
     --site-gutter: 2rem;
-  }
-}
-@screen xl {
-  :root {
-    --site-header-offset: 6rem;
   }
 }
 
@@ -236,24 +227,13 @@
     @apply sticky top-0 z-40 shadow-md;
   }
   .site-header__inner {
-    @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3;
+    @apply flex items-center justify-between gap-3 py-3;
   }
   .site-header__actions {
     @apply flex shrink-0 items-center justify-end gap-1 sm:gap-2;
   }
   .site-header__nav {
-    @apply col-span-2 hidden flex-wrap items-center justify-center gap-1 border-t pt-2 md:flex;
-    border-color: color-mix(in srgb, var(--site-brand-foreground) 20%, transparent);
-  }
-
-  .theme-public .site-header__inner {
-    @apply flex justify-between;
-  }
-  .theme-public .site-header__actions {
-    @apply order-last;
-  }
-  .theme-public .site-header__nav {
-    @apply flex-1 flex-nowrap border-0 pt-0;
+    @apply hidden flex-1 flex-nowrap items-center justify-center gap-1 md:flex;
   }
 
   .site-header-action {
@@ -279,6 +259,7 @@
   .site-menu-link {
     @apply block rounded-md px-4 py-3 text-sm font-medium text-foreground hover:bg-muted;
   }
+  .site-header-action[aria-current="page"],
   .site-nav-link[aria-current="page"],
   .site-menu-link[aria-current="page"] {
     background-color: var(--site-nav-active-background);
@@ -326,18 +307,6 @@
   @screen md {
     .member-container {
       max-width: var(--site-content-max);
-    }
-  }
-
-  @screen xl {
-    .site-header__inner {
-      grid-template-columns: auto minmax(0, 1fr) auto;
-    }
-    .site-header__actions {
-      @apply col-start-3 row-start-1;
-    }
-    .site-header__nav {
-      @apply col-span-1 col-start-2 row-start-1 border-0 pt-0;
     }
   }
 }
