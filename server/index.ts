@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
+import { storage } from "./storage";
+import { createVerifiedSessionGuard } from "./middleware/auth";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { resolveSessionSecret } from "./lib/session-secret";
@@ -50,6 +52,11 @@ app.use(
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     },
   }),
+);
+
+app.use(
+  ["/api", "/objects"],
+  createVerifiedSessionGuard((userId) => storage.getUser(userId)),
 );
 
 // Serve attached assets

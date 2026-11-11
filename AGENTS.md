@@ -82,7 +82,7 @@ DB 실행 파일은 현재 경로를 유지하고 용도별 색인으로 분류�
 - 현재 인증의 단일 경로는 Kakao Login v5 REST OAuth다. 브라우저는 `/api/auth/kakao/start`로 시작하고 서버만 환경별 REST API key, client secret과 redirect URI를 선택한다. Kakao JavaScript SDK 로그인을 추가하지 않는다.
 - `REPLIT_DEPLOYMENT="1"`은 프로덕션 설정을, 그 외 값은 개발 설정을 선택한다. 개발 callback은 `https://dc5e5541-525b-4ad6-b914-2d2db70cb4a9-00-flpzugprplfl.spock.replit.dev/kakao-callback`, 프로덕션 callback은 `https://dgkma.org/kakao-callback`이며 Kakao 설정과 정확히 일치해야 한다.
 - 개발 앱 키를 프로덕션과 공유하지 않고 개발 authorization request에 프로덕션 전용 `plusfriends` scope를 추가하지 않는다.
-- Kakao admin key는 서버의 회원 탈퇴와 가입 거절 연결 해제에만 사용한다. 브라우저나 `VITE_` 환경변수에 노출하거나 로그인에 사용하지 않는다.
+- Kakao admin key는 서버의 회원 탈퇴와 승인 거부 신청 삭제 시 연결 해제에만 사용한다. 가입 거부는 재심사를 위해 상태를 보존하며 연결 해제하지 않는다. 브라우저나 `VITE_` 환경변수에 노출하거나 로그인에 사용하지 않는다.
 - 환경별 관리자 Kakao ID allowlist는 쉼표로 구분한 양의 숫자만 허용한다. 누락 시 자동 승격하지 않는다. 잘못된 값은 원문을 기록하지 않고 실패 처리한다. allowlist 밖이라는 이유로 기존 관리자 권한을 자동 회수하지 않는다.
 - 인증 라우트는 `req.session.userId`를 일관되게 사용하고 로그인 성공 후 응답 전에 세션을 저장한다. Replit 프록시를 위한 `app.set("trust proxy", 1)`을 유지한다.
 - 로그인 회원에게 `activityRegion`이 없으면 `/onboarding/region`으로 보낸다.

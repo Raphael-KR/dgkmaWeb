@@ -6,6 +6,8 @@
 
 기존 편집기 책임 분리는 PR #29로 main에 통합했다. 당시 검사 결과는 [책임 분리 기록](../history/content-responsibility-cleanup-2026-11-10.md)을 따른다. 이후 추가한 파일 이벤트·공통 업로드 연결은 [본문 이미지 개발 기록](../history/inline-images-2026-11-11.md), 환경별 적용 상태는 [Replit 기준](../../replit.md#현재-적용-상태)에서 구분한다.
 
+이 문서의 이미지·일반 파일·표·체크리스트·YouTube·Drag Handle 구성은 PR #36의 `3.0.0`으로 운영에 반영했다. 각 절의 개발 기록은 당시 정적 검사 범위이며 최종 후보 검사·배포·HTTP 확인은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)을 따른다. 실제 편집·업로드·영상 재생·실계정 QA는 미검증이다.
+
 | 책임 | 위치 |
 |---|---|
 | 공개 props·ref, 입력 화면·지연 로딩 | [post-body-editor.tsx](../../client/src/components/post-body-editor.tsx), [lazy-post-body-editor.tsx](../../client/src/components/lazy-post-body-editor.tsx) |

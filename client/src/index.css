@@ -47,8 +47,6 @@
   --list-accent-color: var(--dg-secondary);
 
   /* 공개·회원 화면의 공통 레이아웃 */
-  --site-content-max: 80rem;
-  --site-mobile-max: 28rem;
   --site-gutter: 1rem;
   --site-header-offset: 6rem;
   --public-section-border: rgb(31 77 46 / 20%);
@@ -97,8 +95,25 @@
 }
 
 @layer components {
+  .registration-difference {
+    @apply rounded-sm font-semibold;
+  }
+
+  .registration-difference--applicant {
+    @apply bg-amber-100 text-amber-950;
+  }
+
+  .registration-difference--registry {
+    @apply bg-blue-100 text-blue-950;
+  }
+
+  .public-page,
+  .site-reading-width {
+    @apply w-full max-w-3xl;
+  }
   .public-page {
-    @apply mx-auto max-w-3xl px-4 py-10 sm:py-14;
+    @apply mx-auto py-10 sm:py-14;
+    padding-inline: var(--site-gutter);
   }
   .public-page--wide {
     @apply max-w-4xl;
@@ -184,13 +199,11 @@
   .site-container,
   .member-container {
     @apply mx-auto w-full;
-    max-width: var(--site-content-max);
     padding-inline: var(--site-gutter);
   }
 
   .member-container {
     @apply pb-20 pt-4 md:py-8;
-    max-width: var(--site-mobile-max);
   }
 
   .site-brand-surface {
@@ -280,8 +293,7 @@
     border-color: color-mix(in srgb, var(--site-brand-foreground) 20%, transparent);
   }
   .site-bottom-navigation__inner {
-    @apply mx-auto flex;
-    max-width: var(--site-mobile-max);
+    @apply flex w-full;
   }
   .site-bottom-link {
     @apply flex h-auto flex-1 flex-col items-center justify-center space-y-1 px-2 py-3 transition-colors;
@@ -304,12 +316,6 @@
   .member-sticky-panel {
     @apply lg:sticky;
     top: var(--site-header-offset);
-  }
-
-  @screen md {
-    .member-container {
-      max-width: var(--site-content-max);
-    }
   }
 }
 

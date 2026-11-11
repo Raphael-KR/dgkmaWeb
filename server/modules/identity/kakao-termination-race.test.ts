@@ -163,223 +163,75 @@ async function createCookie(baseUrl: string, path: string): Promise<string> {
 }
 
 test(
-  "development PostgreSQL rejection purges the whole identity and blocks an older pending refresh",
-  {
-    skip: developmentDbSkip,
-  },
+  "development PostgreSQL rejection preserves its application and blocks older OAuth refresh",
+  { skip: developmentDbSkip },
   async () => {
     const pool = await getDevelopmentDbPool();
     const { storage } = await import("../../storage");
     developmentPool = pool;
-
     const token = randomUUID().replaceAll("-", "");
-    const kakaoIdNumber = (BigInt(`0x${token.slice(0, 14)}`) % 900_000_000_000n) + 100_000_000_000n;
-    const kakaoId = String(kakaoIdNumber);
-    const sameEmailKakaoId = String(kakaoIdNumber + 1n);
+    const kakaoId = String(
+      (BigInt(`0x${token.slice(0, 14)}`) % 900_000_000_000n) + 100_000_000_000n,
+    );
     const email = `reject-race-${token}@example.invalid`;
-    const otherEmail = `reject-race-other-${token}@example.invalid`;
-    const kakaoHash = identityHash("kakao", kakaoId);
-    const emailHash = identityHash("email", email.toLowerCase());
+    const identityHashes = [
+      identityHash("kakao", kakaoId),
+      identityHash("email", email.toLowerCase()),
+    ];
     const started = await pool.query<{ started_at: Date }>(
       "select clock_timestamp() - interval '1 second' as started_at",
     );
-    const oauthStartedAt = started.rows[0].started_at;
-    let unlinkCalls = 0;
-    let releaseUnlink: (() => void) | undefined;
-    let markUnlinkEntered: (() => void) | undefined;
-    const unlinkEntered = new Promise<void>((resolve) => {
-      markUnlinkEntered = resolve;
-    });
-    const unlinkGate = new Promise<void>((resolve) => {
-      releaseUnlink = resolve;
-    });
-    let refreshPromise: Promise<unknown> | undefined;
-    let emailRefreshPromise: Promise<unknown> | undefined;
-    let rejectionPromise: Promise<Response> | undefined;
-    let server: Awaited<ReturnType<typeof registerRoutes>> | undefined;
-
-    try {
-      const userData = (rowKakaoId: string, rowEmail: string) =>
-        JSON.stringify({
-          kakaoId: rowKakaoId,
-          email: rowEmail,
-          name: "거절경쟁",
-          phoneNumber: "+82 10-9000-0001",
-          profileImage: null,
-          birthday: null,
-          birthdayType: null,
-          isLeapMonth: null,
-          conflictReason: "not_found",
-        });
-      const inserted = await pool.query<{ id: number }>(
-        `insert into pending_registrations (kakao_id, email, name, user_data, status)
-       values
-         ($1, $2, '거절경쟁', $3::jsonb, 'pending'),
-         ($1, $4, '거절경쟁', $5::jsonb, 'pending'),
-         ($6, $7, '거절경쟁', $8::jsonb, 'pending')
-       returning id`,
-        [
-          kakaoId,
-          email,
-          userData(kakaoId, email),
-          otherEmail,
-          userData(kakaoId, otherEmail),
-          sameEmailKakaoId,
-          email.toUpperCase(),
-          userData(sameEmailKakaoId, email.toUpperCase()),
-        ],
-      );
-      const selectedId = inserted.rows[0].id;
-      await pool.query(
-        `insert into users (kakao_id, email, name, is_verified)
-       values ($1, $2, '거절 전 승격', true)`,
-        [kakaoId, email],
-      );
-
-      const app = express();
-      app.use(express.json());
-      app.use(session({ secret: "reject-race-session", resave: false, saveUninitialized: false }));
-      app.post("/__test/admin-session", (req, res) => {
-        req.session.userId = 1;
-        res.json({ ok: true });
-      });
-      server = await registerRoutes(app, {
-        getUserForAdmin: async () => ({ isAdmin: true }),
-        getKakaoAdminConfig: () => ({ environment: "development", adminKey: "mock-admin-key" }),
-        unlinkKakaoUser: async () => {
-          unlinkCalls += 1;
-          markUnlinkEntered?.();
-          await unlinkGate;
-        },
-      });
-      const baseUrl = await listen(server);
-      const cookie = await createCookie(baseUrl, "/__test/admin-session");
-
-      rejectionPromise = fetch(`${baseUrl}/api/admin/pending-registrations/${selectedId}`, {
-        method: "PATCH",
-        headers: { cookie, "content-type": "application/json" },
-        body: JSON.stringify({ status: "rejected" }),
-      });
-      const rejectionStart = await within(
-        Promise.race([
-          unlinkEntered.then(() => ({ kind: "unlink" as const })),
-          rejectionPromise.then((response) => ({ kind: "response" as const, response })),
-        ]),
-        "거절 요청이 unlink 또는 응답에 도달하지 않았습니다.",
-      );
-      if (rejectionStart.kind === "response") {
-        throw new Error(
-          `거절 요청이 unlink 전에 HTTP ${rejectionStart.response.status}로 종료됐습니다.`,
-        );
-      }
-
-      const registration: PendingRegistrationReviewInput = {
+    const registration: PendingRegistrationReviewInput = {
+      kakaoId,
+      email,
+      name: "거절경쟁",
+      userData: {
         kakaoId,
         email,
         name: "거절경쟁",
-        userData: {
-          kakaoId,
-          email,
-          name: "거절경쟁",
-          phoneNumber: "+82 10-9000-0001",
-          profileImage: null,
-          birthday: null,
-          birthdayType: null,
-          isLeapMonth: null,
-          conflictReason: "not_found",
-        },
-      };
-      const createOrRefresh = storage.createOrRefreshPendingRegistration as unknown as (
-        input: PendingRegistrationReviewInput,
-        startedAt: Date,
-      ) => Promise<unknown>;
-      refreshPromise = createOrRefresh.call(storage, registration, oauthStartedAt);
-      emailRefreshPromise = createOrRefresh.call(
-        storage,
-        {
-          ...registration,
-          kakaoId: sameEmailKakaoId,
-          userData: {
-            ...registration.userData,
-            kakaoId: sameEmailKakaoId,
-          },
-        },
-        oauthStartedAt,
-      );
-      await wait(25);
-      releaseUnlink?.();
-
-      const [rejectionResponse, refreshOutcome, emailRefreshOutcome] = await Promise.all([
-        rejectionPromise,
-        refreshPromise.then(
-          (value) => ({ status: "fulfilled" as const, value }),
-          (error: unknown) => ({ status: "rejected" as const, error }),
-        ),
-        emailRefreshPromise.then(
-          (value) => ({ status: "fulfilled" as const, value }),
-          (error: unknown) => ({ status: "rejected" as const, error }),
-        ),
-      ]);
-      assert.equal(rejectionResponse.status, 200);
-      assert.deepEqual(await rejectionResponse.json(), { deleted: true, id: selectedId });
-      assert.equal(unlinkCalls, 1);
-
-      const finalState = await pool.query<{ pending_count: number; user_count: number }>(
-        `select
-         (select count(*)::int from pending_registrations
-           where kakao_id = $1 or lower(email) = lower($2)) as pending_count,
-         (select count(*)::int from users
-           where kakao_id = $1 or lower(email) = lower($2)) as user_count`,
-        [kakaoId, email],
-      );
-      assert.deepEqual(finalState.rows[0], { pending_count: 0, user_count: 0 });
-      assert.equal(refreshOutcome.status, "rejected");
-      if (refreshOutcome.status === "rejected") {
-        assert.equal(
-          refreshOutcome.error instanceof Error ? refreshOutcome.error.name : undefined,
-          "KakaoOAuthTerminatedError",
-        );
-      }
-      assert.equal(emailRefreshOutcome.status, "rejected");
-      if (emailRefreshOutcome.status === "rejected") {
-        assert.equal(
-          emailRefreshOutcome.error instanceof Error ? emailRefreshOutcome.error.name : undefined,
-          "KakaoOAuthTerminatedError",
-        );
-      }
-
-      assert.equal(await terminationTableExists(pool), true);
-      const marker = await pool.query<{
-        marker_count: number;
-        latest_terminated_at: Date;
-      }>(
-        `select
-         count(*)::int as marker_count,
-         max(terminated_at) as latest_terminated_at
-       from kakao_identity_terminations
-       where identity_hash = any($1::text[])`,
-        [[kakaoHash, emailHash]],
-      );
-      assert.equal(marker.rowCount, 1);
-      assert.equal(marker.rows[0].marker_count, 2);
-
-      const freshResult = (await createOrRefresh.call(
-        storage,
+        phoneNumber: "+82 10-9000-0001",
+        profileImage: null,
+        birthday: null,
+        birthdayType: null,
+        isLeapMonth: null,
+        conflictReason: "not_found",
+      },
+    };
+    try {
+      const created = await storage.createOrRefreshPendingRegistration(
         registration,
-        new Date(marker.rows[0].latest_terminated_at.getTime() + 1),
-      )) as { kind: string };
-      assert.equal(freshResult.kind, "pending");
-    } finally {
-      releaseUnlink?.();
-      await Promise.allSettled(
-        [rejectionPromise, refreshPromise, emailRefreshPromise].filter(Boolean),
+        started.rows[0].started_at,
       );
-      if (server) await closeServer(server);
-      await cleanupRaceRows(pool, {
-        kakaoIds: [kakaoId, sameEmailKakaoId],
-        emails: [email, otherEmail],
-        identityHashes: [kakaoHash, emailHash],
+      assert.equal(created.kind, "pending");
+      if (created.kind !== "pending") throw new Error("expected pending registration");
+      const rejected = await storage.rejectPendingRegistration(created.registration.id);
+      assert.equal(rejected?.status, "rejected");
+      await assert.rejects(
+        storage.createOrRefreshPendingRegistration(registration, started.rows[0].started_at),
+        { name: "KakaoOAuthTerminatedError" },
+      );
+      const marker = await pool.query<{ terminated_at: Date }>(
+        "select max(terminated_at) as terminated_at from kakao_identity_terminations where identity_hash = any($1::text[])",
+        [identityHashes],
+      );
+      const fresh = await storage.createOrRefreshPendingRegistration(
+        registration,
+        new Date(marker.rows[0].terminated_at.getTime() + 1),
+      );
+      assert.equal(fresh.kind, "pending");
+      if (fresh.kind !== "pending") throw new Error("expected retained application");
+      assert.equal(fresh.registration.status, "rejected");
+      assert.equal(fresh.registration.id, created.registration.id);
+      assert.deepEqual(fresh.registration.userData, registration.userData);
+      assert.equal(
+        (await storage.reopenPendingRegistration(created.registration.id))?.status,
+        "pending",
+      );
+      await assert.rejects(storage.reopenPendingRegistration(created.registration.id), {
+        name: "RegistrationStateConflictError",
       });
+    } finally {
+      await cleanupRaceRows(pool, { kakaoIds: [kakaoId], emails: [email], identityHashes });
     }
   },
 );

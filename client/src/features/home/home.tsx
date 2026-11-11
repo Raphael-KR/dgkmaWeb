@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { QueryError } from "@/components/query-error";
 import { HeartHandshake, Users, Calendar } from "lucide-react";
@@ -95,11 +96,20 @@ export default function Home() {
         <div className="mb-6 rounded-lg bg-white p-4 shadow-sm md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center space-x-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-kakao-yellow">
-                <span className="text-kakao-brown font-bold text-lg">
-                  {user.name?.charAt(0) || "?"}
-                </span>
-              </div>
+              <Link
+                href="/profile"
+                aria-label="내 정보로 이동"
+                className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <Avatar className="h-12 w-12">
+                  {user.profileImage && (
+                    <AvatarImage src={user.profileImage} alt={`${user.name} 프로필 사진`} />
+                  )}
+                  <AvatarFallback className="bg-kakao-yellow text-kakao-brown font-bold text-lg">
+                    {user.name?.charAt(0) || "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
 
               <div className="min-w-0">
                 <p className="break-words text-base font-bold text-gray-800 md:text-lg">
@@ -110,13 +120,6 @@ export default function Home() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {user.isVerified ? (
-                <Badge className="bg-green-100 text-green-700 text-xs px-3 py-1">인증완료</Badge>
-              ) : (
-                <Badge variant="secondary" className="text-xs px-3 py-1">
-                  인증대기
-                </Badge>
-              )}
               {!membershipError && membership && <MembershipBadge tier={membership.tier} />}
               {user.isAdmin && (
                 <Link

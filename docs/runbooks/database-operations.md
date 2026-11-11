@@ -2,6 +2,10 @@
 
 이 문서는 승인된 DB 작업의 환경 선택·변경·보존·결과 확인 절차다. 구조는 [스키마 기준서](../reference/database-schema.md), 제품 결정은 [계획서](../product/planning-proposal.md)를 따른다. 과거 승인·실행·백업·catalog 결과와 당시 SQL은 [DB 작업 이력](../history/database-operations-2026-11-09.md)에 보존한다.
 
+## 승인 상태 변경의 데이터 경계
+
+2026-11-12 승인 취소·거부 보존·재심사 변경은 기존 `users.is_verified`·`pending_registrations.status`와 세션·OAuth 종료 marker를 사용한다. DDL·backfill·DB 초기화 없이 앱의 관리자 심사 트랜잭션으로 처리한다. 신규 개발 코드를 반영하거나 정적 검사하는 것만으로 실제 회원의 상태를 바꾸지 않는다. 거부 자체를 탈퇴·카카오 unlink·레코드 삭제로 처리하던 과거 절차는 재사용하지 않는다. 거부 후 명시적 신청 삭제는 unlink 성공 뒤 신청만 삭제하며 기존 회원·콘텐츠·회비·명부 연결을 유지한다. 실제 탈퇴의 삭제·보존 절차는 유지한다. 과거 삭제된 신청을 가정해 재생성하지 않는다. 이번 작업에서는 개발·운영 DB를 조회하거나 변경하지 않으며 마지막 catalog 관찰 시각도 갱신하지 않는다.
+
 ## 실행 범위
 
 역사관 공개 콘텐츠 구현은 [정적 자료 계약](../reference/heritage-content.md)을 사용한다. DB 조회·DDL·seed·`db:push`는 필요하지 않다. 향후 DB 저장이 필요하면 현재 정적 자료와 제안 테이블·관계·접근 범위·이관 대상을 설명하고 사용자 승인 후 개발 DB에만 적용한다.
@@ -56,7 +60,7 @@ cd /home/runner/workspace
 
 ## 개발 변경
 
-2026-11-12 댓글 확장 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않는다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행한다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 운영은 미적용 상태로 유지한다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. Drag Handle 자체는 DB 변경이 없다.
+2026-11-12 댓글 확장 최초 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위였다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않았다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행했다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. 이후 별도 승인된 운영 전환은 아래 운영 절과 [3.0.0 릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다. Drag Handle 자체는 DB 변경이 없다.
 
 2026-11-12 Placeholder·체크리스트·CharacterCount·YouTube 추가는 기존 JSONB의 앱 스키마 확장이다. 체크리스트 상태·영상 주소는 표준 Tiptap 노드 속성에 저장하며 DB DDL·기존 행 변환·catalog 재조회·`db:push`를 실행하지 않는다. 실제 개발 적용·검사 범위는 [추가 확장 기록](../history/editor-extensions-2026-11-12.md)을 따른다.
 

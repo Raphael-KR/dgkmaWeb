@@ -18,6 +18,11 @@ import {
   PendingRegistrationConflictError,
 } from "../identity/registration-support";
 
+import {
+  findRegistrationHold,
+  RegistrationApprovalRequiredError,
+} from "../identity/registration-approval";
+
 class AlumniClaimConflictError extends Error {}
 
 // 회원 생성과 명부 연결은 같은 트랜잭션에서 확정한다.
@@ -105,6 +110,12 @@ export class AlumniRecordStorage {
             .limit(1);
           if (registeredUser) return registeredUser;
         }
+
+        const hold = await findRegistrationHold(tx, insertUser.kakaoId ?? "", insertUser.email);
+        if (hold)
+          throw new RegistrationApprovalRequiredError(
+            hold.status === "rejected" ? "rejected" : "pending",
+          );
 
         const [emailConflict] = await tx
           .select({ id: users.id })
