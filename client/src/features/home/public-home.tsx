@@ -110,15 +110,15 @@ export function PublicHome() {
   return (
     <PublicLayout>
       {/* Hero */}
-      <section className="tp-bg-green text-white">
+      <section className="tp-bg-brand text-white">
         <div className="max-w-6xl mx-auto px-4 py-12 sm:py-16 lg:py-20 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
           <div className="flex-1 text-center lg:text-left order-2 lg:order-1">
-            <div className="inline-block tp-text-gold text-xs sm:text-sm font-semibold tracking-widest mb-3">
+            <div className="inline-block tp-text-accent text-xs sm:text-sm font-semibold tracking-widest mb-3">
               DGKMA · DONGGUK KOREAN MEDICINE ALUMNI
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-4">
               <span className="block">{SITE_NAME}</span>
-              <span className="tp-text-gold block mt-1">홈페이지에 오신 것을 환영합니다</span>
+              <span className="tp-text-accent block mt-1">홈페이지에 오신 것을 환영합니다</span>
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed mb-6 max-w-xl mx-auto lg:mx-0">
               <span className="block text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-2">
@@ -166,9 +166,9 @@ export function PublicHome() {
                   </p>
                   <p className="leading-relaxed text-gray-700">
                     제22대 동문회는{" "}
-                    <strong className="tp-text-green-dark">‘따뜻한 연대, 함께하는 성장’</strong>을
-                    기치로, 회원 상호 간의 친목과 정보 교류, 후학 양성과 학술 발전, 그리고 한의계와
-                    사회에 기여하는 동문 네트워크 구축에 한 걸음씩 정진하고 있습니다.
+                    <strong className="tp-text-body">‘따뜻한 연대, 함께하는 성장’</strong>을 기치로,
+                    회원 상호 간의 친목과 정보 교류, 후학 양성과 학술 발전, 그리고 한의계와 사회에
+                    기여하는 동문 네트워크 구축에 한 걸음씩 정진하고 있습니다.
                   </p>
                   <p className="leading-relaxed text-gray-700">
                     동문 한 분 한 분의 마음을 잇는 따뜻한 연대 속에서, 서로의 길을 응원하며 함께
@@ -182,7 +182,7 @@ export function PublicHome() {
                     동문 여러분의 변함없는 관심과 적극적인 참여를 부탁드리며, 가정과 일터에 늘
                     건강과 평안이 함께하시기를 기원합니다.
                   </p>
-                  <p className="text-right font-semibold tp-text-green-dark mt-6">
+                  <p className="text-right font-semibold tp-text-body mt-6">
                     제22대 회장 최윤용 (졸업10기·88학번) 드림
                   </p>
                 </div>
@@ -200,16 +200,16 @@ export function PublicHome() {
       </section>
 
       {/* 동문회 소개 */}
-      <section className="public-alt-section tp-bg-cream">
+      <section className="public-alt-section tp-bg-muted">
         <div className="max-w-4xl mx-auto">
           <PublicHeading level="section" eyebrow="ABOUT" title="동문회 소개" />
           <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
             <Card>
               <CardContent className="p-6 space-y-2">
-                <div className="text-xs tp-text-gold-dark font-semibold mb-2">명칭</div>
+                <div className="text-xs tp-text-emphasis font-semibold mb-2">명칭</div>
                 <div>
                   <div className="text-xs text-gray-500">한글</div>
-                  <div className="font-bold tp-text-green-dark">
+                  <div className="font-bold tp-text-body">
                     {SITE_NAME}{" "}
                     <span className="text-sm font-normal text-gray-600">
                       (약칭: {SITE_SHORT_NAME})
@@ -233,22 +233,22 @@ export function PublicHome() {
             </Card>
             <Card>
               <CardContent className="p-6">
-                <div className="text-xs tp-text-gold-dark font-semibold mb-3">설립 목적</div>
+                <div className="text-xs tp-text-emphasis font-semibold mb-3">설립 목적</div>
                 <ul className="space-y-2 text-sm text-gray-700 leading-relaxed">
                   <li className="flex gap-2">
-                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span className="tp-text-emphasis font-bold flex-shrink-0">·</span>
                     <span>모교 발전에 기여</span>
                   </li>
                   <li className="flex gap-2">
-                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span className="tp-text-emphasis font-bold flex-shrink-0">·</span>
                     <span>한의학의 정신과 가치를 널리 알리고 발전시키는 데 기여</span>
                   </li>
                   <li className="flex gap-2">
-                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span className="tp-text-emphasis font-bold flex-shrink-0">·</span>
                     <span>공공복리 증진과 국민건강 증대에 이바지</span>
                   </li>
                   <li className="flex gap-2">
-                    <span className="tp-text-gold-dark font-bold flex-shrink-0">·</span>
+                    <span className="tp-text-emphasis font-bold flex-shrink-0">·</span>
                     <span>
                       회원 상호 간 협력과 내외 상생을 촉진하여 동문과 본회의 사회적 기여가치 제고
                     </span>
@@ -258,13 +258,13 @@ export function PublicHome() {
             </Card>
             <Card className="sm:col-span-2 min-w-0">
               <CardContent className="p-6">
-                <div className="text-xs tp-text-gold-dark font-semibold mb-2">회원 구성</div>
+                <div className="text-xs tp-text-emphasis font-semibold mb-2">회원 구성</div>
                 <div className="overflow-x-auto -mx-2 px-2">
                   <table className="w-full text-sm min-w-[420px]">
                     <thead>
                       <tr className="border-b">
-                        <th className="text-left py-2 px-2 tp-text-green-dark">구분</th>
-                        <th className="text-left py-2 px-2 tp-text-green-dark">자격</th>
+                        <th className="text-left py-2 px-2 tp-text-body">구분</th>
+                        <th className="text-left py-2 px-2 tp-text-body">자격</th>
                       </tr>
                     </thead>
                     <tbody className="text-gray-700">
@@ -304,7 +304,7 @@ export function PublicHome() {
           <PublicHeading level="section" eyebrow="PROGRAMS" title="주요 사업" className="mb-10">
             <p className="text-sm text-gray-600 mt-3">
               제22대 동문회 슬로건 —{" "}
-              <strong className="tp-text-green-dark">따뜻한 연대, 함께하는 성장</strong>
+              <strong className="tp-text-body">따뜻한 연대, 함께하는 성장</strong>
             </p>
           </PublicHeading>
           <div className="public-card-grid">
@@ -315,18 +315,18 @@ export function PublicHome() {
                 <Card
                   key={p.title}
                   className={`hover:shadow-lg transition-shadow border-t-4 ${
-                    highlight ? "tp-border-gold tp-bg-cream" : "tp-border-gold"
+                    highlight ? "tp-border-accent tp-bg-muted" : "tp-border-accent"
                   }`}
                 >
                   <CardContent className="p-6">
                     <div
                       className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
-                        highlight ? "tp-bg-gold" : "tp-bg-green"
+                        highlight ? "tp-bg-accent" : "tp-bg-brand"
                       }`}
                     >
-                      <Icon className={highlight ? "tp-text-green-dark" : "text-white"} size={24} />
+                      <Icon className={highlight ? "tp-text-body" : "text-white"} size={24} />
                     </div>
-                    <h3 className="font-bold tp-text-green-dark mb-2">{p.title}</h3>
+                    <h3 className="font-bold tp-text-body mb-2">{p.title}</h3>
                     <p className="text-sm text-gray-600 leading-relaxed">{p.desc}</p>
                   </CardContent>
                 </Card>
@@ -337,7 +337,7 @@ export function PublicHome() {
       </section>
 
       {/* 조직 및 임원 */}
-      <section className="public-alt-section tp-bg-cream">
+      <section className="public-alt-section tp-bg-muted">
         <div className="max-w-6xl mx-auto">
           <PublicHeading
             level="section"
@@ -355,11 +355,11 @@ export function PublicHome() {
               return (
                 <Card key={o.title}>
                   <CardContent className="p-6 flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-lg tp-bg-green flex items-center justify-center flex-shrink-0">
+                    <div className="w-11 h-11 rounded-lg tp-bg-brand flex items-center justify-center flex-shrink-0">
                       <Icon className="text-white" size={22} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-bold tp-text-green-dark mb-1">{o.title}</h3>
+                      <h3 className="font-bold tp-text-body mb-1">{o.title}</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">{o.desc}</p>
                     </div>
                   </CardContent>
@@ -369,7 +369,7 @@ export function PublicHome() {
           </div>
           <div className="text-center">
             <Link href="/about/executives">
-              <Button size="lg" className="tp-bg-green text-white hover:opacity-90 font-bold">
+              <Button size="lg" className="tp-bg-brand text-white hover:opacity-90 font-bold">
                 <Building2 size={18} className="mr-2" />
                 제22대 임원 명단 보기
                 <ArrowRight size={18} className="ml-2" />
@@ -390,11 +390,11 @@ export function PublicHome() {
                 <Link key={q.title + q.to} href={q.to}>
                   <Card className="cursor-pointer hover:shadow-lg transition-all border-2 border-transparent h-full">
                     <CardContent className="p-6 flex items-start gap-4">
-                      <div className="w-11 h-11 rounded-lg tp-bg-gold flex items-center justify-center flex-shrink-0">
-                        <Icon className="tp-text-green-dark" size={22} />
+                      <div className="w-11 h-11 rounded-lg tp-bg-accent flex items-center justify-center flex-shrink-0">
+                        <Icon className="tp-text-body" size={22} />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="font-bold tp-text-green-dark mb-1">{q.title}</h3>
+                        <h3 className="font-bold tp-text-body mb-1">{q.title}</h3>
                         <p className="text-sm text-gray-600">{q.desc}</p>
                       </div>
                     </CardContent>
@@ -407,7 +407,7 @@ export function PublicHome() {
       </section>
 
       {/* CTA */}
-      <section className="tp-bg-green text-white py-12 sm:py-16 px-4">
+      <section className="tp-bg-brand text-white py-12 sm:py-16 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <div
             aria-hidden="true"

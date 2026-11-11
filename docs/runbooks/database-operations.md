@@ -78,7 +78,9 @@ psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
 
 `npm run test:development-db`는 DB 쓰기와 fixture 생성·정리를 포함하므로 정적 검사에 포함하지 않는다. 승인된 경우에만 현재 스키마가 준비된 격리 Development DB에서 실행한다. 사용자 지침의 합성 자료·새 DB 생성 허가 기준도 적용한다.
 
-`server/tests/development-db-target.ts`는 opt-in·환경·허용 PG host·DB 이름을 검사하고 운영 대상을 거부한다. `server/modules/registry/alumni-sync-storage.test.ts`는 실제 Sheets 대신 fixture를 사용하며 임시 trigger/function을 만들고 정리한다. 현재 전용 명령의 정확한 대상은 [package.json](../../package.json)을 따른다. 제거된 경조사 DB 테스트의 잔여 users/events 출력을 현재 완료 조건으로 쓰지 않는다.
+`server/tests/development-db-target.ts`의 opt-in·환경·허용 PG host·DB 이름 검증을 모든 실제 DB 검사에서 공통으로 사용한다. 일반 `npm test`는 PG*나 DATABASE_URL의 존재만으로 DB 검사를 실행하지 않는다. 전용 명령은 명부 동기화·가입/승인/거절 경쟁·탈퇴·OAuth state·경조사 quota의 기존 DB 사례를 선택한다. 정확한 파일 목록은 [package.json](../../package.json)을 따른다.
+
+명부 동기화 검사는 실제 Sheets 대신 기존 fixture를 사용하며 임시 trigger/function을 만들고 정리한다. 다른 DB 검사도 임시 회원·신청·세션 등을 쓰므로 같은 승인 경계를 적용한다. 실행 전 환경 선택과 실제 `current_database()=heliumdb`를 확인하고 기존 정리·잔여 확인을 유지한다. 이 문서 수정은 DB 검사 실행이나 fixture 생성 승인이 아니다.
 
 ## 운영 변경
 

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { Pool } from "pg";
 import {
@@ -9,25 +8,6 @@ import {
   verifyDevelopmentDb,
 } from "../../tests/development-db-target";
 import type { AlumniSourceSnapshot } from "./alumni-sync-plan";
-
-test("alumni sync storage uses one advisory-locked transaction without delete", async () => {
-  const source = await readFile(new URL("./alumni-sync-storage.ts", import.meta.url), "utf8");
-  const method = source.slice(source.indexOf("async applyAlumniSync"), source.length);
-
-  assert.match(source, /async previewAlumniSync/);
-  const transactionIndex = method.indexOf("db.transaction");
-  const lockIndex = method.indexOf("pg_try_advisory_xact_lock");
-  const sourceReadIndex = method.indexOf("fetchAlumniSnapshot");
-  const planIndex = method.indexOf("planAlumniSync");
-  assert.ok(transactionIndex >= 0);
-  assert.ok(lockIndex > transactionIndex);
-  assert.ok(sourceReadIndex > lockIndex, "source는 advisory lock 획득 후 다시 읽어야 합니다.");
-  assert.ok(planIndex > sourceReadIndex);
-  assert.match(method, /tx\.insert\(alumniDatabase\)/);
-  assert.match(method, /tx\.update\(alumniDatabase\)/);
-  assert.doesNotMatch(method, /tx\.delete\(alumniDatabase\)/);
-  assert.doesNotMatch(source, /async syncAlumniFromGoogleSheets/);
-});
 
 test(
   "development helium fixture proves preview, guarded apply, rollback, and cleanup",

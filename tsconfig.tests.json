@@ -4,5 +4,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "incremental": false
-  }
+  },
+  "include": [
+    "client/src/**/*.test.ts",
+    "client/src/**/*.test.tsx",
+    "server/**/*.test.ts",
+    "shared/**/*.test.ts"
+  ]
 }

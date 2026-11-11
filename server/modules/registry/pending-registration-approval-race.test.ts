@@ -1,12 +1,8 @@
+import { developmentDbSkip, getDevelopmentDbPool } from "../../tests/development-db-target";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test, { after } from "node:test";
 import type { Pool } from "pg";
-
-const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
-const hasDatabaseEnvironment = Boolean(
-  (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE) || process.env.DATABASE_URL,
-);
 
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -72,24 +68,12 @@ async function cleanupRegistrationRace(
 test(
   "development PostgreSQL returns the approved member when approval wins a pending refresh race",
   {
-    skip: isProduction
-      ? "운영 환경에서는 pending 승인 경쟁 회귀 테스트를 실행하지 않습니다."
-      : !hasDatabaseEnvironment
-        ? "PostgreSQL 개발 DB 환경변수가 없어 건너뜁니다."
-        : false,
+    skip: developmentDbSkip,
   },
   async () => {
-    const { pool } = await import("../../db");
+    const pool = await getDevelopmentDbPool();
     developmentPool = pool;
     const { normalizePhoneForComparison, storage } = await import("../../storage");
-    const databaseResult = await pool.query<{ database: string }>(
-      "select current_database() as database",
-    );
-    assert.equal(
-      databaseResult.rows[0]?.database,
-      "heliumdb",
-      "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
-    );
 
     const token = randomUUID().replaceAll("-", "");
     const phoneDigits = String(BigInt(`0x${token.slice(0, 12)}`) % 100000000n).padStart(8, "0");
@@ -225,24 +209,12 @@ test(
 test(
   "development PostgreSQL keeps a different Kakao ID with an approved email in email_conflict review",
   {
-    skip: isProduction
-      ? "운영 환경에서는 pending 이메일 경쟁 회귀 테스트를 실행하지 않습니다."
-      : !hasDatabaseEnvironment
-        ? "PostgreSQL 개발 DB 환경변수가 없어 건너뜁니다."
-        : false,
+    skip: developmentDbSkip,
   },
   async () => {
-    const { pool } = await import("../../db");
+    const pool = await getDevelopmentDbPool();
     const { normalizePhoneForComparison, storage } = await import("../../storage");
     developmentPool = pool;
-    const databaseResult = await pool.query<{ database: string }>(
-      "select current_database() as database",
-    );
-    assert.equal(
-      databaseResult.rows[0]?.database,
-      "heliumdb",
-      "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
-    );
 
     const token = randomUUID().replaceAll("-", "");
     const firstDigits = String(BigInt(`0x${token.slice(0, 12)}`) % 100000000n).padStart(8, "0");

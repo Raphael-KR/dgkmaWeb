@@ -34,7 +34,7 @@ export function AuthGate({ children, requireAdmin, reason }: AuthGateProps) {
     return (
       <div className="theme-public min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <h2 className="text-xl font-bold tp-text-green-dark mb-2">로그인이 필요한 메뉴입니다</h2>
+          <h2 className="text-xl font-bold tp-text-body mb-2">로그인이 필요한 메뉴입니다</h2>
           <p className="text-sm text-gray-600 mb-6">카카오 로그인 후 이용해 주세요.</p>
           <Button variant="kakao" onClick={() => setModalOpen(true)}>
             카카오 로그인

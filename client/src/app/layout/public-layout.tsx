@@ -204,7 +204,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
       <footer className="site-brand-surface py-8 mt-12">
         <div className="site-container text-sm space-y-3">
-          <div className="font-bold tp-text-gold text-base">{SITE_NAME}</div>
+          <div className="font-bold tp-text-accent text-base">{SITE_NAME}</div>
           <dl className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-white/85">
             <dt className="text-white/60">단체명</dt>
             <dd>{SITE_NAME}</dd>

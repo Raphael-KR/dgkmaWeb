@@ -16,7 +16,7 @@ export function LegalPage({ title, revisionDate, children }: LegalPageProps) {
 
   return (
     <PublicLayout>
-      <div className="min-h-screen tp-bg-cream p-4">
+      <div className="min-h-screen tp-bg-muted p-4">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
             <Button
@@ -35,7 +35,7 @@ export function LegalPage({ title, revisionDate, children }: LegalPageProps) {
 
           <Card className="shadow-sm">
             <CardHeader>
-              <CardTitle className="text-2xl font-bold tp-text-green-dark">{title}</CardTitle>
+              <CardTitle className="text-2xl font-bold tp-text-body">{title}</CardTitle>
               <p className="text-sm text-gray-600">최종 개정일: {revisionDate}</p>
             </CardHeader>
             <CardContent className="space-y-8">{children}</CardContent>

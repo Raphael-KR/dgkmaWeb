@@ -14,5 +14,4 @@ graphify-out/**
 # Preserve generated records and verified upstream sources.
 **/package-lock.json
 migrations/**
-scripts/mobile-home-baseline.json
 server/modules/events/writer/**

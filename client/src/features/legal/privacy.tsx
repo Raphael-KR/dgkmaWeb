@@ -9,9 +9,7 @@ export default function Privacy() {
     <LegalPage title="개인정보 처리방침" revisionDate="2026년 7월 14일">
       {/* 제1조 개인정보의 처리목적 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제1조 (개인정보의 처리목적)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제1조 (개인정보의 처리목적)</h3>
         <div className="space-y-2 text-gray-700">
           <p>동국대학교한의과대학동문회는 다음의 목적을 위하여 개인정보를 처리합니다:</p>
           <ul className="list-disc list-inside ml-4 space-y-1">
@@ -37,7 +35,7 @@ export default function Privacy() {
 
       {/* 제2조 개인정보의 처리 및 보유기간 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">
           제2조 (개인정보의 처리 및 보유기간)
         </h3>
         <div className="space-y-2 text-gray-700">
@@ -73,7 +71,7 @@ export default function Privacy() {
 
       {/* 제3조 개인정보의 수집항목 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">
           제3조 (처리하는 개인정보의 항목)
         </h3>
         <div className="space-y-4 text-gray-700">
@@ -131,9 +129,7 @@ export default function Privacy() {
 
       {/* 제4조 개인정보의 제3자 제공 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제4조 (개인정보의 제3자 제공)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제4조 (개인정보의 제3자 제공)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 동문회는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다.</p>
           <p>② 다만, 다음의 경우에는 예외로 합니다:</p>
@@ -149,7 +145,7 @@ export default function Privacy() {
 
       {/* 제5조 개인정보 처리위탁 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제5조 (개인정보 처리위탁)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제5조 (개인정보 처리위탁)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 동문회는 서비스 제공을 위해 다음과 같이 개인정보 처리업무를 위탁합니다:</p>
           <ul className="list-disc list-inside ml-4 space-y-1">
@@ -165,9 +161,7 @@ export default function Privacy() {
 
       {/* 제5조의2 개인정보의 국외 이전 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제5조의2 (개인정보의 국외 이전)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제5조의2 (개인정보의 국외 이전)</h3>
         <div className="space-y-4 text-gray-700">
           <p>
             ① 동문회는 개인정보 보호법 제28조의8 제1항 제3호에 따라 서비스 제공에 필요한 계약의
@@ -231,7 +225,7 @@ export default function Privacy() {
 
       {/* 제6조 정보주체의 권리 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">
           제6조 (정보주체의 권리·의무 및 행사방법)
         </h3>
         <div className="space-y-2 text-gray-700">
@@ -251,7 +245,7 @@ export default function Privacy() {
 
       {/* 제7조 개인정보의 파기 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제7조 (개인정보의 파기)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제7조 (개인정보의 파기)</h3>
         <div className="space-y-2 text-gray-700">
           <p>
             ① 개인정보는 보유기간의 경과, 처리목적 달성 등 그 개인정보가 불필요하게 되었을 때에는
@@ -279,9 +273,7 @@ export default function Privacy() {
 
       {/* 제8조 개인정보 보호책임자 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제8조 (개인정보 보호책임자)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제8조 (개인정보 보호책임자)</h3>
         <div className="space-y-2 text-gray-700">
           <p>
             ① 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 정보주체의
@@ -298,9 +290,7 @@ export default function Privacy() {
 
       {/* 제9조 개인정보 처리방침 변경 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제9조 (개인정보 처리방침 변경)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제9조 (개인정보 처리방침 변경)</h3>
         <div className="space-y-2 text-gray-700">
           <p>
             ① 이 개인정보처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제
@@ -311,7 +301,7 @@ export default function Privacy() {
 
       {/* 부칙 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">부칙</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">부칙</h3>
         <div className="space-y-2 text-gray-700">
           <p>본 방침은 2026년 7월 13일부터 시행됩니다.</p>
         </div>
@@ -319,7 +309,7 @@ export default function Privacy() {
 
       {/* 문의 */}
       <section className="border-t pt-6">
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">개인정보 관련 문의</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">개인정보 관련 문의</h3>
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="font-medium">동국대학교한의과대학동문회</p>
           <p className="text-gray-600">개인정보보호 담당자</p>

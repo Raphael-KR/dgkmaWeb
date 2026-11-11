@@ -48,24 +48,6 @@ export const consumePostgresEventParseQuota: ConsumeEventParseQuota = async (
   return Number(result.rows[0]?.request_count ?? max + 1) <= max;
 };
 
-export function createInMemoryEventParseQuota(): ConsumeEventParseQuota {
-  const requestsByUserId = new Map<number, number[]>();
-
-  return async (userId, windowMs, max) => {
-    const now = Date.now();
-    const recentRequests = (requestsByUserId.get(userId) ?? []).filter(
-      (requestedAt) => now - requestedAt < windowMs,
-    );
-    if (recentRequests.length >= max) {
-      requestsByUserId.set(userId, recentRequests);
-      return false;
-    }
-    recentRequests.push(now);
-    requestsByUserId.set(userId, recentRequests);
-    return true;
-  };
-}
-
 export function createEventParseLimiter({
   windowMs = 60_000,
   max = 10,

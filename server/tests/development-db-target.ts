@@ -59,3 +59,15 @@ export async function verifyDevelopmentDb(pool: Pool): Promise<void> {
     "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
   );
 }
+
+export async function getDevelopmentDbPool(): Promise<Pool> {
+  developmentDbConfig();
+  const { pool } = await import("../db");
+  try {
+    await verifyDevelopmentDb(pool);
+    return pool;
+  } catch (error) {
+    await pool.end();
+    throw error;
+  }
+}

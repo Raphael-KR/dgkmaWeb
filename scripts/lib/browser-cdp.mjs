@@ -7,13 +7,7 @@ const require = createRequire(import.meta.url);
 const WebSocket = require("ws");
 const connections = new WeakMap();
 
-export function openCdpSocket(
-  url,
-  {
-    onEvent = () => {},
-    formatCommandError = (method, _params, error) => `${method}: ${error.message}`,
-  } = {},
-) {
+export function openCdpSocket(url, { onEvent, formatCommandError }) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url);
     const state = { nextId: 0, pending: new Map() };
@@ -74,7 +68,7 @@ export async function evaluate(socket, expression) {
   return result.result?.value;
 }
 
-export async function waitFor(socket, expression, description, timeoutMs = 20_000) {
+export async function waitFor(socket, expression, description, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await evaluate(socket, expression)) return;

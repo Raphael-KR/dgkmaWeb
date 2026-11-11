@@ -9,7 +9,7 @@ export default function Terms() {
     <LegalPage title="동국대학교한의과대학동문회 서비스 이용약관" revisionDate="2026년 7월 14일">
       {/* 제1조 목적 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제1조 (목적)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제1조 (목적)</h3>
         <p className="text-gray-700 leading-relaxed">
           본 약관은 동국대학교한의과대학동문회(이하 "동문회")가 제공하는 온라인 서비스(이하
           "서비스")의 이용조건 및 절차, 동문회와 이용자의 권리, 의무, 책임사항 등을 규정함을
@@ -19,7 +19,7 @@ export default function Terms() {
 
       {/* 제2조 정의 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제2조 (정의)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제2조 (정의)</h3>
         <div className="space-y-2 text-gray-700">
           <p>
             ① "서비스"란 동문회가 제공하는 동문 네트워킹, 정보 공유, 회비 관리 등의 온라인 서비스를
@@ -34,9 +34,7 @@ export default function Terms() {
 
       {/* 제3조 약관의 효력과 변경 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제3조 (약관의 효력과 변경)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제3조 (약관의 효력과 변경)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 본 약관은 서비스를 이용하고자 하는 모든 이용자에게 그 효력이 발생합니다.</p>
           <p>
@@ -51,7 +49,7 @@ export default function Terms() {
 
       {/* 제4조 서비스의 제공 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제4조 (서비스의 제공)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제4조 (서비스의 제공)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 동문회는 다음과 같은 서비스를 제공합니다:</p>
           <ul className="list-disc list-inside ml-4 space-y-1">
@@ -66,7 +64,7 @@ export default function Terms() {
 
       {/* 제5조 회원가입 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제5조 (회원가입)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제5조 (회원가입)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 서비스 이용을 위해서는 동국대학교 한의과대학 졸업생임을 인증받아야 합니다.</p>
           <p>
@@ -79,7 +77,7 @@ export default function Terms() {
 
       {/* 제6조 개인정보 보호 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제6조 (개인정보 보호)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제6조 (개인정보 보호)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 동문회는 이용자의 개인정보를 관련 법령에 따라 보호합니다.</p>
           <p>② 수집하는 개인정보는 다음과 같습니다:</p>
@@ -113,9 +111,7 @@ export default function Terms() {
 
       {/* 제7조 카카오 로그인 서비스 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">
-          제7조 (카카오 로그인 서비스)
-        </h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제7조 (카카오 로그인 서비스)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 서비스는 카카오 계정을 통한 카카오 로그인 서비스를 제공합니다.</p>
           <p>
@@ -128,7 +124,7 @@ export default function Terms() {
 
       {/* 제8조 이용자의 의무 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제8조 (이용자의 의무)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제8조 (이용자의 의무)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 이용자는 다음 행위를 하여서는 안 됩니다:</p>
           <ul className="list-disc list-inside ml-4 space-y-1">
@@ -143,7 +139,7 @@ export default function Terms() {
 
       {/* 제9조 서비스 제한 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제9조 (서비스 이용 제한)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제9조 (서비스 이용 제한)</h3>
         <div className="space-y-2 text-gray-700">
           <p>① 동문회는 이용자가 본 약관을 위반한 경우 서비스 이용을 제한할 수 있습니다.</p>
           <p>② 시스템 점검, 보수, 교체 등의 경우 서비스 제공을 일시 중단할 수 있습니다.</p>
@@ -152,7 +148,7 @@ export default function Terms() {
 
       {/* 제10조 면책조항 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제10조 (면책조항)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제10조 (면책조항)</h3>
         <div className="space-y-2 text-gray-700">
           <p>
             ① 동문회는 천재지변, 전쟁, 기타 불가항력으로 인해 서비스를 제공할 수 없는 경우 책임이
@@ -170,7 +166,7 @@ export default function Terms() {
 
       {/* 제11조 분쟁해결 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">제11조 (분쟁해결)</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">제11조 (분쟁해결)</h3>
         <div className="space-y-2 text-gray-700">
           <p>
             ① 서비스 이용과 관련하여 분쟁이 발생한 경우, 동문회와 이용자는 신의에 따라 해결하도록
@@ -182,7 +178,7 @@ export default function Terms() {
 
       {/* 부칙 */}
       <section>
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">부칙</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">부칙</h3>
         <div className="space-y-2 text-gray-700">
           <p>본 약관은 2026년 7월 12일부터 시행됩니다.</p>
         </div>
@@ -190,7 +186,7 @@ export default function Terms() {
 
       {/* 문의 연락처 */}
       <section className="border-t pt-6">
-        <h3 className="text-lg font-semibold mb-3 tp-text-green-dark">문의 연락처</h3>
+        <h3 className="text-lg font-semibold mb-3 tp-text-body">문의 연락처</h3>
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="font-medium">동국대학교한의과대학동문회</p>
           <p className="text-gray-600">이메일: {ASSOCIATION_CONTACT.email}</p>

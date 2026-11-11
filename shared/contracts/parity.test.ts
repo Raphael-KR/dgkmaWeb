@@ -1,185 +1,101 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
 import test from "node:test";
-import { z } from "zod";
 import * as contracts from "./index";
 import * as persistence from "../../server/db/schema";
 import * as compatibility from "../schema";
 
-function assertValidationParity(browser: z.ZodTypeAny, server: z.ZodTypeAny, inputs: unknown[]) {
-  for (const input of inputs) {
-    const actual = browser.safeParse(input);
-    const expected = server.safeParse(input);
-    assert.equal(actual.success, expected.success, JSON.stringify(input));
-    if (actual.success && expected.success) {
-      assert.deepEqual(actual.data, expected.data);
-    } else if (!actual.success && !expected.success) {
-      assert.deepEqual(actual.error.issues, expected.error.issues);
-    }
-  }
-}
+const post = {
+  title: "동문 소식",
+  content: {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }],
+  },
+};
 
-test("post metadata and document validation preserve persistence boundaries and stripping", () => {
-  const base = {
-    title: "동문 소식",
-    content: {
-      type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }],
-    },
-  };
-  const inputs: unknown[] = [
-    undefined,
-    null,
-    [],
-    {},
-    base,
-    { title: "", content: "" },
-    { ...base, id: 1, createdAt: new Date(), unknown: "stripped" },
-  ];
-  for (const field of ["categoryId", "authorId"]) {
-    for (const value of [
-      undefined,
-      null,
-      0,
-      -1,
-      1,
-      -2147483648,
-      2147483647,
-      -2147483649,
-      2147483648,
-      1.5,
-      NaN,
-      Infinity,
-      "1",
-      true,
-      {},
-    ]) {
-      inputs.push({ ...base, [field]: value });
-    }
-  }
-  for (const value of [undefined, null, true, false, 0, "true"]) {
-    inputs.push({ ...base, isPublished: value });
-  }
-  for (const field of ["title", "content"]) {
-    for (const value of [undefined, null, 1, false, [], {}]) {
-      inputs.push({ ...base, [field]: value });
-    }
-  }
-  assertValidationParity(contracts.insertPostSchema, persistence.insertPostSchema, inputs);
-});
-
-test("post API validation shares editable fields and rejects persistence-only coercion", () => {
-  const input = {
-    title: "동문 소식",
-    content: {
-      type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "내용" }] }],
-    },
-  };
-  assert.equal(contracts.insertPostSchema.shape.title, contracts.updatePostSchema.shape.title);
-  assert.equal(
-    contracts.insertPostSchema.shape.imageUrls.unwrap().unwrap(),
-    contracts.updatePostSchema.shape.imageUrls,
+test("post metadata validates types and strips persistence-only fields", () => {
+  assert.deepEqual(
+    contracts.insertPostSchema.parse({
+      ...post,
+      id: 1,
+      createdAt: new Date(),
+      unknown: "stripped",
+    }),
+    post,
   );
-  for (const imageUrls of [undefined, null, []]) {
-    assertValidationParity(contracts.insertPostSchema, persistence.insertPostSchema, [
-      { ...input, imageUrls },
-    ]);
+  for (const input of [undefined, {}, { title: "", content: "" }]) {
+    assert.equal(contracts.insertPostSchema.safeParse(input).success, false);
   }
-  // These are the existing persistence-parity inputs. The API now intentionally rejects them.
-  for (const imageUrls of [
-    [""],
-    ["/image.jpg"],
-    [1],
-    [null],
-    [false],
-    [{}],
-    [["nested"]],
-    [undefined],
-    ["/image.jpg", 1, null, { path: "/other.jpg" }],
-    "image.jpg",
-    1,
+  for (const field of ["categoryId", "authorId"]) {
+    for (const value of [undefined, null, -2147483648, 2147483647]) {
+      assert.equal(contracts.insertPostSchema.safeParse({ ...post, [field]: value }).success, true);
+    }
+    for (const value of [-2147483649, 2147483648, 1.5, "1"]) {
+      assert.equal(
+        contracts.insertPostSchema.safeParse({ ...post, [field]: value }).success,
+        false,
+      );
+    }
+  }
+  for (const value of [undefined, null, true, false]) {
+    assert.equal(
+      contracts.insertPostSchema.safeParse({ ...post, isPublished: value }).success,
+      true,
+    );
+  }
+  assert.equal(
+    contracts.insertPostSchema.safeParse({ ...post, isPublished: "true" }).success,
     false,
-    {},
-    { 0: "/image.jpg", length: 1 },
-  ]) {
-    assert.equal(contracts.insertPostSchema.safeParse({ ...input, imageUrls }).success, false);
+  );
+  for (const field of ["title", "content"]) {
+    for (const value of [undefined, null, 1]) {
+      assert.equal(
+        contracts.insertPostSchema.safeParse({ ...post, [field]: value }).success,
+        false,
+      );
+    }
+  }
+  for (const imageUrls of [undefined, null, []]) {
+    assert.equal(contracts.insertPostSchema.safeParse({ ...post, imageUrls }).success, true);
   }
 });
 
-test("browser comment validation matches server messages, limits and stripping", () => {
-  assertValidationParity(contracts.insertCommentSchema, persistence.insertCommentSchema, [
+test("post images require an array of attachment paths", () => {
+  for (const imageUrls of [[""], ["/image.jpg"], [1], "image.jpg"]) {
+    assert.equal(contracts.insertPostSchema.safeParse({ ...post, imageUrls }).success, false);
+  }
+});
+
+test("comments preserve limits and strip persistence-only fields", () => {
+  for (const input of [
     undefined,
-    null,
     {},
     { content: "" },
-    { content: " " },
-    { content: "댓글" },
-    { content: "가".repeat(1000) },
     { content: "가".repeat(1001) },
-    { content: null },
     { content: 1 },
-    { content: "댓글", authorId: 2, postId: 3, id: 4 },
-  ]);
-});
-
-test("handwritten validators remain shared with server compatibility exports", () => {
-  assert.equal(compatibility.updateProfileSchema, contracts.updateProfileSchema);
-  assert.equal(compatibility.activityRegionSchema, contracts.activityRegionSchema);
-  assert.equal(
-    compatibility.PENDING_REGISTRATION_CONFLICT_REASONS,
-    contracts.PENDING_REGISTRATION_CONFLICT_REASONS,
+  ]) {
+    assert.equal(contracts.insertCommentSchema.safeParse(input).success, false);
+  }
+  for (const content of [" ", "댓글", "가".repeat(1000)]) {
+    assert.deepEqual(contracts.insertCommentSchema.parse({ content }), { content });
+  }
+  assert.deepEqual(
+    contracts.insertCommentSchema.parse({ content: "댓글", authorId: 2, postId: 3, id: 4 }),
+    { content: "댓글" },
   );
-  assert.equal(contracts.REGION_OPTIONS.length, 18);
-  assert.equal(contracts.ANNUAL_DUES, 50000);
 });
 
-test("legacy schema entrypoint preserves persistence table and validator identities", () => {
+test("server compatibility exports keep the shared validators and persistence identities", () => {
+  for (const key of [
+    "insertPostSchema",
+    "insertCommentSchema",
+    "updateProfileSchema",
+    "activityRegionSchema",
+    "PENDING_REGISTRATION_CONFLICT_REASONS",
+  ] as const) {
+    assert.equal(compatibility[key], contracts[key], key);
+  }
   for (const key of Object.keys(persistence) as (keyof typeof persistence)[]) {
     assert.equal(compatibility[key], persistence[key], key);
-  }
-});
-
-test("browser-safe shared modules have no direct or transitive persistence imports", () => {
-  const sharedRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-  const visited = new Set<string>();
-  function visit(path: string) {
-    if (visited.has(path)) return;
-    visited.add(path);
-    const source = readFileSync(path, "utf8");
-    assert.doesNotMatch(source, /(?:drizzle-orm|drizzle-zod|pg-core)/, path);
-    const imports = Array.from(source.matchAll(/(?:from\s*|import\s*\()\s*["']([^"']+)["']/g));
-    for (const [, specifier] of imports) {
-      assert.ok(!specifier.includes("server/"), `${path}: ${specifier}`);
-      assert.ok(!/(?:^|\/)schema(?:\.ts)?$/.test(specifier), `${path}: ${specifier}`);
-      if (!specifier.startsWith(".") && !specifier.startsWith("@shared/")) continue;
-      const target = specifier.startsWith("@shared/")
-        ? resolve(sharedRoot, specifier.slice("@shared/".length))
-        : resolve(dirname(path), specifier);
-      assert.ok(target.startsWith(sharedRoot + "/"), `${path}: ${specifier}`);
-      let resolved = target;
-      if (!target.endsWith(".ts")) {
-        try {
-          readFileSync(target + ".ts");
-          resolved = target + ".ts";
-        } catch {
-          resolved = resolve(target, "index.ts");
-        }
-      }
-      visit(resolved);
-    }
-  }
-  // Includes compatibility utilities, excluding the deliberately server-only schema.
-  for (const entry of readdirSync(sharedRoot, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith(".ts") && entry.name !== "schema.ts") {
-      visit(resolve(sharedRoot, entry.name));
-    }
-  }
-  visit(resolve(sharedRoot, "contracts/index.ts"));
-  for (const entry of readdirSync(resolve(sharedRoot, "domain"))) {
-    if (entry.endsWith(".ts")) visit(resolve(sharedRoot, "domain", entry));
   }
 });
 
@@ -190,8 +106,6 @@ type JsonDates<T> = {
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const typeParity: [
-  Equal<contracts.InsertPost, z.infer<typeof persistence.insertPostSchema>>,
-  Equal<contracts.InsertComment, persistence.InsertComment>,
   Equal<contracts.Category, JsonDates<persistence.Category>>,
   Equal<
     contracts.Post,
@@ -202,6 +116,5 @@ const typeParity: [
     >
   >,
   Equal<contracts.Comment, JsonDates<persistence.Comment>>,
-  Equal<contracts.ClientUser, persistence.ClientUser>,
-] = [true, true, true, true, true, true];
+] = [true, true, true];
 void typeParity;

@@ -1,32 +1,16 @@
+import { developmentDbSkip, getDevelopmentDbPool } from "../../tests/development-db-target";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 
-const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
-const hasDatabaseEnvironment = Boolean(
-  (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE) || process.env.DATABASE_URL,
-);
-
 test(
   "development PostgreSQL keeps one pending row across concurrent login retries",
   {
-    skip: isProduction
-      ? "운영 환경에서는 pending 동시성 회귀 테스트를 실행하지 않습니다."
-      : !hasDatabaseEnvironment
-        ? "PostgreSQL 개발 DB 환경변수가 없어 건너뜁니다."
-        : false,
+    skip: developmentDbSkip,
   },
   async (t) => {
-    const { pool } = await import("../../db");
+    const pool = await getDevelopmentDbPool();
     const { storage } = await import("../../storage");
-    const databaseResult = await pool.query<{ database: string }>(
-      "select current_database() as database",
-    );
-    assert.equal(
-      databaseResult.rows[0]?.database,
-      "heliumdb",
-      "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
-    );
 
     const token = randomUUID().replaceAll("-", "");
     const kakaoId = `pending-${token}`;

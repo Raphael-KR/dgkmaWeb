@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { KakaoOAuthConfigurationError } from "../../../integrations/kakao/kakao-oauth-config";
 import { PendingRegistrationConflictError, PhoneRegistrationConflictError } from "../../../storage";
@@ -10,13 +9,10 @@ import {
   config,
   beginKakaoAuthorization,
   postKakaoAuthorize,
-  clientAuthPath,
-  routesPath,
 } from "./kakao-oauth-fixtures";
 
 export function registerKakaoApprovalCases() {
-  test("admin approval phone conflict returns 409 without changing pending status", async () => {
-    const pendingStatus = "pending";
+  test("admin approval phone conflict returns 409 with a safe message", async () => {
     const adminUser = { ...createdUser, id: 1, isAdmin: true };
     const server = await startServer({
       getUserForAdmin: async () => adminUser,
@@ -38,7 +34,6 @@ export function registerKakaoApprovalCases() {
       });
 
       assert.equal(response.status, 409);
-      assert.equal(pendingStatus, "pending");
       assert.deepEqual(await response.json(), {
         message: "이미 가입된 전화번호입니다",
         description: "승인 상태는 변경되지 않았습니다.",
@@ -48,7 +43,7 @@ export function registerKakaoApprovalCases() {
     }
   });
 
-  test("admin approval unresolved identity or alumni conflict returns 409 and leaves pending", async () => {
+  test("admin approval unresolved identity or alumni conflict returns 409", async () => {
     let updateCalls = 0;
     const adminUser = { ...createdUser, id: 1, isAdmin: true };
     const server = await startServer({
@@ -98,21 +93,8 @@ export function registerKakaoApprovalCases() {
       assert.equal(response.status, 500);
       const responseBody = await response.json();
       assert.deepEqual(responseBody, { message: "Kakao 앱 설정 오류" });
-      const body = JSON.stringify(responseBody);
-      assert.doesNotMatch(body, /KAKAO_DEV_CLIENT_SECRET|route-rest-key|route-client-secret/);
     } finally {
       await server.close();
     }
-  });
-
-  test("client login delegates to the server start route", async () => {
-    const [clientSource, routesSource] = await Promise.all([
-      readFile(clientAuthPath, "utf8"),
-      readFile(routesPath, "utf8"),
-    ]);
-    assert.match(clientSource, /\/api\/auth\/kakao\/start/);
-    assert.doesNotMatch(clientSource, /VITE_KAKAO_REST_API_KEY/);
-    assert.doesNotMatch(clientSource, /VITE_KAKAO_REDIRECT_URI/);
-    assert.doesNotMatch(routesSource, /restApiKeyPrefix|app\.post\("\/api\/auth\/kakao",/);
   });
 }

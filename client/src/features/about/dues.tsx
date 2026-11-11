@@ -18,17 +18,17 @@ export default function AboutDues() {
           </p>
         </PublicHeading>
 
-        <Card className="mb-6 border-l-4 tp-border-gold">
+        <Card className="mb-6 border-l-4 tp-border-accent">
           <CardContent className="p-6">
             <h2 className="public-card-title mb-3">2026년 동문회비</h2>
             <div className="grid sm:grid-cols-2 gap-4 text-center mb-4">
               <div className="rounded-lg bg-white p-4 border">
-                <div className="text-xs tp-text-gold-dark font-semibold mb-1">월납</div>
-                <div className="text-2xl font-bold tp-text-green-dark">월 2,000원 이상</div>
+                <div className="text-xs tp-text-emphasis font-semibold mb-1">월납</div>
+                <div className="text-2xl font-bold tp-text-body">월 2,000원 이상</div>
               </div>
               <div className="rounded-lg bg-white p-4 border">
-                <div className="text-xs tp-text-gold-dark font-semibold mb-1">연납(일시불)</div>
-                <div className="text-2xl font-bold tp-text-green-dark">연 50,000원 이상</div>
+                <div className="text-xs tp-text-emphasis font-semibold mb-1">연납(일시불)</div>
+                <div className="text-2xl font-bold tp-text-body">연 50,000원 이상</div>
               </div>
             </div>
             <div className="text-sm text-gray-700 space-y-2">
@@ -53,17 +53,17 @@ export default function AboutDues() {
               <table className="w-full text-sm min-w-[360px]">
                 <tbody className="divide-y divide-gray-100">
                   <tr>
-                    <td className="py-3 px-2 font-medium tp-text-green-dark w-32">은행</td>
+                    <td className="py-3 px-2 font-medium tp-text-body w-32">은행</td>
                     <td className="py-3 px-2 text-gray-700">{ASSOCIATION_BANK_ACCOUNT.bank}</td>
                   </tr>
                   <tr>
-                    <td className="py-3 px-2 font-medium tp-text-green-dark">계좌번호</td>
+                    <td className="py-3 px-2 font-medium tp-text-body">계좌번호</td>
                     <td className="py-3 px-2 text-gray-700 font-mono">
                       {ASSOCIATION_BANK_ACCOUNT.number}
                     </td>
                   </tr>
                   <tr>
-                    <td className="py-3 px-2 font-medium tp-text-green-dark">예금주</td>
+                    <td className="py-3 px-2 font-medium tp-text-body">예금주</td>
                     <td className="py-3 px-2 text-gray-700">{ASSOCIATION_BANK_ACCOUNT.holder}</td>
                   </tr>
                 </tbody>
@@ -85,7 +85,7 @@ export default function AboutDues() {
             <h2 className="public-card-title mb-4">2026년 회비 납부자(권리회원) 혜택</h2>
 
             <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-2">가. 경조사(부고/혼인) 지원</h3>
+              <h3 className="font-semibold tp-text-body mb-2">가. 경조사(부고/혼인) 지원</h3>
               <ul className="dues-reference-list">
                 <li>범위: 본인 및 배우자 직계 1촌 이내, 행사 1건당 1회씩</li>
                 <li>경조사 공고를 동문회에서 올려드림 (밴드 &amp; 회원 단톡방)</li>
@@ -100,7 +100,7 @@ export default function AboutDues() {
             </div>
 
             <div className="mb-5">
-              <h3 className="font-semibold tp-text-green-dark mb-2">나. 권리회원 단톡방 초대</h3>
+              <h3 className="font-semibold tp-text-body mb-2">나. 권리회원 단톡방 초대</h3>
               <ul className="dues-reference-list">
                 <li>총회 의결권</li>
                 <li>회장 선거 및 피선거권</li>
@@ -116,7 +116,7 @@ export default function AboutDues() {
             </div>
 
             <div>
-              <h3 className="font-semibold tp-text-green-dark mb-2">다. 동문 연락처 요청</h3>
+              <h3 className="font-semibold tp-text-body mb-2">다. 동문 연락처 요청</h3>
               <ul className="dues-reference-list">
                 <li>사적이고 비영리적 목적에 한함</li>
                 <li>동문회에서 연락처 공유를 개인정보주체에게 허락 받고 전달</li>
@@ -135,7 +135,7 @@ export default function AboutDues() {
             <h2 className="public-card-title mb-3">회비 사용 내역</h2>
             <p className="text-sm text-gray-700 mb-3">
               납부된 회비는{" "}
-              <a href="/about/bylaws" className="tp-text-gold-dark underline underline-offset-2">
+              <a href="/about/bylaws" className="tp-text-emphasis underline underline-offset-2">
                 동국대학교한의과대학동문회 회칙
               </a>{" "}
               제4조 사업과 제22조 재정 규정에 따라 다음 용도로 집행됩니다.
@@ -166,9 +166,9 @@ export default function AboutDues() {
               <table className="w-full text-sm min-w-[420px]">
                 <thead>
                   <tr className="border-b text-left">
-                    <th className="py-3 px-2 font-semibold tp-text-green-dark">직책</th>
-                    <th className="py-3 px-2 font-semibold tp-text-green-dark">월납</th>
-                    <th className="py-3 px-2 font-semibold tp-text-green-dark">연납</th>
+                    <th className="py-3 px-2 font-semibold tp-text-body">직책</th>
+                    <th className="py-3 px-2 font-semibold tp-text-body">월납</th>
+                    <th className="py-3 px-2 font-semibold tp-text-body">연납</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-gray-700">
@@ -208,13 +208,13 @@ export default function AboutDues() {
           </CardContent>
         </Card>
 
-        <div className="tp-bg-cream border rounded-lg p-5 text-sm text-gray-700">
+        <div className="tp-bg-muted border rounded-lg p-5 text-sm text-gray-700">
           궁금한 점은{" "}
           <a
             href={ASSOCIATION_CONTACT.inquiryUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-semibold tp-text-gold-dark underline underline-offset-2"
+            className="font-semibold tp-text-emphasis underline underline-offset-2"
             onClick={() =>
               trackEvent("external_contact_clicked", {
                 destination: "kakao",

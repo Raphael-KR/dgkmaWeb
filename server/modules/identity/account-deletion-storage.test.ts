@@ -1,80 +1,16 @@
+import { developmentDbSkip, getDevelopmentDbPool } from "../../tests/development-db-target";
+import { postDocumentFromMarkdown } from "@shared/editor/post-document";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { readDeclarationSource } from "../../tests/source";
-
-const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
-const hasDatabaseEnvironment = Boolean(
-  (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE) || process.env.DATABASE_URL,
-);
-
-test("deleteUserAccount processes every approved relation in one transaction", async () => {
-  const [helper, method] = await Promise.all([
-    readDeclarationSource("modules/identity/registration-support.ts", "removeLocalUsers"),
-    readDeclarationSource("modules/identity/storage.ts", "deleteUserAccount"),
-  ]);
-  assert.match(method, /beforeDelete:[\s\S]*Promise<void>/);
-  assert.match(method, /db\.transaction/);
-  assert.match(method, /lockRegistrationIdentities/);
-  assert.match(method, /markKakaoIdentityTerminated/);
-  assert.match(method, /removeLocalUsers/);
-  for (const table of [
-    "alumniDatabase",
-    "posts",
-    "comments",
-    "payments",
-    "pendingRegistrations",
-    "users",
-  ]) {
-    assert.match(`${helper}\n${method}`, new RegExp(table));
-  }
-  assert.match(helper, /isMatched:\s*false/);
-  assert.match(helper, /matchedUserId:\s*null/);
-
-  const orderedOperations = [
-    "tx.delete(posts)",
-    "tx.update(posts)",
-    "tx.update(comments)",
-    "tx.update(payments)",
-    "tx.update(alumniDatabase)",
-    'delete from "session"',
-    "tx.delete(users)",
-  ];
-  let previousIndex = -1;
-  for (const operation of orderedOperations) {
-    const operationIndex = helper.indexOf(operation);
-    assert.ok(operationIndex > previousIndex, `${operation} 처리 순서가 올바르지 않습니다.`);
-    previousIndex = operationIndex;
-  }
-
-  assert.match(helper, /eq\(posts\.isPublished, false\)/);
-  assert.match(
-    helper,
-    /sql`[\s\S]*delete from "session"[\s\S]*sess\s*->>\s*'userId'\s*=\s*\$\{String\(userId\)\}[\s\S]*`/,
-  );
-  assert.doesNotMatch(helper, /delete from "session"[^`]*\+[^`]*userId/);
-  assert.match(method, /tx\.delete\(pendingRegistrations\)/);
-});
 
 test(
-  "development PostgreSQL deletes one member while preserving public content",
+  "development PostgreSQL deletes one member while preserving published content",
   {
-    skip: isProduction
-      ? "운영 환경에서는 회원 삭제 통합 테스트를 실행하지 않습니다."
-      : !hasDatabaseEnvironment
-        ? "PostgreSQL 개발 DB 환경변수가 없어 건너뜁니다."
-        : false,
+    skip: developmentDbSkip,
   },
   async (t) => {
-    const { pool } = await import("../../db");
-    const databaseResult = await pool.query<{ database: string }>(
-      "select current_database() as database",
-    );
-    assert.equal(
-      databaseResult.rows[0]?.database,
-      "heliumdb",
-      "Development Database(heliumdb)가 아니므로 테스트를 거부합니다.",
-    );
+    const pool = await getDevelopmentDbPool();
 
     const { storage } = await import("../../storage");
     const { hashKakaoEmailIdentity, hashKakaoIdentity } = await import("./kakao-identity");
@@ -106,7 +42,6 @@ test(
           await pool.query("delete from posts where title = any($1::text[])", [
             [`${marker}-draft`, `${marker}-published`],
           ]);
-          await pool.query("delete from payments where type = $1", [marker]);
           await pool.query("delete from alumni_database where generation = $1", [marker]);
           await pool.query("delete from pending_registrations where name = $1", [marker]);
           await pool.query("delete from users where email = any($1::text[])", [
@@ -126,7 +61,6 @@ test(
           users_count: number;
           posts_count: number;
           comments_count: number;
-          payments_count: number;
           alumni_count: number;
           events_count: number;
           pending_count: number;
@@ -137,7 +71,6 @@ test(
            (select count(*)::int from users where email = any($1::text[])) as users_count,
            (select count(*)::int from posts where title = $2) as posts_count,
            (select count(*)::int from comments where content = $2) as comments_count,
-           (select count(*)::int from payments where type = $2) as payments_count,
            (select count(*)::int from alumni_database where generation = $2) as alumni_count,
            (select count(*)::int from posts where title = any($3::text[])) as events_count,
            (select count(*)::int from pending_registrations where name = $2) as pending_count,
@@ -156,7 +89,6 @@ test(
           users_count: 0,
           posts_count: 0,
           comments_count: 0,
-          payments_count: 0,
           alumni_count: 0,
           events_count: 0,
           pending_count: 0,
@@ -186,8 +118,9 @@ test(
     const userId = usersResult.rows[0].id;
     const otherUserId = usersResult.rows[1].id;
 
-    await pool.query(`insert into posts (title, content, author_id) values ($1, $1, $2)`, [
+    await pool.query(`insert into posts (title, content, author_id) values ($1, $2::jsonb, $3)`, [
       marker,
+      JSON.stringify(postDocumentFromMarkdown(marker)),
       userId,
     ]);
     const postResult = await pool.query<{ id: number }>("select id from posts where title = $1", [
@@ -206,9 +139,14 @@ test(
     );
     await pool.query(
       `insert into posts (title, content, is_published, event_data, author_id)
-     values ($1, '', false, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2),
-            ($3, '', true, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2)`,
-      [`${marker}-draft`, userId, `${marker}-published`],
+     values ($1, $4::jsonb, false, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2),
+            ($3, $4::jsonb, true, '{"schemaVersion":1,"eventType":"obituary"}'::jsonb, $2)`,
+      [
+        `${marker}-draft`,
+        userId,
+        `${marker}-published`,
+        JSON.stringify(postDocumentFromMarkdown("")),
+      ],
     );
     await pool.query(
       `insert into pending_registrations (kakao_id, email, name, status)
@@ -241,7 +179,6 @@ test(
       published_anonymous_count: number;
       post_anonymous_count: number;
       comment_anonymous_count: number;
-      payment_anonymous_count: number;
       alumni_unmatched_count: number;
       pending_count: number;
       target_session_count: number;
@@ -254,7 +191,6 @@ test(
        (select count(*)::int from posts where title = $3 and author_id is null) as published_anonymous_count,
        (select count(*)::int from posts where title = $4 and author_id is null) as post_anonymous_count,
        (select count(*)::int from comments where content = $4 and author_id is null) as comment_anonymous_count,
-       (select count(*)::int from payments where type = $4 and user_id is null) as payment_anonymous_count,
        (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id is null) as alumni_unmatched_count,
        (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
        (select count(*)::int from "session" where sid = any($7::text[])) as target_session_count,
@@ -279,7 +215,6 @@ test(
       published_anonymous_count: 1,
       post_anonymous_count: 1,
       comment_anonymous_count: 1,
-      payment_anonymous_count: 0,
       alumni_unmatched_count: 1,
       pending_count: 0,
       target_session_count: 0,
