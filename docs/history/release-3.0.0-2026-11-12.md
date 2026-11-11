@@ -55,4 +55,12 @@
 
 환경은 Replit Node 20.20.0·npm 10.8.2, TypeScript 5.6.3·ESLint 10.14.0·Prettier 3.9.10·Vite 6.4.3이다. 셸의 C.UTF-8 locale 경고 외 검사·빌드 실패는 없다. 명령·UTC 일시·실행 시간·표준 출력과 파일 해시는 `.superpowers/release-3.0.0-20261112/candidate-results.json`에 남겼다. 기존 개발 결과를 이번 실행으로 바꿔 보고하지 않았다.
 
-Git 통합·운영 승인·배포 결과는 실제 수행 후 갱신한다. 준비 문서나 버전 변경을 배포 성공으로 간주하지 않는다. 로컬 제외 산출물·근거 파일은 `.superpowers/release-3.0.0-20261112/`에 보관한다.
+로컬 문서 19개의 상대 링크 420개·앵커 131개를 확인했다. 신규 문서까지 stage한 공백 검사에서 일반 파일 개발 기록의 끝 빈 줄 한 개를 발견해 제거하고 재검사했다. 코드·의존성과 검사 결과는 바뀌지 않았다. 근거 파일은 `.superpowers/release-3.0.0-20261112/`에 보관한다.
+
+## Git 통합과 개발 반영
+
+- 전체 변경 71개를 `049c281cad48ae5ab887ccc0d0f26b85baceb710`로 커밋·push하고 [PR #36](https://github.com/Raphael-KR/dgkmaWeb/pull/36)을 main `86ebf6a3c55b1384792b1c1ef520b3e20ef68ac0`에 병합했다. GitHub 상태·Check Runs·Actions 검사는 없었다. 자동 코드 리뷰는 같은 후보에서 03:39 KST 지적 없이 완료됐다.
+- 03:39 KST Replit을 GitHub main으로 fast-forward했다. 기존 직접 반영본을 stash `fcf37eb0e6531c0f5c1fd8044a6e4e7c1bd25f1d`에 보존하고 소스 575개·정적 산출물 90개의 해시 일치를 확인했다. 기존 stash 13개와 detached worktree를 보존했다.
+- 병합 후보 tree는 `1be421e21ad4d95c209395c29fdae56790c68ad5`다. 검사 이후 달라진 파일은 Markdown뿐이며 앱·의존성과 빌드는 동일하다. 문서 후속 기록만으로 다시 빌드하지 않는다.
+
+운영 DB 전환 승인 답변을 기다리고 있으며 Republish·운영 smoke·`v3.0.0` 태그는 아직 실행하지 않았다. 현재 운영은 `2.0.3`이다. 준비 문서·main 병합을 운영 배포 성공으로 간주하지 않는다.
