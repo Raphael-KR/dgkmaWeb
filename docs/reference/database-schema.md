@@ -10,22 +10,22 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 
 ## 기준 소스와 마지막 DB 관찰
 
-- 코드 기준: 공유 main `b4d55da`와 `3.0.0` 릴리스 후보의 댓글 확장, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
-- DB 관찰: Development 2026-11-12 03:14 KST 댓글 확장 후 metadata-only catalog, Production 2026-11-12 03:34 KST 읽기 전용 catalog. 운영 조회·백업은 수행했고 댓글 확장은 아직 미적용이다.
+- 코드 기준: `3.0.0`의 PR #36 main 병합 `86ebf6a`에 포함된 댓글 확장, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
+- DB 관찰: Development 2026-11-12 03:14 KST, Production 2026-11-12 03:47 KST 댓글 확장 후 metadata-only catalog. 두 환경에 같은 네 컬럼·두 CHECK를 적용했다.
 - 양쪽 구조는 posts.content JSONB·is_hidden, posts 경조사 JSON, source_collection_rules를 포함한다. community_events·obituaries는 두 환경에서 제거됐다. 컬럼 표는 논리 순서이며 환경별 물리 순서 차이를 변경 지시로 삼지 않는다.
 
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
 | DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.15 |
-| tables / columns | 13 / 107 | 13 / 103 |
-| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 6 / 9 | 13 / 8 / 6 / 7 |
+| tables / columns | 13 / 107 | 13 / 107 |
+| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 6 / 9 | 13 / 8 / 6 / 9 |
 | indexes / sequences | 24 / 9 | 24 / 9 |
 | view / trigger / policy / routine / enum / domain | 모두 0 | 모두 0 |
 | RLS | 모든 public 테이블 비활성 | 모든 public 테이블 비활성 |
 
-개발의 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영의 마지막 catalog SHA-256 `27588cbda434da037691dbf79f754ed8956b5b01fdc082a83227f3479eed8262`는 [3.0.0 사전조회](../history/release-3.0.0-2026-11-12.md#운영-db-준비)에서 기존 [가리기 적용 catalog](../history/database-schema-2026-11-09.md#게시글-관리-추가-계약-2026-11-09)와 같음을 확인했다. 운영에는 댓글 확장을 적용하지 않았다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
+개발의 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영의 마지막 catalog SHA-256은 `6db840de3331eedf55a53d6d6f02e15594a3dc51c7173508a00e7825a093a582`이며 [3.0.0 운영 전환](../history/release-3.0.0-2026-11-12.md#운영-db-적용)에 근거한다. 변경 전 catalog와 보존 확인도 같은 기록에 남긴다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
 
-운영 댓글 전환 후보는 [운영 SQL](../../scripts/add-comment-management-production.sql)이며 아래 개발 계약과 같은 구조를 추가한다. `3.0.0` 릴리스 준비·운영 승인과 적용 결과는 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에 구분하며 실제 적용 전에는 위 개발·운영 차이를 유지한다.
+운영 댓글 전환은 [운영 SQL](../../scripts/add-comment-management-production.sql)로 완료했다. 적용된 스크립트의 존재를 반복 실행 지시로 해석하지 않는다. 앱 운영 배포 상태는 [Replit 기준](../../replit.md#현재-적용-상태)과 구분한다.
 
 ## 현행 관계
 
@@ -117,7 +117,7 @@ PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id → users.id)`, `
 
 소유: Community Content. 목적: 게시글 댓글.
 
-2026-11-12 03:14 KST 개발 DB에 네 컬럼·두 CHECK를 추가했다. 기존 다섯 컬럼의 타입·제약은 유지하며 적용 전후 댓글은 0건이었다. [작업 기록](../history/comments-drag-handle-2026-11-12.md)을 따르며 운영은 아래 추가 컬럼·CHECK가 없는 이전 계약이다.
+2026-11-12 개발 03:14 KST·운영 03:47 KST에 네 컬럼·두 CHECK를 추가했다. 기존 다섯 컬럼의 타입·제약과 댓글을 유지했으며 개발 0건·운영 1건이다. [개발 기록](../history/comments-drag-handle-2026-11-12.md)과 [운영 전환](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 구분한다.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|

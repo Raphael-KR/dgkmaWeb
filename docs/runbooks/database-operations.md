@@ -21,8 +21,8 @@
 | 역할 | 구현과 승인된 개발 DB 작업 | Republish된 서비스의 DB |
 | 확인된 DB 이름 | `heliumdb` | `neondb` |
 | 기본 연결 | Replit PG* | 명시적으로 선택한 Replit Secret URL |
-| 마지막 전체 catalog | 2026-11-12 03:14 KST | 2026-11-12 03:34 KST (읽기 전용) |
-| 관찰 구조 | 공통 posts JSONB·수집 규칙 + 댓글 가림·수정·revision·첨부 | 공통 posts JSONB·수집 규칙; 댓글 확장 미적용 |
+| 마지막 전체 catalog | 2026-11-12 03:14 KST | 2026-11-12 03:47 KST |
+| 관찰 구조 | 공통 posts JSONB·수집 규칙 + 댓글 가림·수정·revision·첨부 | 개발과 같은 댓글 확장 적용 |
 
 위 시각은 마지막 DB 작업의 관찰 이력이다. 문서 수정일과 구분한다. Google Sheets가 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Sheets를 직접 조회하지 않는다.
 
@@ -98,7 +98,11 @@ psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
 
 운영 DB 변경이 승인된 작업에만 아래 절차를 사용한다. 새 운영 변경이 없는 문서·개발 작업은 이 절로 넘어오지 않는다.
 
-`3.0.0` 댓글 확장의 운영 후보는 [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql)이다. `neondb`의 comments에 개발과 같은 네 컬럼·두 CHECK만 추가하며 기존 다섯 컬럼·행·시퀀스를 보존한다. 읽기 전용 구조·건수·백업과 원본 값 비교를 준비한 뒤 이 범위의 승인을 받는다. 승인 전에는 적용하지 않으며 신규 컬럼을 참조하는 앱 배포도 시작하지 않는다. 당시 승인·실행·새 연결 검증은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에 남긴다.
+2026-11-12 사용자가 `3.0.0`의 [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql) 전환을 승인했다. `neondb`의 comments에 개발과 같은 네 컬럼·두 CHECK만 추가하며 기존 다섯 컬럼·행·시퀀스를 보존한다. 준비한 읽기 전용 preview·비공개 백업과 실행 직전 구조·값을 대조한 뒤 트랜잭션으로 적용한다. 새 연결에서 보존과 구조를 확인한 후 기존 릴리스 승인에 따라 배포한다. 승인·실행·새 연결 검증은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에 남긴다.
+
+후속 사용자 결정으로 이번 릴리스의 기존 `posts`·종속 `comments` 데이터는 보존 필수가 아니며 필요하면 초기화할 수 있다. 현재 additive SQL은 초기화를 요구하지 않아 그대로 적용한다. 이 허용을 다른 테이블·스키마·Object Storage 파일 삭제로 확대하지 않는다. 실제 초기화 여부와 전후 건수는 수행 기록에서 구분한다.
+
+03:47 KST 운영 전환과 새 읽기 전용 연결·catalog 확인을 완료했다. 댓글 1건·기존 값·시퀀스는 유지됐으며 초기화는 하지 않았다. 전체 catalog의 변경 범위와 SHA-256은 [스키마 기준](../reference/database-schema.md#기준-소스와-마지막-db-관찰), 백업과 실행 근거는 [운영 적용 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다.
 
 1. 승인 대상과 적용할 후보 SQL/변환 코드를 확정한다. Replit Secrets의 운영 URL을 해당 프로세스에만 전달한다. 개발 PG* 기본값이나 Secret 자체를 변경하지 않는다.
 2. 사전 읽기는 `PROD_DATABASE_READONLY_URL`을 우선하고, 없으면 owner URL을 `BEGIN READ ONLY` 트랜잭션으로 제한한다. `current_database()=neondb`, 실제 구조·변경 전 건수·의존 관계를 확인한다.
