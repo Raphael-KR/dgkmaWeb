@@ -13,10 +13,10 @@ export function SiteHeader({ homeHref, actions, navigation, navigationLabel }: S
     <header className="site-header site-brand-surface">
       <div className="site-container site-header__inner">
         <SiteBrand homeHref={homeHref} />
-        <div className="site-header__actions">{actions}</div>
         <nav className="site-header__nav" aria-label={navigationLabel}>
           {navigation}
         </nav>
+        <div className="site-header__actions">{actions}</div>
       </div>
     </header>
   );

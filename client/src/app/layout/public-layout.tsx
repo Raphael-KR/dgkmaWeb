@@ -1,12 +1,13 @@
 import { ASSOCIATION_CONTACT } from "@shared/association";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown, Menu, X, LogIn, LogOut, User, Users } from "lucide-react";
+import { ChevronDown, Menu, X, LogIn, LogOut, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LoginModal, useAuth } from "@/features/auth";
 import { SITE_NAME } from "@shared/site";
 import { SiteBrand } from "@/components/site-brand";
 import { SiteHeader } from "./site-header";
+import { HeaderProfileLink } from "./header-profile-link";
 import { isPublicNavActive, publicNavItems, type PublicNavItem } from "./nav-items";
 
 export function PublicLayout({ children }: { children: ReactNode }) {
@@ -42,10 +43,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
                       <Users size={16} /> 커뮤니티
                     </Link>
                   </Button>
-                  <span className="flex max-w-[8rem] items-center gap-1 text-sm text-white/90">
-                    <User size={14} className="shrink-0" aria-hidden="true" />
-                    <span className="truncate">{user.name}님</span>
-                  </span>
+                  <HeaderProfileLink name={user.name} />
                   <Button size="sm" variant="onBrandOutline" onClick={() => logout()}>
                     <LogOut size={14} /> 로그아웃
                   </Button>

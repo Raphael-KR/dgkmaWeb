@@ -2,7 +2,8 @@ import { Search, List, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/features/auth";
-import { isMemberNavActive, memberNavItems } from "./nav-items";
+import { isMemberNavActive, memberHeaderNavItems } from "./nav-items";
+import { HeaderProfileLink } from "./header-profile-link";
 import { SiteHeader } from "./site-header";
 
 export function AppHeader() {
@@ -23,11 +24,7 @@ export function AppHeader() {
       navigationLabel="회원 메뉴"
       actions={
         <>
-          {user && (
-            <span className="hidden max-w-[7rem] truncate text-xs opacity-90 sm:inline">
-              {user.name}님
-            </span>
-          )}
+          {user && <HeaderProfileLink name={user.name} />}
           <Button
             variant="onBrand"
             size="sm"
@@ -61,7 +58,7 @@ export function AppHeader() {
           )}
         </>
       }
-      navigation={memberNavItems.map((item) => {
+      navigation={memberHeaderNavItems.map((item) => {
         const active = isMemberNavActive(location, item.path);
         const Icon = item.icon;
         return (
@@ -69,7 +66,7 @@ export function AppHeader() {
             key={item.path}
             href={item.path}
             aria-current={active ? "page" : undefined}
-            className="site-nav-link flex-1 xl:flex-none"
+            className="site-nav-link"
           >
             <Icon size={17} aria-hidden="true" />
             {item.label}
