@@ -141,6 +141,8 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 회원 탐색은 `AppHeader`·`BottomNavigation`, 공개 서랍은 `PublicLayout`이 담당한다. 열기 경로 없는 회원 사이드 메뉴와 전용 상태·항목은 유지하지 않는다. 관리자 진입은 회원 홈에서 제공한다. 공개 문서의 `tp-prose`와 게시글의 `post-body`는 자체 CSS이며, 사용하는 클래스가 없는 루트 Typography 플러그인은 제거한다. sandbox의 별도 구성은 이 정리에 포함하지 않는다.
 
+공통 헤더·메뉴의 색상은 `client/src/index.css`의 역할별 CSS 변수로 관리한다. 공개 화면은 주황색 기본값을 사용하고, `AppShell`의 기존 회원 화면 판정에만 `theme-member`를 적용해 노란색으로 바꾼다. 회원 테마에서 공개 `/about` 화면으로 이동하면 이 범위가 해제되므로 공개 헤더·푸터와 모바일 메뉴도 공개 색을 사용한다. 공통 로고·이름·레이아웃을 복제하거나 로그인 상태만으로 공개 페이지의 색을 바꾸지 않는다.
+
 회원 헤더의 최근 글 버튼은 홈의 `recent-posts-section` 이동을 제공한다. 접근성 이름·툴팁·목록 아이콘을 이 역할에 맞추고, 미읽음 상태가 없는 고정 알림 점은 표시하지 않는다. 알림 조회·발송 기능은 이 버튼의 계약에 포함하지 않는다.
 
 `client/src/lib/analytics.ts`는 운영 배포 계층이 제공하는 `window.umami`에 기존 이벤트를 전달한다. 개발에서는 SDK가 없을 수 있어 optional 호출을 유지한다. 앱 내부의 loader 부재와 기능 미사용을 구분하며, 외부 주입 근거는 [Replit 운영 기준](../../replit.md#운영-분석-스크립트)을 따른다.

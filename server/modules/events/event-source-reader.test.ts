@@ -25,7 +25,8 @@ test("reads a URL-only source and appends extracted public text", async () => {
 
   assert.equal(result.combinedText, "부고 안내");
   assert.deepEqual(result.urls, ["https://example.com/notice"]);
-  assert.deepEqual(result.sources, [
+  // 선택 필드의 undefined는 실제 JSON 응답에서 생략된다.
+  assert.deepEqual(JSON.parse(JSON.stringify(result.sources)), [
     {
       url: "https://example.com/notice",
       status: "fetched",
@@ -109,7 +110,7 @@ test("treats a public obituary deletion notice as unavailable", async () => {
   });
 
   assert.equal(result.combinedText, "1기 김동국 본인상");
-  assert.deepEqual(result.sources, [
+  assert.deepEqual(JSON.parse(JSON.stringify(result.sources)), [
     {
       url,
       status: "unavailable",
@@ -201,7 +202,7 @@ test("reports private destinations as blocked without invoking the fetcher", asy
 
   assert.equal(fetched, false);
   assert.equal(result.combinedText, "안내");
-  assert.deepEqual(result.sources, [
+  assert.deepEqual(JSON.parse(JSON.stringify(result.sources)), [
     {
       url: "http://127.0.0.1/private",
       status: "blocked",
