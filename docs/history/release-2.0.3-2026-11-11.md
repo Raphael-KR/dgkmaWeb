@@ -48,6 +48,27 @@
 
 실행 환경은 Node 20.20.0·npm 10.8.2·TypeScript 5.6.3·Vite 6.4.3이며 재사용한 도구는 ESLint 10.14.0·Prettier 3.9.10이다. 셸의 `C.UTF-8` locale 경고가 있었으나 검사 명령은 모두 종료 코드 0이며 빌드 실패·번들 크기 경고는 없었다. 기록은 `.superpowers/release-2.0.3-20261111/`에 보존한다.
 
-## 실행 상태
+## Git 통합·태그와 보존
 
-후보 검사까지 완료했다. Git 통합·배포·운영 확인과 마무리는 실제 실행 후 아래에 기록한다. 실계정 QA는 계속 보류한다.
+- 후보 커밋 `4bf1c1fb0d65d40e5e02bc4b122b7240aff308b8`의 전체 24개 변경 파일을 [PR #35](https://github.com/Raphael-KR/dgkmaWeb/pull/35)에 포함했다. GitHub 상태 검사는 없었으며 자동 코드 리뷰는 해당 SHA에서 지적 없이 완료됐다. 22:23:57 KST main `7062b7c9df5f498ce0b9c775212141aac06425db`에 병합했다.
+- 22:26:17 KST Replit을 GitHub main으로 fast-forward했다. 기존 직접 반영본은 stash `39b13868a2b13125174c5b3185871192f745f2ce`로 보존했으며 제외된 변경을 숨긴 것이 아니다. 검사 목록의 삭제 경로 1개를 구분한 실제 파일 547개와 빌드 산출물 88개의 해시가 일치했다. 최초 대조는 삭제 경로의 `null` 표현 차이로 변경 전에 멈췄고, 경로를 구분한 재대조로 확인했다.
+- 실제 배포 후보와 태그 대상은 `7062b7c9df5f498ce0b9c775212141aac06425db`, tree는 `0382361e80f257cc76a8391a0f1ba0abe69c6720`이다. 운영 성공·smoke 이후 annotated `v2.0.3`을 생성·push했다.
+- Replit 게시 커밋 `576ded69ab06d604a5d72223e860cd0414b718b9`와 `0e1bebce87f93fce656d33eeb67fce6be2108df4`는 같은 tree다. 원본 부모 관계를 번들에 보존하고 fast-forward로 GitHub main에 연결했다. 이력을 다시 작성하거나 강제 push하지 않았다.
+- 22:33:57 KST 로컬·GitHub·Replit main이 `0e1bebc`로 일치했다. 열린 PR·고유 변경·worktree를 확인한 뒤 병합된 `codex/release-2.0.3`과 `replit-agent` 브랜치를 정리했다. 세 곳에 main만 남았으며 기존 stash 12개와 이번 보존본 1개, detached `unified-posts-check` worktree와 보존 태그는 유지했다.
+
+완료 기록은 앱 산출물을 바꾸지 않는 문서 전용 후속 커밋으로 main에 반영한다. 그 이후의 최종 세 환경 SHA·미커밋·브랜치·태그 확인은 `.superpowers/release-2.0.3-20261111/completion.json`에 기록하며 운영 후보나 태그를 이동하지 않는다. 캐시·빌드·검증 증거와 `attached_assets/` 등 기존 Git 제외 자료는 커밋·삭제하지 않았다.
+
+22:37 KST 후속 문서 6개의 상대 링크 160개·앵커 79개와 `git diff --check`를 확인했다. 실제 배포 후보 이후의 차이가 Markdown 문서뿐이며 앱 코드·설정·의존성이 같으므로 코드 검사와 배포를 반복하지 않는다.
+
+## 운영 배포와 smoke
+
+Replit `publish_app`으로 Republish를 요청했다. deployment ID `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`는 이전 배포와 재사용되므로 ID만으로 새 배포를 판단하지 않았다. `pending → building → running → promoting → success` 전환과 2026-11-11 22:31:17 KST 성공 상태, 새 후보 자산 일치를 확인했다.
+
+22:31:54 KST [운영 홈페이지](https://dgkma.org)의 비로그인 HTTP 확인 107건이 통과했다.
+
+- 공통 `PUBLIC_PAGES`의 현행 공개 페이지 17개: HTTP 200·HTML·제목·canonical·새 진입 자산 확인. `/about/intro`는 자신의 주소, `/`·`/about`은 `https://dgkma.org/` canonical을 확인했다.
+- 사이트맵 1개: 현행 공개 주소를 canonical 기준으로 중복 없이 포함했다.
+- 게시판·명부 API 2개: 비로그인 요청에 JSON 401을 반환했다.
+- 정적 자산 87개: 검증한 후보의 SHA-256과 모두 일치했다. 동적 SEO가 적용되는 index HTML은 원본 해시 대신 위 HTML 검사로 확인했다.
+
+DB·Secret 변경과 실계정 QA는 수행하지 않았다. 소개 본문·드롭다운·사진첩 첫 진입·회원 헤더의 실제 클릭이나 CSS 렌더링은 이번 HTTP 검사로 확인하지 않았다. 개발 캐시 로딩 비교는 앞선 개발 기록이며 운영 속도 측정으로 주장하지 않는다. 후속 문서 기록만을 위한 추가 빌드·배포는 수행하지 않는다.
