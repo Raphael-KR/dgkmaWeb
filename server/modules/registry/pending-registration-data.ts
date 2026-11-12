@@ -44,7 +44,7 @@ export function parsePendingUserData(
   };
 }
 
-// 자동 가입 회원도 신청 기록과 같은 비교기를 사용한다. 이 투영 자체는 DB에 쓰지 않는다.
+// 승인 취소 시 기존 회원 정보로 심사 신청을 구성한다.
 export function memberRegistrationData(user: User): PendingRegistrationUserData {
   return {
     kakaoId: user.kakaoId ?? "",
@@ -57,17 +57,5 @@ export function memberRegistrationData(user: User): PendingRegistrationUserData 
       user.birthdayType === "SOLAR" || user.birthdayType === "LUNAR" ? user.birthdayType : null,
     isLeapMonth: user.isLeapMonth,
     conflictReason: "approval_cancelled",
-  };
-}
-
-export function memberReviewRegistration(user: User): PendingRegistration {
-  return {
-    id: user.id,
-    kakaoId: user.kakaoId ?? "",
-    email: user.email,
-    name: user.name,
-    userData: memberRegistrationData(user),
-    status: "approved",
-    createdAt: user.createdAt,
   };
 }

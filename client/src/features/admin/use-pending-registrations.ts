@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
 import type {
-  AdminPendingRegistrationReviewDto,
+  AdminRegistrationListItem,
   AdminPendingRegistrationUpdateResult,
   RegistrationApprovalStatus,
 } from "@shared/contracts";
@@ -19,14 +19,18 @@ export function usePendingRegistrations(enabled: boolean) {
     error,
     isFetching,
     refetch,
-  } = useQuery<AdminPendingRegistrationReviewDto[]>({
-    queryKey: ["/api/admin/pending-registrations", "review", status],
+  } = useQuery<AdminRegistrationListItem[]>({
+    queryKey: [
+      "/api/admin/pending-registrations",
+      status === "approved" ? "member-details" : "review",
+      status,
+    ],
     queryFn: async () => {
       const response = await fetch(`/api/admin/pending-registrations?status=${status}`, {
         credentials: "include",
       });
       const responseBody = (await response.json().catch(() => ({}))) as
-        AdminPendingRegistrationReviewDto[] | { message?: unknown };
+        AdminRegistrationListItem[] | { message?: unknown };
       if (!response.ok) {
         if (!Array.isArray(responseBody) && typeof responseBody.message === "string") {
           throw new Error(responseBody.message);
@@ -36,21 +40,27 @@ export function usePendingRegistrations(enabled: boolean) {
       if (!Array.isArray(responseBody)) {
         throw new Error("가입 목록 응답 형식이 올바르지 않습니다.");
       }
-      const invalidReviewIndex = responseBody.findIndex(
-        (registration) =>
-          !registration?.review ||
-          !Array.isArray(registration.review.candidates) ||
-          !["registration", "member"].includes(registration.recordType),
+      const invalidReviewIndex = responseBody.findIndex((registration) =>
+        status === "approved"
+          ? registration?.recordType !== "member" ||
+            !registration.profile ||
+            !Array.isArray(registration.linkedAlumni)
+          : registration?.recordType !== "registration" ||
+            !registration.review ||
+            !Array.isArray(registration.review.candidates),
       );
       if (invalidReviewIndex !== -1) {
-        const review = responseBody[invalidReviewIndex]?.review;
-        console.error("Invalid pending registration review response", {
-          expected: "review.candidates array",
+        const item = responseBody[invalidReviewIndex];
+        console.error("Invalid registration list response", {
+          expected:
+            status === "approved"
+              ? "member profile and linkedAlumni array"
+              : "registration review.candidates array",
           index: invalidReviewIndex,
-          reviewType: typeof review,
-          candidatesType: typeof review?.candidates,
+          recordType: item?.recordType,
+          detailType: item?.recordType === "member" ? typeof item.profile : typeof item?.review,
         });
-        throw new Error("명부 대조 정보를 불러오지 못했습니다. 다시 대조해 주세요.");
+        throw new Error("회원 정보를 불러오지 못했습니다. 다시 조회해 주세요.");
       }
       return responseBody;
     },

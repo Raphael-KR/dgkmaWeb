@@ -1,7 +1,7 @@
 import { users, pendingRegistrations, type PendingRegistration } from "@shared/schema";
 import { eq, ne, desc, and, asc, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { memberReviewRegistration } from "./pending-registration-data";
+import { getApprovedMemberDetails } from "./approved-member-details";
 import type { RegistrationApprovalStatus } from "@shared/contracts";
 import { findRegistrationHold } from "../identity/registration-approval";
 import { getPendingRegistrationReviews } from "./pending-registration-review";
@@ -28,12 +28,7 @@ export class PendingRegistrationStorage {
 
   async getPendingRegistrationReviews(status: RegistrationApprovalStatus = "pending") {
     if (status === "approved") {
-      const members = await db
-        .select()
-        .from(users)
-        .where(eq(users.isVerified, true))
-        .orderBy(desc(users.createdAt));
-      return getPendingRegistrationReviews(members.map(memberReviewRegistration), "member");
+      return getApprovedMemberDetails();
     }
     return getPendingRegistrationReviews(await this.getPendingRegistrations(status));
   }

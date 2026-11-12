@@ -8,6 +8,7 @@ import {
   type User,
 } from "@shared/schema";
 import type {
+  AdminAlumniRecordDto,
   AdminPendingRegistrationReviewDto,
   PendingRegistrationReviewStatus,
 } from "@shared/contracts";
@@ -17,24 +18,12 @@ import { normalizePhoneForComparison, normalizedPhoneSql } from "../identity/reg
 import { normalizeNameForComparison } from "./alumni-match";
 import { toAdminPendingRegistrationDto } from "./admin-pending-registration";
 import { parsePendingUserData } from "./pending-registration-data";
+import { adminAlumniColumns } from "./admin-alumni-record";
 
-type ReviewAlumni = Pick<
-  AlumniRecord,
-  | "id"
-  | "name"
-  | "department"
-  | "generation"
-  | "admissionDate"
-  | "graduationDate"
-  | "address"
-  | "mobile"
-  | "phone"
-  | "group"
-  | "status"
-  | "alumniPosition"
-  | "memo"
-  | "matchedUserId"
-> & { normalizedName: string };
+type ReviewAlumni = AdminAlumniRecordDto &
+  Pick<AlumniRecord, "matchedUserId"> & {
+    normalizedName: string;
+  };
 type ReviewAccount = Pick<User, "id" | "isVerified" | "kakaoId" | "email" | "phoneNumber" | "name">;
 
 function getReviewApplicant(registration: PendingRegistration) {
@@ -53,7 +42,6 @@ export function createPendingRegistrationReview(
   alumni: readonly ReviewAlumni[],
   accounts: readonly ReviewAccount[],
   checkedAt: string,
-  recordType: "registration" | "member" = "registration",
 ): AdminPendingRegistrationReviewDto {
   const data = parsePendingUserData(registration);
   const applicant = getReviewApplicant(registration);
@@ -61,28 +49,15 @@ export function createPendingRegistrationReview(
   const name = normalizeNameForComparison(applicant.name);
   const complete = !!data && !!phone;
   const member = accounts.find(
-    (account) =>
-      account.kakaoId === registration.kakaoId && (!account.isVerified || recordType === "member"),
+    (account) => account.kakaoId === registration.kakaoId && !account.isVerified,
   );
   const otherAccounts = accounts.filter((account) => account.id !== member?.id);
   const candidates = alumni
-    .map((candidate) => ({
-      id: candidate.id,
-      name: candidate.name,
-      department: candidate.department,
-      generation: candidate.generation,
-      admissionDate: candidate.admissionDate,
-      graduationDate: candidate.graduationDate,
-      address: candidate.address,
-      mobile: candidate.mobile,
-      phone: candidate.phone,
-      group: candidate.group,
-      status: candidate.status,
-      alumniPosition: candidate.alumniPosition,
-      memo: candidate.memo,
-      nameMatches: !!name && candidate.normalizedName === name,
-      phoneMatches: !!phone && normalizePhoneForComparison(candidate.mobile ?? "") === phone,
-      isLinked: candidate.matchedUserId !== null,
+    .map(({ normalizedName, matchedUserId, ...record }) => ({
+      ...record,
+      nameMatches: !!name && normalizedName === name,
+      phoneMatches: !!phone && normalizePhoneForComparison(record.mobile ?? "") === phone,
+      isLinked: matchedUserId !== null,
     }))
     .filter((candidate) => candidate.nameMatches || candidate.phoneMatches)
     .sort(
@@ -138,14 +113,13 @@ export function createPendingRegistrationReview(
 
   return {
     ...toAdminPendingRegistrationDto(registration),
-    recordType,
-    memberId: recordType === "member" ? registration.id : (member?.id ?? null),
+    recordType: "registration",
+    memberId: member?.id ?? null,
     review: {
       checkedAt,
       applicantName: applicant.name,
       phoneNumber: applicant.phoneNumber,
       reasonAtApplication:
-        recordType === "registration" &&
         typeof reason === "string" &&
         PENDING_REGISTRATION_CONFLICT_REASONS.some((value) => value === reason)
           ? (reason as PendingRegistrationConflictReason)
@@ -161,7 +135,6 @@ export function createPendingRegistrationReview(
 
 export async function getPendingRegistrationReviews(
   registrations: PendingRegistration[],
-  recordType: "registration" | "member" = "registration",
 ): Promise<AdminPendingRegistrationReviewDto[]> {
   const inputs = registrations.flatMap((registration) => {
     const data = parsePendingUserData(registration);
@@ -186,19 +159,7 @@ export async function getPendingRegistrationReviews(
     [alumni, accounts] = await Promise.all([
       db
         .select({
-          id: alumniDatabase.id,
-          name: alumniDatabase.name,
-          department: alumniDatabase.department,
-          mobile: alumniDatabase.mobile,
-          generation: alumniDatabase.generation,
-          admissionDate: alumniDatabase.admissionDate,
-          graduationDate: alumniDatabase.graduationDate,
-          address: alumniDatabase.address,
-          phone: alumniDatabase.phone,
-          group: alumniDatabase.group,
-          status: alumniDatabase.status,
-          alumniPosition: alumniDatabase.alumniPosition,
-          memo: alumniDatabase.memo,
+          ...adminAlumniColumns,
           matchedUserId: alumniDatabase.matchedUserId,
           normalizedName,
         })
@@ -232,6 +193,6 @@ export async function getPendingRegistrationReviews(
   }
   const checkedAt = new Date().toISOString();
   return registrations.map((registration) =>
-    createPendingRegistrationReview(registration, alumni, accounts, checkedAt, recordType),
+    createPendingRegistrationReview(registration, alumni, accounts, checkedAt),
   );
 }

@@ -5,6 +5,7 @@ import type {
   PendingRegistrationReviewStatus,
 } from "@shared/contracts";
 import { compareRegistrationValues } from "./compare-registration-values";
+import { AlumniRecordFields } from "./alumni-record-fields";
 
 const reviewMessages: Record<PendingRegistrationReviewStatus, string> = {
   ready: "이름·전화번호가 일치하는 명부 한 건을 확인했으며 타인 계정과의 충돌이 없습니다.",
@@ -28,19 +29,6 @@ const reasonLabels: Record<PendingRegistrationConflictReason, string> = {
 };
 
 const conflictLabels = { kakao: "카카오 계정", email: "이메일", phone: "전화번호" };
-
-const registryFields = [
-  ["department", "학과"],
-  ["generation", "기수"],
-  ["admissionDate", "입학일"],
-  ["graduationDate", "졸업일"],
-  ["address", "주소"],
-  ["phone", "전화"],
-  ["group", "그룹"],
-  ["status", "상태"],
-  ["alumniPosition", "동문회 직책"],
-  ["memo", "메모"],
-] as const;
 
 function ComparisonField({
   label,
@@ -158,21 +146,11 @@ export function PendingRegistrationReview({
                   matches={candidate.phoneMatches}
                 />
               </dl>
-              <dl className="mt-4 grid gap-3 border-t pt-3 sm:grid-cols-2">
-                {registryFields.map(([field, label]) => (
-                  <div
-                    key={field}
-                    className={
-                      field === "memo" || field === "address" ? "sm:col-span-2" : undefined
-                    }
-                  >
-                    <dt className="text-xs text-gray-500">{label}</dt>
-                    <dd className="whitespace-pre-wrap break-words">
-                      {candidate[field] || "정보 없음"}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <AlumniRecordFields
+                record={candidate}
+                includeIdentity={false}
+                className="mt-4 border-t pt-3"
+              />
             </div>
           ))}
           {review.candidateCount > review.candidates.length && (

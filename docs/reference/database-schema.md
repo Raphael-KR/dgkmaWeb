@@ -72,6 +72,8 @@ erDiagram
 
 PK `users_pkey(id)`; UNIQUE `users_email_unique(email)`, `users_kakao_id_unique(kakao_id)`. 같은 이름의 btree 인덱스 3개. FK 없음.
 
+관리자 인증 완료 목록은 `is_verified=true`인 회원의 현재 이름·이메일·전화번호·사진·생일·양력/음력·윤달·활동지역을 읽고, `alumni_database.matched_user_id = users.id`인 연결 명부의 10개 관리 항목을 별도로 제공한다. 연결 명부의 `address`·`phone`은 SELECT·응답에서 제외하며 `mobile`은 유지한다. 대기·거부 심사의 후보 12개 항목과 DB 저장 컬럼은 유지한다. Sheets 쓰기 범위는 아래 `alumni_database` 계약을 따른다. 카카오 식별자·인증정보·가입 JSON은 이 조회 응답에 포함하지 않는다. 연결 행은 이름·전화번호 후보 검색으로 대체하지 않으며, 연결 없음·여러 연결 행을 그대로 구분한다. 이 조회 계약 보완에는 DDL·데이터 변환·catalog 재검증이 없다.
+
 ### TABLE_ROW: categories
 
 소유: Community Content. 목적: 공통 게시판 분류.
@@ -181,7 +183,13 @@ PK `payments_pkey(id)`; FK `payments_user_id_users_id_fk(user_id → users.id)` 
 
 PK `alumni_database_pkey(id)`; FK `alumni_database_matched_user_id_users_id_fk(matched_user_id → users.id)` NO ACTION; UNIQUE `alumni_database_mobile_unique(mobile)`. PK·UNIQUE 인덱스. matched_user_id에는 UNIQUE가 없으며 단일 연결은 앱 잠금·트랜잭션 계약이다.
 
+2026-11-12 사용자 결정에 따라 `address`·`phone`은 향후 사용을 위해 컬럼과 기존 값을 보존한다. 현재 Sheets `통합주소록`의 10개 관리 컬럼에는 두 항목이 없으므로 가져오기·변경 비교·fingerprint·insert/update payload에서 제외한다. 신규 행의 두 컬럼은 기존 nullable 정의에 따라 NULL이며, 기존 행의 값은 동기화로 덮어쓰지 않는다. `mobile`, 회원의 `phone_number`, 회원 연결 필드와 다른 조회 권한은 유지한다. 이 변경은 앱 자료 계약만 바꾸며 DDL·데이터 변환·catalog 재검증을 수행하지 않는다.
+
 ### TABLE_ROW: alumni_name_aliases
+
+개발 명부의 2026-11-12 명시적 초기화는 이 종속 자료와 `alumni_database`의 행을 함께 제거하는 데이터 작업이다. 09:46 KST 새 연결에서 두 테이블 0건, 대상 컬럼·FK·trigger 유무·시퀀스 값의 전후 일치를 확인했다. 주소·전화 컬럼을 포함한 구조는 보존했다. 동기화 시 기존 값 보존과 별개이며 [초기화 기록](../history/alumni-reset-2026-11-12.md)에 제한된 metadata 확인과 실행 결과를 남긴다. 전체 catalog 관찰 시각은 변경하지 않는다.
+
+후속 운영 초기화도 같은 두 테이블의 행만 대상으로 했다. 09:53 KST 새 `neondb` 연결에서 명부 3,458건·별칭 2건이 각각 0건으로 바뀌었고 대상 FK·trigger 유무·컬럼·시퀀스가 전후 동일함을 확인했다. 개발 결과와 구분한 제한된 metadata 확인이며 구조와 마지막 전체 catalog 관찰 시각은 변경하지 않았다.
 
 소유: Membership Registry. 목적: 공식 이름·개명 전 이름.
 

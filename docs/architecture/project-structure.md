@@ -24,6 +24,10 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 편집기 파일·표·체크리스트·영상·블록 이동과 댓글 전용 모듈은 PR #36으로 main에 통합하고 `3.0.0`으로 운영에 반영했다. 아래 소유 위치는 이 소스를 포함하며 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에서 실제 검사·적용·미검증 범위를 구분한다.
 
+가입 심사 조회·명부 대조·상태 결정·재승인 모듈과 공통 회원 레이아웃·Avatar 변경은 PR #37으로 main에 통합하고 `4.0.0`으로 운영에 반영했다. 아래 API·저장소 경계는 이 소스를 포함한다. [4.0.0 릴리스 기록](../history/release-4.0.0-2026-11-12.md)에서 코드 적용과 실제 DB·실계정 미검증 범위를 구분한다.
+
+후속 인증 완료 상세 표시는 `approved-member-details.ts`에서 회원 정보·실제 연결 명부를 조회하고 관리자 전용 화면으로 제공하는 개발 변경이다. 공통 명부 필드와 표시 컴포넌트를 재사용하되, 연결 명부는 주소·전화를 제외한 10개 항목, 대기·거부 심사 후보는 12개 항목으로 구분한다. 이전 회원→심사 후보 투영은 제거한다. 미커밋 개발 반영·정적 검사와 운영 미배포 상태는 [개발 기록](../history/approved-member-details-2026-11-12.md)에서 구분한다.
+
 | 소유 위치 | 책임 |
 |---|---|
 | `client/src/app/app.tsx`, `providers.tsx`, `routing/`, `layout/` | 앱 조립, 라우트, 프로바이더, 공통 레이아웃 |
@@ -108,7 +112,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 권한·제품 계약은 계획서, 실제 경로·응답은 도메인별 라우트 코드와 계약을 함께 확인한다. 테스트의 과거 통과를 현재 실계정 동작 확인으로 대신하지 않는다.
 일반 글 수정·삭제는 작성자만, 가리기/다시 표시하기는 관리자만 처리한다. 경조사 정정은 기존 초안 API와 별도 서명 미리보기·확인 흐름이다.
-`ClientUser`, 관리자 pending DTO, 최소 명부 DTO는 원문 사용자·신청·연락처를 대신 노출하지 않는다.
+`ClientUser`, 관리자 가입 목록, 최소 명부 DTO는 각 용도의 필드만 제공하며 사용자·신청 원문 객체를 그대로 노출하지 않는다. 관리자 가입 목록은 대기·거부 심사 DTO와 인증 완료 회원 정보 DTO를 구분한다. 인증 완료에는 현재 사진·생일·활동지역과 실제 연결된 명부를 제공하지만 카카오 ID·인증정보·가입 JSON은 포함하지 않는다.
 명부 응답의 `DirectoryAlumni`·`DirectoryResult`는 `shared/contracts/directory.ts`에서 정의하고 서버·명부·검색 화면이 함께 사용한다. 이름·기수 검색과 회원별 열람 범위는 서버가 판단한다.
 회원 경조사 목록/상세에는 `sourceText`를 포함하지 않는다.
 
@@ -122,7 +126,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 - directory: `["/api/alumni"]`
 - events: 작성자 초안은 직렬 요청과 revision으로 관리; 게시 후 공통 `refreshPosts()`로 목록·상세·검색 무효화 및 입력 초기화. 일반 글 게시·관리도 같은 갱신 경로를 사용한다.
 - profile: `["/api/payments/user", userId]`, `["/api/membership/status"]`; 활동 지역 변경 성공 시 `["/api/alumni"]`로 시작하는 명부 목록·검색 캐시를 제거해 새 열람 범위로 조회한다.
-- admin: `["/api/admin/pending-registrations", "review", status]`, `["/api/admin/test-google-sheets"]`, `["/api/admin/statistics", from, to]`. 가입 목록은 신청자별 대조 계약을 사용하고 승인/거절과 재대조에서 다시 읽는다. 통계는 탭 진입·기간 변경·수동 새로고침에 조회하고 조회 시각을 표시한다. 승인/거절·명부 동기화와 공통 게시글 갱신 후 통계 캐시도 무효화한다. Sheets 연결 조회는 동문 데이터 탭에서만 활성화하며 기존 동기화 미리보기 상태는 탭 이동 후에도 유지한다.
+- admin: 가입 대기·거부는 `["/api/admin/pending-registrations", "review", status]`, 인증 완료는 `["/api/admin/pending-registrations", "member-details", "approved"]`를 사용해 이전 후보 응답 캐시와 회원 상세 응답을 구분한다. 상태 결정·재대조·새로고침에서 다시 읽는다. `["/api/admin/statistics", from, to]` 통계는 탭 진입·기간 변경·수동 새로고침에 조회하고 조회 시각을 표시한다. 승인/거절·명부 동기화와 공통 게시글 갱신 후 통계 캐시도 무효화한다. `["/api/admin/test-google-sheets"]`는 동문 데이터 탭에서만 활성화하며 기존 동기화 미리보기 상태는 탭 이동 후에도 유지한다.
 - 로그아웃: 서버 세션 종료 성공 뒤 회원 상태·조회 캐시를 비운다. 실패 시 오류를 표시하고 재시도할 수 있게 한다.
 - 인가 흐름은 `/api/auth/kakao/start` → `/kakao-callback` → `/api/auth/kakao/authorize`다. 활동지역 저장은 `activityRegion`만 사용한다. 실제 소비자가 없는 callback 별칭·입력 별칭은 유지하지 않는다.
 
