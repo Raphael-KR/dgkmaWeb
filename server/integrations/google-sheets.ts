@@ -30,9 +30,7 @@ const SOURCE_COLUMNS = {
   name: "성명",
   admissionDate: "입학일자",
   graduationDate: "졸업일자",
-  address: "주소",
   mobile: "핸드폰번호",
-  phone: "전화번호",
   group: "그룹",
   status: "상태",
   alumniPosition: "동문회직책",
@@ -85,9 +83,7 @@ export function buildAlumniSourceSnapshot(rows: unknown[][]): AlumniSourceSnapsh
     name: cellValue(row, columnIndexes.name),
     admissionDate: cellValue(row, columnIndexes.admissionDate) || undefined,
     graduationDate: cellValue(row, columnIndexes.graduationDate) || undefined,
-    address: cellValue(row, columnIndexes.address) || undefined,
     mobile: cellValue(row, columnIndexes.mobile),
-    phone: cellValue(row, columnIndexes.phone) || undefined,
     group: cellValue(row, columnIndexes.group) || undefined,
     status: cellValue(row, columnIndexes.status) || undefined,
     alumniPosition: cellValue(row, columnIndexes.alumniPosition) || undefined,
@@ -163,7 +159,7 @@ export class GoogleSheetsService {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: "A:L",
+        range: "'통합주소록'!A:J",
       });
       return buildAlumniSourceSnapshot(response.data.values ?? []);
     } catch (error) {

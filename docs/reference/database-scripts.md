@@ -22,9 +22,9 @@
 
 ## 완료된 Production 전환과 준비 자료
 
-- [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql): `3.0.0` 댓글 확장. `neondb`만 허용하며 네 컬럼·두 CHECK를 한 트랜잭션에 추가한다. 2026-11-12 03:47 KST 적용 완료. 반복 적용용이 아니며 운영 승인·백업·preview·새 연결 확인은 [DB 런북](../runbooks/database-operations.md#운영-변경)과 [릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다.
+- [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql): `3.0.0` 댓글 확장. `neondb`만 허용하며 네 컬럼·두 CHECK를 한 트랜잭션에 추가한다. 2026-11-12 03:47 KST 적용 완료. 반복 적용용이 아니며 당시 운영 승인·백업·preview·새 연결 확인 결과는 [릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)에 남아 있다.
 
-운영 전용 파일이 존재해도 실행 승인이 생기지 않는다. 승인된 운영 작업은 대상·백업·preview·코드 호환·새 연결의 확인을 준비한다.
+운영 전용 파일이 존재해도 실행 승인이 생기지 않는다. 승인된 운영 작업은 대상·preview·코드 호환·새 연결의 확인을 준비한다. 개발·운영 모두 [DB 복구·백업 기본 정책](../runbooks/database-operations.md#db-복구백업-기본-정책)에 따라 별도 백업을 기본으로 만들지 않는다. 위 완료 기록의 백업은 당시 실행 근거다.
 
 | 파일 | 대상·효과 | 기록·재사용 경계 |
 |---|---|---|
@@ -38,7 +38,7 @@
 
 두 진입점은 [공통 변환기](../../server/modules/content/post-body-migration.ts)를 사용한다. `--preview`도 실제 DB에서 게시글과 집계를 읽고 접근 제한된 Replit `.superpowers/` 경로에 metadata 결과를 쓴다. 정적 검사가 아니다. 운영 preview는 읽기 전용 URL을 우선하고 없으면 owner URL을 선택하되 READ ONLY 트랜잭션을 사용한다.
 
-`--apply`는 TEXT 여부 확인·테이블 잠금, 원본 보존, Markdown → Tiptap JSON 변환, SQL 타입 전환을 수행한다. 커밋 후 새 연결에서 본문·다른 컬럼·행 수·검색 표현·제약을 확인한다. 원문 백업은 Replit의 접근 제한 경로에만 보존한다. 실행 모드·대상·현재 코드·보존 범위를 확인하지 않고 과거 명령을 복사하지 않는다.
+`--apply`는 TEXT 여부 확인·테이블 잠금, 원문 백업 생성, Markdown → Tiptap JSON 변환, SQL 타입 전환을 수행한다. 커밋 후 새 연결에서 본문·다른 컬럼·행 수·검색 표현·제약을 확인한다. 이 도구는 완료된 전환의 구현 기록이며 현행 JSONB DB에는 적용할 수 없다. 별도 원문 백업을 생성하는 현재 동작 때문에 재사용 시에는 백업에 대한 명시적 요청·승인이 필요하다. 일반 DB 작업의 기본 경로로 사용하거나 과거 명령을 그대로 복사하지 않는다.
 
 ## 과거 초기 자료
 

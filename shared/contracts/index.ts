@@ -109,8 +109,39 @@ export type PendingRegistrationReviewStatus =
   | "already_linked"
   | "account_conflict";
 
+export type AdminAlumniRecordDto = {
+  id: number;
+  name: string;
+  department: string;
+  generation: string;
+  admissionDate: string | null;
+  graduationDate: string | null;
+  address: string | null;
+  mobile: string | null;
+  phone: string | null;
+  group: string | null;
+  status: string | null;
+  alumniPosition: string | null;
+  memo: string | null;
+};
+
+export type AdminLinkedAlumniRecordDto = Omit<AdminAlumniRecordDto, "address" | "phone">;
+
+export type AdminApprovedMemberDto = AdminPendingRegistrationDto & {
+  recordType: "member";
+  status: "approved";
+  memberId: number;
+  profile: Pick<
+    ClientUser,
+    "phoneNumber" | "profileImage" | "birthday" | "birthdayType" | "isLeapMonth" | "activityRegion"
+  >;
+  linkedAlumni: AdminLinkedAlumniRecordDto[];
+};
+
+export type AdminRegistrationListItem = AdminPendingRegistrationReviewDto | AdminApprovedMemberDto;
+
 export type AdminPendingRegistrationReviewDto = AdminPendingRegistrationDto & {
-  recordType: "registration" | "member";
+  recordType: "registration";
   memberId: number | null;
   review: {
     checkedAt: string;
@@ -121,24 +152,13 @@ export type AdminPendingRegistrationReviewDto = AdminPendingRegistrationDto & {
     accountConflicts: Array<"kakao" | "email" | "phone">;
     exactMatchCount: number;
     candidateCount: number;
-    candidates: Array<{
-      id: number;
-      name: string;
-      department: string;
-      generation: string;
-      admissionDate: string | null;
-      graduationDate: string | null;
-      address: string | null;
-      mobile: string | null;
-      phone: string | null;
-      group: string | null;
-      status: string | null;
-      alumniPosition: string | null;
-      memo: string | null;
-      nameMatches: boolean;
-      phoneMatches: boolean;
-      isLinked: boolean;
-    }>;
+    candidates: Array<
+      AdminAlumniRecordDto & {
+        nameMatches: boolean;
+        phoneMatches: boolean;
+        isLinked: boolean;
+      }
+    >;
   };
 };
 
