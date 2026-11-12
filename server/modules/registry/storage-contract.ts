@@ -6,10 +6,7 @@ import type {
   InsertPendingRegistration,
   PendingRegistrationUserData,
 } from "@shared/schema";
-import type {
-  AdminPendingRegistrationReviewDto,
-  RegistrationApprovalStatus,
-} from "@shared/contracts";
+import type { AdminRegistrationListItem, RegistrationApprovalStatus } from "@shared/contracts";
 import type { AlumniSyncReport } from "@shared/alumni-sync";
 import type { DirectoryResult } from "@shared/contracts/directory";
 
@@ -37,7 +34,7 @@ export interface RegistryStorageContract {
   getPendingRegistrations(status?: "pending" | "rejected"): Promise<PendingRegistration[]>;
   getPendingRegistrationReviews(
     status?: RegistrationApprovalStatus,
-  ): Promise<AdminPendingRegistrationReviewDto[]>;
+  ): Promise<AdminRegistrationListItem[]>;
   createOrRefreshPendingRegistration(
     registration: PendingRegistrationReviewInput,
     oauthStartedAt: Date,

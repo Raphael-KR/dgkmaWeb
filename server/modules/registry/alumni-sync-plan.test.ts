@@ -7,9 +7,7 @@ const baseSource = {
   name: "테스트동문",
   admissionDate: "1990-03-01",
   graduationDate: "1996-02-20",
-  address: "서울특별시",
   mobile: "010-1111-2222",
-  phone: "02-1234-5678",
   group: "서울지부",
   status: "정회원",
   alumniPosition: "회원",
@@ -22,9 +20,7 @@ const sheetHeaders = [
   "성명",
   "입학일자",
   "졸업일자",
-  "주소",
   "핸드폰번호",
-  "전화번호",
   "그룹",
   "상태",
   "동문회직책",
@@ -40,6 +36,8 @@ function databaseRow(id: number, overrides: Partial<typeof baseSource> = {}) {
     id,
     ...baseSource,
     ...overrides,
+    address: "서울특별시",
+    phone: "02-1234-5678",
     isMatched: false,
     matchedUserId: null,
   };
@@ -107,6 +105,10 @@ test("classifies source and database rows without planning database-only deletio
   );
   assert.equal("delete" in plan, false);
   assert.equal("deletes" in plan, false);
+  for (const change of plan.changes) {
+    assert.equal("address" in change.source, false);
+    assert.equal("phone" in change.source, false);
+  }
 });
 
 test("blocks an empty source before producing changes", async () => {
@@ -214,13 +216,11 @@ test("creates a stable non-identifying fingerprint and keeps the report PII-free
   const first = sourceRow(2, {
     name: "민감이름A",
     mobile: "010-1212-3434",
-    address: "민감주소A",
     memo: "민감메모A",
   });
   const second = sourceRow(3, {
     name: "민감이름B",
     mobile: "010-5656-7878",
-    address: "민감주소B",
     memo: "민감메모B",
   });
 
@@ -250,7 +250,7 @@ test("creates a stable non-identifying fingerprint and keeps the report PII-free
   assert.notEqual(original.report.sourceFingerprint, changed.report.sourceFingerprint);
 
   const serializedReport = JSON.stringify(original.report);
-  for (const pii of ["민감이름A", "민감이름B", "010-1212-3434", "민감주소A", "민감메모A"]) {
+  for (const pii of ["민감이름A", "민감이름B", "010-1212-3434", "민감메모A"]) {
     assert.doesNotMatch(serializedReport, new RegExp(pii));
   }
 
@@ -262,8 +262,8 @@ test("builds a structured snapshot without dropping rows missing required values
   const { buildAlumniSourceSnapshot } = await import("../../integrations/google-sheets");
   const snapshot = buildAlumniSourceSnapshot([
     sheetHeaders,
-    ["한의학과", "30", "정상동문", "", "", "", "010-1111-2222"],
-    ["한의학과", "31", "", "", "", "", "010-3333-4444"],
+    ["한의학과", "30", "정상동문", "", "", "010-1111-2222"],
+    ["한의학과", "31", "", "", "", "010-3333-4444"],
   ]);
 
   assert.equal(snapshot.sourceTotal, 2);
@@ -283,10 +283,10 @@ test("returns blocking snapshots for an empty source and invalid required header
   });
 
   const invalidHeaders = [...sheetHeaders];
-  invalidHeaders[6] = "잘못된휴대전화헤더";
+  invalidHeaders[5] = "잘못된휴대전화헤더";
   const invalid = buildAlumniSourceSnapshot([
     invalidHeaders,
-    ["한의학과", "30", "동문", "", "", "", "010-1111-2222"],
+    ["한의학과", "30", "동문", "", "", "010-1111-2222"],
   ]);
   assert.equal(invalid.sourceTotal, 1);
   assert.deepEqual(invalid.records, []);
@@ -296,19 +296,7 @@ test("returns blocking snapshots for an empty source and invalid required header
 test("blocks snapshots when any managed source column header is missing", async () => {
   const { buildAlumniSourceSnapshot } = await import("../../integrations/google-sheets");
   const headersWithoutMemo = sheetHeaders.filter((header) => header !== "메모");
-  const rowWithoutMemo = [
-    "한의학과",
-    "30",
-    "동문",
-    "",
-    "",
-    "서울특별시",
-    "010-1111-2222",
-    "",
-    "",
-    "정회원",
-    "회원",
-  ];
+  const rowWithoutMemo = ["한의학과", "30", "동문", "", "", "010-1111-2222", "", "정회원", "회원"];
 
   const snapshot = buildAlumniSourceSnapshot([headersWithoutMemo, rowWithoutMemo]);
 
@@ -349,7 +337,7 @@ test("planner does not double-count strict snapshot issues", async () => {
   const { planAlumniSync } = await import("./alumni-sync-plan");
   const missingValueSnapshot = buildAlumniSourceSnapshot([
     sheetHeaders,
-    ["한의학과", "30", "", "", "", "", "010-1111-2222"],
+    ["한의학과", "30", "", "", "", "010-1111-2222"],
   ]);
 
   const missingValuePlan = planAlumniSync(missingValueSnapshot, []);
@@ -361,7 +349,7 @@ test("planner does not double-count strict snapshot issues", async () => {
   const invalidHeaderPlan = planAlumniSync(
     buildAlumniSourceSnapshot([
       invalidHeaders,
-      ["한의학과", "30", "동문", "", "", "", "010-1111-2222"],
+      ["한의학과", "30", "동문", "", "", "010-1111-2222"],
     ]),
     [],
   );

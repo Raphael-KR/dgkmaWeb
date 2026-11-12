@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { REGISTRATION_APPROVAL_STATUSES } from "@shared/contracts";
 import { DeleteRegistrationButton } from "./delete-registration-button";
 import { PendingRegistrationReview } from "./pending-registration-review";
+import { ApprovedMemberDetails } from "./approved-member-details";
 
 const statusLabels = {
   pending: "승인 대기",
@@ -70,7 +71,11 @@ export function PendingRegistrationsPanel({
           onClick={() => void refetch()}
           disabled={isFetching || updateRegistrationMutation.isPending}
         >
-          {isFetching ? "대조 중..." : "명부 다시 대조"}
+          {isFetching
+            ? "조회 중..."
+            : status === "approved"
+              ? "회원 정보 새로고침"
+              : "명부 다시 대조"}
         </Button>
       </CardHeader>
       <CardContent>
@@ -99,9 +104,16 @@ export function PendingRegistrationsPanel({
               >
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div className="min-w-0 break-words">
-                    <p className="font-bold">{registration.name}</p>
-                    <p className="text-sm text-gray-600">{registration.email}</p>
+                    {registration.recordType === "member" ? (
+                      <p className="font-bold">회원 정보</p>
+                    ) : (
+                      <>
+                        <p className="font-bold">{registration.name}</p>
+                        <p className="text-sm text-gray-600">{registration.email}</p>
+                      </>
+                    )}
                     <p className="text-xs text-gray-500">
+                      {registration.recordType === "member" ? "가입일: " : "신청일: "}
                       {registration.createdAt
                         ? new Date(registration.createdAt).toLocaleDateString()
                         : "날짜 정보 없음"}
@@ -109,7 +121,11 @@ export function PendingRegistrationsPanel({
                   </div>
                   <Badge variant="outline">{statusLabels[status]}</Badge>
                 </div>
-                <PendingRegistrationReview review={registration.review} />
+                {registration.recordType === "member" ? (
+                  <ApprovedMemberDetails member={registration} />
+                ) : (
+                  <PendingRegistrationReview review={registration.review} />
+                )}
                 <div className="flex flex-wrap gap-2">
                   {status === "pending" && (
                     <>
@@ -120,6 +136,7 @@ export function PendingRegistrationsPanel({
                         disabled={
                           updateRegistrationMutation.isPending ||
                           isFetching ||
+                          registration.recordType !== "registration" ||
                           registration.review.status !== "ready"
                         }
                       >

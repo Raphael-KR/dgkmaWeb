@@ -8,9 +8,7 @@ export type AlumniSourceRecord = {
   name: string;
   admissionDate?: string | null;
   graduationDate?: string | null;
-  address?: string | null;
   mobile?: string | null;
-  phone?: string | null;
   group?: string | null;
   status?: string | null;
   alumniPosition?: string | null;
@@ -25,6 +23,8 @@ export type AlumniSourceSnapshot = {
 
 export type AlumniDatabaseRecord = Omit<AlumniSourceRecord, "rowNumber"> & {
   id: number;
+  address?: string | null;
+  phone?: string | null;
   isMatched?: boolean | null;
   matchedUserId?: number | null;
 };
@@ -32,9 +32,7 @@ export type AlumniDatabaseRecord = Omit<AlumniSourceRecord, "rowNumber"> & {
 export type AlumniManagedRecord = Omit<AlumniSourceRecord, "rowNumber"> & {
   admissionDate: string | null;
   graduationDate: string | null;
-  address: string | null;
   mobile: string;
-  phone: string | null;
   group: string | null;
   status: string | null;
   alumniPosition: string | null;
@@ -82,15 +80,14 @@ function normalizeManagedRecord(
   const mobile = normalizeAlumniMobile(record.mobile);
   if (!department || !generation || !name || !mobile) return null;
 
+  // Sheets 관리 필드만 비교·쓰기한다. DB에 보존한 주소·전화는 포함하지 않는다.
   return {
     department,
     generation,
     name,
     admissionDate: optional(record.admissionDate),
     graduationDate: optional(record.graduationDate),
-    address: optional(record.address),
     mobile,
-    phone: optional(record.phone),
     group: optional(record.group),
     status: optional(record.status),
     alumniPosition: optional(record.alumniPosition),
