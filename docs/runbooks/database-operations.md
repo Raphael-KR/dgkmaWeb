@@ -72,7 +72,7 @@ cd /home/runner/workspace
 
 2026-11-12 댓글 확장 최초 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위였다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않았다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행했다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. 이후 별도 승인된 운영 전환은 아래 운영 절과 [3.0.0 릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다. Drag Handle 자체는 DB 변경이 없다.
 
-2026-11-12 Placeholder·체크리스트·CharacterCount·YouTube 추가는 기존 JSONB의 앱 스키마 확장이다. 체크리스트 상태·영상 주소는 표준 Tiptap 노드 속성에 저장하며 DB DDL·기존 행 변환·catalog 재조회·`db:push`를 실행하지 않는다. 실제 개발 적용·검사 범위는 [추가 확장 기록](../history/editor-extensions-2026-11-12.md)을 따른다.
+2026-11-12 후속 편집기 간소화는 기존 JSONB의 앱 스키마에서 체크리스트 노드와 검증을 제거한다. JSONB 컬럼과 루트 CHECK는 유지하므로 DB DDL·catalog 재조회·`db:push`는 수행하지 않는다. 정식 운영 시작 시 게시판을 초기화한다는 사용자 결정에 따라 그 전에는 테스트 본문 사용 조회·변환·완료 상태 보존·원문 이력·백업을 수행하지 않는다. 이 작업에서 DB를 초기화하지 않으며 개발 코드 적용과 운영 배포는 [Replit 기준](../../replit.md#본문-편집기-간소화-개발-범위)에서 구분한다.
 
 2026-11-12 일반 파일 8종은 기존 `posts.content` JSONB의 표준 링크 문단과 App Storage를 사용한다. DDL·데이터 변환·catalog 재조회·`db:push`는 수행하지 않는다. 기존 이미지·본문·객체는 보존하며 적용 상태는 [일반 파일 개발 기록](../history/general-files-2026-11-12.md)에 기록한다.
 

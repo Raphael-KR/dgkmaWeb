@@ -68,14 +68,16 @@
   @apply text-blue-700;
 }
 
-.post-editor,
-.post-editor-source {
+.post-editor {
   --post-editor-min-height: 180px;
+  --post-editor-padding: 0.75rem;
+  --post-editor-gutter: 2.25rem;
 }
 
 .post-editor .tiptap {
   min-height: var(--post-editor-min-height);
-  padding: 0.75rem 0.75rem 0.75rem 2.25rem;
+  padding: var(--post-editor-padding);
+  padding-left: var(--post-editor-gutter);
   outline: none;
 }
 .post-editor .tiptap p:last-child {
@@ -95,30 +97,8 @@
   content: attr(data-placeholder);
   float: left;
   height: 0;
+  white-space: pre-line;
   pointer-events: none;
-}
-
-.post-body ul[data-type="taskList"] {
-  list-style: none;
-  padding-left: 0;
-}
-.post-body li[data-type="taskItem"] {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5em;
-}
-.post-body li[data-type="taskItem"] > label {
-  flex: 0 0 auto;
-}
-.post-body li[data-type="taskItem"] > div {
-  flex: 1;
-  min-width: 0;
-}
-.post-body li[data-type="taskItem"] input[type="checkbox"] {
-  @apply accent-primary;
-}
-.post-body li[data-type="taskItem"] > div > p:last-child {
-  margin-bottom: 0;
 }
 
 .post-body div[data-youtube-video] {
@@ -136,12 +116,11 @@
 }
 
 @screen md {
-  .post-editor,
-  .post-editor-source {
+  .post-editor {
     --post-editor-min-height: 320px;
+    --post-editor-padding: 1rem;
   }
   .post-editor .tiptap {
-    padding: 1rem 1rem 1rem 2.25rem;
     font-size: 1rem;
   }
 }

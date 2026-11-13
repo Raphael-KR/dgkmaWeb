@@ -4,7 +4,6 @@ import {
   DOCUMENT_ATTACHMENT_LIMIT,
   uploadSizeLimit,
   validateUploadType,
-  UPLOAD_INVALID_TYPE_MESSAGE,
   type UploadedFile,
 } from "@shared/contracts/uploads";
 import { postAttachmentPaths, type PostAttachments } from "@shared/contracts/post-input";
@@ -19,7 +18,7 @@ export function usePostUploads(
   const pending = useRef(false);
   const { uploadFile } = useUpload({ onError: (error) => onError(error.message) });
 
-  async function uploadBatch(files: File[], imagesOnly = false): Promise<UploadedFile[]> {
+  async function uploadFiles(files: File[]): Promise<UploadedFile[]> {
     if (!files.length || pending.current) return [];
     const current = getAttachments();
     const count = postAttachmentPaths(current).length;
@@ -33,10 +32,6 @@ export function usePostUploads(
         const validation = validateUploadType(file.name, file.type);
         if (!validation.ok) {
           errors.add(validation.message);
-          continue;
-        }
-        if (imagesOnly && validation.kind !== "image") {
-          errors.add(UPLOAD_INVALID_TYPE_MESSAGE);
           continue;
         }
         const limit = uploadSizeLimit(validation.contentType);
@@ -73,8 +68,5 @@ export function usePostUploads(
     }
   }
 
-  const uploadImages = async (files: File[]) =>
-    (await uploadBatch(files, true)).map((file) => file.objectPath);
-  const uploadFiles = (files: File[]) => uploadBatch(files);
-  return { uploadImages, uploadFiles, isUploading, pending };
+  return { uploadFiles, isUploading, pending };
 }

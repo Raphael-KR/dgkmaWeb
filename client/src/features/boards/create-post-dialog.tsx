@@ -1,7 +1,6 @@
-import { IMAGE_UPLOAD_ACCEPT } from "@shared/contracts/uploads";
 import { POST_TITLE_MAX_LENGTH } from "@shared/contracts/content-limits";
-import { Suspense, useRef, type ChangeEvent } from "react";
-import { Plus, ImagePlus, X, Loader2 } from "lucide-react";
+import { Suspense } from "react";
+import { Plus } from "lucide-react";
 import type { Category } from "@shared/contracts";
 import { isRegularPostCategory } from "@shared/category-policy";
 import { LazyPostBodyEditor } from "@/components/lazy-post-body-editor";
@@ -44,20 +43,11 @@ export function CreatePostDialog({
     form,
     bodyValid,
     setBodyValid,
-    imageUrls,
     operation,
     busy,
-    uploadImages,
     uploadEditorFiles,
-    removeImage,
     submit,
   } = useCreatePost();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    void uploadImages(files);
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={changeOpen}>
@@ -83,7 +73,7 @@ export function CreatePostDialog({
                 name="categoryId"
                 render={({ field }) => (
                   <FormItem className="min-w-0">
-                    <FormLabel>카테고리</FormLabel>
+                    <FormLabel className="sr-only">카테고리</FormLabel>
                     <Select
                       onValueChange={(value) => field.onChange(parseInt(value))}
                       value={field.value?.toString()}
@@ -112,7 +102,7 @@ export function CreatePostDialog({
                 name="title"
                 render={({ field }) => (
                   <FormItem className="min-w-0">
-                    <FormLabel>제목</FormLabel>
+                    <FormLabel className="sr-only">제목</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="게시글 제목을 입력하세요"
@@ -131,7 +121,7 @@ export function CreatePostDialog({
                 name="content"
                 render={({ field }) => (
                   <FormItem className="min-w-0 md:col-span-2">
-                    <FormLabel>내용</FormLabel>
+                    <FormLabel className="sr-only">내용</FormLabel>
                     <Suspense
                       fallback={
                         <div
@@ -146,6 +136,7 @@ export function CreatePostDialog({
                         <LazyPostBodyEditor
                           {...field}
                           disabled={busy}
+                          uploading={operation === "upload"}
                           onUploadFiles={uploadEditorFiles}
                           onValidityChange={setBodyValid}
                         />
@@ -155,60 +146,6 @@ export function CreatePostDialog({
                   </FormItem>
                 )}
               />
-
-              {/* 사진 첨부 */}
-              <div className="min-w-0 space-y-2 md:col-span-2">
-                <FormLabel>사진 첨부</FormLabel>
-                <input
-                  type="file"
-                  accept={IMAGE_UPLOAD_ACCEPT}
-                  multiple
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full"
-                >
-                  {operation === "upload" ? (
-                    <>
-                      <Loader2 size={16} className="mr-1 animate-spin" />
-                      업로드중...
-                    </>
-                  ) : (
-                    <>
-                      <ImagePlus size={16} className="mr-1" />
-                      사진 추가
-                    </>
-                  )}
-                </Button>
-                {imageUrls.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
-                    {imageUrls.map((path) => (
-                      <div key={path} className="relative">
-                        <img
-                          src={path}
-                          alt="첨부 이미지"
-                          className="w-full h-20 object-cover rounded-md border"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(path)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"
-                          aria-label="이미지 삭제"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               <div className="flex justify-end space-x-2 pt-4 md:col-span-2">
                 <Button type="button" variant="outline" onClick={() => changeOpen(false)}>
