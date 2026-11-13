@@ -4,18 +4,18 @@
 
 ## 현재 적용 상태
 
-공유 소스, 개발 작업 사본, 운영 릴리스를 구분한다. 아래는 2026-11-12 `5.0.0` 릴리스의 마지막 확인 상태다. 인증 완료 회원의 관리자 정보 표시·명부 10개 컬럼 가져오기와 DB 복구 정책 문서를 PR #38으로 통합하고 Replit 배포를 마쳤다. 이번 릴리스에서 DB 구조·데이터·Secrets·인프라는 변경하지 않았으며 개발 Helium·운영 Neon 구성을 유지했다. 세부 근거는 [5.0.0 릴리스 기록](docs/history/release-5.0.0-2026-11-12.md), 과거 범위와 시각은 [이력 색인](docs/history/README.md)에서 확인한다.
+공유 소스, 개발 작업 사본, 운영 릴리스를 구분한다. 아래는 2026-11-13 `6.0.0` 릴리스의 마지막 확인 상태다. 편집기 간소화·Markdown 밑줄/기울임 입력·빈 본문 안내·도구 폭·Safari 공개홈 글꼴 수정을 PR #39로 통합하고 Replit 배포를 마쳤다. DB 구조·데이터·Secrets·인프라 작업은 하지 않았으며 개발 Helium·운영 Neon 구성을 유지했다. 세부 근거는 [6.0.0 릴리스 기록](docs/history/release-6.0.0-2026-11-13.md), 과거 범위·시각은 [이력 색인](docs/history/README.md)을 따른다.
 
 | 구분 | 마지막 확인 상태 | 근거 |
 |---|---|---|
-| Git 통합 | PR #38 main 병합·운영 후보 `e003420`. 같은 tree의 Replit 게시 커밋 `fefea34`·`a02c4ed` 보존. 완료 문서는 별도 후속 커밋 | [PR #38](https://github.com/Raphael-KR/dgkmaWeb/pull/38), [Git 마무리](docs/history/release-5.0.0-2026-11-12.md#태그게시-이력과-git-마무리) |
-| 개발 사본 | GitHub main으로 동기화. 변경 소스 17개 lint·서식, 앱/테스트 타입·의존 경계와 빌드 통과. 선택 테스트 18건 통과 | [후보 검사](docs/history/release-5.0.0-2026-11-12.md#후보-검사-결과) |
-| 버전·태그 | 패키지·lockfile `5.0.0`, annotated tag `v5.0.0`은 실제 운영 후보 `e0034203452c9db3d8d6d2d9872a31681d00143e`를 가리킴 | [릴리스 규칙](#릴리스-버전-관리-규칙) |
-| 마지막 운영 릴리스 | 2026-11-12 17:33:43 KST 성공 관찰. 운영 후보와 게시 커밋 tree `fc1ec78f461314899b900b1cae4ca8cb1584b6f5` 일치 | [Republish 결과](docs/history/release-5.0.0-2026-11-12.md#운영-배포와-smoke) |
-| 릴리스 후 운영 확인 | 17:34:22 KST 공개 페이지 17개·사이트맵 1개·회원/관리자 경로 인증 차단 8개·정적 자산 해시 89개, 총 115건 통과. 실제 DB 조회·Sheets 동기화·화면·실계정 QA 미실행 | [확인 범위](docs/history/release-5.0.0-2026-11-12.md#운영-배포와-smoke) |
-| DB 구조 | 03:47 KST 운영 댓글 컬럼 네 개·CHECK 두 개 추가 및 새 연결·catalog 확인 완료. 기존 댓글 1건 유지, 데이터 초기화 미실행 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
+| Git 통합 | PR #39 main 병합·운영 후보 `86b1142`. 같은 tree의 Replit 게시 커밋 `f076575`·`154e8a7` 보존. 완료 문서는 별도 후속 커밋 | [PR #39](https://github.com/Raphael-KR/dgkmaWeb/pull/39), [Git 마무리](docs/history/release-6.0.0-2026-11-13.md#태그게시-이력과-git-마무리) |
+| 개발 사본 | GitHub main으로 동기화. 변경 TS/TSX 13개 lint·CSS 포함 14개 서식, 앱/테스트 타입·의존 경계와 빌드 통과. 선택 테스트 23건 통과 | [후보 검사](docs/history/release-6.0.0-2026-11-13.md#후보-검사-결과) |
+| 버전·태그 | 패키지·lockfile `6.0.0`, annotated tag `v6.0.0`은 실제 운영 후보 `86b1142d45876473712d968a2abbdf8e4182de0e`를 가리킴 | [릴리스 규칙](#릴리스-버전-관리-규칙) |
+| 마지막 운영 릴리스 | 2026-11-13 12:23:07 KST 성공 관찰. 후보·게시 커밋 tree `54e9d15c483841cf1626c4072b8b9ea901f66e4a` 일치 | [Republish 결과](docs/history/release-6.0.0-2026-11-13.md#운영-배포와-smoke) |
+| 릴리스 후 운영 확인 | 12:23:38 KST 공개 페이지 17개·사이트맵 1개·회원/관리자 인증 차단 8개·정적 자산 해시 89개, 총 115건 통과. 화면·직접 입력·업로드·실계정 QA 미실행 | [확인 범위](docs/history/release-6.0.0-2026-11-13.md#운영-배포와-smoke) |
+| DB 구조 | 마지막 직접 전환은 2026-11-12 03:47 KST 운영 댓글 컬럼 네 개·CHECK 두 개 추가와 새 연결·catalog 확인. 이번 릴리스에서 DB 작업 없음 | [마지막 catalog](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰) |
 
-세부 정책은 [제품 기준](docs/product/planning-proposal.md)을 따른다. 게시 커밋 생성만으로 성공을 판단하지 않고 새 배포 상태 전환과 후보 자산 일치를 확인했다. 이번 HTTP smoke는 실제 관리자 회원 조회·명부 동기화·기존 자료 보존이나 가입 결정·Kakao 연결 해제, 회원 글·댓글 수정, 외부 수집·OpenAI 호출·브라우저 상호작용의 확인을 대신하지 않는다. 수집·경사·OCR의 실행 범위는 [수집 이력](docs/history/replit-2026-11-09.md#개발-수집-적용-결과-2026-11-09)을 따른다.
+제품 기준은 [계획서](docs/product/planning-proposal.md)를 따른다. 이 HTTP smoke는 실제 편집기 키 입력·클립보드·모바일 첨부·Safari 화면, 회원/관리자 실제 데이터 처리·외부 수집·OpenAI 호출을 확인한 결과가 아니다. 실계정 QA는 계속 보류한다. 수집·경사·OCR의 실행 범위는 [수집 이력](docs/history/replit-2026-11-09.md#개발-수집-적용-결과-2026-11-09)을 따른다.
 
 ## 환경 구분
 
