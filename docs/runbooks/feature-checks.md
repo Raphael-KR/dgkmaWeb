@@ -36,7 +36,8 @@
 | 의존 경계 단독 | import 경계나 검사기 자체만 바뀌어 앱 타입 검사를 함께 실행할 이유가 없을 때 | `npm run check:boundaries` | Replit. 파일 읽기. 같은 후보에서 `check`가 통과했으면 반복하지 않음 |
 | 개인정보 로그 | 보호 대상 서버 경로·로그 처리·검사기 변경 | `node --import tsx --test server/tests/privacy-logging.test.ts` | Replit. 소스·AST만 읽음. 실제 요청·로그 전송은 확인하지 않음 |
 | DB 설정·결제 보존 소스 | Drizzle session 제외, 탈퇴 시 결제 익명화·보존 처리 변경 | `node --import tsx --test server/tests/security-source-contract.test.ts` | Replit. 파일만 읽음. 실제 DB 적용·결제 행 보존의 증거는 아님 |
-| 역사관 자료 | 연혁·회장·임원·수상·기부·앨범 JSON과 연결 파일 변경 | `node scripts/check-heritage-content.mjs` | Replit. 날짜·ID·자료/파일 참조 읽기. 브라우저·DB·외부 서비스 없음 |
+| 역사관 공개 자료 | 연혁·회장·임원·수상·기부·공개 문서 JSON과 연결 파일 변경 | `node scripts/check-heritage-content.mjs` | Replit. 날짜·ID·자료/파일 참조 읽기. 비공개 앨범 존재·브라우저·DB·외부 서비스는 확인하지 않음 |
+| 회원 사진첩 목록 | 사진첩 목록 계약·이관할 최종 목록 변경 | `node --import tsx scripts/check-heritage-catalog.ts <catalog.json>` | Replit. 지정 파일의 구조·참조만 확인. Storage·회원 API·DB 호출 없음. 공개 기록의 앨범 참조도 해당 목록과 대조 |
 | 릴리스 스킬 형식 | 프로젝트 릴리스 스킬 변경 | `python3 /Users/raphael/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/dgkma-release` | 해당 공식 검사기가 설치된 로컬 Mac. 파일 읽기. Replit 앱 런타임 의존이 아니며 선택 기준·링크는 별도로 읽어 검토 |
 | 설계 미리보기 타입 | `artifacts/mockup-sandbox` 코드·설정 변경 | `npm --prefix artifacts/mockup-sandbox run typecheck` | Replit의 별도 sandbox 의존성. 파일 읽기; 루트 앱 타입 검사가 대신하지 않음 |
 | 설계 미리보기 빌드 | sandbox 배포 산출물·Vite 설정 변경 | `npm --prefix artifacts/mockup-sandbox run build` | Replit. sandbox 빌드 산출물 생성/덮어쓰기. 루트 앱 릴리스마다 실행하지 않음 |

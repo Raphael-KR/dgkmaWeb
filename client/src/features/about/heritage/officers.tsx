@@ -39,15 +39,28 @@ export default function AboutHistoricalOfficers() {
                       <h3 className="mb-3 font-semibold">{group.title}</h3>
                       <ul className="divide-y rounded-lg border px-4">
                         {group.members.map((member) => (
-                          <li key={`${member.title}-${member.name}`} className="py-3">
-                            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                              <strong>{member.name}</strong>
-                              <span className="heritage-meta">{member.title}</span>
-                            </div>
-                            {personDetails(member) && (
-                              <p className="heritage-meta">{personDetails(member)}</p>
+                          <li key={`${member.title}-${member.name}`} className="flex gap-3 py-3">
+                            {member.photo && (
+                              <img
+                                src={member.photo}
+                                alt={`${member.name} ${member.title}`}
+                                className="h-16 w-12 shrink-0 rounded object-contain"
+                                loading="lazy"
+                                decoding="async"
+                              />
                             )}
-                            {member.subtitle && <p className="heritage-meta">{member.subtitle}</p>}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <strong>{member.name}</strong>
+                                <span className="heritage-meta">{member.title}</span>
+                              </div>
+                              {personDetails(member) && (
+                                <p className="heritage-meta">{personDetails(member)}</p>
+                              )}
+                              {member.subtitle && (
+                                <p className="heritage-meta">{member.subtitle}</p>
+                              )}
+                            </div>
                           </li>
                         ))}
                       </ul>

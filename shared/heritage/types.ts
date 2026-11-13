@@ -73,6 +73,11 @@ export interface HeritagePhoto {
   credit?: string;
 }
 
+export interface HeritageAlbumCatalog {
+  albums: HeritageAlbum[];
+  photos: HeritagePhoto[];
+}
+
 export interface HeritageDocument {
   id: string;
   title: string;

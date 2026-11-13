@@ -8,6 +8,7 @@ import { registerDirectoryRoutes, registerRegistryAdminRoutes } from "./modules/
 import { registerMembershipRoutes, registerPaymentRoutes } from "./modules/dues/routes";
 import { registerObjectStorageRoutes } from "./integrations/object-storage/routes";
 import { registerStatisticsRoutes } from "./modules/statistics/routes";
+import { registerHeritageRoutes } from "./modules/heritage/routes";
 
 export type { RouteDependencies } from "./lib/route-context";
 
@@ -26,6 +27,7 @@ export async function registerRoutes(
   registerDirectoryRoutes(app);
   registerPaymentRoutes(app, context);
   registerStatisticsRoutes(app, context);
+  registerHeritageRoutes(app);
   registerRegistryAdminRoutes(app, context);
   registerObjectStorageRoutes(app);
 
