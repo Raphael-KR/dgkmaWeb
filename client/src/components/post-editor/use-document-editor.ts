@@ -6,10 +6,17 @@ import {
   postEditorExtensions,
   normalizePostDocument,
   postDocumentFromMarkdown,
+  postDocumentsEqual,
 } from "@shared/editor/post-document";
 import type { PostDocument } from "@shared/contracts/post-document";
 import { postYoutubeAttributes } from "@shared/editor/post-youtube";
 import { prepareImageHtml, useEditorFiles, type UploadEditorFiles } from "./editor-files";
+
+const POST_EDITOR_PLACEHOLDER = [
+  "게시글 내용을 입력하세요.",
+  "글자나 표 셀을 선택하면 서식 도구가 나타납니다.",
+  "Markdown 문법을 지원합니다.",
+].join("\n");
 
 export type DocumentEditorProps = {
   value: PostDocument;
@@ -21,8 +28,8 @@ export type DocumentEditorProps = {
 
 type Options = DocumentEditorProps & {
   editorRef: MutableRefObject<Editor | null>;
-  setSourceError: (message: string) => void;
-  setCopyStatus: (message: string) => void;
+  setDocumentError: (message: string) => void;
+  setStatus: (message: string) => void;
   onSelectionUpdate: () => void;
 };
 
@@ -33,8 +40,8 @@ export function useDocumentEditor({
   disabled = false,
   onUploadFiles,
   editorRef,
-  setSourceError,
-  setCopyStatus,
+  setDocumentError,
+  setStatus,
   onSelectionUpdate,
 }: Options) {
   const validity = useRef(onValidityChange);
@@ -42,11 +49,16 @@ export function useDocumentEditor({
   const emitted = useRef(value);
   validity.current = onValidityChange;
   change.current = onChange;
-  const files = useEditorFiles(onUploadFiles, setCopyStatus);
+  const files = useEditorFiles(onUploadFiles, setStatus);
   const extensions = useMemo(
     () => [
       ...postEditorExtensions,
-      Placeholder.configure({ placeholder: "게시글 내용을 입력하세요" }),
+      Placeholder.configure({
+        placeholder: ({ editor, node, pos }) =>
+          editor.isEmpty && node.type.name === "paragraph" && pos === 0
+            ? POST_EDITOR_PLACEHOLDER
+            : "",
+      }),
       CharacterCount.configure({ limit: null, autoTrim: false }),
       files.extension,
     ],
@@ -56,7 +68,7 @@ export function useDocumentEditor({
     const { template, removed } = prepareImageHtml(html);
     if (removed)
       queueMicrotask(() =>
-        setCopyStatus(
+        setStatus(
           `지원하지 않는 주소의 이미지 ${removed}개는 추가하지 않았습니다. 사진 파일을 복사하거나 끌어 넣어 주세요.`,
         ),
       );
@@ -101,7 +113,7 @@ export function useDocumentEditor({
           });
         } catch {
           event.preventDefault();
-          setCopyStatus("붙여넣을 내용에 지원하지 않는 서식이 있습니다. 원문을 확인해 주세요.");
+          setStatus("붙여넣을 내용에 지원하지 않는 서식이 있습니다. 원문을 확인해 주세요.");
           return true;
         }
       },
@@ -110,12 +122,12 @@ export function useDocumentEditor({
       try {
         const document = normalizePostDocument(current.getJSON());
         emitted.current = document;
-        setSourceError("");
-        setCopyStatus("");
+        setDocumentError("");
+        setStatus("");
         validity.current?.(true);
         change.current(document);
       } catch {
-        setSourceError("본문의 크기와 지원 서식을 확인해 주세요. 마지막 유효 본문을 유지합니다.");
+        setDocumentError("본문의 크기와 지원 서식을 확인해 주세요. 마지막 유효 본문을 유지합니다.");
         validity.current?.(false);
       }
     },
@@ -127,21 +139,19 @@ export function useDocumentEditor({
     editor?.setEditable(!disabled, false);
   }, [editor, disabled]);
 
-  const commitDocument = (document: PostDocument) => {
-    if (!editor) return;
-    // 프로그램에 의한 전환은 onUpdate를 재호출하지 않고 한 번만 부모에게 전달한다.
-    editor.commands.setContent(document, { emitUpdate: false });
-    emitted.current = document;
-    change.current(document);
-    setSourceError("");
+  useEffect(() => {
+    // 부모가 되돌려 준 같은 JSON은 재설정하지 않아 선택 영역과 편집 이력을 보존한다.
+    if (!editor || postDocumentsEqual(value, emitted.current)) return;
+    editor.commands.setContent(value, { emitUpdate: false });
+    emitted.current = value;
+    setDocumentError("");
+    setStatus("");
     validity.current?.(true);
-  };
+  }, [editor, value, setDocumentError, setStatus]);
 
   const insertFiles = (selected: File[]) => {
     if (editor) void files.insert(editor, selected, editor.state.selection.to);
   };
 
-  return { editor, emitted, validity, commitDocument, insertFiles };
+  return { editor, validity, insertFiles };
 }
-
-export type DocumentEditorController = ReturnType<typeof useDocumentEditor>;

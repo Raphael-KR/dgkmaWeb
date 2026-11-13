@@ -1,13 +1,9 @@
 import { POST_TITLE_MAX_LENGTH } from "@shared/contracts/content-limits";
-import {
-  IMAGE_UPLOAD_ACCEPT,
-  POST_ATTACHMENT_LIMIT,
-  DOCUMENT_ATTACHMENT_LIMIT,
-} from "@shared/contracts/uploads";
+import { POST_ATTACHMENT_LIMIT, DOCUMENT_ATTACHMENT_LIMIT } from "@shared/contracts/uploads";
 import { postDocumentFilePaths } from "@shared/contracts/post-document";
 import { createUpdatePostSchema } from "@shared/contracts/post-management";
 import { postAttachmentPaths, postTitleSchema } from "@shared/contracts/post-input";
-import { Suspense, useState, type ChangeEvent, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import type { Post, Category, UpdatePost } from "@shared/contracts";
@@ -91,17 +87,6 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
     }
   };
 
-  const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    if (busy) return;
-    const paths = await uploads.uploadImages(files);
-    if (paths.length) {
-      setImageUrls((current) => [...current, ...paths]);
-      setDirty(true);
-    }
-  };
-
   const removeImage = (path: string) => {
     if (busy || uploads.pending.current) return;
     setImageUrls((current) => current.filter((value) => value !== path));
@@ -133,7 +118,7 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
       )}
       <fieldset disabled={busy || isUploading} className="space-y-5">
         <label className="block space-y-2">
-          <span>카테고리</span>
+          <span className="sr-only">카테고리</span>
           <select
             className="block w-full rounded-md border p-2"
             value={categoryId ?? ""}
@@ -155,11 +140,12 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
           </select>
         </label>
         <label className="block space-y-2">
-          <span>제목</span>
+          <span className="sr-only">제목</span>
           <Input
             required={title !== post.title}
             maxLength={Math.max(POST_TITLE_MAX_LENGTH, post.title.length)}
             value={title}
+            placeholder="게시글 제목을 입력하세요"
             onChange={(event) => {
               setTitle(event.target.value);
               setDirty(true);
@@ -167,11 +153,11 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
           />
         </label>
         <div className="space-y-2">
-          <p>본문</p>
           <Suspense fallback={<LoadingSpinner />}>
             <LazyPostBodyEditor
               value={content}
               disabled={busy || isUploading}
+              uploading={isUploading}
               onUploadFiles={uploads.uploadFiles}
               onChange={(value) => {
                 setContent(value);
@@ -184,20 +170,18 @@ export function PostEditForm({ post, onSaved }: PostEditFormProps) {
             />
           </Suspense>
         </div>
-        <label className="block space-y-2">
-          <span>첨부 이미지</span>
-          <Input type="file" accept={IMAGE_UPLOAD_ACCEPT} multiple onChange={handleFileSelect} />
-        </label>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {imageUrls.map((path) => (
-            <div key={path} className="space-y-2">
-              <img src={path} alt="첨부 이미지" className="h-32 w-full rounded-md object-cover" />
-              <Button type="button" variant="outline" size="sm" onClick={() => removeImage(path)}>
-                첨부 해제
-              </Button>
-            </div>
-          ))}
-        </div>
+        {imageUrls.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {imageUrls.map((path) => (
+              <div key={path} className="space-y-2">
+                <img src={path} alt="첨부 이미지" className="h-32 w-full rounded-md object-cover" />
+                <Button type="button" variant="outline" size="sm" onClick={() => removeImage(path)}>
+                  첨부 해제
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={cancel}>
             취소
