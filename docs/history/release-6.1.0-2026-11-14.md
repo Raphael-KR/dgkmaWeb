@@ -17,3 +17,20 @@ Replit 개발 환경에서 변경 JS/TS lint·명시적 파일 서식 검사, `n
 검사용 회원 카탈로그를 Replit 임시 경로로 전송하려던 명령은 자동 승인 검토가 사적 자료 반출로 거절하여 실행하지 않았다. 추가 전송 없이 기존 2026-11-14 개발 카탈로그 정적 검사와 입력 해시를 대조해 재사용 여부를 판정한다. 이 릴리스는 운영 카탈로그를 이관하지 않는다.
 
 로컬/Replit 변경 코드·공개 자산은 사전 파일 해시가 일치했고, 최신 문서를 직접 반영해 후보를 맞췄다. 원문 백업·SQLite·캐시·빌드 산출물은 제외했다. 게시판·사진첩의 실제 로그인/다운로드·화면·실계정 QA는 미실행이다.
+
+
+## 배포와 운영 확인
+
+PR [#40](https://github.com/Raphael-KR/dgkmaWeb/pull/40)과 동일 tree의 Replit 고유 이력 보존 PR [#41](https://github.com/Raphael-KR/dgkmaWeb/pull/41)을 병합했다. 실제 운영 후보는 `7e431c0a349434219cca29aac4c62d35fb872455`, tree는 `d2131c6975e77b7224a286100d6ecdefa12ce74e`다. 게시 커밋 `eec4b50`도 같은 tree로 확인했다.
+
+Republish는 기존 deployment ID `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`를 재사용했고 `pending → building → running → promoting → success` 전환을 관찰했다. 공개 HTTP·canonical·사진첩 noindex·사이트맵 제외·회원 API 401 총 12건과 후보 정적 자산 SHA-256 106개, 합계 118건이 통과했다. `v6.1.0` 태그는 운영 후보 `7e431c0`에 둔다. 후속 문서 커밋은 재배포하지 않는다.
+
+공개 임원 정적 자료는 운영 소스에 포함됐다. 별도의 다음카페 게시글 DB·사진첩 카탈로그 운영 이관, 밴드 이관, DB·Secrets·인프라 변경과 실계정 QA는 수행하지 않았다. 실제 회원 사진첩 열람·다운로드·화면은 미검증이다.
+
+## 검사 재사용과 Git 마무리
+
+사진첩 목록의 현재 SHA-256은 기존 개발 적용 영수증 `catalogSha256`과 일치하며, 목록 검사기·스키마·저장 모듈은 기존 검사 source manifest와 일치했다. 따라서 2026-11-14 Replit에서 통과한 52개 앨범·406개 사진 항목의 파일 전용 검사를 재사용했다. 목록을 추가 전송하거나 이번에 새로 검사한 것으로 보고하지 않는다.
+
+Replit GitHub 인증 부재로 검증된 커밋만 Git bundle을 통해 로컬에 가져와 정상 PR/fast-forward로 보존했다. 고유 에이전트 이력은 `archive/replit-agent-2026-11-14`와 `archive/replit-agent-published-6.1.0` 태그로 GitHub에 보존한다. 병합된 릴리스 브랜치와 태그로 보존한 에이전트 브랜치를 정리한다. 기존 stash 17개와 detached 과거 worktree는 보존하며 사용자 파일을 삭제하지 않는다.
+
+배포 성공·smoke 결과 기록 시각: 2026-11-14 08:33:20 KST. 최종 main 동기화는 이 문서의 후속 커밋 반영 후 확인한다.
