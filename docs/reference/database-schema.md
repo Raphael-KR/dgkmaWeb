@@ -345,7 +345,7 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 ## 로컬 커뮤니티 백업·이관 작업 DB
 
-2026-11-13 사용자 승인으로 `local-backups/community/archive.sqlite3`를 로컬에만 둔다. PostgreSQL 앱 스키마와 별개이며 Replit에 이관 전용 테이블을 만들거나 SQLite를 업로드하지 않는다. `sources`는 플랫폼별 수집 상태, `source_items`는 원본 ID·원문/파일 참조·해시, `assets`는 파일 확보 상태, `conversions`는 형식 변환·검증, `migration_items`는 원본/대상 ID 대응·분류·변환 본문·환경별 적용 상태를 관리한다. 원본 복합 키를 사용하고 재수집에서 누락됐다는 이유로 기존 행을 삭제하지 않는다. 실제 경로·수집/변환/적용 결과는 로컬 백업 색인과 [이관 기준](../product/community-archive-migration-proposal.md)을 따른다.
+2026-11-13 사용자 승인으로 `local-backups/community/archive.sqlite3`를 로컬에만 둔다. PostgreSQL 앱 스키마와 별개이며 Replit에 이관 전용 테이블을 만들거나 SQLite를 업로드하지 않는다. `sources`는 플랫폼별 수집 상태, `source_items`는 원본 ID·원문/파일 참조·해시, `assets`는 파일 확보 상태, `conversions`는 형식 변환·검증, `migration_items`는 원본/대상 ID 대응·분류·변환 본문·환경별 적용 상태를 관리한다. 원본 복합 키를 사용하고 재수집에서 누락됐다는 이유로 기존 행을 삭제하지 않는다. 수집·보존은 [백업 운영 문서](../runbooks/community-backup.md), 변환·적용은 [이관 기준](../product/community-archive-migration-proposal.md)을 따르며 실제 결과는 로컬 백업 색인에 구분한다.
 
 명시적인 변환 선택은 로컬 `conversions/selected-overrides.json`에서 원본·변환본 해시로 확인한 뒤 일반 CLI 변환 기록보다 우선 색인한다. `dbpl-35`에는 사용자 제공 한컴오피스 HWPX를 선택했으며, 이를 rhwp 자동 검사 통과로 표시하지 않는다. 역사관 사진첩은 `posts` 이관 대상과 분리한다. 2026-11-14 회원 전용 사진첩의 정본은 환경별 비공개 Object Storage의 목록 JSON과 사진이며 [자료 계약](heritage-content.md)을 따른다. PostgreSQL 구조 변경이나 catalog 재조회는 하지 않았다.
 

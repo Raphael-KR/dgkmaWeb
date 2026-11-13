@@ -74,6 +74,8 @@
 
 ### 역사관 개발 범위
 
+다음카페·밴드의 백업과 마이그레이션은 각각 독립 작업이다. 다음카페 백업은 완료했으며 사용자는 아래 개발 반영을 이관 테스트로 간주하도록 결정했다. 현재 다음카페 작업은 테스트 결과를 참조하는 구조 분석·계획 브리핑까지다. 실제 추가 이관·원복·배포와 밴드 마이그레이션은 보류하며 [작업별 상태](docs/product/planning-proposal.md#7-다음-개발-목표)를 따른다.
+
 [역사관 정책](docs/product/planning-proposal.md#역사관-콘텐츠-구성-2026-11-10)에 따라 공개 자료는 `shared/heritage/`의 JSON과 공통 UI·CSS를 사용한다. 2026-11-14 결정으로 사진첩 목록·상세·원본 사진은 기존 승인 회원 세션을 확인한 서버 응답으로만 제공한다. 사진첩은 검색 색인·사이트맵에서 제외하고 다른 역사관 메뉴는 공개한다. Notion은 홈페이지 요청에서 호출하지 않는다. 수상자·미제공 자료는 계속 보류하며 다음카페 앨범은 개발 환경 이관 대상이다. 자료 추가는 [콘텐츠 기준](docs/reference/heritage-content.md)을 따른다. [개발 기록](docs/history/heritage-2026-11-10.md)과 [릴리스 기록](docs/history/heritage-release-2026-11-11.md)은 당시 확인 범위를 보존한다.
 
 사진첩은 기존 `PRIVATE_OBJECT_DIR` 아래 `heritage/development/`와 `heritage/production/`을 분리해 사용한다. `REPLIT_DEPLOYMENT="1"`일 때만 production을 선택한다. 목록 JSON과 사진은 Git·클라이언트 공개 자산에 넣지 않으며 DB 구조 변경이나 새 Secret 없이 기존 Object Storage 연결을 사용한다. 개발 소스와 앨범 자료를 반영하고 필요한 타입·lint·서식·자료 정적 검사를 수행했다. 일반 게시글 개발 DB 이관과 공개 임원 소스 반영을 포함한 결과는 [2026-11-14 기록](docs/history/member-albums-2026-11-14.md)을 따른다. 새 API의 서버 재시작·실행 확인, 운영 반영·배포·실계정 QA는 수행하지 않았다.

@@ -47,4 +47,4 @@
 | [seed-categories.sql](../../scripts/seed-categories.sql) | all·notice·free·event·news 5개 항목을 upsert하고 표시 속성·활성 상태를 갱신 | DB 이름 guard 없음. 부고·경사를 포함하지 않는 과거 기본 분류 seed이며 현재 전체 분류의 설치 도구가 아님 |
 | [0000_cheerful_nick_fury.sql](../../migrations/0000_cheerful_nick_fury.sql) 및 [meta](../../migrations/meta) | 초기 Drizzle 생성 SQL·snapshot·journal | 이후의 수동 SQL·본문 변환·runtime session DDL이 모두 순차 migration으로 들어 있지 않음. 현행 전체 DB 재현 경로로 사용하지 않음 |
 
-실제 완료 시점과 적용 결과는 [DB 전환 이력](../runbooks/database-operations.md#완료된-전환과-재실행-경계)을 따른다. 새 빈 DB를 재현하는 baseline·migration 체계는 아직 구현되지 않았다.
+실제 완료 시점과 적용 결과는 [수행·변경 이력](../history/README.md)을 따른다. 새 빈 DB를 재현하는 baseline·migration 체계는 아직 구현되지 않았다.
