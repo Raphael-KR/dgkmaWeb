@@ -1,16 +1,16 @@
 # 데이터베이스 운영 런북
 
-이 문서는 승인된 DB 작업의 환경 선택·변경·보존·결과 확인 절차다. 구조는 [스키마 기준서](../reference/database-schema.md), 제품 결정은 [계획서](../product/planning-proposal.md)를 따른다. 과거 승인·실행·백업·catalog 결과와 당시 SQL은 [DB 작업 이력](../history/database-operations-2026-11-09.md)에 보존한다.
+이 문서는 승인된 DB 작업의 환경 선택·변경·보존·결과 확인 절차다. 구조는 [스키마 기준서](../reference/database-schema.md), 제품 정책은 [계획서](../product/planning-proposal.md)를 따른다. 승인·실행·백업·catalog 결과는 [수행·변경 이력](../history/README.md)에서 확인한다.
 
 ## 승인 상태 변경의 데이터 경계
 
-2026-11-12 승인 취소·거부 보존·재심사 변경은 기존 `users.is_verified`·`pending_registrations.status`와 세션·OAuth 종료 marker를 사용한다. DDL·backfill·DB 초기화 없이 앱의 관리자 심사 트랜잭션으로 처리한다. 신규 개발 코드를 반영하거나 정적 검사하는 것만으로 실제 회원의 상태를 바꾸지 않는다. 거부 자체를 탈퇴·카카오 unlink·레코드 삭제로 처리하던 과거 절차는 재사용하지 않는다. 거부 후 명시적 신청 삭제는 unlink 성공 뒤 신청만 삭제하며 기존 회원·콘텐츠·회비·명부 연결을 유지한다. 실제 탈퇴의 삭제·보존 절차는 유지한다. 과거 삭제된 신청을 가정해 재생성하지 않는다. 이번 작업에서는 개발·운영 DB를 조회하거나 변경하지 않으며 마지막 catalog 관찰 시각도 갱신하지 않는다.
+승인 취소·거부 보존·재심사는 `users.is_verified`·`pending_registrations.status`와 세션·OAuth 종료 marker를 사용하는 앱의 관리자 심사 트랜잭션으로 처리한다. DDL·backfill·DB 초기화는 필요하지 않다. 거부 자체는 탈퇴·카카오 unlink·레코드 삭제로 처리하지 않는다. 명시적 거부 신청 삭제는 unlink 성공 뒤 신청만 삭제하며 기존 회원·콘텐츠·회비·명부 연결을 유지한다. 실제 탈퇴는 별도의 삭제·보존 절차를 따르고, 과거 삭제된 신청을 추정해 재생성하지 않는다.
 
 ## 실행 범위
 
 역사관 공개 콘텐츠 구현은 [정적 자료 계약](../reference/heritage-content.md)을 사용한다. DB 조회·DDL·seed·`db:push`는 필요하지 않다. 향후 DB 저장이 필요하면 현재 정적 자료와 제안 테이블·관계·접근 범위·이관 대상을 설명하고 사용자 승인 후 개발 DB에만 적용한다.
 
-코드·문서 정리의 수행 결과는 [개발 작업 이력](../history/README.md)에 둔다. 기존 게시글의 값 보존과 권리회원 목표 정책·현행 계산의 차이는 [제품 정책](../product/planning-proposal.md)을 따른다. 목표 정책 결정만으로 등급 재계산·직책 이관·DB 변경을 실행하지 않는다.
+게시글 보존과 회비·권리회원 판정은 [제품 정책](../product/planning-proposal.md)을 따른다. 목표 정책 결정만으로 등급 재계산·직책 이관·DB 변경을 실행하지 않는다.
 
 - 개발 DB가 기본이다. 개발 작업을 완료했다고 운영 DB 변경·배포까지 이어서 수행하지 않는다. 운영 대상·행위는 사용자가 승인한 범위에서만 선택한다.
 - 코드·문서의 정적 검사와 직접 DB 작업을 구분한다. 문서 정리만 하는 작업에서는 DB에 연결하지 않는다. 전체 테스트·빌드·서버 재시작·실계정 QA는 DB 변경의 공통 선행 조건이 아니다.
@@ -20,25 +20,23 @@
 
 ## DB 복구·백업 기본 정책
 
-2026-11-12 사용자 결정으로 개발·운영 DB 모두 Replit의 7일 복구를 기준으로 삼고 별도 DB 백업을 만들지 않는 것을 기본으로 한다. 스키마 변경·데이터 변환·명부 동기화·초기화·릴리스에 동일하게 적용한다.
+개발·운영 DB 모두 Replit의 7일 복구를 기준으로 삼고 별도 DB 백업을 만들지 않는 것을 기본으로 한다. 스키마 변경·데이터 변환·명부 동기화·초기화·릴리스에 동일하게 적용한다.
 
-- 개발은 Replit의 checkpoint 복구, 운영은 PITR을 사용한다. [Replit 공식 안내](https://docs.replit.com/features/data-and-storage/data-recovery)는 개발 checkpoint 복구를 최대 7일, 운영 PITR의 기본 기간을 7일로 설명한다. 이 프로젝트의 실제 복구 설정과 사용 가능한 복구 지점은 이번 정책 반영에서 조회하지 않았다. 정책 기준을 설정 확인 결과로 보고하지 않는다.
+- 개발은 Replit의 checkpoint 복구, 운영은 PITR을 사용한다. 복구 시 [Replit 공식 안내](https://docs.replit.com/features/data-and-storage/data-recovery)와 해당 환경의 실제 설정·사용 가능한 복구 지점을 확인한다. 정책에 정한 기간을 실제 복구 가능 여부의 확인 결과로 대신하지 않는다.
 - 별도 dump·행 원문 사본·복구용 snapshot·추가 예약 백업을 기본 단계로 생성하거나 활성화하지 않는다. 별도 백업은 사용자가 해당 작업에서 명시적으로 요청하거나 승인한 경우에만 만든다. 기존 데이터 보존 요청 자체를 추가 백업 생성 승인으로 해석하지 않는다.
 - 변경 전후 건수·구조 metadata·SQL preview·적용 결과는 필요한 범위에서 기록한다. 이는 행 원문을 담는 복구용 백업과 구분하며 schema-only dump도 기본 필수 단계로 만들지 않는다.
 - 별도 백업이 승인되면 대상·보존 위치·기간을 정하고 Replit 비공개 경로의 디렉터리 0700·파일 0600으로 제한한다. Mac·Git·채팅으로 복제하지 않는다.
 - 기존 백업 삭제, Replit 복구·예약 백업 설정 변경, 실제 복원은 별도 요청·승인 범위에서 처리한다. 과거 작업의 백업 기록은 이력으로 유지하며 신규 백업 생성 지시로 재사용하지 않는다.
 
-## 환경과 마지막 관찰
+## 환경 선택
 
 | 구분 | Development | Production |
 |---|---|---|
 | 역할 | 구현과 승인된 개발 DB 작업 | Republish된 서비스의 DB |
-| 확인된 DB 이름 | `heliumdb` | `neondb` |
+| 연결 확인 기준 DB 이름 | `heliumdb` | `neondb` |
 | 기본 연결 | Replit PG* | 명시적으로 선택한 Replit Secret URL |
-| 마지막 전체 catalog | 2026-11-12 03:14 KST | 2026-11-12 03:47 KST |
-| 관찰 구조 | 공통 posts JSONB·수집 규칙 + 댓글 가림·수정·revision·첨부 | 개발과 같은 댓글 확장 적용 |
 
-위 시각은 마지막 DB 작업의 관찰 이력이다. 문서 수정일과 구분한다. Google Sheets가 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Sheets를 직접 조회하지 않는다.
+실행할 때 실제 DB 이름을 확인한다. 구조와 마지막 catalog 근거는 [스키마 기준서](../reference/database-schema.md#기준-소스와-마지막-db-관찰)를 참조한다. Google Sheets가 명부 관리 원본이고 PostgreSQL `alumni_database`는 로그인·가입 심사용 런타임 복제본이다. 로그인 요청은 Sheets를 직접 조회하지 않는다.
 
 ## SSH 접속
 
@@ -70,17 +68,7 @@ cd /home/runner/workspace
 
 ## 개발 변경
 
-2026-11-12 댓글 확장 최초 승인은 `comments.is_hidden`, `edited_at`, `revision`, `attachment`와 두 CHECK를 개발 DB에 추가하는 범위였다. 기존 댓글의 ID·본문·작성자·작성 시각을 보존하며 데이터 변환·초기화는 하지 않았다. 대상 확인 → schema-only 및 comments 데이터 비공개 백업 → 컬럼/의존 객체·SQL preview → 트랜잭션 적용 → 새 연결의 행 보존·기본값·제약 확인 → metadata-only catalog 순으로 진행했다. [전환 SQL](../../scripts/add-comment-management.sql)은 `heliumdb`만 허용하며 재실행용이 아니다. 개발 DB 적용과 새 연결·catalog 확인을 03:14 KST에 마쳤고 기존 댓글은 0건이었다. 결과와 비공개 백업 위치는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)에 남긴다. 이후 별도 승인된 운영 전환은 아래 운영 절과 [3.0.0 릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다. Drag Handle 자체는 DB 변경이 없다.
-
-2026-11-12 후속 편집기 간소화는 기존 JSONB의 앱 스키마에서 체크리스트 노드와 검증을 제거한다. JSONB 컬럼과 루트 CHECK는 유지하므로 DB DDL·catalog 재조회·`db:push`는 수행하지 않는다. 정식 운영 시작 시 게시판을 초기화한다는 사용자 결정에 따라 그 전에는 테스트 본문 사용 조회·변환·완료 상태 보존·원문 이력·백업을 수행하지 않는다. 이 작업에서 DB를 초기화하지 않으며 개발 코드 적용과 운영 배포는 [Replit 기준](../../replit.md#본문-편집기-간소화-개발-범위)에서 구분한다.
-
-2026-11-12 일반 파일 8종은 기존 `posts.content` JSONB의 표준 링크 문단과 App Storage를 사용한다. DDL·데이터 변환·catalog 재조회·`db:push`는 수행하지 않는다. 기존 이미지·본문·객체는 보존하며 적용 상태는 [일반 파일 개발 기록](../history/general-files-2026-11-12.md)에 기록한다.
-
-후속 일반 파일 10MB·5개 제한도 업로드/게시글 입력 검증의 변경이다. DB 작업과 기존 객체 삭제는 필요하지 않으며 한도를 넘는 기존 글은 해당 첨부 유지·감소를 허용한다.
-
-2026-11-12 TableKit 추가도 기존 `posts.content` JSONB의 앱 계약 확장이다. 표를 위한 컬럼·CHECK 변경·기존 행 변환·catalog 재조회·`db:push`는 수행하지 않는다. 공식 스키마의 저장/복원과 미확인 실행 범위는 [TableKit 개발 기록](../history/table-kit-2026-11-12.md)에 남긴다.
-
-본문 이미지의 2026-11-11 확장은 `posts.content` JSONB 안의 공식 image 노드와 참조 읽기 계약만 변경한다. DB DDL·데이터 변환·catalog 재조회는 필요하지 않다. 기존 본문과 `image_urls` 첨부는 보존하며 이번 작업에서 `db:push`나 마이그레이션을 실행하지 않는다. 적용·정적 검사 상태는 [개발 기록](../history/inline-images-2026-11-11.md)을 따른다.
+JSONB 안의 앱 문서 스키마·편집기 기능·업로드 검증만 바꾸고 DB 컬럼·제약·기존 행 변환에 영향이 없으면 DDL·catalog 재조회·`db:push`를 추가하지 않는다. 본문과 첨부의 저장 계약은 [편집기 기준](../reference/post-editor.md)과 [스키마 기준서](../reference/database-schema.md)를 따른다.
 
 1. 요청된 대상·변경과 보존 범위를 정하고 Replit 개발 checkout·실제 연결 DB를 확인한다.
 2. 스키마 작업이면 metadata-only catalog와 의존 객체를, 데이터 작업이면 변경 전 집계를 준비한다. [DB 복구·백업 기본 정책](#db-복구백업-기본-정책)에 따라 별도 백업은 기본으로 생성하지 않는다.
@@ -106,19 +94,11 @@ psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
 
 `server/tests/development-db-target.ts`의 opt-in·환경·허용 PG host·DB 이름 검증을 모든 실제 DB 검사에서 공통으로 사용한다. 일반 `npm test`는 PG*나 DATABASE_URL의 존재만으로 DB 검사를 실행하지 않는다. 전용 명령은 명부 동기화·가입/승인/거절 경쟁·탈퇴·OAuth state·경조사 quota의 기존 DB 사례를 선택한다. 정확한 파일 목록은 [package.json](../../package.json)을 따른다.
 
-명부 동기화 검사는 실제 Sheets 대신 기존 fixture를 사용하며 임시 trigger/function을 만들고 정리한다. 다른 DB 검사도 임시 회원·신청·세션 등을 쓰므로 같은 승인 경계를 적용한다. 실행 전 환경 선택과 실제 `current_database()=heliumdb`를 확인하고 기존 정리·잔여 확인을 유지한다. 이 문서 수정은 DB 검사 실행이나 fixture 생성 승인이 아니다.
+명부 동기화 검사는 실제 Sheets 대신 기존 fixture를 사용하며 임시 trigger/function을 만들고 정리한다. 다른 DB 검사도 임시 회원·신청·세션 등을 쓰므로 같은 승인 경계를 적용한다. 실행 전 환경 선택과 실제 `current_database()=heliumdb`를 확인하고 기존 정리·잔여 확인을 유지한다.
 
 ## 운영 변경
 
-운영 DB 변경이 승인된 작업에만 아래 절차를 사용한다. 새 운영 변경이 없는 문서·개발 작업은 이 절로 넘어오지 않는다.
-
-2026-11-12 운영 `alumni_database`와 종속 별칭의 초기화는 별도 백업 없이 완료했다. 행 원문 없는 건수·대상 metadata와 새 연결의 0건, 다른 자료·구조·시퀀스 보존을 확인했다. 실제 실행 범위와 플랫폼 복구 이력의 확인 한계는 [초기화 기록](../history/alumni-reset-2026-11-12.md#운영-명부-초기화)을 따른다. 재실행이나 플랫폼 복구 설정 변경 지시가 아니다.
-
-2026-11-12 사용자가 `3.0.0`의 [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql) 전환을 승인했다. `neondb`의 comments에 개발과 같은 네 컬럼·두 CHECK만 추가하며 기존 다섯 컬럼·행·시퀀스를 보존한다. 준비한 읽기 전용 preview·비공개 백업과 실행 직전 구조·값을 대조한 뒤 트랜잭션으로 적용한다. 새 연결에서 보존과 구조를 확인한 후 기존 릴리스 승인에 따라 배포한다. 승인·실행·새 연결 검증은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에 남긴다.
-
-후속 사용자 결정으로 이번 릴리스의 기존 `posts`·종속 `comments` 데이터는 보존 필수가 아니며 필요하면 초기화할 수 있다. 현재 additive SQL은 초기화를 요구하지 않아 그대로 적용한다. 이 허용을 다른 테이블·스키마·Object Storage 파일 삭제로 확대하지 않는다. 실제 초기화 여부와 전후 건수는 수행 기록에서 구분한다.
-
-03:47 KST 운영 전환과 새 읽기 전용 연결·catalog 확인을 완료했다. 댓글 1건·기존 값·시퀀스는 유지됐으며 초기화는 하지 않았다. 전체 catalog의 변경 범위와 SHA-256은 [스키마 기준](../reference/database-schema.md#기준-소스와-마지막-db-관찰), 백업과 실행 근거는 [운영 적용 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 따른다.
+운영 DB 변경이 승인된 작업에 아래 절차를 사용한다.
 
 1. 승인 대상과 적용할 후보 SQL/변환 코드를 확정한다. Replit Secrets의 운영 URL을 해당 프로세스에만 전달한다. 개발 PG* 기본값이나 Secret 자체를 변경하지 않는다.
 2. 사전 읽기는 `PROD_DATABASE_READONLY_URL`을 우선하고, 없으면 owner URL을 `BEGIN READ ONLY` 트랜잭션으로 제한한다. `current_database()=neondb`, 실제 구조·변경 전 건수·의존 관계를 확인한다.
@@ -126,7 +106,7 @@ psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
 4. 코드를 함께 배포해야 하면 후보 Git 통합과 빌드가 준비됐는지 확인한다. 호환되는 additive 변경은 새 코드보다 먼저 적용할 수 있다. TEXT→JSONB처럼 비호환 변경은 잠금·변환·새 코드 전환 순서와 간격을 별도로 정한다. 과거 실행 순서를 모든 릴리스에 일반화하지 않는다.
 5. 실행 직전 대상과 preview 기준의 변화 여부를 재확인하고 가능한 한 트랜잭션으로 승인 범위만 적용한다. 이미 같은 구조이면 중복 적용하지 않는다. Replit이 웹 스키마 검토를 요구하면 승인된 SQL을 검토하며 우회하지 않는다.
 6. 새 READ ONLY 연결에서 실제 구조·변환 결과·본문 외 값·전체 보존 건수를 대조한다. metadata-only catalog와 적용 이력을 기록한다.
-7. 배포도 승인된 작업일 때만 [Replit 배포 절차](../../replit.md#배포)로 진행한다. 운영 HTTP smoke와 실제 회원 QA를 구분하며 실계정 QA는 계속 보류한다.
+7. 배포도 승인된 작업일 때만 [Replit 배포 절차](../../replit.md#배포)로 진행한다. 운영 HTTP smoke와 실제 회원 QA의 실행 범위·결과를 구분한다.
 8. 연결을 닫고 적용/미적용·오류·남은 조치를 보고한다. 배포 실패나 불일치가 있으면 상태를 보존해 보고하며 별도 승인 없이 원복하지 않는다.
 
 ### Secret 수명과 명시적 연결
@@ -143,40 +123,28 @@ psql -X --csv -v ON_ERROR_STOP=1 -v expected_database=heliumdb \
 
 1. Google Sheets 연결 상태를 확인한다. 연결 또는 원본 검증 오류가 표시돼도 `변경 미리보기`는 실행할 수 있다.
 2. `변경 미리보기`로 원본·DB·추가·수정·동일·충돌·오류·원본만·DB만 건수를 확인한다.
-3. 차단 오류가 있으면 원본을 수정하고 미리보기를 다시 실행한다. 빈 원본, `'통합주소록'!A:J`의 10개 관리 컬럼 헤더 또는 필수값 누락, 잘못된 휴대전화 형식, 원본 또는 DB의 정규화 전화번호 중복은 적용할 수 없다. 관리 대상 헤더 누락을 빈 값으로 해석해 기존 DB 필드를 덮어쓰지 않는다. 주소·전화번호는 사용자가 시트에서 삭제한 비관리 항목이므로 필수 헤더에 포함하지 않는다.
+3. 차단 오류가 있으면 원본을 수정하고 미리보기를 다시 실행한다. 빈 원본, `'통합주소록'!A:J`의 10개 관리 컬럼 헤더 또는 필수값 누락, 잘못된 휴대전화 형식, 원본 또는 DB의 정규화 전화번호 중복은 적용할 수 없다. 관리 대상 헤더 누락을 빈 값으로 해석해 기존 DB 필드를 덮어쓰지 않는다. 주소·전화번호는 비관리 항목이므로 필수 헤더에 포함하지 않는다.
 4. 실제 적용 전 대상 DB의 `current_database()`, `alumni_database` 총 건수, 필수값 누락과 정규화 전화번호 중복 건수를 별도 집계로 기록한다.
 5. 미리보기의 변경 범위가 예상과 일치할 때만 `변경 적용`을 실행한다. 미리보기 뒤 원본이 바뀌었거나 다른 적용이 진행 중이면 서버가 `409`로 거부하므로 새 미리보기부터 다시 시작한다.
 6. 적용 후 새 연결에서 총 건수, 필수값, 중복, `matched_user_id` 연결 건수와 예상 insert/update를 대조한다.
 
 서버는 source 재조회부터 commit까지 PostgreSQL advisory lock으로 직렬화하고 하나의 transaction에서 insert/update한다. 기존 `is_matched`, `matched_user_id`와 DB에만 존재하는 행은 보존하며 자동 삭제하지 않는다. 응답과 브라우저에는 집계와 source fingerprint만 전달하고 명부 원문은 포함하지 않는다.
 
-2026-11-12 결정으로 주소·전화번호는 Sheets 파싱·변경 비교·source fingerprint·쓰기 payload에서 제외한다. DB의 `address`·`phone` 컬럼은 그대로 두고, 기존 행 업데이트에는 두 필드를 넣지 않아 값을 보존한다. 새 행은 두 값을 보내지 않으므로 기존 nullable 정의에 따라 NULL로 남는다. 향후 두 항목의 입력 원천·수정 절차는 별도 결정하며 시트에 같은 이름의 열이 생겨도 자동으로 쓰기 대상을 확대하지 않는다. 이 계약 변경에는 DDL·데이터 초기화가 필요 없고, 실제 동기화 실행은 위 미리보기·적용 절차와 구분한다.
+주소·전화번호는 Sheets 파싱·변경 비교·source fingerprint·쓰기 payload에서 제외한다. DB의 `address`·`phone` 컬럼은 그대로 두고, 기존 행 업데이트에는 두 필드를 넣지 않아 값을 보존한다. 새 행은 두 값을 보내지 않으므로 기존 nullable 정의에 따라 NULL로 남는다. 두 항목의 입력 원천·수정 절차를 별도로 정하기 전에는 시트에 같은 이름의 열이 생겨도 자동으로 쓰기 대상을 확대하지 않는다.
 
-Production Database에서 최종 동기화할 때는 사용자에게 실행 범위와 미리보기 집계를 확인받는다. 별도 백업은 [기본 정책](#db-복구백업-기본-정책)에 따라 명시적으로 요청·승인된 경우에만 만든다. 개발·회귀 테스트에서는 실제 Google Sheets apply를 실행하지 않고 fixture snapshot만 사용한다.
+Production Database에서 동기화할 때는 사용자에게 실행 범위와 미리보기 집계를 확인받는다. 별도 백업은 [기본 정책](#db-복구백업-기본-정책)에 따라 명시적으로 요청·승인된 경우에만 만든다. 개발·회귀 테스트에서는 실제 Google Sheets apply를 실행하지 않고 fixture snapshot만 사용한다.
 
 ## 동문 공식 이름·별칭 운영
 
 `alumni_database.name`은 Sheets 복제 원본으로 유지한다. 공식 이름·개명 전 이름은 `alumni_name_aliases`에서 관리하며, 대리 등록의 이름/별칭과 학번 단일 일치에 사용한다. 동문 자녀 확인은 이름/별칭과 학번 또는 졸업기수 및 서버 회원 상태를 사용한다. 로그인 명부 매칭의 이름+전화번호 계약을 별칭으로 대체하지 않는다.
 
-별칭 쓰기가 승인된 경우 대상 DB·동문 한 명을 확인하고 한 트랜잭션에서 해당 alumni 행을 잠근다. 현재 이름은 `current_name`·preferred, 개명 전 이름은 `former_name`으로 처리한다. 새 연결에서 대상의 preferred 1건·정규화 이름 중복 없음·Sheets 원본 이름과 다른 행 보존을 확인한다. 테이블 생성 SQL과 2026-08 적용 기록은 [이력](../history/database-operations-2026-11-09.md#동문-공식-이름개명-전-별칭-스키마)이며 현재 양쪽 DB에 테이블이 존재한다.
+별칭 쓰기가 승인된 경우 대상 DB·동문 한 명을 확인하고 한 트랜잭션에서 해당 alumni 행을 잠근다. 현재 이름은 `current_name`·preferred, 개명 전 이름은 `former_name`으로 처리한다. 새 연결에서 대상의 preferred 1건·정규화 이름 중복 없음·Sheets 원본 이름과 다른 행 보존을 확인한다.
 
-## 완료된 전환과 재실행 경계
+## DB 스크립트 선택
 
-다음은 완료된 작업을 찾는 색인이다. 신규 설치의 전체 migration 순서나 재실행 지시가 아니다. 파일별 대상·읽기/쓰기·완료/준비 상태·재사용 조건은 [DB 스크립트 분류](../reference/database-scripts.md)를 따른다.
-
-| 전환 | 실행 도구·당시 절차 | 완료 기록 |
-|---|---|---|
-| posts 통합·구 테이블 제거 | 개발 `scripts/unify-posts.sql`; 운영 `scripts/release-posts-additive.sql` 후 Publishing의 승인된 제거 SQL | [개발](../history/database-operations-2026-11-09.md#개발-db-전환-결과), [운영](../history/database-operations-2026-11-09.md#운영-전환-완료-결과) |
-| 수집 규칙 | 개발 `scripts/add-source-collection-rules.sql`; 운영은 위 additive에 포함 | [수집](../history/database-operations-2026-11-09.md#공개-링크-수집-규칙-개발-적용-2026-11-09) |
-| 본문 JSONB | `scripts/migrate-post-body.ts`, `scripts/migrate-post-body-production.ts`의 preview/apply와 환경별 SQL | [개발](../history/database-operations-2026-11-09.md#본문-jsonb-개발-적용-기록), [운영](../history/database-operations-2026-11-09.md#본문-운영-전환-결과) |
-| 가림 상태 | `scripts/add-post-visibility.sql`, `scripts/add-post-visibility-production.sql` | [개발](../history/database-operations-2026-11-09.md#게시글-가리기-개발-적용-결과), [운영](../history/database-operations-2026-11-09.md#게시글-가리기-운영-적용-결과) |
-| OAuth 종료 경쟁·파싱 제한·별칭 | 당시 additive SQL | [DB 운영 이력](../history/database-operations-2026-11-09.md) |
-
-`release-posts-cleanup.sql`은 준비만 했고 운영에서는 Replit이 승인된 두 구 테이블을 제거했다. `migrate-obituaries-to-community-events.sql`은 제거된 옛 경로이며 사용하지 않는다. 초기 checked-in migration만으로 현행 전체 구조가 재현된다고 가정하지 않는다. 현재 구조가 아닌 새 DB 준비는 별도 요청 범위에서 설계한다.
+[DB 스크립트 분류](../reference/database-scripts.md)에서 파일별 대상·읽기/쓰기 효과·재사용 조건을 확인한다. 완료된 전환 스크립트를 일괄 재실행하거나 신규 설치 순서로 사용하지 않는다. 초기 checked-in migration만으로 현행 전체 구조가 재현된다고 가정하지 않으며, 새 DB 준비는 별도 요청 범위에서 설계한다.
 
 ## 정식 오픈 전 초기화
-
-2026-11-12 개발 `alumni_database`와 종속 별칭의 초기화는 별도 백업 없이 완료했다. 테이블·컬럼·시퀀스, 회원 계정과 다른 업무 자료는 유지했다. 명부 행의 `matched_user_id` 연결은 행과 함께 제거했고 기존 회원 승인은 바꾸지 않았다. 원문 백업 조사 범위와 플랫폼 복구 이력의 확인 한계는 [실행 기록](../history/alumni-reset-2026-11-12.md)에 남긴다. 후속 DB 작업에는 위 [DB 복구·백업 기본 정책](#db-복구백업-기본-정책)을 적용한다.
 
 사용자가 데이터 보존을 선언하기 전의 사전 허용 범위는 [Replit 데이터 정책](../../replit.md#정식-오픈-전-데이터-정책)을 따른다. 아래는 실제 남아 있는 테이블의 분류이며 그대로 전체 삭제할 목록이나 실행 순서가 아니다. 대상·FK 의존 관계·유지할 데이터를 먼저 정하고 가능한 트랜잭션과 새 연결의 건수 확인을 사용한다.
 
@@ -191,3 +159,15 @@ Production Database에서 최종 동기화할 때는 사용자에게 실행 범�
 ## 장애 확인
 
 실제 대상 DB·명시한 URL 선택·PG* 우선순위·사전후 집계를 확인한다. 화면 오류만 보고 SQL 성공을 추측하지 않는다. 연결 오류 보고에는 유형·대상 구분·기대/실제 상태만 남기고 Secret·행 원문은 제외한다. 사용한 연결은 작업 종료 시 닫는다.
+
+## 로컬 커뮤니티 백업·이관 작업
+
+다음카페 백업·다음카페 마이그레이션·밴드 백업·밴드 마이그레이션은 독립적으로 실행·보고한다. 수집 범위·날짜별 증분은 [백업 운영 문서](community-backup.md), 분류·변환·공개 범위는 [이관 기준](../product/community-archive-migration-proposal.md)을 따른다. 백업 완료나 과거 테스트 결과를 실제 이관·삭제·원복의 실행 지시로 대신하지 않는다.
+
+`local-backups/community/archive.sqlite3`는 로컬 백업·이관 작업 DB다. 앱의 개발·운영 PostgreSQL이나 별도 DB 복구용 dump가 아니다. 원문과 SQLite는 Git·Replit 전송에서 제외하며 디렉터리 0700·파일 0600으로 보존한다. 로컬 색인 갱신은 원본 복합 ID/해시로 upsert하고 기존 원문·변환 이력·적용 대응표를 자동 삭제하지 않는다.
+
+홈페이지 이관에는 기존 게시판과 저장 계약을 사용한다. SQLite·원문 전체 대신 확정된 게시글·허용 첨부만 대상 환경에 반영하고, 대상 게시글 ID와 적용 해시를 로컬에 기록한다. 실제 적용 전후 건수·중복·본문/첨부 확인은 이 런북의 환경 선택과 변경 절차를 따른다. 운영 반영·배포는 별도 승인 범위다.
+
+역사관 사진첩은 PostgreSQL 작업과 분리한다. 회원 전용 목록 JSON과 사진은 [자료 계약](../reference/heritage-content.md)에 따라 승인된 대상 환경의 비공개 Object Storage에 반영한다. development와 production 영역을 구분하고 운영 쓰기는 별도 승인 범위에서만 수행한다. 최종 사진의 해시·크기와 목록의 ID 참조를 확인한 뒤 목록을 마지막에 저장하며, 원본 백업·SQLite·인증정보는 전송하지 않는다. 원격 기존 목록이 있으면 대조 없이 덮어쓰지 않는다.
+
+게시판 이관 글은 기존 nullable `author_id`를 비워 두고 확정된 카테고리·Tiptap JSONB를 사용한다. 이관 원문 URL과 로컬 SQLite 대응표로 중복을 대조하고, 허용 첨부 검증 후 트랜잭션으로 글을 반영한다. 새 연결에서 대상 행의 본문·첨부·건수를 대조한다.

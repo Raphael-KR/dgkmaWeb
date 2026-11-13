@@ -130,8 +130,9 @@ export default function PostDetail() {
                 {/* 작성자 정보 */}
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <span>
-                    작성자:{" "}
-                    {post.authorId === user?.id ? "본인" : post.authorId ? "회원" : "탈퇴한 회원"}
+                    {post.authorId
+                      ? `작성자: ${post.authorId === user?.id ? "본인" : "회원"}`
+                      : "작성자 계정 미연결"}
                   </span>
                 </div>
               </div>

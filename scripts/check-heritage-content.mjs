@@ -10,8 +10,7 @@ const presidents = read("presidents");
 const timeline = read("timeline");
 const officers = read("officers");
 const awards = read("awards");
-const albums = read("albums");
-const media = read("media");
+const documents = read("documents");
 const errors = [];
 
 function expect(condition, field, expected, actual) {
@@ -100,26 +99,24 @@ function publicFile(src, prefix, field, extensions) {
     );
 }
 
-const photoIds = ids(media.photos, "photos");
-const documentIds = ids(media.documents, "documents");
-const albumIds = ids(albums, "albums");
+const documentIds = ids(documents, "documents");
 ids(timeline, "timeline");
 ids(awards, "awards");
 unique(
-  [...media.photos, ...media.documents].map((item) => item.src),
-  "media.src",
+  documents.map((item) => item.src),
+  "documents.src",
 );
 
-for (const photo of media.photos) {
-  text(photo.caption, `photo.${photo.id}.caption`);
-  publicFile(
-    photo.src,
-    "/images/heritage/",
-    `photo.${photo.id}.src`,
-    /\.(?:avif|webp|png|jpe?g)$/i,
+function albumReferences(values = [], field) {
+  // The private catalogue is checked separately during data application.
+  unique(values, field);
+  ids(
+    values.map((id) => ({ id })),
+    field,
   );
 }
-for (const document of media.documents) {
+
+for (const document of documents) {
   text(document.title, `document.${document.id}.title`);
   publicFile(
     document.src,
@@ -128,17 +125,6 @@ for (const document of media.documents) {
     /\.(?:pdf|txt|docx|hwpx|png|jpe?g)$/i,
   );
 }
-for (const album of albums) {
-  dated(album, `album.${album.id}`);
-  references(album.photoIds, photoIds, `album.${album.id}.photoIds`);
-  expect(
-    album.photoIds.length > 0 && album.photoIds.includes(album.coverPhotoId),
-    `album.${album.id}.coverPhotoId`,
-    "cover among album photos",
-    { count: album.photoIds.length, coverIncluded: album.photoIds.includes(album.coverPhotoId) },
-  );
-}
-
 const terms = new Set(presidents.map((president) => president.term));
 unique([...presidents.map((president) => president.term)], "presidents.term");
 for (const president of presidents) {
@@ -155,7 +141,7 @@ for (const president of presidents) {
 for (const entry of timeline) {
   const field = `timeline.${entry.id}`;
   dated(entry, field);
-  references(entry.albumIds, albumIds, `${field}.albumIds`);
+  albumReferences(entry.albumIds, `${field}.albumIds`);
   references(entry.documentIds, documentIds, `${field}.documentIds`);
   if (entry.presidentTerm !== undefined)
     expect(
@@ -198,7 +184,7 @@ for (const award of awards) {
     award.issuer,
   );
   text(award.recipient.name, `award.${award.id}.recipient.name`);
-  references(award.albumIds, albumIds, `award.${award.id}.albumIds`);
+  albumReferences(award.albumIds, `award.${award.id}.albumIds`);
 }
 
 unique(
@@ -246,9 +232,7 @@ if (errors.length) {
       officerTerms: officers.terms.length,
       donations: timeline.reduce((count, entry) => count + (entry.donations?.length ?? 0), 0),
       awards: awards.length,
-      albums: albums.length,
-      photos: media.photos.length,
-      documents: media.documents.length,
+      documents: documents.length,
     }),
   );
 }

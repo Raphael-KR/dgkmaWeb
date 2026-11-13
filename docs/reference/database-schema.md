@@ -6,7 +6,7 @@
 
 DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../history/README.md)에 둔다.
 
-공개 역사관의 연혁·회장·임원·수상자·기부·앨범·사진·문서는 `shared/heritage/`의 정적 자료로 관리한다. 이번 역사관 구현은 DB 구조·JSONB 계약을 변경하지 않으며 회원 전용 `posts`·`payments`를 공개 자료로 사용하지 않는다. 데이터 계약은 [역사관 콘텐츠 기준](heritage-content.md)을 따른다. 아래 catalog 관찰 시각은 유지한다.
+역사관의 공개 연혁·회장·임원·수상자·기부·문서는 `shared/heritage/`의 정적 자료로 관리한다. 회원 전용 사진첩의 목록과 사진은 환경별 비공개 Object Storage에 저장한다. PostgreSQL 구조·JSONB 계약을 변경하거나 회원 전용 `posts`·`payments`를 공개 자료로 사용하지 않는다. 데이터 계약은 [역사관 콘텐츠 기준](heritage-content.md)을 따른다. 아래 catalog 관찰 시각은 유지한다.
 
 ## 기준 소스와 마지막 DB 관찰
 
@@ -342,3 +342,11 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 현재 구조는 [DDL 코드](../../server/db/schema/index.ts), runtime session 및 승인된 전환 결과를 함께 따른다. 초기 `migrations/0000_cheerful_nick_fury.sql`은 전체 현행 구조의 재현 경로가 아니다. 구 테이블·옛 이관 SQL은 현행 생성 대상으로 복원하지 않는다.
 
 실제 metadata-only 재검증은 [DB 런북](../runbooks/database-operations.md#스키마-카탈로그-재검증)의 대상·READ ONLY·ROLLBACK·완료 marker와 [catalog SQL](../../scripts/database-schema-catalog.sql)을 사용한다. 현재 코드 설명·마지막 관찰·새 실행 결과를 구분하고, DB를 읽지 않은 문서 수정일로 관찰 시각을 바꾸지 않는다.
+
+## 로컬 커뮤니티 백업·이관 작업 DB
+
+2026-11-13 사용자 승인으로 `local-backups/community/archive.sqlite3`를 로컬에만 둔다. PostgreSQL 앱 스키마와 별개이며 Replit에 이관 전용 테이블을 만들거나 SQLite를 업로드하지 않는다. `sources`는 플랫폼별 수집 상태, `source_items`는 원본 ID·원문/파일 참조·해시, `assets`는 파일 확보 상태, `conversions`는 형식 변환·검증, `migration_items`는 원본/대상 ID 대응·분류·변환 본문·환경별 적용 상태를 관리한다. 원본 복합 키를 사용하고 재수집에서 누락됐다는 이유로 기존 행을 삭제하지 않는다. 수집·보존은 [백업 운영 문서](../runbooks/community-backup.md), 변환·적용은 [이관 기준](../product/community-archive-migration-proposal.md)을 따르며 실제 결과는 로컬 백업 색인에 구분한다.
+
+명시적인 변환 선택은 로컬 `conversions/selected-overrides.json`에서 원본·변환본 해시로 확인한 뒤 일반 CLI 변환 기록보다 우선 색인한다. `dbpl-35`에는 사용자 제공 한컴오피스 HWPX를 선택했으며, 이를 rhwp 자동 검사 통과로 표시하지 않는다. 역사관 사진첩은 `posts` 이관 대상과 분리한다. 2026-11-14 회원 전용 사진첩의 정본은 환경별 비공개 Object Storage의 목록 JSON과 사진이며 [자료 계약](heritage-content.md)을 따른다. PostgreSQL 구조 변경이나 catalog 재조회는 하지 않았다.
+
+다음카페 일반 글은 기존 nullable `posts.author_id`를 NULL로 등록한다. 계정·새 컬럼·이관 테이블을 만들지 않으며 원작성자·날짜·출처를 본문에 보존한다. 계정 없는 글의 화면 표시는 탈퇴 추정 대신 계정 미연결로 처리한다.
