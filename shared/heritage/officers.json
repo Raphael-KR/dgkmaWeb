@@ -2,6 +2,70 @@
   "currentTerm": 22,
   "terms": [
     {
+      "term": 1,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "이성우",
+              "title": "회장",
+              "photo": "/images/executives/archive-dd9e0b85a056bbd0634055441015a05604fdd8bca58e39beeec29f6aa69e5ebe.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 2,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "이규현",
+              "title": "회장",
+              "photo": "/images/executives/archive-0e491738129439dcbd04a7986b03b182cbfb267980725a5728adf91bde103f78.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 3,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "김영택",
+              "title": "회장",
+              "photo": "/images/executives/archive-ff3a3d25437cdb61a8116f87be1f6e268327ff570c2928e309e1706d3dca53bc.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 4,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "이상돈",
+              "title": "회장",
+              "photo": "/images/executives/archive-f712a5bdd0127a48c705917d9234f39f500bf9f60a10fe40f0e25429fe7acaca.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "term": 5,
       "groups": [
         {
@@ -10,7 +74,8 @@
             {
               "name": "라경찬",
               "title": "회장",
-              "graduationClass": 2
+              "graduationClass": 2,
+              "photo": "/images/executives/archive-e7c138a26a5d5d2f34f7414a2e1e152879f730646f1a3d8e9419f34f5d0708ab.jpg"
             },
             {
               "name": "우성하",
@@ -91,6 +156,264 @@
             }
           ],
           "id": "auditors"
+        }
+      ]
+    },
+    {
+      "term": 6,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "오정석",
+              "title": "회장",
+              "photo": "/images/executives/archive-dee6066240aabccce629e13310a86277ae53ef6388b50335534b1b800aede0ab.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 7,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "김상범",
+              "title": "회장",
+              "photo": "/images/executives/archive-ac62ea864727bd83f19726ecdddb0c7b89a58fc8b2582bc13b4b94748b59094f.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 8,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "손창수",
+              "title": "회장",
+              "photo": "/images/executives/archive-e149c5c1ec545fc155dcf69815ecb39b7c00e808102c512fca367251333c08b7.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 9,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "정주화",
+              "title": "회장"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 10,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "최호정",
+              "title": "회장",
+              "photo": "/images/executives/archive-1cdc826862bc7ed28802c5cd918ceae66160f4a056e44ff249083395b30ba76e.jpg"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 11,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "이상택",
+              "title": "회장",
+              "photo": "/images/executives/archive-1ad63e767f6e613c352acb54ef766771c3c3dc73ee6048f1a54c2369a9c2aac2.jpg"
+            },
+            {
+              "name": "안태건",
+              "title": "수석부회장",
+              "subtitle": "카페 자료 재임 표기: 2005~2006년"
+            }
+          ]
+        },
+        {
+          "id": "auditors",
+          "title": "감사",
+          "members": [
+            {
+              "name": "김현수",
+              "title": "감사",
+              "photo": "/images/executives/archive-264b5c95bad5f45ec5767f1d512212e2219a56c2f4a848ff6b17ff4d0befa50e.jpg",
+              "subtitle": "카페 자료 재임 표기: 2005~2006년"
+            },
+            {
+              "name": "김동채",
+              "title": "감사",
+              "subtitle": "카페 자료 재임 표기: 2005~2006년"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 12,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "김현수",
+              "title": "회장",
+              "photo": "/images/executives/archive-264b5c95bad5f45ec5767f1d512212e2219a56c2f4a848ff6b17ff4d0befa50e.jpg"
+            },
+            {
+              "name": "남상만",
+              "title": "수석부회장",
+              "photo": "/images/executives/archive-431f0acbce6bcf3ce97abdc855920b3adf0646ce4782713d7853674e555d5f58.jpg",
+              "subtitle": "카페 자료 재임 표기: 2007년"
+            }
+          ]
+        },
+        {
+          "id": "auditors",
+          "title": "감사",
+          "members": [
+            {
+              "name": "임치유",
+              "title": "감사",
+              "subtitle": "카페 자료 재임 표기: 2007년"
+            },
+            {
+              "name": "장용호",
+              "title": "감사",
+              "subtitle": "카페 자료 재임 표기: 2007년"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 13,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "남상민",
+              "title": "회장",
+              "photo": "/images/executives/archive-431f0acbce6bcf3ce97abdc855920b3adf0646ce4782713d7853674e555d5f58.jpg"
+            },
+            {
+              "name": "정인채",
+              "title": "수석부회장",
+              "subtitle": "카페 자료 재임 표기: 2008~2009년"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "term": 16,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "박진령",
+              "title": "회장",
+              "photo": "/images/executives/archive-b5d664c79c83bf7006dec2afba98f742214ed8965df9b5f1625668dd10600f91.jpg"
+            },
+            {
+              "name": "김형철",
+              "title": "수석부회장",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            },
+            {
+              "name": "정이안",
+              "title": "부회장",
+              "photo": "/images/executives/archive-3c482b70668969f8027c699f8e021e40b94bdb29c2b7ac8cee11cde36e00212c.jpg",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            },
+            {
+              "name": "배성민",
+              "title": "부회장",
+              "photo": "/images/executives/archive-c60a8e2cd69a86bc27a204c23decd5e06b0c6ca302acdd3758ee3cfb97a16c51.jpg",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            },
+            {
+              "name": "이재관",
+              "title": "부회장",
+              "photo": "/images/executives/archive-4176e4d3c6a22c6e6b3c8f7e08e212ec60668c68daaa14d11c1b9887a4dba43a.jpg",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            },
+            {
+              "name": "김성희",
+              "title": "여성부회장",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            }
+          ]
+        },
+        {
+          "id": "directors",
+          "title": "이사",
+          "members": [
+            {
+              "name": "이형철",
+              "title": "총무이사",
+              "subtitle": "카페 자료 재임 표기: 2014~2016년"
+            },
+            {
+              "name": "공태현",
+              "title": "총무이사",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            },
+            {
+              "name": "방재훈",
+              "title": "재무이사",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            }
+          ]
+        },
+        {
+          "id": "auditors",
+          "title": "감사",
+          "members": [
+            {
+              "name": "박순재",
+              "title": "감사",
+              "photo": "/images/executives/archive-4c915a4dee58b599f45307dbcd4610a00544b8cfce674c45bdbf77561f15c0e6.jpg",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            },
+            {
+              "name": "황정구",
+              "title": "감사",
+              "subtitle": "카페 자료 재임 표기: 2014~2015년"
+            }
+          ]
         }
       ]
     },

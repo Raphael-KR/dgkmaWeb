@@ -159,7 +159,11 @@ export async function injectSeo(req: Request, html: string) {
 export function registerPublicMetadataRoutes(app: Express): void {
   app.get("/sitemap.xml", (_req, res) => {
     const origin = new URL(SITE_HOME_CANONICAL_URL).origin;
-    const urls = new Set(Object.keys(PUBLIC_PAGES).map((path) => siteCanonicalUrl(path, origin)));
+    const urls = new Set(
+      Object.keys(PUBLIC_PAGES)
+        .filter((path) => !getPublicPageMetadata(path)?.noIndex)
+        .map((path) => siteCanonicalUrl(path, origin)),
+    );
     const entries = Array.from(urls)
       .map((url) => `  <url><loc>${escapeHtml(url)}</loc></url>`)
       .join("\n");
@@ -175,6 +179,7 @@ Allow: /
 Disallow: /admin
 Disallow: /profile
 Disallow: /directory
+Disallow: /about/heritage/albums
 Disallow: /b
 Disallow: /p/
 Disallow: /post/

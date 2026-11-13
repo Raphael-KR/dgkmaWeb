@@ -1,13 +1,16 @@
+import { useQuery } from "@tanstack/react-query";
+import { AuthGate } from "@/features/auth";
+import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Link, useSearch } from "wouter";
+import { formatHeritageDate, groupHeritageByYear, heritageYear } from "@shared/heritage/content";
 import {
-  albums,
-  formatHeritageDate,
-  groupHeritageByYear,
-  heritageYear,
-  photos,
-} from "@shared/heritage/content";
-import { HERITAGE_PAGES, heritageAlbumHref } from "@shared/heritage/navigation";
-import type { HeritageAlbum } from "@shared/heritage/types";
+  HERITAGE_PAGES,
+  HERITAGE_ALBUMS_API_PATH,
+  heritageAlbumHref,
+} from "@shared/heritage/navigation";
+import type { HeritageAlbum, HeritageAlbumCatalog, HeritagePhoto } from "@shared/heritage/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { HeritageEmpty, HeritagePage } from "./heritage-page";
 import { PhotoViewer } from "./photo-viewer";
@@ -18,7 +21,15 @@ function albumListHref(year: string) {
     : `${HERITAGE_PAGES.albums.path}?${new URLSearchParams({ year })}`;
 }
 
-function AlbumDetail({ album, year }: { album: HeritageAlbum; year: string }) {
+function AlbumDetail({
+  album,
+  year,
+  photos,
+}: {
+  album: HeritageAlbum;
+  year: string;
+  photos: HeritagePhoto[];
+}) {
   const albumPhotos = album.photoIds.flatMap((id) => photos.filter((photo) => photo.id === id));
   return (
     <section aria-labelledby="album-title">
@@ -44,7 +55,15 @@ function AlbumDetail({ album, year }: { album: HeritageAlbum; year: string }) {
   );
 }
 
-function AlbumCard({ album, year }: { album: HeritageAlbum; year: string }) {
+function AlbumCard({
+  album,
+  year,
+  photos,
+}: {
+  album: HeritageAlbum;
+  year: string;
+  photos: HeritagePhoto[];
+}) {
   const cover = photos.find((photo) => photo.id === album.coverPhotoId);
   return (
     <Card className="h-full">
@@ -74,6 +93,27 @@ function AlbumCard({ album, year }: { album: HeritageAlbum; year: string }) {
 }
 
 export default function AboutAlbums() {
+  return (
+    <HeritagePage section="albums">
+      <AuthGate reason="사진첩은 로그인한 회원만 볼 수 있습니다.">
+        <MemberAlbums />
+      </AuthGate>
+    </HeritagePage>
+  );
+}
+
+function MemberAlbums() {
+  const { data, isPending, isError, refetch } = useQuery<HeritageAlbumCatalog>({
+    queryKey: [HERITAGE_ALBUMS_API_PATH],
+    queryFn: async ({ signal }) => {
+      const response = await apiRequest("GET", HERITAGE_ALBUMS_API_PATH, undefined, { signal });
+      return response.json();
+    },
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const albums = data?.albums ?? [];
+  const photos = data?.photos ?? [];
   const query = new URLSearchParams(useSearch());
   const albumId = query.get("album");
   const requestedYear = query.get("year") ?? "recent";
@@ -94,11 +134,27 @@ export default function AboutAlbums() {
         : heritageYear(album.date) === Number(year)),
   );
 
+  if (isPending)
+    return (
+      <div className="py-12 flex justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  if (isError)
+    return (
+      <HeritageEmpty>
+        <p>사진첩을 불러오지 못했습니다. 로그인 상태를 확인한 뒤 다시 시도해 주세요.</p>
+        <Button variant="outline" className="mt-4" onClick={() => void refetch()}>
+          다시 시도
+        </Button>
+      </HeritageEmpty>
+    );
+
   return (
-    <HeritagePage section="albums">
+    <>
       {albumId ? (
         selectedAlbum ? (
-          <AlbumDetail album={selectedAlbum} year={year} />
+          <AlbumDetail album={selectedAlbum} year={year} photos={photos} />
         ) : (
           <HeritageEmpty>
             <p>해당 앨범을 찾을 수 없습니다.</p>
@@ -163,7 +219,7 @@ export default function AboutAlbums() {
                     <ul className="public-card-grid">
                       {[...entries].reverse().map((album) => (
                         <li key={album.id}>
-                          <AlbumCard album={album} year={year} />
+                          <AlbumCard album={album} year={year} photos={photos} />
                         </li>
                       ))}
                     </ul>
@@ -173,6 +229,6 @@ export default function AboutAlbums() {
           )}
         </>
       )}
-    </HeritagePage>
+    </>
   );
 }

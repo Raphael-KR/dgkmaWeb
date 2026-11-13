@@ -42,6 +42,12 @@ export const HERITAGE_PAGES = {
 export type HeritageSection = keyof typeof HERITAGE_PAGES;
 export type HeritagePagePath = (typeof HERITAGE_PAGES)[HeritageSection]["path"];
 
+export const HERITAGE_ALBUMS_API_PATH = "/api/heritage/albums";
+
+export function heritagePhotoHref(id: string) {
+  return `/api/heritage/photos/${encodeURIComponent(id)}`;
+}
+
 export function heritageAlbumHref(id: string) {
   return `${HERITAGE_PAGES.albums.path}?${new URLSearchParams({ album: id })}`;
 }

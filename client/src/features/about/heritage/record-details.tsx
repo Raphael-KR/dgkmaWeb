@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { albums, documents } from "@shared/heritage/content";
+import { documents } from "@shared/heritage/content";
 import { heritageAlbumHref } from "@shared/heritage/navigation";
 import type { Donation, HeritagePerson, HeritageSource } from "@shared/heritage/types";
 
@@ -38,17 +38,18 @@ export function RecordLinks({
   documentIds?: string[];
   sources?: HeritageSource[];
 }) {
-  const relatedAlbums = albumIds.flatMap((id) => albums.filter((album) => album.id === id));
   const relatedDocuments = documentIds.flatMap((id) =>
     documents.filter((document) => document.id === id),
   );
-  if (!relatedAlbums.length && !relatedDocuments.length && !sources.length) return null;
+  if (!albumIds.length && !relatedDocuments.length && !sources.length) return null;
 
   return (
     <ul className="heritage-links" aria-label="관련 자료">
-      {relatedAlbums.map((album) => (
-        <li key={album.id}>
-          <Link href={heritageAlbumHref(album.id)}>사진첩 · {album.title}</Link>
+      {albumIds.map((id, index) => (
+        <li key={id}>
+          <Link href={heritageAlbumHref(id)}>
+            관련 사진첩{albumIds.length > 1 ? ` ${index + 1}` : ""}
+          </Link>
         </li>
       ))}
       {relatedDocuments.map((document) => (

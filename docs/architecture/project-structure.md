@@ -54,7 +54,8 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `server/db/schema/index.ts` | 영속성; 기존 경로는 서버 전용 호환 export |
 | `shared/contracts` | 독립 JSON 계약, Zod 검증 |
 | `shared/domain` | 브라우저 안전 순수 정책 |
-| `shared/heritage` | 공개 JSON·자료 타입·날짜 표시·연도별 묶음·공통 메뉴. DB·회원 자료와 분리 |
+| `shared/heritage` | 공개 JSON·자료 타입·날짜 표시·연도별 묶음·공통 메뉴. 회원 사진첩의 실제 목록·사진은 포함하지 않음 |
+| `server/modules/heritage` | 승인 회원의 사진첩 목록·사진 API, 환경별 비공개 Object Storage 목록 읽기·구조/참조 검증 |
 
 프런트엔드 경로는 모두 `client/src/` 기준이다. 각 feature의 `index.ts`가 공개 API다.
 기능에만 쓰는 API 호출·query·mutation·폼 상태는 그 기능 안에 두고,
@@ -91,7 +92,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 - 공개 메뉴는 `동문회(/about) · 역사관(/about/heritage/albums) · 공지(/b)`다. 동문회 하위는 소개·임원명단·회칙·규정·회원가입·회비·경조사이며 PC·태블릿·모바일 모두 `app/layout/nav-items.ts`를 사용한다. 역사관 하위·내부 메뉴는 `shared/heritage/navigation.ts`의 사진첩 우선 순서를 공유하며 연혁 주소와 기록별 앵커는 유지한다. 공지의 회원 인증과 회원 메뉴는 유지한다.
 - `/about/intro`는 공개 소개 페이지이며 같은 목적지 정의를 하위 메뉴와 공개홈 바로가기에서 재사용한다. `shared/public-pages.ts`에 등록한 제목·설명이 서버 HTML과 클라이언트 SEO·사이트맵에 함께 적용된다. 소개 canonical은 자신의 경로를 사용하고 `/`·`/about`의 대표 주소 정책은 유지한다.
 - `/history` 별칭은 삭제 상태로 유지하고 리다이렉트 없이 기존 미등록 경로 처리를 따른다. 기존 내부 링크는 `/about/heritage`로 연결하며 공개 메타데이터·사이트맵에서 제외한다.
-- 역사관 하위 메뉴는 공통 정의를 사용하고 기존 `/about/presidents`를 포함한다. 사진첩의 `year`는 최근 5년·연도·전체 목록을 선택하고 `album`은 상세 앨범을 선택한다. canonical은 각 메뉴 경로를 사용한다.
+- 역사관 하위 메뉴는 공통 정의를 사용하고 기존 `/about/presidents`를 포함한다. 사진첩의 `year`는 최근 5년·연도·전체 목록을 선택하고 `album`은 상세 앨범을 선택한다. canonical은 각 메뉴 경로를 사용한다. 2026-11-14 개발 변경에서 사진첩 목록·상세·원본은 회원 전용 API로 분리하고 검색 색인·사이트맵에서 제외한다. 이 변경의 소스·검사·자료 적용과 운영 미반영 상태는 [개발 기록](../history/member-albums-2026-11-14.md)을 따른다.
 - `/info → /about`
 - `/executives`, `/officers → /about/executives`; `/bylaws → /about/bylaws`
 - 회원의 활동지역 미입력 시 `/onboarding/region` 이동, 관리자 진입 제한을 유지한다.

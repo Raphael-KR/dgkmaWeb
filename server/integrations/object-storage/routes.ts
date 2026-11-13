@@ -285,6 +285,10 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(401).json({ error: "로그인이 필요합니다" });
       }
       res.set("Cache-Control", "private, no-store");
+      // Album files are served only through the authenticated catalogue lookup.
+      if (req.path.startsWith("/objects/heritage/")) {
+        return res.status(404).json({ error: "첨부 파일을 찾을 수 없습니다" });
+      }
       const viewer = await storage.getUser(req.session.userId);
       if (!viewer) return res.status(401).json({ error: "로그인이 필요합니다" });
       if (!(await storage.canReadPostAttachment(req.path, viewer))) {
