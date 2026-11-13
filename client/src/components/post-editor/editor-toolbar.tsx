@@ -2,25 +2,7 @@ import { useRef, type ReactNode, type RefObject } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { CellSelection } from "@tiptap/pm/tables";
-import {
-  Bold,
-  Italic,
-  Strikethrough,
-  List,
-  ListOrdered,
-  ListTodo,
-  Link2,
-  Unlink,
-  Underline,
-  Code,
-  SquareCode,
-  Quote,
-  Minus,
-  Pilcrow,
-  Undo2,
-  Redo2,
-  Table2,
-} from "lucide-react";
+import { Bold, Italic, Strikethrough, Link2, Unlink, Underline, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { EditorLinkController } from "./use-editor-link";
 import { EditorTool } from "./editor-tool";
@@ -32,21 +14,13 @@ export function usePostEditorState(editor: Editor | null) {
     selector: ({ editor: current }) =>
       current
         ? {
-            empty: current.isEmpty,
             underline: current.isActive("underline"),
-            code: current.isActive("code"),
-            codeBlock: current.isActive("codeBlock"),
-            quote: current.isActive("blockquote"),
             bold: current.isActive("bold"),
             italic: current.isActive("italic"),
             strike: current.isActive("strike"),
-            bullet: current.isActive("bulletList"),
-            ordered: current.isActive("orderedList"),
-            task: current.isActive("taskList"),
             characters: current.storage.characterCount.characters(),
             link: current.isActive("link"),
             table: current.isActive("table"),
-            heading: [1, 2, 3, 4].find((level) => current.isActive("heading", { level })),
           }
         : null,
   });
@@ -98,7 +72,7 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
     >
       <div
         ref={toolbar}
-        className="z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border bg-white p-1.5 shadow-lg"
+        className="z-50 w-max max-w-[min(20rem,calc(100vw-2rem))] rounded-lg border bg-white p-1.5 shadow-lg"
         role="toolbar"
         aria-label="선택한 내용 서식"
       >
@@ -128,56 +102,6 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
             <Underline size={16} />,
           )}
           {tool(
-            "인라인 코드",
-            state?.code,
-            () => editor.chain().focus().toggleCode().run(),
-            <Code size={16} />,
-          )}
-          {tool(
-            "코드 블록",
-            state?.codeBlock,
-            () => editor.chain().focus().toggleCodeBlock().run(),
-            <SquareCode size={16} />,
-          )}
-          {tool(
-            "인용",
-            state?.quote,
-            () => editor.chain().focus().toggleBlockquote().run(),
-            <Quote size={16} />,
-          )}
-          {tool(
-            "구분선",
-            false,
-            () => editor.chain().focus().setHorizontalRule().run(),
-            <Minus size={16} />,
-          )}
-          {tool(
-            "일반 문단",
-            false,
-            () => editor.chain().focus().setParagraph().run(),
-            <Pilcrow size={16} />,
-          )}
-          {tool("실행 취소", false, () => editor.chain().focus().undo().run(), <Undo2 size={16} />)}
-          {tool("다시 실행", false, () => editor.chain().focus().redo().run(), <Redo2 size={16} />)}
-          {tool(
-            "번호 목록",
-            state?.ordered,
-            () => editor.chain().focus().toggleOrderedList().run(),
-            <ListOrdered size={16} />,
-          )}
-          {tool(
-            "글머리기호 목록",
-            state?.bullet,
-            () => editor.chain().focus().toggleBulletList().run(),
-            <List size={16} />,
-          )}
-          {tool(
-            "체크리스트",
-            state?.task,
-            () => editor.chain().focus().toggleTaskList().run(),
-            <ListTodo size={16} />,
-          )}
-          {tool(
             "링크",
             state?.link,
             () => {
@@ -194,14 +118,6 @@ export function EditorToolbar({ editor, container, state, link }: Props) {
               () => editor.chain().focus().extendMarkRange("link").unsetLink().run(),
               <Unlink size={16} />,
             )}
-          {([1, 2, 3, 4] as const).map((level) =>
-            tool(
-              `제목 H${level}`,
-              state?.heading === level,
-              () => editor.chain().focus().toggleHeading({ level }).run(),
-              `H${level}`,
-            ),
-          )}
           {!state?.table && (
             <EditorTool
               label="표 삽입"

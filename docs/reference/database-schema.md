@@ -292,15 +292,15 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 `posts.content jsonb NOT NULL`이 유일한 본문 정본이다. 표준 `{ "type": "doc", "content": [...] }` 문서를 저장한다. HTML·Markdown·일반 텍스트는 입력 또는 파생 결과이며 별도 편집 가능한 원본 컬럼이 없다. 본문 CHECK는 object·type=doc·content array를 IS TRUE로 확인한다.
 
-- 노드: doc, paragraph, text, heading(H1~H4), hardBreak, blockquote, codeBlock, horizontalRule, bulletList, orderedList, listItem, taskList, taskItem, image, youtube, table, tableRow, tableCell, tableHeader.
+- 노드: doc, paragraph, text, heading(H1~H4), hardBreak, blockquote, codeBlock, horizontalRule, bulletList, orderedList, listItem, image, youtube, table, tableRow, tableCell, tableHeader.
 - 마크: bold, italic, strike, underline, code, link.
-- 2026-11-12 체크리스트는 공식 `taskList`·`taskItem`과 checked boolean, YouTube는 공식 `youtube` 노드에 검증된 영상 주소·표시 속성을 저장한다. 편집·서버 검증·상세가 같은 스키마를 사용하며 원래 JSONB 컬럼과 루트 CHECK를 유지한다. Placeholder·CharacterCount는 본문에 저장할 새 필드를 만들지 않는다. DDL·기존 행 변환·catalog 재조회는 필요하지 않으며 [개발 기록](../history/editor-extensions-2026-11-12.md)에 실제 적용 범위를 남긴다.
+- 2026-11-12 후속 결정으로 체크리스트 노드·속성 검증을 앱 스키마에서 제거한다. YouTube는 공식 `youtube` 노드에 검증된 영상 주소·표시 속성을 저장한다. 편집·서버 검증·상세는 같은 스키마를 사용하고 원래 JSONB 컬럼과 루트 CHECK를 유지한다. Placeholder·CharacterCount는 저장 필드를 추가하지 않는다. 정식 운영 전 테스트 본문의 사용 조회·호환 변환·완료 상태 보존·원문 이력·백업은 수행하지 않으며, DB DDL·catalog 재조회도 필요하지 않다.
 - 2026-11-12 일반 파일 첨부는 기존 `posts.content` JSONB의 `paragraph`·`text`·`link`만 사용한다. 링크 `href`는 `/objects/` 경로이며 파일명·크기는 본문 텍스트로 저장한다. 원본 파일과 다운로드 이름·실제 크기는 App Storage에 둔다. `image_urls`에는 일반 파일을 넣지 않는다. 링크 경로도 이미지와 함께 개수·열람 권한을 검사하며 가린 글의 파일 참조 조회에 포함한다. 테이블·컬럼·CHECK·기존 행 변환·catalog 재조회가 필요하지 않다.
 - 2026-11-12 TableKit 표 구조와 공식 셀 속성 `colspan`·`rowspan`(양의 정수), `colwidth`(null 또는 열 수에 맞는 비음수 정수 배열), `align`(null/left/center/right)을 같은 JSONB에 저장한다. 문서 스키마·격자 검증을 거치며 임의 배열/객체 속성은 허용하지 않는다. 병합을 펼친 전체 표 격자에도 기존 10,000 복잡도 한도를 적용하고 행별 셀 수를 먼저 확인한 뒤 공식 TableMap으로 충돌·누락을 검사한다. 표 안의 이미지에도 기존 경로·개수·권한 검사를 적용한다. 앱 JSON 계약 확장으로서 DB DDL·기존 행 변환·catalog 재조회는 없다. 구현·정적 검사 상태는 [TableKit 개발 기록](../history/table-kit-2026-11-12.md)을 따른다.
 - [공통 문서 계약](../../shared/contracts/post-document.ts)과 [공식 Tiptap 스키마·변환](../../shared/editor/post-document.ts)이 세부 노드·속성·크기·링크를 검사한다. 본문 `image` 노드는 공식 Image 스키마를 사용하며 `src`는 유효한 `/objects/` 상대 경로만 허용한다. 이미지 바이너리·data/blob URL·외부 이미지 URL·임의 HTML은 저장하지 않는다.
 - 2026-11-11 본문 이미지 확장은 기존 JSONB의 앱 계약 변경이며 컬럼·CHECK·마이그레이션·기존 행 변환은 없다. `image_urls`는 별도 첨부를 그대로 보존하고 본문 이미지 경로를 중복 저장하지 않는다. 이미지 합계 제한·저장 권한은 본문 노드와 별도 첨부를 함께 검사한다. 열람 참조 조회도 두 위치를 확인해 가린 글의 이미지가 미첨부 파일로 취급되지 않게 한다. [개발 반영과 정적 검사](../history/inline-images-2026-11-11.md)까지 수행했으며 운영 코드 적용·DB 실행·catalog 재조회는 하지 않았다.
 - 입력·복원·미리보기·상세·저장 API는 같은 JSON을 사용한다. 목록 요약과 검색은 text 노드 및 줄 경계에서 파생하고 JSON 속성명·링크 속성을 검색 본문으로 취급하지 않는다.
-- Markdown 보기·복사는 원본을 바꾸지 않는다. 왕복 변환이 다르면 읽기 전용과 손실 안내를 표시하고 명시적 변환본 편집 뒤 실제 입력이 바뀔 때만 교체한다. 편집기 버전·호환성은 [본문 편집기 기준](post-editor.md)을 따른다.
+- 서식 편집기는 JSON 원본을 직접 편집한다. HTML·Markdown 붙여넣기와 경조사 생성의 Markdown→JSON 변환은 유지하며 Markdown 소스 모드·전용 복사·전체 본문의 왕복 변환 UI는 제공하지 않는다. 편집기 버전·호환성은 [본문 편집기 기준](post-editor.md)을 따른다.
 
 개발의 기존 0건과 운영의 기존 3건을 구분해 변환한 기록은 [본문 전환 이력](../history/database-operations-2026-11-09.md#본문-운영-전환-결과)에 있다. 현재 TEXT라고 해석하거나 변환을 다시 실행하지 않는다.
 

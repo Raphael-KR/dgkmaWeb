@@ -2,26 +2,35 @@
 
 제품 정책은 [본문 서식](../product/planning-proposal.md#게시글-본문-서식-2026-11-09), 저장 계약은 [DB 기준](database-schema.md#게시글과-경조사-json-계약)을 따른다. 이 문서는 버전·공식 구현 재사용·사용자 정의·손실 보존 규칙과 서비스 코드의 소유 위치를 관리한다.
 
+## 2026-11-12 편집 화면 간소화
+
+새 글·수정 화면의 편집기 밖에 상시 표시하던 사용 안내·제한 안내, 카테고리·제목·내용·사진 첨부의 화면 라벨, 서식/Markdown 전환·전용 복사·YouTube 버튼과 별도 사진 추가 영역을 제거한다. 접근성 이름·placeholder·선택 도구·글자 수·업로드 진행/오류는 유지하며 모바일 공용 첨부 아이콘을 제공한다. 수정 화면의 기존 별도 첨부는 표시·첨부 해제를 유지한다.
+
+체크리스트 확장 등록·명령·검증·렌더러·CSS와 직접 의존성을 제거한다. `@tiptap/extension-list`는 StarterKit의 번호/글머리기호 목록에 필요한 간접 의존성이므로 설치 트리에 남을 수 있다. 공식 패키지를 수정하지 않는다. 정식 운영 시작 시 게시판을 초기화하므로 기존 테스트 본문을 조회·변환·백업하거나 체크 상태를 보존하는 호환 코드를 두지 않는다. 현재 DB 초기화는 수행하지 않는다.
+
+2026-11-13 후속 결정으로 선택 도구에는 굵게·기울임·취소선·밑줄·링크·표 6종만 둔다. 인용·다시 실행을 포함한 나머지 버튼과 전용 아이콘·선택 상태 조회를 제거한다. 링크 편집/제거와 표 안에서의 행·열·셀 편집은 유지한다. 도구 버튼의 축소는 해당 서식 확장·저장 계약 제거를 뜻하지 않으며 Markdown 입력·공식 기본 단축키를 유지한다.
+
+선택 도구는 `width: max-content`로 표시된 버튼의 너비만 차지한다. 최대 너비는 기존 20rem과 화면 좌우 여백을 뺀 너비 중 작은 값으로 제한하며 버튼의 줄바꿈을 유지한다. 링크 입력·표 편집을 열 때도 같은 제한을 적용한다.
+
 ## 서비스 코드 소유 위치
 
 기존 편집기 책임 분리는 PR #29로 main에 통합했다. 당시 검사 결과는 [책임 분리 기록](../history/content-responsibility-cleanup-2026-11-10.md)을 따른다. 이후 추가한 파일 이벤트·공통 업로드 연결은 [본문 이미지 개발 기록](../history/inline-images-2026-11-11.md), 환경별 적용 상태는 [Replit 기준](../../replit.md#현재-적용-상태)에서 구분한다.
 
-이 문서의 이미지·일반 파일·표·체크리스트·YouTube·Drag Handle 구성은 PR #36의 `3.0.0`으로 운영에 반영했다. 각 절의 개발 기록은 당시 정적 검사 범위이며 최종 후보 검사·배포·HTTP 확인은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)을 따른다. 실제 편집·업로드·영상 재생·실계정 QA는 미검증이다.
+이미지·일반 파일·표·YouTube·Drag Handle과 당시 체크리스트 추가는 PR #36의 `3.0.0`으로 운영에 반영했다. 위 간소화는 후속 개발 변경이며 이 릴리스 기록의 적용 범위에 포함되지 않는다. 각 절의 개발 기록은 당시 정적 검사 범위이며 최종 후보 검사·배포·HTTP 확인은 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)을 따른다. 실제 편집·업로드·영상 재생·실계정 QA는 미검증이다.
 
 | 책임 | 위치 |
 |---|---|
 | 공개 props·ref, 입력 화면·지연 로딩 | [post-body-editor.tsx](../../client/src/components/post-body-editor.tsx), [lazy-post-body-editor.tsx](../../client/src/components/lazy-post-body-editor.tsx) |
 | 공식 확장·JSON 스키마·Markdown 변환 | [post-document.ts](../../shared/editor/post-document.ts), [JSON 계약](../../shared/contracts/post-document.ts) |
+| 기울임·밑줄 입력 문법과 Markdown 토큰 해석 | [post-inline-marks.ts](../../shared/editor/post-inline-marks.ts) |
 | 표 셀 속성·격자 제한과 공식 TableMap 검사 | [post-table.ts](../../shared/editor/post-table.ts) |
 | YouTube 주소·속성 검증과 공식 확장 설정 | [post-youtube.ts](../../shared/editor/post-youtube.ts) |
-| YouTube 영상 입력·공식 명령 연결 | [editor-youtube.tsx](../../client/src/components/post-editor/editor-youtube.tsx) |
-| Tiptap 초기화·붙여넣기·부모 통지 | [use-document-editor.ts](../../client/src/components/post-editor/use-document-editor.ts) |
-| 일반 파일 선택 버튼 | [editor-file-upload.tsx](../../client/src/components/post-editor/editor-file-upload.tsx) |
+| Tiptap 초기화·빈 본문 안내·붙여넣기·부모 통지 | [use-document-editor.ts](../../client/src/components/post-editor/use-document-editor.ts) |
+| 모바일 사진·파일 공용 선택 아이콘 | [editor-file-upload.tsx](../../client/src/components/post-editor/editor-file-upload.tsx) |
 | 공식 파일 이벤트·공통 파일 삽입·HTML 이미지 경로 제한 | [editor-files.ts](../../client/src/components/post-editor/editor-files.ts) |
 | 파일 확장자·MIME·거부 메시지 | [uploads.ts](../../shared/contracts/uploads.ts) |
 | 본문·첨부 공통 업로드 묶음과 파일 제한 | [use-post-uploads.ts](../../client/src/features/boards/use-post-uploads.ts), [use-upload.ts](../../client/src/hooks/use-upload.ts) |
-| Markdown 투영·손실 안내 상태·원본 복원 | [use-markdown-mode.ts](../../client/src/components/post-editor/use-markdown-mode.ts) |
-| 선택 도구·링크 입력·클립보드 | [editor-toolbar.tsx](../../client/src/components/post-editor/editor-toolbar.tsx), [use-editor-link.ts](../../client/src/components/post-editor/use-editor-link.ts), [editor-clipboard.ts](../../client/src/components/post-editor/editor-clipboard.ts) |
+| 선택 도구·링크 입력 | [editor-toolbar.tsx](../../client/src/components/post-editor/editor-toolbar.tsx), [use-editor-link.ts](../../client/src/components/post-editor/use-editor-link.ts) |
 | 공통 도구 버튼·공식 표 명령 연결 | [editor-tool.tsx](../../client/src/components/post-editor/editor-tool.tsx), [editor-table-tools.tsx](../../client/src/components/post-editor/editor-table-tools.tsx) |
 | 공식 블록 이동 핸들 | [editor-drag-handle.tsx](../../client/src/components/post-editor/editor-drag-handle.tsx) |
 | 편집·표시 공통 서식과 입력 높이 | [post-content.css](../../client/src/components/post-content.css) |
@@ -30,30 +39,35 @@
 
 ## 공식 구현과 호환성
 
-- Tiptap core/react/pm/starter-kit/markdown/bubble-menu/static-renderer와 무료 공식 `@tiptap/extension-image`·`@tiptap/extension-file-handler`·`@tiptap/extension-table`·`@tiptap/extensions`·`@tiptap/extension-list`·`@tiptap/extension-youtube`·`@tiptap/extension-drag-handle`·`@tiptap/extension-drag-handle-react`를 `3.33.0`으로 맞춘다. [StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit), [MarkdownManager](https://tiptap.dev/docs/editor/markdown/api/markdown-manager), [Static Renderer](https://tiptap.dev/docs/editor/api/utilities/static-renderer), [Image](https://tiptap.dev/docs/editor/extensions/nodes/image), [FileHandler](https://tiptap.dev/docs/editor/extensions/functionality/filehandler), [TableKit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit)의 공개 API를 재사용한다. 공식 패키지와 단축키는 수정하지 않는다.
-- 서비스 정의는 H1~H4 범위·기존 안전 링크 설정·JSON 입력 제한·일반 텍스트 추출, HTML 소스/Markdown 붙여넣기 연결, 선택 도구 UI와 Markdown 손실 안내다. 본문 이미지는 공식 Image 노드로 표시하고 FileHandler가 붙여넣기·드롭 이벤트를 전달한다. 편집기는 주입된 업로드 콜백으로 받은 경로를 삽입하며 업로드 API와 회원 판정을 직접 호출하지 않는다. StarterKit 기본 기능·단축키를 유지하고 별도 키 조합·사용자 정의 노드/마크는 추가하지 않는다.
-- `StarterKit.configure({ trailingNode: false })`로 자동 끝 문단 삽입만 끈다. 공식 기본 플러그인은 본문을 바꾸지 않는 포커스 전환 트랜잭션에서도 끝 문단을 추가할 수 있어, JSON을 열거나 Markdown 보기로 전환하는 동작의 원본 보존 계약과 맞지 않는다. 공식 설정을 사용하며 기본 명령·단축키는 유지한다. 업데이트 시에도 비편집 동작의 문서 변경 여부를 확인한다.
-- 업데이트 시 패키지 버전을 함께 맞추고 JSON 노드/마크·기본 속성, `getSchema`·`nodeFromJSON/check`·Markdown parse/serialize·React 정적 표시, 기본 단축키·선택 도구 포커스, HTML 스키마 처리·링크/이미지 경로 제한과 Markdown 왕복 손실 판정을 확인한다. Image 속성·기본 블록 동작, FileHandler 콜백·HTML 동반 붙여넣기·중복 삽입 방지, 업로드 중 입력 잠금·완료 후 위치도 호환성 대상이다. Markdown 기능은 공식 Beta 계약이므로 미지원 문서를 조용히 축소하지 않는다.
-- Markdown 보기·복사는 JSON을 보존한다. 왕복이 같은 문서일 때만 바로 수정할 수 있고, 다르면 읽기 전용 변환본과 손실 안내를 제공한다. `변환본으로 편집`을 선택해도 실제 입력 변경 전까지 원본을 유지한다. 새 Markdown 입력에서 실패하면 마지막 유효 JSON을 보존하고 게시를 막아 수정 내용을 모르게 잃지 않게 한다.
-- 공식 Markdown 표·체크리스트를 허용한다. 지원 밖 임의 HTML 구문은 조용히 삭제하지 않고 입력 오류로 알린다. 공식 Markdown 이미지 구문은 `/objects/` 경로에 한해 허용한다. 밑줄은 공식 Underline 토크나이저와 `<u>` 직렬화를 사용한다. HTML 이미지도 같은 경로 제한을 적용하며 외부·data/blob 이미지를 임의로 로드/저장하지 않는다. 빈 문단·목록/이미지 속성·병합 셀·열 너비·복합 셀 내용·YouTube 임베드처럼 Markdown 왕복으로 달라지는 구조는 위 손실 판정 대상이며 복사 시에도 손실을 알린다.
+- Tiptap core/react/pm/starter-kit/markdown/bubble-menu/static-renderer와 무료 공식 `@tiptap/extension-image`·`@tiptap/extension-file-handler`·`@tiptap/extension-table`·`@tiptap/extensions`·`@tiptap/extension-youtube`·`@tiptap/extension-drag-handle`·`@tiptap/extension-drag-handle-react`·`@tiptap/extension-italic`·`@tiptap/extension-underline`를 `3.33.0`으로 맞춘다. [StarterKit](https://tiptap.dev/docs/editor/extensions/functionality/starterkit), [MarkdownManager](https://tiptap.dev/docs/editor/markdown/api/markdown-manager), [Static Renderer](https://tiptap.dev/docs/editor/api/utilities/static-renderer), [Image](https://tiptap.dev/docs/editor/extensions/nodes/image), [FileHandler](https://tiptap.dev/docs/editor/extensions/functionality/filehandler), [TableKit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit)의 공개 API를 재사용한다. 공식 패키지와 단축키는 수정하지 않는다.
+- 서비스 정의는 H1~H4 범위·기존 안전 링크 설정·JSON 입력 제한·일반 텍스트 추출, HTML 소스/Markdown 붙여넣기 연결, 선택 도구 UI와 모바일 파일 선택 연결이다. 본문 이미지는 공식 Image 노드로 표시하고 FileHandler가 붙여넣기·드롭 이벤트를 전달한다. 편집기는 주입된 업로드 콜백으로 받은 경로를 삽입하며 업로드 API와 회원 판정을 직접 호출하지 않는다. StarterKit 기본 기능·단축키를 유지하고 별도 키 조합·사용자 정의 노드/마크는 추가하지 않는다.
+- 서식 단축키는 공식 확장의 기본 키맵만 사용한다. 앱의 `addKeyboardShortcuts`·사용자 정의 키맵·수정키 조합 처리를 추가하지 않는다. 링크 주소 입력의 Enter 적용/Escape 닫기와 비활성 편집기의 입력 차단은 UI 입력 처리이며 유지한다. 링크·표처럼 기본 삽입 단축키가 없는 기능은 선택 도구로 제공한다.
+- 2026-11-13 입력 문법 예외는 `_내용_` 밑줄·`*내용*` 기울임이다. 설치된 공식 Italic·Underline `3.33.0`을 직접 의존성으로 선언하고 `extend()`로 입력/붙여넣기 규칙과 `em` Markdown 토큰 해석만 보완한다. 공식 별표 규칙은 Italic에, 밑줄 기호 규칙은 Underline에 연결하며 정규식과 `markInputRule`·`markPasteRule`를 재사용한다. StarterKit의 원래 두 확장은 비활성화하고 같은 이름의 확장을 한 번씩 등록한다. 키맵·명령·HTML 처리·JSON 마크 이름은 상속한다.
+- Markdown 원문을 일괄 치환하지 않는다. 공식 lexer가 만든 `em` 토큰 중 원문이 `_`로 시작하는 토큰만 표준 `underline` 마크로 해석한다. 코드·이스케이프·링크 목적지와 `strong` 토큰의 굵게는 기존 파서가 구분한다. 공통 변환기를 쓰는 편집기·경조사 생성에도 같은 입력 계약을 적용하며 저장된 JSON은 재해석하지 않는다. HTML `<em>`·`<i>`는 기울임, `<u>`는 밑줄을 유지하고 Markdown 출력도 공식 구현의 `*내용*`·`<u>내용</u>`를 유지한다. DB 변경·기존 본문 조회/변환은 하지 않는다.
+- 업데이트 시 공식 입력/붙여넣기 정규식의 export, `em` 토큰의 `raw`·중첩 토큰, 두 확장의 기본 단축키·HTML 처리·Markdown 출력과 중복 등록 여부를 확인한다. 이 입력 문법 예외를 공식 패키지 소스 수정이나 새 저장 마크·키 조합으로 확대하지 않는다.
+- `StarterKit.configure({ trailingNode: false })`로 자동 끝 문단 삽입만 끈다. 공식 기본 플러그인은 본문을 바꾸지 않는 포커스 전환 트랜잭션에서도 끝 문단을 추가할 수 있어, JSON을 열거나 포커스를 옮기는 동작의 원본 보존 계약과 맞지 않는다. 공식 설정을 사용하며 기본 명령·단축키는 유지한다. 업데이트 시에도 비편집 동작의 문서 변경 여부를 확인한다.
+- 업데이트 시 패키지 버전을 함께 맞추고 JSON 노드/마크·기본 속성, `getSchema`·`nodeFromJSON/check`·Markdown parse/serialize·React 정적 표시, 기본 단축키·선택 도구 포커스, HTML 스키마 처리·링크/이미지 경로 제한과 Markdown 입력 변환을 확인한다. Image 속성·기본 블록 동작, FileHandler 콜백·HTML 동반 붙여넣기·중복 삽입 방지, 업로드 중 입력 잠금·완료 후 위치도 호환성 대상이다. Markdown 기능은 공식 Beta 계약이므로 미지원 문서를 조용히 축소하지 않는다.
+- 서식 편집기만 제공하며 HTML·Markdown 붙여넣기와 공식 입력 규칙은 유지한다. Markdown 소스 모드·전용 HTML/MD 복사·손실 확인 UI는 제거한다. 기존 JSON을 Markdown으로 투영해 다시 저장하지 않으며 부모의 새 문서는 같은 JSON인지 비교한 뒤에만 편집기에 반영한다. 일반 선택·복사는 브라우저와 공식 편집기 처리를 사용한다.
+- 공식 Markdown 표·밑줄 입력을 허용한다. 지원 밖 임의 HTML 구문은 입력 오류로 알린다. Markdown·HTML 이미지는 `/objects/` 경로에 한해 허용하며 외부·data/blob 이미지를 임의로 로드/저장하지 않는다. 표의 병합 셀·열 너비·복합 내용과 영상은 JSON 원본으로 편집한다. 경조사 생성과 기존 변환 스크립트가 사용하는 공통 Markdown parse/serialize는 유지한다.
 
 ## 블록 이동
 
-공식 무료 [Drag Handle React](https://tiptap.dev/docs/editor/extensions/functionality/drag-handle-react)의 공개 컴포넌트를 사용한다. 기존 Tiptap과 같은 3.33.0의 drag-handle-react·drag-handle·필요한 공식 peer를 설치하며 공동 편집 확장·서비스는 활성화하지 않는다. 필수 peer로 node-range/collaboration 3.33.0, y-tiptap 3.3.0, yjs 13.6.33, y-protocols 1.0.7이 설치됐으며 모두 MIT다. 이 peer들은 공식 드래그 구현의 의존성이며 에디터에 협업 확장을 등록하거나 네트워크 동기화를 연결하지 않는다. 최상위 블록 위의 핸들, 위치 계산·드래그·플러그인 수명은 공식 구현에 맡기고 서비스 코드는 아이콘·공통 CSS·편집 가능 여부만 연결한다. 읽기 전용·Markdown·업로드 중에는 핸들을 제거한다. 텍스트 선택 시의 서식 도구 정책과 구분하며 별도 단축키·노드 속성을 추가하지 않는다.
+공식 무료 [Drag Handle React](https://tiptap.dev/docs/editor/extensions/functionality/drag-handle-react)의 공개 컴포넌트를 사용한다. 기존 Tiptap과 같은 3.33.0의 drag-handle-react·drag-handle·필요한 공식 peer를 설치하며 공동 편집 확장·서비스는 활성화하지 않는다. 필수 peer로 node-range/collaboration 3.33.0, y-tiptap 3.3.0, yjs 13.6.33, y-protocols 1.0.7이 설치됐으며 모두 MIT다. 이 peer들은 공식 드래그 구현의 의존성이며 에디터에 협업 확장을 등록하거나 네트워크 동기화를 연결하지 않는다. 최상위 블록 위의 핸들, 위치 계산·드래그·플러그인 수명은 공식 구현에 맡기고 서비스 코드는 아이콘·공통 CSS·편집 가능 여부만 연결한다. 읽기 전용·업로드 중에는 핸들을 제거한다. 텍스트 선택 시의 서식 도구 정책과 구분하며 별도 단축키·노드 속성을 추가하지 않는다.
 
 업데이트 시 동일 버전·peer 의존성, 마운트/해제, 이미지·표·목록의 최상위 블록 이동, FileHandler의 외부 파일 드롭과 내부 블록 이동 구분, 컨테이너 안의 핸들 위치를 확인한다. 실제 적용과 미검증 범위는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)을 따른다.
 
-## 안내·체크리스트·글자 수·YouTube
+## 빈 본문 안내·글자 수·YouTube
 
-- [Placeholder](https://tiptap.dev/docs/editor/extensions/functionality/placeholder)는 `@tiptap/extensions`의 공식 decoration과 공통 CSS로 빈 본문 안내를 표시한다. 별도 겹침 안내 요소를 제거한다.
-- [TaskList](https://tiptap.dev/docs/editor/extensions/nodes/task-list)·[TaskItem](https://tiptap.dev/docs/editor/extensions/nodes/task-item)은 이미 설치된 `@tiptap/extension-list`를 직접 의존성으로 선언해 사용한다. StarterKit의 기존 목록을 중복 등록하지 않고 두 노드만 추가한다. 중첩 체크리스트와 checked boolean을 공통 JSON 스키마에서 검증하며 공식 HTML/Markdown 변환을 재사용한다. 상세·미리보기의 체크박스는 읽기 전용으로 표시한다.
-- [CharacterCount](https://tiptap.dev/docs/editor/extensions/functionality/character-count)는 편집기에서 `limit: null`·`autoTrim: false`로 현재 본문 기준을 보존한다. 기본 텍스트 집계(UTF-16 길이)를 사용하며 Markdown 입력 오류 때는 마지막 유효 본문 기준임을 알린다. 본문 JSON 전체 250,000자·10,000 노드·깊이 64와 API 요청 크기 제한은 별개다. 일반 JSON 요청은 현재 Express 기본 100KB(102,400바이트)여서 본문 250,000자 입력을 보장하지 않는다. 댓글은 Tiptap을 추가하지 않고 기존 textarea의 1,000자 제한과 문자열 길이를 표시한다.
+- [Placeholder](https://tiptap.dev/docs/editor/extensions/functionality/placeholder)는 `@tiptap/extensions`의 공식 decoration과 공통 CSS를 사용한다. 안내는 `게시글 내용을 입력하세요.`, `글자나 표 셀을 선택하면 서식 도구가 나타납니다.`, `Markdown 문법을 지원합니다.` 세 문장을 줄바꿈해 표시한다. `use-document-editor.ts`의 문구를 공식 확장에 전달한다.
+- 공식 `editor.isEmpty`로 본문 전체를 판정하고 첫 빈 문단에 짧은 Placeholder를 표시한다. 내용이 있는 문서의 빈 문단에는 나타나지 않으며 이미지·영상 등 텍스트가 없는 노드도 내용으로 취급한다. 전체 삭제 시 다시 표시한다.
+- 2026-11-13 후속 결정으로 서식·문단·링크와 표·편집 단축키·키캡 상세 안내와 전용 컴포넌트·OS 판별·CSS를 제거한다. 공식 Placeholder의 CSS 가상 요소만 사용하므로 안내가 저장·본문 복사·글자 수에 포함되지 않는다. 실제 Markdown 입력·기본 단축키·서식 도구는 유지하며 공식 확장 소스나 키맵을 수정하지 않는다.
+- [CharacterCount](https://tiptap.dev/docs/editor/extensions/functionality/character-count)는 편집기에서 `limit: null`·`autoTrim: false`로 현재 본문 기준을 보존한다. 기본 텍스트 집계(UTF-16 길이)를 사용하며 본문 검증에 실패하면 마지막 유효 JSON을 보존하고 오류를 표시한다. 본문 JSON 전체 250,000자·10,000 노드·깊이 64와 API 요청 크기 제한은 별개다. 일반 JSON 요청은 현재 Express 기본 100KB(102,400바이트)여서 본문 250,000자 입력을 보장하지 않는다. 댓글은 Tiptap을 추가하지 않고 기존 textarea의 1,000자 제한과 문자열 길이를 표시한다.
 - [Youtube](https://tiptap.dev/docs/editor/extensions/nodes/youtube)는 공식 노드·삽입 명령·렌더러를 사용한다. 정확한 YouTube 호스트·영상 주소와 노드 속성을 확인하고, 개인정보 보호 강화 모드·자동 재생 끄기를 적용한다. HTML 입력·직접 JSON 저장에도 주소 검사를 적용하며 다른 iframe은 허용하지 않는다. 필요한 URI 검증은 공개 확장 API로 한정하고 패키지 소스는 수정하지 않는다.
-- 영상 입력 버튼과 주소만 붙여넣기는 같은 주소 검증 후 공식 `setYoutubeVideo`를 호출한다. 기존 HTML/Markdown 붙여넣기 처리와 중복되지 않게 공식 `addPasteHandler`는 끈다. 공식 렌더러는 입력 `/embed/` 주소를 그대로 사용할 수 있으므로 `extend`의 parse/render 경계에서 단일 영상 ID를 확인하고 watch 주소로 정규화해 nocookie·autoplay 설정을 적용한다. 재생목록만 있는 주소는 지원하지 않으며 표시 크기·시작 초는 유효한 정수로 저장한다. `start`를 제외한 주소의 추가 재생/추적 쿼리는 보존하지 않는다.
-- YouTube Markdown은 공식 `:::youtube {속성} :::` 원자 블록을 그대로 사용한다. 공식 파서의 숫자 문자열은 저장 검증에서 정수로 정규화한다. 체크리스트는 `- [ ]`·`- [x]`를 사용한다. 별도 Markdown 직렬화 구현을 두지 않으며, 왕복이 달라지는 문서는 기존 손실 안내를 적용한다.
-- 업데이트 때 Placeholder CSS, 체크리스트의 입력 규칙·체크 상태·중첩·HTML/Markdown 왕복, CharacterCount의 집계/자동 절삭 설정, Youtube의 URL 변환·iframe 속성·Markdown 손실 판정과 반응형 표시를 확인한다. 설치·개발 반영과 미검증 범위는 [추가 확장 기록](../history/editor-extensions-2026-11-12.md)을 따른다.
+- 영상 주소만 붙여넣으면 주소 검증 후 공식 `setYoutubeVideo`를 호출한다. 기존 HTML/Markdown 붙여넣기 처리와 중복되지 않게 공식 `addPasteHandler`는 끈다. 공식 렌더러는 입력 `/embed/` 주소를 그대로 사용할 수 있으므로 `extend`의 parse/render 경계에서 단일 영상 ID를 확인하고 watch 주소로 정규화해 nocookie·autoplay 설정을 적용한다. 재생목록만 있는 주소는 지원하지 않으며 표시 크기·시작 초는 유효한 정수로 저장한다. `start`를 제외한 주소의 추가 재생/추적 쿼리는 보존하지 않는다.
+- YouTube Markdown 입력은 공식 `:::youtube {속성} :::` 원자 블록을 사용한다. 공식 파서의 숫자 문자열은 저장 검증에서 정수로 정규화하며 별도 Markdown 직렬화 구현을 두지 않는다.
+- 업데이트 때 Placeholder의 전체 빈 문서 판정·줄바꿈·커서/클릭·입력 시 숨김·본문 저장 제외, CharacterCount의 집계/자동 절삭 설정, Youtube의 URL 변환·iframe 속성·Markdown 입력과 반응형 표시를 확인한다. 최초 확장 추가는 [3.0.0 릴리스](../history/release-3.0.0-2026-11-12.md)에 포함됐고 후속 간소화의 개발/운영 상태는 [Replit 기준](../../replit.md#본문-편집기-간소화-개발-범위)을 따른다.
 
-TableKit의 table·tableRow·tableCell·tableHeader를 편집·저장·표시·변환에 함께 사용한다. 표 명령과 Tab 등 키 처리는 공식 구현을 사용한다. 선택 도구는 텍스트 선택과 공식 셀 선택을 지원하고 빈 커서만으로 표시하지 않는다. 표 삽입은 선택한 텍스트를 보존해 그 뒤에 기본 표를 넣는다. 공식 `renderWrapper`로 가로 스크롤 영역을 만들고 크기 조절 핸들은 기본 비활성을 유지한다. 저장 검사는 공식 셀 속성과 표 격자를 기존 문서 복잡도 제한 안에서 확인하며 알 수 없는 속성을 허용하지 않는다. 공식 표 Markdown의 셀 줄바꿈에 쓰이는 `<br>`만 HTML 토큰 예외로 허용한다. 업데이트 시 표 노드/속성, 병합·분리·셀 선택·키 처리, 공식 Markdown 변환과 손실 판정을 함께 확인한다. 실행 상태는 [TableKit 개발 기록](../history/table-kit-2026-11-12.md)을 따른다.
+TableKit의 table·tableRow·tableCell·tableHeader를 편집·저장·표시·변환에 함께 사용한다. 표 명령과 Tab 등 키 처리는 공식 구현을 사용한다. 선택 도구는 텍스트 선택과 공식 셀 선택을 지원하고 빈 커서만으로 표시하지 않는다. 표 삽입은 선택한 텍스트를 보존해 그 뒤에 기본 표를 넣는다. 공식 `renderWrapper`로 가로 스크롤 영역을 만들고 크기 조절 핸들은 기본 비활성을 유지한다. 저장 검사는 공식 셀 속성과 표 격자를 기존 문서 복잡도 제한 안에서 확인하며 알 수 없는 속성을 허용하지 않는다. 공식 표 Markdown의 셀 줄바꿈에 쓰이는 `<br>`만 HTML 토큰 예외로 허용한다. 업데이트 시 표 노드/속성, 병합·분리·셀 선택·키 처리, 공식 Markdown 입력 변환을 함께 확인한다. 실행 상태는 [TableKit 개발 기록](../history/table-kit-2026-11-12.md)을 따른다.
 
 본문 이미지는 JSONB에 경로와 순서를 저장하고 파일은 기존 Object Storage에 둔다. 기존 별도 첨부는 옮기거나 중복 저장하지 않는다. 서버는 본문·첨부 양쪽의 개수·경로·열람 권한을 확인한다. 2026-11-11 개발 반영·정적 검사와 미확인 범위는 [수행 기록](../history/inline-images-2026-11-11.md)을 따른다.
 
@@ -65,7 +79,7 @@ FileHandler의 `consumePasteEvent`로 같은 붙여넣기의 중복 삽입을 �
 
 일반 파일은 파일당 10MB·게시글당 5개, 이미지는 파일당 5MB이며 전체 합계 40개를 유지한다. 업로드 요청·토큰 검증·실제 본문 수신에 형식별 크기 한도를 적용한다. 파일 선택·붙여넣기·드롭은 기존 본문의 일반 파일 개수와 이번 묶음의 성공 개수를 합산한다. 게시글 생성/수정의 공통 검증도 일반 파일 링크 5개를 확인해 HTML/Markdown 입력과 직접 API 저장에 적용한다. 한도를 넘는 기존 글은 해당 파일을 유지·줄이는 편집을 허용한다. 일반 파일 링크의 분할·중복은 한 경로로 계산한다.
 
-일반 파일 버튼은 서식 모드에만 활성화하며 미완성 Markdown 입력을 덮어쓰지 않는다. 버튼·FileHandler는 같은 삽입 함수를 사용하며 서비스 업로드는 feature의 공통 훅에 위임한다. 편집기에는 이미지·일반 파일이 섞인 결과를 받는 콜백 하나만 주입한다. 업로드 중 잠금과 부분 성공 보존을 공유하고 성공한 파일만 합계 한도를 차지한다. 파일명·크기는 편집 가능한 본문 표시 문구이며 다운로드 파일명과 실제 크기의 기준은 App Storage 메타데이터다.
+모바일(768px 미만)의 공용 아이콘 하나가 이미지·일반 파일을 함께 선택한다. 버튼과 FileHandler는 같은 삽입 함수를 사용하며 서비스 업로드는 feature의 공통 훅에 위임한다. PC에는 파일 선택 버튼을 두지 않으며 붙여넣기·드롭을 사용한다. 편집기에는 이미지·일반 파일이 섞인 결과를 받는 콜백 하나만 주입한다. 업로드 중 잠금과 부분 성공 보존을 공유하고 성공한 파일만 합계 한도를 차지한다. 파일명·크기는 편집 가능한 본문 표시 문구이며 다운로드 파일명과 실제 크기의 기준은 App Storage 메타데이터다.
 
 확장자 허용 목록·구형 형식 대응·오류 문구는 공통 계약 한 곳에서 관리한다. 브라우저 MIME은 확장자 없는 클립보드 이미지의 호환성 확인에만 사용하며 일반 문서의 허용 여부를 대신하지 않는다. 서버는 같은 확장자 판정을 다시 수행한 뒤 크기·실제 내용을 확인한다. 업데이트 시 FileHandler의 파일 전달·이벤트 소비와 파일/HTML 혼합 입력, 거부 안내, 공통 업로드 잠금·삽입 순서를 확인한다.
 

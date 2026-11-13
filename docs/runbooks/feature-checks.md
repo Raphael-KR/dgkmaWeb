@@ -51,6 +51,7 @@
 |---|---|---|
 | [router](../../client/src/app/routing/router.test.ts) | 공개/회원/관리자 접근 분기·lazy route·오류 fallback 변경 | React 렌더링·파일 탐색. 실제 브라우저 클릭·CSS 확인 없음 |
 | [관리자 동기화 상태](../../client/src/features/admin/__tests__/admin-alumni-sync-state.test.ts) | preview·apply 상태 전이와 오래된 응답 처리 변경 | 메모리 reducer |
+| [본문 인라인 문법](../../shared/editor/post-inline-marks.test.ts) | 승인된 Markdown 밑줄·기울임·굵게 해석과 JSON/본문 표시 계약 변경 | 기존 사용자 제시 예문 네 개 재사용, 공식 변환·정적 렌더링. 브라우저 키 입력·클립보드는 확인하지 않음 |
 | [카테고리 정책](../../client/src/features/boards/__tests__/category-policy.test.ts) | 작성 가능 분류·카테고리 판정 변경 | 순수 정책 함수 |
 | [권한 HTTP](../../server/tests/route-security.test.ts), [관리자 예외](../../server/middleware/auth-middleware.test.ts) | endpoint 인증·회원 승인 상태 재확인·관리자 접근과 사용자 조회 예외 변경 | HTTP/미들웨어 대역. DB·실계정 접근 없음 |
 | [OAuth 설정](../../server/integrations/kakao/kakao-oauth-config.test.ts), [admin key 설정](../../server/integrations/kakao/kakao-admin-config.test.ts), [관리자 allowlist](../../server/integrations/kakao/kakao-admin-allowlist.test.ts) | 개발/운영 설정 선택·잘못된 키/ID 구성 처리 변경 | 제공된 환경값 대역. 실제 Secret 가용성 확인 아님 |

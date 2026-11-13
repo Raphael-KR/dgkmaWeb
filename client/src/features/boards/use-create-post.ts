@@ -17,7 +17,6 @@ export function useCreatePost() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [bodyValid, setBodyValid] = useState(true);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [operation, setOperation] = useState<Operation | null>(null);
   const operationRef = useRef<Operation | null>(null);
   const form = useForm<InsertPost>({
@@ -40,7 +39,6 @@ export function useCreatePost() {
 
   function resetDraft() {
     form.reset();
-    setImageUrls([]);
     setBodyValid(true);
   }
 
@@ -51,7 +49,7 @@ export function useCreatePost() {
   }
 
   const uploads = usePostUploads(
-    () => ({ content: form.getValues("content"), imageUrls }),
+    () => ({ content: form.getValues("content") }),
     (message) =>
       toast({
         title: "파일 업로드 실패",
@@ -60,19 +58,8 @@ export function useCreatePost() {
       }),
   );
 
-  async function uploadImages(files: File[]) {
-    if (operationRef.current) return;
-    const paths = await uploads.uploadImages(files);
-    if (paths.length) setImageUrls((current) => [...current, ...paths]);
-  }
-
   async function uploadEditorFiles(files: File[]) {
     return operationRef.current ? [] : uploads.uploadFiles(files);
-  }
-
-  function removeImage(path: string) {
-    if (!operationRef.current && !uploads.pending.current)
-      setImageUrls((current) => current.filter((value) => value !== path));
   }
 
   const createPost = useMutation({
@@ -95,7 +82,7 @@ export function useCreatePost() {
 
   function submit(data: InsertPost) {
     if (!bodyValid || !user || operationRef.current || uploads.pending.current) return;
-    const parsed = insertPostSchema.safeParse({ ...data, authorId: user.id, imageUrls });
+    const parsed = insertPostSchema.safeParse({ ...data, authorId: user.id });
     if (!parsed.success) {
       toast({
         title: "입력 내용을 확인해 주세요",
@@ -113,12 +100,9 @@ export function useCreatePost() {
     form,
     bodyValid,
     setBodyValid,
-    imageUrls,
     operation: uploads.isUploading ? "upload" : operation,
     busy: operation !== null || uploads.isUploading,
-    uploadImages,
     uploadEditorFiles,
-    removeImage,
     submit,
   };
 }

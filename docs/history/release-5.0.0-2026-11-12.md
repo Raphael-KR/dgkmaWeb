@@ -50,4 +50,33 @@ DB 구조 변경은 없다. 개발 Helium·운영 Neon 구성을 유지하며 �
 - 로컬 공식 검사기의 릴리스 스킬 형식 검사 통과. 변경 Markdown 15개의 로컬 링크 460개·앵커 158개와 `git diff --check`에서 누락·오류가 없었다.
 - GitHub main protection은 설정되지 않았고 ruleset·Actions workflow는 0개였다. 이 상태를 필요한 검사 생략 근거로 사용하지 않았다.
 
-같은 검사 입력을 반복 실행하지 않는다. 후속 기록은 Markdown만 바꾸고 앱 검사·빌드를 재사용하며, Git 병합 뒤 파일·자산을 대조한다. Git 통합·운영 배포·태그와 최종 동기화는 아직 진행 전이다.
+같은 검사 입력을 반복 실행하지 않았다. 검사 후 후보 커밋까지 달라진 파일은 CHANGELOG와 이 수행 기록뿐이며 앱 소스·설정·의존성은 동일했다. 후속 Markdown 기록에는 앱 검사·빌드를 재사용하고 아래 Git·배포 대조를 별도로 수행했다.
+
+## Git 통합과 개발 사본
+
+전체 변경 33개 파일을 `e203a9d5e8edb607b3642e9685ab7d8610449951`로 커밋·push하고 [PR #38](https://github.com/Raphael-KR/dgkmaWeb/pull/38)을 생성했다. 작성자의 코드·문서 사용처 검토와 후보 검사에 더해 GitHub 자동 코드 리뷰가 해당 커밋에서 지적 없이 완료된 것을 확인하고 17:27:11 KST main에 병합했다. 별도 security review·CI check는 실행되지 않았으므로 코드 리뷰 완료와 구분한다.
+
+운영 후보는 `e0034203452c9db3d8d6d2d9872a31681d00143e`, tree는 `fc1ec78f461314899b900b1cae4ca8cb1584b6f5`다. 17:28:15 KST Replit의 직접 개발 변경을 검사한 파일과 대조한 뒤 코드 snapshot stash `eb481f37ff1b54ea7c75d21e185460855fafaa39`로 보존하고 GitHub main을 fast-forward했다. 로컬·GitHub·Replit 후보 SHA, 소스 597개·빌드 산출물 90개와 서버 번들의 해시 일치를 확인했다. 이 stash는 코드 보존이며 DB 백업을 생성한 것이 아니다.
+
+## 운영 배포와 smoke
+
+Replit 연결 도구로 Republish를 한 번 실행했다. 기존 deployment ID `eb4a4e6a-1633-4882-8ee8-c1e1b9313e8b`를 재사용했으며 `pending → building → running → promoting → success` 전환과 **2026-11-12 17:33:43 KST** 성공 상태·`https://dgkma.org`를 확인했다. 기존 ID나 게시 커밋 생성만으로 새 배포 성공을 판단하지 않았다.
+
+17:34:22 KST 운영 비로그인 HTTP 115건이 통과했다.
+
+- 공개 페이지 17개: HTTP 200·HTML·제목·canonical과 후보 entry `/assets/index-VA3_RgA3.js` 일치. `/`·`/about`의 canonical은 `https://dgkma.org/`다.
+- 사이트맵 1개: 현재 공개 페이지 canonical 목록 일치.
+- 회원·관리자 API 8개: 게시글·명부·댓글·업로드 객체·현재 회원과 가입 상태별 세 목록의 비로그인 GET이 401 JSON으로 차단.
+- 정적 자산 89개: 응답의 SHA-256과 후보 빌드 일치. 서버가 메타데이터를 주입하는 `index.html`은 위 HTML 검사로 구분했다.
+
+실제 승인 회원 자료 조회·브라우저 표시·Sheets 동기화·DB 보존/경쟁과 실계정 QA는 실행하지 않았다. DB 구조·데이터·인프라·Secrets 변경도 없다. 개발 서버는 앞선 09:20 KST 재시작을 유지하고 이번 릴리스만을 위한 추가 재시작은 하지 않았다.
+
+## 태그·게시 이력과 Git 마무리
+
+성공·smoke 후 annotated tag `v5.0.0`을 실제 배포 후보 `e0034203452c9db3d8d6d2d9872a31681d00143e`에 생성·push했다. 태그 객체는 `2f9eecedac115f267c04b36838fa160282e4d12e`이며 패키지·lockfile 버전도 `5.0.0`이다. 기존 태그를 이동하거나 보존 태그를 일괄 push하지 않았다.
+
+Replit 게시 커밋 `fefea349226f6ab2fd888555dc68966d0cde8864`·`a02c4ed42f332deced8b2c07f6d563879f343132`의 부모·tree가 후보와 연결되고 소스 변경이 없음을 확인했다. 두 커밋을 bundle로 가져와 로컬·GitHub main에 fast-forward로 보존하고 Replit main도 맞췄다. 병합된 로컬·GitHub의 `codex/release-5.0.0`과 Replit의 `replit-agent`를 삭제했다. main 외 브랜치는 없고 stash 16개·detached worktree·기존 보존 태그·설계 미리보기 서비스는 유지한다.
+
+완료 기록은 Markdown만 바꾸는 후속 커밋으로 반영한다. 최종 main은 이 기록 커밋을 포함하므로 운영 후보·태그와 SHA를 구분하며 다시 빌드·배포하거나 태그를 옮기지 않는다. 후속 기록까지 반영한 로컬·GitHub·Replit 최종 SHA·clean 상태·실제 브랜치 refs·태그 대상·파일 해시 대조의 원시 근거는 `.superpowers/release-5.0.0-20261112/completion.json`에 둔다. 비밀정보·캐시·빌드·검사 로그 등 Git 제외 자료는 커밋하지 않고 로컬에 보존한다.
+
+17:40 KST 후속 문서 5개의 로컬 링크 250개·앵커 98개와 `git diff --check`를 확인했고 오류가 없었다. 코드·설정·의존성은 동일하므로 위 앱 검사·선택 테스트·빌드 결과를 재사용했다.

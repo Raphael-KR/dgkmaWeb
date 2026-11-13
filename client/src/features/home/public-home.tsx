@@ -146,7 +146,7 @@ export function PublicHome() {
         <div className="max-w-3xl mx-auto text-center">
           <div
             aria-hidden="true"
-            className="h-16 sm:h-20 mx-auto mb-4 opacity-90 [&_svg]:h-full [&_svg]:w-auto [&_svg]:mx-auto"
+            className="h-16 sm:h-20 mx-auto mb-4 opacity-90 [&_svg]:h-full [&_svg]:w-auto [&_svg]:mx-auto [&_text]:[font-family:inherit]"
             dangerouslySetInnerHTML={{ __html: communityLogoSvg }}
           />
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">동문 여러분의 참여를 기다립니다</h2>

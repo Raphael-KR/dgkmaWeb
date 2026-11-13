@@ -2,8 +2,6 @@ import { getSchema, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { TableKit } from "@tiptap/extension-table";
-import { TaskList } from "@tiptap/extension-list/task-list";
-import { TaskItem } from "@tiptap/extension-list/task-item";
 import { Markdown, MarkdownManager } from "@tiptap/markdown";
 import {
   emptyPostDocument,
@@ -14,11 +12,14 @@ import { safePostLink } from "../post-link";
 import { postAttachmentPathSchema } from "../contracts/post-input";
 import { isTableCell, validTableCellAttributes, validPostTables } from "./post-table";
 import { PostYoutube, postYoutubeAttributes } from "./post-youtube";
+import { PostItalic, PostUnderline } from "./post-inline-marks";
 
 export const postExtensions = [
   StarterKit.configure({
-    // Opening a stored document or blurring for Markdown view must not append content.
+    // Opening a stored document or moving focus must not append content.
     trailingNode: false,
+    italic: false,
+    underline: false,
     heading: { levels: [1, 2, 3, 4] },
     link: {
       openOnClick: false,
@@ -27,10 +28,10 @@ export const postExtensions = [
       HTMLAttributes: { target: "_blank", rel: "noopener noreferrer" },
     },
   }),
+  PostItalic,
+  PostUnderline,
   Image.configure({ allowBase64: false }),
   TableKit.configure({ table: { renderWrapper: true } }),
-  TaskList,
-  TaskItem.configure({ nested: true }),
   PostYoutube,
 ];
 export const postMarkdownOptions = { gfm: true, breaks: true };
@@ -103,12 +104,6 @@ export function normalizePostDocument(value: unknown): PostDocument {
     );
     if (isTableCell(node.type) && !validTableCellAttributes(node.attrs))
       throw new PostDocumentError("table_cell_attributes", path);
-    if (
-      node.type === "taskItem" &&
-      node.attrs?.checked !== undefined &&
-      typeof node.attrs.checked !== "boolean"
-    )
-      throw new PostDocumentError("task_checked", path);
     if (node.type === "youtube") {
       const youtube = postYoutubeAttributes(node.attrs);
       if (!youtube) throw new PostDocumentError("youtube_attributes", path);
@@ -198,12 +193,4 @@ export function postDocumentsEqual(left: PostDocument, right: PostDocument): boo
   return postSchema
     .nodeFromJSON(normalizePostDocument(left))
     .eq(postSchema.nodeFromJSON(normalizePostDocument(right)));
-}
-export function markdownProjection(document: PostDocument) {
-  const source = postDocumentMarkdown(document);
-  try {
-    return { source, lossless: postDocumentsEqual(document, postDocumentFromMarkdown(source)) };
-  } catch {
-    return { source, lossless: false };
-  }
 }

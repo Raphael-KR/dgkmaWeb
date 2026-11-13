@@ -22,11 +22,11 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 ## 코드 소유권
 
-편집기 파일·표·체크리스트·영상·블록 이동과 댓글 전용 모듈은 PR #36으로 main에 통합하고 `3.0.0`으로 운영에 반영했다. 아래 소유 위치는 이 소스를 포함하며 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에서 실제 검사·적용·미검증 범위를 구분한다.
+편집기 파일·표·체크리스트·영상·블록 이동과 댓글 전용 모듈은 PR #36으로 main에 통합하고 `3.0.0`으로 운영에 반영했다. 후속 편집기 간소화는 개발 변경으로 체크리스트·Markdown 소스 모드·전용 복사 모듈을 제거하며 [편집기 기준](../reference/post-editor.md)을 따른다. 아래 소유 위치는 이 변경을 포함하며 [릴리스 기록](../history/release-3.0.0-2026-11-12.md)에서 실제 검사·적용·미검증 범위를 구분한다.
 
 가입 심사 조회·명부 대조·상태 결정·재승인 모듈과 공통 회원 레이아웃·Avatar 변경은 PR #37으로 main에 통합하고 `4.0.0`으로 운영에 반영했다. 아래 API·저장소 경계는 이 소스를 포함한다. [4.0.0 릴리스 기록](../history/release-4.0.0-2026-11-12.md)에서 코드 적용과 실제 DB·실계정 미검증 범위를 구분한다.
 
-후속 인증 완료 상세 표시는 `approved-member-details.ts`에서 회원 정보·실제 연결 명부를 조회하고 관리자 전용 화면으로 제공하는 개발 변경이다. 공통 명부 필드와 표시 컴포넌트를 재사용하되, 연결 명부는 주소·전화를 제외한 10개 항목, 대기·거부 심사 후보는 12개 항목으로 구분한다. 이전 회원→심사 후보 투영은 제거한다. 미커밋 개발 반영·정적 검사와 운영 미배포 상태는 [개발 기록](../history/approved-member-details-2026-11-12.md)에서 구분한다.
+후속 인증 완료 상세 표시는 `approved-member-details.ts`에서 회원 정보·실제 연결 명부를 조회하고 관리자 전용 화면으로 제공한다. 공통 명부 필드와 표시 컴포넌트를 재사용하되, 연결 명부는 주소·전화를 제외한 10개 항목, 대기·거부 심사 후보는 12개 항목으로 구분한다. 이전 회원→심사 후보 투영은 제거했다. Google Sheets의 10개 컬럼 가져오기와 함께 PR #38으로 main에 통합하고 `5.0.0` 운영에 반영했다. 최초 [개발 기록](../history/approved-member-details-2026-11-12.md)과 [릴리스 기록](../history/release-5.0.0-2026-11-12.md)에서 실제 확인·미검증 범위를 구분한다.
 
 | 소유 위치 | 책임 |
 |---|---|
@@ -171,7 +171,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 | `server/modules/registry/` | 명부 조회·연결, 열람 범위, 가입 심사, Sheets preview/apply를 각각 소유한다. 트랜잭션·잠금과 storage facade의 단일 receiver를 유지한다. 동기화 결과는 preview/apply 응답으로 제공하며 별도 진행상황 API는 두지 않는다 |
 | `features/admin/` | 승인·명부 동기화의 요청 훅과 표시 패널. 가입 심사 대조 결과는 서버가 계산하고 화면은 후보의 12개 명부 관리 항목·승인 불가 사유·재대조를 표시한다. 비교 글자 강조는 공통 필드 컴포넌트와 CSS에서 처리한다. 훅은 탭 밖의 페이지 수명을 유지한다 |
 | `features/boards/` | 목록·작성·수정·상세 화면, 댓글과 관리 요청 훅·표시 컴포넌트. `use-create-post.ts`가 초안 초기화·업로드 묶음·게시 요청 수명을 관리한다. 작성자 수정·삭제와 관리자 가리기를 구분한다 |
-| `components/post-editor/` | 공식 Tiptap·JSON 동기화, Markdown 원본 보존, 링크·서식 도구, 클립보드 변환. 공개 진입점은 `post-body-editor.tsx`다 |
+| `components/post-editor/` | 공식 Tiptap·JSON 동기화, HTML/Markdown 붙여넣기, 링크·서식 도구, 모바일 사진·파일 선택. 공개 진입점은 `post-body-editor.tsx`다 |
 | `features/events/` | `notice-composer.tsx` 화면, `use-notice-composer.ts` 초안 수명·직렬 요청·자동 저장. revision·최신 ref·이탈 저장 순서를 유지한다 |
 | `server/modules/events/` | `notice-extraction-contract.ts`는 AI 추출 지침·요청 JSON Schema·응답 형태, `notice-extraction.ts`는 요청·응답 해석과 정적 추출을 소유한다. `routes.ts`의 초안·생성·게시와 `notice-edit.ts`의 서명 미리보기·수정 순서, URL 우선순위·회원 판정·제한시간을 유지한다 |
 | `integrations/public-sources/` | 저장 규칙 → HTML·스크립트 → 익명 API 재호출 → 브라우저 순서. 요청별 예산·관찰·진단 상태를 공유하고 URL 검사·격리·개인정보 경계를 유지한다 |
