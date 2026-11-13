@@ -2,26 +2,15 @@ import presidentsData from "./presidents.json";
 import timelineData from "./timeline.json";
 import officersData from "./officers.json";
 import awardsData from "./awards.json";
-import albumsData from "./albums.json";
-import mediaData from "./media.json";
-import type {
-  Award,
-  HeritageAlbum,
-  HeritageDocument,
-  HeritagePhoto,
-  HistoryEntry,
-  OfficerTerm,
-  President,
-} from "./types";
+import documentsData from "./documents.json";
+import type { Award, HeritageDocument, HistoryEntry, OfficerTerm, President } from "./types";
 
 export const presidents: President[] = presidentsData;
 export const timeline: HistoryEntry[] = timelineData;
 export const officerTerms: OfficerTerm[] = officersData.terms;
 export const currentOfficerTerm = officersData.currentTerm;
 export const awards: Award[] = awardsData;
-export const albums: HeritageAlbum[] = albumsData;
-export const photos: HeritagePhoto[] = mediaData.photos;
-export const documents: HeritageDocument[] = mediaData.documents;
+export const documents: HeritageDocument[] = documentsData;
 
 export function formatHeritageDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);

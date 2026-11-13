@@ -2,12 +2,12 @@ import { PUBLIC_HOME_DESCRIPTION, SITE_NAME } from "./site";
 import { HERITAGE_PAGES, type HeritagePagePath } from "./heritage/navigation";
 import officers from "./heritage/officers.json";
 
-type PublicPageMetadata = { title: string; description: string };
+type PublicPageMetadata = { title: string; description: string; noIndex?: boolean };
 const home = { title: SITE_NAME, description: PUBLIC_HOME_DESCRIPTION };
 const heritagePages = Object.fromEntries(
   Object.values(HERITAGE_PAGES).map(({ path, title, description }) => [
     path,
-    { title, description },
+    { title, description, noIndex: path === HERITAGE_PAGES.albums.path },
   ]),
 ) as Record<HeritagePagePath, PublicPageMetadata>;
 
