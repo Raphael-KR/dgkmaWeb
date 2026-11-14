@@ -1,7 +1,8 @@
+import { POST_PAGE_SIZE } from "@shared/contracts/post-pagination";
 import { CategoryBadge } from "@/components/category-badge";
 import { useScrollToTop } from "@/hooks/use-scroll-to-top";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,28 +41,39 @@ export default function Boards() {
   });
 
   const {
-    data: posts,
+    data: postPages,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
     isLoading: postsLoading,
     isError: postsError,
     isFetching: postsFetching,
     refetch: refetchPosts,
-  } = useQuery<PostWithCategory[]>({
+  } = useInfiniteQuery({
     queryKey: [
       "/api/posts",
       selectedCategory === "all" ? undefined : selectedCategory,
       showHidden ? "hidden" : "visible",
     ],
-    queryFn: async ({ signal }) => {
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: PostWithCategory[], pages) =>
+      lastPage.length === POST_PAGE_SIZE ? pages.length * POST_PAGE_SIZE : undefined,
+    queryFn: async ({ signal, pageParam }): Promise<PostWithCategory[]> => {
       const base = showHidden ? "/api/posts/hidden" : "/api/posts";
-      const url =
-        selectedCategory === "all"
-          ? base
-          : `${base}?category=${encodeURIComponent(selectedCategory)}`;
+      const query = new URLSearchParams({
+        limit: String(POST_PAGE_SIZE),
+        offset: String(pageParam),
+      });
+      if (selectedCategory !== "all") query.set("category", selectedCategory);
+      const url = `${base}?${query}`;
       const response = await apiRequest("GET", url, undefined, { signal });
       return response.json();
     },
     enabled: !!user,
   });
+
+  const posts = postPages?.pages.flat();
 
   const boardCategories = categories.some((category) => category.name === "all")
     ? categories
@@ -152,7 +164,7 @@ export default function Boards() {
                 <h2 className="text-lg font-semibold text-gray-800">{categoryLabel}</h2>
                 <span className="text-xs text-gray-500">최근 등록순</span>
               </div>
-              {postsError ? (
+              {postsError && !posts?.length ? (
                 <QueryError
                   message="게시글을 불러오지 못했습니다."
                   onRetry={() => void refetchPosts()}
@@ -200,6 +212,26 @@ export default function Boards() {
                       </span>
                     </Link>
                   ))}
+                </div>
+              )}
+              {hasNextPage && (
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  {isFetchNextPageError && (
+                    <p role="alert" className="text-sm text-destructive">
+                      다음 글을 불러오지 못했습니다. 다시 시도해 주세요.
+                    </p>
+                  )}
+                  <Button
+                    variant="outline"
+                    disabled={isFetchingNextPage}
+                    onClick={() => void fetchNextPage()}
+                  >
+                    {isFetchingNextPage
+                      ? "불러오는 중…"
+                      : isFetchNextPageError
+                        ? "다시 시도"
+                        : "게시글 더 보기"}
+                  </Button>
                 </div>
               )}
             </section>

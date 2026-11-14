@@ -8,6 +8,7 @@ export interface President extends HeritagePerson {
   term: number;
   startYear: number;
   endYear: number;
+  documentIds?: string[];
 }
 
 export interface Officer extends HeritagePerson {
@@ -51,7 +52,9 @@ export interface Award {
   id: string;
   date: string;
   title: string;
-  issuer: string;
+  issuer?: string;
+  kind?: "award" | "achievement";
+  sources?: HeritageSource[];
   recipient: HeritagePerson;
   citation?: string;
   albumIds?: string[];

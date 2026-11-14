@@ -466,3 +466,22 @@ PR·릴리스 수행 기록·완료 보고에는 **제거한 항목과 사용처
 | 단계별 DB snapshot·변환·catalog | [DB 작업 이력](docs/history/database-operations-2026-11-09.md), [구조 이력](docs/history/database-schema-2026-11-09.md) |
 
 기준·이력 분리 결과는 [문서 정합성 정리](docs/history/documentation-cleanup-2026-11-09.md), 목적별 이동·시작 안내·ADR 결과는 [문서 구조 정리](docs/history/documentation-structure-2026-11-09.md)에 둔다. 문서 적용을 운영 재게시로 취급하지 않는다.
+
+
+## 게시글 작성자 이름 표시
+
+`posts.author_name`은 계정 미연결 이관 글의 원작성자 이름을 저장하는 nullable TEXT다. 회원용 조회는 `author_id`가 있으면 연결된 `users.name`, 없으면 `author_name`, 둘 다 없으면 ‘작성자 정보 없음’으로 표시한다. 표시 이름은 권한 판정에 사용하지 않는다. 일반 작성·수정 API는 원작성자 이름 입력을 받지 않으며 기존 회원 연결·수정·삭제·관리자 가림 정책을 유지한다. 개발 DB에만 컬럼을 추가하고 기존 행·본문·회원 연결을 변환하지 않는다. 운영 DB 적용과 실제 카페 이관은 별도 실행 범위다.
+
+
+## 동문 원본 전환 설계
+
+명부의 일회성 users 이관, 이후 users 단독 관리·카카오 프로필 갱신, 고정 동문 ID와 탈퇴 후 동문 기본 정보·명부 전화 보존의 제품 방향은 확정됐다. [DB 변경안](docs/product/pre-migration-database-design.md)의 구체적 컬럼·제약·적용 순서는 설계 단계이며 아직 DB·런타임에 적용하지 않았다. 기존 Sheets/명부 복제본 설명은 전환 전 구현 상태다. 실제 전환 전까지 이를 근거 없이 삭제·중단하지 않으며 전환 후에는 가입·조회·수정에서 참조하지 않는다.
+
+
+## 게시글 이관 출처 저장
+
+`posts.import_data` 저장·조회·표시 코드는 개발 환경에 반영한다. 일반 게시글 API의 권한과 입력 경계를 유지하며, 스키마 적용과 실제 이관은 분리한다. 계약은 [스키마 기준서](docs/reference/database-schema.md#게시글-이관-출처-저장), 개발 적용 근거는 [실행 기록](docs/history/post-import-data-2026-11-14.md)을 따른다.
+
+## 다음카페 개발 이관 상태
+
+2026-11-15 개발 heliumdb의 posts 전체 리셋 후 80건을 반영했고 개발 사진첩 카탈로그 52개 앨범을 교체했다. 공개 역사관 기존 자료를 보존하며 확정 자료의 개발 소스 반영을 확인했다. 원본 170건 중 168건 반영·2건 제외다. 운영 이전·배포·실계정 QA는 미실행이다. 실제 적용·새 연결·파일 대조·원본별 집계는 [개발 이관 기록](docs/history/daum-development-import-2026-11-15.md)을 따른다.

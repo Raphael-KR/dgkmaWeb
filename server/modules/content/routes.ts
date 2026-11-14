@@ -1,3 +1,4 @@
+import { postPageQuerySchema } from "@shared/contracts/post-pagination";
 import { PostDocumentError } from "@shared/editor/post-document";
 import { postAttachmentPaths } from "@shared/contracts/post-input";
 import type { Express, Request, Response } from "express";
@@ -96,11 +97,10 @@ export function registerContentRoutes(app: Express): void {
   // Posts routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const { category, limit } = req.query;
-      const posts = await storage.getPosts(
-        category as string,
-        Math.min(100, Math.max(1, Number(limit) || 50)),
-      );
+      const { category } = req.query;
+      const page = postPageQuerySchema.safeParse(req.query);
+      if (!page.success) return res.status(400).json({ message: "페이지 범위를 확인해 주세요." });
+      const posts = await storage.getPosts(category as string, page.data.limit, page.data.offset);
       res.json(posts);
     } catch (error) {
       console.error("Failed to fetch posts", { errorType: getErrorType(error) });
@@ -130,10 +130,14 @@ export function registerContentRoutes(app: Express): void {
     try {
       const viewer = await storage.getUser(req.session.userId!);
       if (!viewer) return res.status(401).json({ message: "로그인이 필요합니다." });
+      const page = postPageQuerySchema.safeParse(req.query);
+      if (!page.success) return res.status(400).json({ message: "페이지 범위를 확인해 주세요." });
       res.json(
         await storage.getHiddenPosts(
           viewer,
           typeof req.query.category === "string" ? req.query.category : undefined,
+          page.data.limit,
+          page.data.offset,
         ),
       );
     } catch (error) {
