@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { currentOfficerTerm, presidents } from "@shared/heritage/content";
 import { Card, CardContent } from "@/components/ui/card";
 import { HeritagePage } from "./heritage/heritage-page";
-import { personDetails } from "./heritage/record-details";
+import { personDetails, RecordLinks } from "./heritage/record-details";
 
 export default function AboutPresidents() {
   return (
@@ -24,6 +24,7 @@ export default function AboutPresidents() {
                 <p className="mt-3 text-sm">
                   {president.startYear}년 ~ {president.endYear}년
                 </p>
+                <RecordLinks documentIds={president.documentIds} />
               </CardContent>
             </Card>
           </li>

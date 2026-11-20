@@ -8,6 +8,8 @@ export type PublishedPost = Pick<
   | "content"
   | "categoryId"
   | "authorId"
+  | "authorName"
+  | "importData"
   | "isPublished"
   | "isHidden"
   | "revision"
@@ -25,6 +27,7 @@ export interface ContentStorageContract {
   getPosts(
     categoryName?: string,
     limit?: number,
+    offset?: number,
   ): Promise<(PublishedPost & { category: Category })[]>;
   getPost(
     id: number,
@@ -33,6 +36,8 @@ export interface ContentStorageContract {
   getHiddenPosts(
     viewer: PostViewer,
     categoryName?: string,
+    limit?: number,
+    offset?: number,
   ): Promise<(PublishedPost & { category: Category })[]>;
   getPostForManagement(id: number): Promise<Post | undefined>;
   canReadPostAttachment(path: string, viewer: PostViewer): Promise<boolean>;

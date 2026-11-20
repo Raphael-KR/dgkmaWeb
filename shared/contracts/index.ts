@@ -8,6 +8,7 @@ export * from "./alumni-sync";
 export * from "./directory";
 export * from "./post-management";
 export * from "./comments";
+export * from "./post-import";
 
 export const PENDING_REGISTRATION_CONFLICT_REASONS = [
   "email_conflict",
@@ -68,6 +69,8 @@ export type Post = {
   content: PostDocument;
   categoryId: number | null;
   authorId: number | null;
+  authorName: string | null;
+  importData: import("./post-import").PostImportData | null;
   isPublished: boolean | null;
   isHidden: boolean;
   revision: number;

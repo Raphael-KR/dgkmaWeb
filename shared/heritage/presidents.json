@@ -125,7 +125,8 @@
     "admissionYear": 1982,
     "graduationClass": 4,
     "startYear": 2014,
-    "endYear": 2015
+    "endYear": 2015,
+    "documentIds": ["cafe-dbpp-1"]
   },
   {
     "term": 17,
@@ -133,7 +134,8 @@
     "admissionYear": 1985,
     "graduationClass": 7,
     "startYear": 2016,
-    "endYear": 2017
+    "endYear": 2017,
+    "documentIds": ["cafe-dbpp-2"]
   },
   {
     "term": 18,

@@ -9,7 +9,8 @@ export const presidents: President[] = presidentsData;
 export const timeline: HistoryEntry[] = timelineData;
 export const officerTerms: OfficerTerm[] = officersData.terms;
 export const currentOfficerTerm = officersData.currentTerm;
-export const awards: Award[] = awardsData;
+// JSON string literals widen on import; the heritage content checker validates kind values.
+export const awards: Award[] = awardsData as Award[];
 export const documents: HeritageDocument[] = documentsData;
 
 export function formatHeritageDate(date: string) {

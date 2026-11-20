@@ -20,7 +20,8 @@ export default function AboutAwards() {
                   {records.map((award) => (
                     <li key={award.id} className="heritage-record">
                       <time dateTime={award.date} className="heritage-meta">
-                        {formatHeritageDate(award.date)} · {award.issuer}
+                        {formatHeritageDate(award.date)} ·{" "}
+                        {award.kind === "achievement" ? "수석 합격 기록" : award.issuer}
                       </time>
                       <h3 className="mt-1 font-semibold">
                         {award.title} · {award.recipient.name}
@@ -29,7 +30,7 @@ export default function AboutAwards() {
                         <p className="heritage-meta">{personDetails(award.recipient)}</p>
                       )}
                       {award.citation && <p className="heritage-description">{award.citation}</p>}
-                      <RecordLinks albumIds={award.albumIds} />
+                      <RecordLinks albumIds={award.albumIds} sources={award.sources} />
                     </li>
                   ))}
                 </ul>

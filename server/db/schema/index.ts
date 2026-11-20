@@ -1,3 +1,4 @@
+import { POST_IMPORT_DATA_CHECK_SQL } from "./post-import-check";
 import {
   pgTable,
   text,
@@ -14,6 +15,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { PostImportData } from "@shared/contracts/post-import";
 import type { PostDocument } from "@shared/contracts/post-document";
 import type { NoticeData } from "@shared/contracts/notices";
 import type { PendingRegistrationUserData } from "@shared/contracts";
@@ -100,6 +102,8 @@ export const posts = pgTable(
     content: jsonb("content").$type<PostDocument>().notNull(),
     categoryId: integer("category_id").references(() => categories.id),
     authorId: integer("author_id").references(() => users.id),
+    authorName: text("author_name"),
+    importData: jsonb("import_data").$type<PostImportData>(),
     isPublished: boolean("is_published").default(true),
     isHidden: boolean("is_hidden").notNull().default(false),
     imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
@@ -119,6 +123,14 @@ export const posts = pgTable(
       "posts_notice_type_check",
       sql`${table.eventData} IS NULL OR (${table.eventData}->>'schemaVersion' = '1' AND ${table.eventData}->>'eventType' IN ('obituary', 'wedding', 'opening')) IS TRUE`,
     ),
+    check("posts_import_data_check", sql.raw(POST_IMPORT_DATA_CHECK_SQL)),
+    uniqueIndex("posts_import_source_unique")
+      .on(
+        sql`(${table.importData}->>'platform')`,
+        sql`(${table.importData}->>'containerId')`,
+        sql`(${table.importData}->>'sourceId')`,
+      )
+      .where(sql`${table.importData} IS NOT NULL`),
     check("posts_revision_check", sql`${table.revision} >= 0`),
     uniqueIndex("posts_notice_draft_unique")
       .on(table.authorId, sql`(${table.eventData}->>'eventType')`)
