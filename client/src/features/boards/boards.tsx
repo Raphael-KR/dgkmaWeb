@@ -204,6 +204,7 @@ export default function Boards() {
                         {post.title}
                       </h3>
                       <PostExcerpt
+                        imported={Boolean(post.importData)}
                         content={post.content}
                         className="mb-5 line-clamp-3 text-sm text-gray-600 [overflow-wrap:anywhere]"
                       />

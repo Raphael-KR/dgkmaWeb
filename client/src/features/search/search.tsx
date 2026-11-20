@@ -209,6 +209,7 @@ export default function SearchPage() {
                             {post.title}
                           </h4>
                           <PostExcerpt
+                            imported={Boolean(post.importData)}
                             content={post.content}
                             className="line-clamp-2 text-sm text-gray-600 [overflow-wrap:anywhere]"
                           />

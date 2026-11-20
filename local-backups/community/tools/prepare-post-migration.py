@@ -11,6 +11,8 @@ import sqlite3
 import tarfile
 from urllib.parse import urljoin, urlparse
 import uuid
+import zipfile
+import unicodedata
 
 os.umask(0o077)
 ROOT=Path(__file__).resolve().parent.parent
@@ -189,8 +191,18 @@ def prepare(item):
         else:
             entries=[r for r in receipts if r.get('parentAssetSha256')==original['sha256']]
             assert entries,(item['sourceId'],'attachment conversion missing')
+            names={}
+            with zipfile.ZipFile(SOURCE/original['file']) as archive:
+                for member in archive.infolist():
+                    if member.is_dir():continue
+                    name=member.filename if member.flag_bits & 0x800 else member.filename.encode('cp437').decode('cp949')
+                    names[hashlib.sha256(archive.read(member)).hexdigest()]=unicodedata.normalize('NFC',Path(name).name)
+            seen=set()
             for entry in entries:
-                choices.append((conversions[entry['sourceSha256']],str(Path(entry['originalName']).with_suffix('.hwpx'))))
+                source_hash=entry['sourceSha256']
+                if source_hash in seen:continue
+                seen.add(source_hash)
+                choices.append((conversions[source_hash],str(Path(names[source_hash]).with_suffix('.hwpx'))))
         for choice,name in choices:
             meta=add_asset(choice['path'],name,'application/hwp+zip',choice['sha']);attachments.append(meta)
     content=([para([text('#학술')])] if item['academicTag'] else [])+body

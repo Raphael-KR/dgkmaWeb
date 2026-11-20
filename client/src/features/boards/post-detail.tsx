@@ -142,7 +142,11 @@ export default function PostDetail() {
 
               {/* 본문 내용 */}
               <PostImportNotice data={post.importData} />
-              <PostBody content={post.content} className="md:text-base" />
+              <PostBody
+                imported={Boolean(post.importData)}
+                content={post.content}
+                className="md:text-base"
+              />
 
               {/* 첨부 이미지 */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (

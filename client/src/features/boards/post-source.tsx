@@ -1,7 +1,7 @@
 import type { PostImportData } from "@shared/contracts/post-import";
 
 export function PostSource({ data }: { data: PostImportData | null }) {
-  if (!data) return null;
+  if (!import.meta.env.DEV || !data) return null;
   return (
     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
       <span>
