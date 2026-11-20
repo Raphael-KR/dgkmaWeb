@@ -1,3 +1,4 @@
+import { PostImportNotice, PostSource } from "./post-source";
 import { CategoryBadge } from "@/components/category-badge";
 import { useScrollToTop } from "@/hooks/use-scroll-to-top";
 import { useQuery } from "@tanstack/react-query";
@@ -109,16 +110,20 @@ export default function PostDetail() {
                     <Badge variant="secondary">가린 글 · 작성자/관리자만 열람</Badge>
                   )}
                   <span className="text-xs text-gray-500">
-                    {new Date(post.publishedAt || post.createdAt || "").toLocaleDateString(
-                      "ko-KR",
-                      {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      },
-                    )}
+                    {new Date(
+                      post.importData?.originalCreatedAt ||
+                        post.publishedAt ||
+                        post.createdAt ||
+                        "",
+                    ).toLocaleDateString("ko-KR", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      ...(post.importData ? { timeZone: "Asia/Seoul" } : {}),
+                      ...(post.importData?.timePrecision === "day"
+                        ? {}
+                        : { hour: "2-digit" as const, minute: "2-digit" as const }),
+                    })}
                   </span>
                 </div>
 
@@ -129,18 +134,19 @@ export default function PostDetail() {
 
                 {/* 작성자 정보 */}
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <span>
-                    {post.authorId
-                      ? `작성자: ${post.authorId === user?.id ? "본인" : "회원"}`
-                      : "작성자 계정 미연결"}
-                  </span>
+                  <span>작성자: {post.authorName?.trim() || "작성자 정보 없음"}</span>
                 </div>
+                <PostSource data={post.importData} />
               </div>
-
               <hr className="mb-6" />
 
               {/* 본문 내용 */}
-              <PostBody content={post.content} className="md:text-base" />
+              <PostImportNotice data={post.importData} />
+              <PostBody
+                imported={Boolean(post.importData)}
+                content={post.content}
+                className="md:text-base"
+              />
 
               {/* 첨부 이미지 */}
               {Array.isArray(post.imageUrls) && post.imageUrls.length > 0 && (

@@ -48,3 +48,9 @@
 | [0000_cheerful_nick_fury.sql](../../migrations/0000_cheerful_nick_fury.sql) 및 [meta](../../migrations/meta) | 초기 Drizzle 생성 SQL·snapshot·journal | 이후의 수동 SQL·본문 변환·runtime session DDL이 모두 순차 migration으로 들어 있지 않음. 현행 전체 DB 재현 경로로 사용하지 않음 |
 
 실제 완료 시점과 적용 결과는 [수행·변경 이력](../history/README.md)을 따른다. 새 빈 DB를 재현하는 baseline·migration 체계는 아직 구현되지 않았다.
+
+## 게시글 원작성자 이름
+
+[add-post-author-name.sql](../../scripts/add-post-author-name.sql)은 개발 heliumdb만 허용하며 posts에 author_name TEXT NULL을 추가한다. 기존 행·본문을 변환하지 않는다. 2026-11-14 개발 적용 기록은 [작성자 표시](../history/post-author-name-2026-11-14.md)를 따른다. 운영 적용용이 아니며 반복 실행하지 않는다.
+
+[add-post-import-data.sql](../../scripts/add-post-import-data.sql)은 개발 heliumdb에만 `posts.import_data` JSONB·형식 CHECK·원본 식별 부분 UNIQUE 인덱스를 추가한다. 기존 행 변환 없이 한 번만 적용한다. 일반 API는 이관 메타데이터를 입력받지 않는다.

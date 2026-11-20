@@ -172,6 +172,8 @@ test("post creation enforces the approved category policy before writing", async
       content: data.content,
       categoryId: data.categoryId ?? null,
       authorId: data.authorId ?? null,
+      authorName: null,
+      importData: null,
       isPublished: data.isPublished ?? true,
       isHidden: false,
       imageUrls: data.imageUrls ?? null,

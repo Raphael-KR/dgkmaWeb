@@ -159,7 +159,7 @@ export class GoogleSheetsService {
     try {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: "'통합주소록'!A:J",
+        range: "'통합주소록'!B:K",
       });
       return buildAlumniSourceSnapshot(response.data.values ?? []);
     } catch (error) {
