@@ -2,7 +2,7 @@ import type { Request } from "express";
 
 declare module "express-session" {
   interface SessionData {
-    userId?: number;
+    userId?: string;
     kakaoOAuthStateHash?: string;
     kakaoOAuthStartedAt?: number;
     kakaoOAuthStateExpiresAt?: number;

@@ -5,7 +5,6 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Check, X, Users, AlertCircle, RotateCcw } from "lucide-react";
 import type { usePendingRegistrations } from "./use-pending-registrations";
-import { useAuth } from "@/features/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { REGISTRATION_APPROVAL_STATUSES } from "@shared/contracts";
 import { DeleteRegistrationButton } from "./delete-registration-button";
@@ -34,7 +33,6 @@ export function PendingRegistrationsPanel({
   handleApprove,
   handleReject,
 }: ReturnType<typeof usePendingRegistrations>) {
-  const { user } = useAuth();
   return (
     <Card>
       <CardHeader>
@@ -127,7 +125,7 @@ export function PendingRegistrationsPanel({
                   <PendingRegistrationReview review={registration.review} />
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {status === "pending" && (
+                  {registration.recordType === "registration" && status === "pending" && (
                     <>
                       <Button
                         size="sm"
@@ -155,7 +153,7 @@ export function PendingRegistrationsPanel({
                       </Button>
                     </>
                   )}
-                  {status === "rejected" && (
+                  {registration.recordType === "registration" && status === "rejected" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -167,7 +165,7 @@ export function PendingRegistrationsPanel({
                       재심사
                     </Button>
                   )}
-                  {status === "rejected" && (
+                  {registration.recordType === "registration" && status === "rejected" && (
                     <DeleteRegistrationButton
                       disabled={isFetching || updateRegistrationMutation.isPending}
                       onDelete={() => handleDelete(registration.id)}
@@ -185,7 +183,7 @@ export function PendingRegistrationsPanel({
                         isFetching ||
                         updateRegistrationMutation.isPending ||
                         registration.memberId === null ||
-                        registration.memberId === user?.id
+                        (registration.recordType === "member" && registration.isSelf)
                       }
                     >
                       <RotateCcw className="mr-1" size={16} />
@@ -193,11 +191,13 @@ export function PendingRegistrationsPanel({
                     </Button>
                   )}
                 </div>
-                {status === "approved" && registration.memberId === user?.id && (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    본인의 승인은 취소할 수 없습니다.
-                  </p>
-                )}
+                {status === "approved" &&
+                  registration.recordType === "member" &&
+                  registration.isSelf && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      본인의 승인은 취소할 수 없습니다.
+                    </p>
+                  )}
               </div>
             ))}
           </div>

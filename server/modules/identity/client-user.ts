@@ -2,8 +2,7 @@ import type { ClientUser, User } from "@shared/schema";
 
 export function toClientUser(user: User): ClientUser {
   return {
-    id: user.id,
-    email: user.email,
+    email: user.email ?? "",
     name: user.name,
     graduationYear: user.graduationYear,
     isVerified: user.isVerified,

@@ -254,7 +254,7 @@ test(
     const kakaoHash = identityHash("kakao", kakaoNumericId);
     const emailHash = identityHash("email", email.toLowerCase());
     const trackedStateHashes: string[] = [];
-    let userId = 0;
+    let userId = "";
     let releaseUserInfo: (() => void) | undefined;
     let markUserInfoEntered: (() => void) | undefined;
     const userInfoEntered = new Promise<void>((resolve) => {
@@ -270,10 +270,10 @@ test(
     let pgSessionStore: InstanceType<ReturnType<typeof connectPgSimple>> | undefined;
 
     try {
-      const inserted = await pool.query<{ id: number }>(
+      const inserted = await pool.query<{ id: string }>(
         `insert into users
-         (kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
-       values ($1, $2, '탈퇴경쟁', true, true, '+82 10-9000-0002')
+         (id, kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
+       values (gen_random_uuid(), $1, $2, '탈퇴경쟁', true, true, '+82 10-9000-0002')
        returning id`,
         [kakaoNumericId, email],
       );
@@ -480,10 +480,10 @@ test(
     let deletePromise: ReturnType<typeof storage.deleteUserAccount> | undefined;
 
     try {
-      const inserted = await pool.query<{ id: number }>(
+      const inserted = await pool.query<{ id: string }>(
         `insert into users
-         (kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
-       values ($1, $2, '최종화우선', true, true, '+82 10-9000-0003')
+         (id, kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
+       values (gen_random_uuid(), $1, $2, '최종화우선', true, true, '+82 10-9000-0003')
        returning id`,
         [kakaoId, email],
       );

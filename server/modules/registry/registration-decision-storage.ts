@@ -46,7 +46,7 @@ async function withPendingDecision<T>(
   });
 }
 
-async function suspendMemberSessions(tx: RegistrationTransaction, userId: number) {
+async function suspendMemberSessions(tx: RegistrationTransaction, userId: string) {
   await tx
     .update(users)
     .set({ isVerified: false, updatedAt: new Date() })
@@ -121,8 +121,8 @@ export class RegistrationDecisionStorage {
   }
 
   async cancelMemberApproval(
-    userId: number,
-    actorId: number,
+    userId: string,
+    actorId: string,
   ): Promise<PendingRegistration | undefined> {
     if (userId === actorId)
       throw new RegistrationStateConflictError("본인의 승인은 취소할 수 없습니다.");
@@ -139,7 +139,7 @@ export class RegistrationDecisionStorage {
         throw new RegistrationStateConflictError("현재 관리자 권한을 확인할 수 없습니다.");
       const [candidate] = await tx.select().from(users).where(eq(users.id, userId));
       if (!candidate) return undefined;
-      await lockRegistrationIdentities(tx, candidate.kakaoId ?? "", candidate.email);
+      await lockRegistrationIdentities(tx, candidate.kakaoId ?? "", candidate.email ?? "");
       const [member] = await tx.select().from(users).where(eq(users.id, userId)).for("update");
       if (!member) return undefined;
       if (
@@ -148,7 +148,7 @@ export class RegistrationDecisionStorage {
         member.email !== candidate.email
       )
         throw new RegistrationStateConflictError();
-      if (!member.kakaoId)
+      if (!member.kakaoId || !member.email)
         throw new RegistrationStateConflictError(
           "카카오 식별정보가 없어 승인 취소를 처리할 수 없습니다.",
         );

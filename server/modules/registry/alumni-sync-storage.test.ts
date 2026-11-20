@@ -19,6 +19,26 @@ test(
       ...developmentDbConfig(),
       max: 3,
     });
+    // The shared development roster has switched authority. On that database
+    // exercise the guard without inserting fixtures or reading Google Sheets.
+    await verifyDevelopmentDb(testPool);
+    const { registeredRosterCount, RosterAlreadyRegisteredError } =
+      await import("./alumni-sync-storage");
+    if ((await registeredRosterCount()) !== null) {
+      const { storage } = await import("../../storage");
+      const { googleSheetsService } = await import("../../integrations/google-sheets");
+      const read = t.mock.method(googleSheetsService, "fetchAlumniSnapshot", () => {
+        throw new Error("Registered rosters must not read Sheets");
+      });
+      try {
+        await assert.rejects(storage.previewAlumniSync(), RosterAlreadyRegisteredError);
+        await assert.rejects(storage.applyAlumniSync("unused"), RosterAlreadyRegisteredError);
+        assert.equal(read.mock.callCount(), 0);
+      } finally {
+        await testPool.end();
+      }
+      return;
+    }
     const token = randomUUID().replaceAll("-", "");
     const marker = `TASK5-${token}`;
     const phone = (offset: number) => {

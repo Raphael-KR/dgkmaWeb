@@ -17,7 +17,6 @@ const UPLOAD_TOKEN_TTL_MS = 15 * 60 * 1000;
 type UploadTokenPayload = {
   objectId: string;
   name: string;
-  userId: number;
   size: number;
   contentType: string;
   expiresAt: number;
@@ -41,21 +40,25 @@ function getUploadTokenSecret(): string {
   return secret;
 }
 
-function signUploadToken(payload: UploadTokenPayload): string {
+function signUploadToken(payload: UploadTokenPayload, userId: string): string {
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = createHmac("sha256", getUploadTokenSecret())
+    .update(userId)
+    .update(":")
     .update(encodedPayload)
     .digest("base64url");
   return `${encodedPayload}.${signature}`;
 }
 
-function verifyUploadToken(token: string): UploadTokenPayload | null {
+function verifyUploadToken(token: string, userId: string): UploadTokenPayload | null {
   const [encodedPayload, encodedSignature] = token.split(".");
   if (!encodedPayload || !encodedSignature) {
     return null;
   }
 
   const expectedSignature = createHmac("sha256", getUploadTokenSecret())
+    .update(userId)
+    .update(":")
     .update(encodedPayload)
     .digest("base64url");
   const received = Buffer.from(encodedSignature);
@@ -81,8 +84,6 @@ function verifyUploadToken(token: string): UploadTokenPayload | null {
       !type?.ok ||
       type.contentType !== payload.contentType ||
       payload.size > uploadSizeLimit(type.contentType).bytes ||
-      !Number.isInteger(payload.userId) ||
-      payload.userId <= 0 ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt < Date.now()
     ) {
@@ -156,8 +157,8 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(401).json({ error: "로그인이 필요합니다" });
       }
 
-      const token = verifyUploadToken(req.params.uploadToken);
-      if (!token || token.userId !== req.session.userId) {
+      const token = verifyUploadToken(req.params.uploadToken, req.session.userId);
+      if (!token) {
         return res.status(403).json({ error: "유효하지 않거나 만료된 업로드 URL입니다" });
       }
 
@@ -247,14 +248,16 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
       }
       const target = objectStorageService.createObjectEntityUploadTarget();
-      const uploadToken = signUploadToken({
-        objectId: target.objectId,
-        name,
-        userId: req.session.userId,
-        size: normalizedSize,
-        contentType: type.contentType,
-        expiresAt: Date.now() + UPLOAD_TOKEN_TTL_MS,
-      });
+      const uploadToken = signUploadToken(
+        {
+          objectId: target.objectId,
+          name,
+          size: normalizedSize,
+          contentType: type.contentType,
+          expiresAt: Date.now() + UPLOAD_TOKEN_TTL_MS,
+        },
+        req.session.userId,
+      );
 
       res.json({
         uploadURL: `/api/uploads/${encodeURIComponent(uploadToken)}`,

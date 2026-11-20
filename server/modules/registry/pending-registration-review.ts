@@ -21,7 +21,7 @@ import { parsePendingUserData } from "./pending-registration-data";
 import { adminAlumniColumns } from "./admin-alumni-record";
 
 type ReviewAlumni = AdminAlumniRecordDto &
-  Pick<AlumniRecord, "matchedUserId"> & {
+  Pick<AlumniRecord, "matchedUserId" | "isMatched"> & {
     normalizedName: string;
   };
 type ReviewAccount = Pick<User, "id" | "isVerified" | "kakaoId" | "email" | "phoneNumber" | "name">;
@@ -53,11 +53,11 @@ export function createPendingRegistrationReview(
   );
   const otherAccounts = accounts.filter((account) => account.id !== member?.id);
   const candidates = alumni
-    .map(({ normalizedName, matchedUserId, ...record }) => ({
+    .map(({ normalizedName, isMatched, matchedUserId: _memberId, ...record }) => ({
       ...record,
       nameMatches: !!name && normalizedName === name,
       phoneMatches: !!phone && normalizePhoneForComparison(record.mobile ?? "") === phone,
-      isLinked: matchedUserId !== null,
+      isLinked: !!isMatched,
     }))
     .filter((candidate) => candidate.nameMatches || candidate.phoneMatches)
     .sort(
@@ -68,11 +68,12 @@ export function createPendingRegistrationReview(
           Number(a.phoneMatches) || a.id - b.id,
     );
   const exact = candidates.filter((candidate) => candidate.nameMatches && candidate.phoneMatches);
+  const match = exact.length === 1 ? alumni.find((row) => row.id === exact[0].id) : undefined;
   const accountConflicts: AdminPendingRegistrationReviewDto["review"]["accountConflicts"] = [];
   if (complete) {
     if (
       member &&
-      (member.email.trim().toLowerCase() !== data.email.trim().toLowerCase() ||
+      (member.email?.trim().toLowerCase() !== data.email.trim().toLowerCase() ||
         normalizePhoneForComparison(member.phoneNumber ?? "") !== phone ||
         normalizeNameForComparison(member.name) !== name)
     )
@@ -81,7 +82,7 @@ export function createPendingRegistrationReview(
       accountConflicts.push("kakao");
     if (
       otherAccounts.some(
-        (account) => account.email.toLowerCase() === data.email.trim().toLowerCase(),
+        (account) => account.email?.toLowerCase() === data.email.trim().toLowerCase(),
       )
     )
       accountConflicts.push("email");
@@ -97,10 +98,8 @@ export function createPendingRegistrationReview(
   else if (accountConflicts.length) status = "account_conflict";
   else if (exact.length === 0) status = "no_match";
   else if (exact.length > 1) status = "multiple_matches";
-  else if (
-    exact[0].isLinked &&
-    alumni.find((candidate) => candidate.id === exact[0].id)?.matchedUserId !== member?.id
-  )
+  else if (!match?.matchedUserId || match.status === "사망") status = "no_match";
+  else if ((member || match.isMatched) && match.matchedUserId !== member?.id)
     status = "already_linked";
   else if (
     member &&
@@ -161,6 +160,7 @@ export async function getPendingRegistrationReviews(
         .select({
           ...adminAlumniColumns,
           matchedUserId: alumniDatabase.matchedUserId,
+          isMatched: alumniDatabase.isMatched,
           normalizedName,
         })
         .from(alumniDatabase)

@@ -3,6 +3,7 @@ import {
   pgTable,
   text,
   serial,
+  uuid,
   integer,
   boolean,
   timestamp,
@@ -64,9 +65,9 @@ export type {
 } from "@shared/contracts";
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   kakaoId: text("kakao_id").unique(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   name: text("name").notNull(),
   graduationYear: integer("graduation_year"),
   isVerified: boolean("is_verified").default(false),
@@ -101,7 +102,7 @@ export const posts = pgTable(
     title: text("title").notNull(),
     content: jsonb("content").$type<PostDocument>().notNull(),
     categoryId: integer("category_id").references(() => categories.id),
-    authorId: integer("author_id").references(() => users.id),
+    authorId: uuid("author_id").references(() => users.id),
     authorName: text("author_name"),
     importData: jsonb("import_data").$type<PostImportData>(),
     isPublished: boolean("is_published").default(true),
@@ -146,7 +147,7 @@ export const comments = pgTable(
     postId: integer("post_id")
       .notNull()
       .references(() => posts.id, { onDelete: "cascade" }),
-    authorId: integer("author_id").references(() => users.id),
+    authorId: uuid("author_id").references(() => users.id),
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
     isHidden: boolean("is_hidden").notNull().default(false),
@@ -171,7 +172,7 @@ export const comments = pgTable(
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id),
   amount: integer("amount").notNull(),
   year: integer("year").notNull(),
   type: text("type").notNull(), // 연회비, 기타
@@ -195,7 +196,9 @@ export const alumniDatabase = pgTable("alumni_database", {
   alumniPosition: text("alumni_position"), // 동문회직책
   memo: text("memo"), // 메모
   isMatched: boolean("is_matched").default(false),
-  matchedUserId: integer("matched_user_id").references(() => users.id),
+  matchedUserId: uuid("matched_user_id")
+    .unique()
+    .references(() => users.id),
 });
 
 export const alumniNameAliases = pgTable(
@@ -229,7 +232,7 @@ export const alumniNameAliases = pgTable(
 );
 
 export const eventParseRateLimits = pgTable("event_parse_rate_limits", {
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
   windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
@@ -320,7 +323,7 @@ export const alumniNameAliasesRelations = relations(alumniNameAliases, ({ one })
 }));
 
 // Schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users, { email: z.string().email() }).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

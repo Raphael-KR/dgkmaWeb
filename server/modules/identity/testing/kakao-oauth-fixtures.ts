@@ -57,11 +57,11 @@ export const alumniRecord: AlumniRecord = {
   alumniPosition: null,
   memo: null,
   isMatched: false,
-  matchedUserId: null,
+  matchedUserId: "00000000-0000-4000-8000-000000000041",
 };
 
 export const createdUser: User = {
-  id: 41,
+  id: "00000000-0000-4000-8000-000000000041",
   kakaoId: "987654321",
   email: "new-member@example.com",
   name: "김동문",
@@ -80,7 +80,7 @@ export const createdUser: User = {
 };
 
 export function finalizeKakaoLoginDouble(user: User = createdUser) {
-  return async (_userId: number, _generation: unknown, saveSession: () => Promise<void>) => {
+  return async (_userId: string, _generation: unknown, saveSession: () => Promise<void>) => {
     await saveSession();
     return user;
   };
@@ -165,7 +165,7 @@ export async function startServer(
     });
   }
   app.post("/__test/admin-session", (req, res) => {
-    req.session.userId = 1;
+    req.session.userId = "00000000-0000-4000-8000-000000000001";
     res.json({ ok: true });
   });
   if (options.synchronizeAuthorizeRequests) {

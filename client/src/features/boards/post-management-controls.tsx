@@ -23,7 +23,7 @@ export function PostManagementButtons({ post, user, controller }: ButtonsProps) 
   const { manage, setAction } = controller;
   return (
     <div className="flex flex-wrap gap-2">
-      {user?.id === post.authorId && (
+      {post.isAuthor && (
         <>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/p/${post.id}/edit`}>수정</Link>

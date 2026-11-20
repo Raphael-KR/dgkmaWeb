@@ -15,6 +15,7 @@ type AlumniSyncApplyResponse = {
 };
 
 type GoogleSheetsStatus = {
+  registered?: number;
   connected: boolean;
   message: string;
   sampleCount?: number;

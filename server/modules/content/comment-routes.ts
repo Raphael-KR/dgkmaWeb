@@ -1,3 +1,4 @@
+import { memberContent } from "./member-content";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import {
@@ -72,7 +73,7 @@ export function registerCommentRoutes(app: Express) {
         attachment,
       });
       if (!comment) return res.status(404).json({ message: "게시글을 찾을 수 없습니다." });
-      res.status(201).json(comment);
+      res.status(201).json(memberContent(comment, viewer.id));
     } catch (error) {
       failure(res, error);
     }

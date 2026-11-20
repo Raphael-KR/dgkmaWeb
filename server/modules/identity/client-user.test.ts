@@ -5,7 +5,7 @@ import { toClientUser } from "./client-user";
 
 test("toClientUser keeps a missing creation time as JSON null", () => {
   const user: User = {
-    id: 8,
+    id: "00000000-0000-4000-8000-000000000008",
     kakaoId: null,
     email: "legacy@example.com",
     name: "레거시 회원",
