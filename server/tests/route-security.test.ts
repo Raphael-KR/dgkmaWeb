@@ -18,7 +18,10 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
     next();
   });
 
-  const server = await registerRoutes(app, { getUserForAdmin, registeredRosterCount: async () => null });
+  const server = await registerRoutes(app, {
+    getUserForAdmin,
+    registeredRosterCount: async () => null,
+  });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);

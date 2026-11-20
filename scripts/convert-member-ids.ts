@@ -19,12 +19,17 @@ if (
   process.env.REPL_ID !== "dc5e5541-525b-4ad6-b914-2d2db70cb4a9" ||
   process.env.REPLIT_DEPLOYMENT === "1" ||
   process.env.PGDATABASE !== "heliumdb" ||
-  !process.env.PGHOST || !process.env.PGUSER ||
-  flags.length > 1 || (apply && !/^--apply=[a-f0-9]{64}$/.test(fingerprintArg)) ||
+  !process.env.PGHOST ||
+  !process.env.PGUSER ||
+  flags.length > 1 ||
+  (apply && !/^--apply=[a-f0-9]{64}$/.test(fingerprintArg)) ||
   (production && !process.env.PROD_DATABASE_URL)
-) throw new Error("Replit 개발 워크스페이스에서 대상과 실행 인자를 확인하세요.");
+)
+  throw new Error("Replit 개발 워크스페이스에서 대상과 실행 인자를 확인하세요.");
 
-const targetPool = production ? new Pool({connectionString: process.env.PROD_DATABASE_URL}) : development;
+const targetPool = production
+  ? new Pool({ connectionString: process.env.PROD_DATABASE_URL })
+  : development;
 
 async function readRoster() {
   if (!production) return googleSheetsService.fetchIdentityRoster();
@@ -32,16 +37,22 @@ async function readRoster() {
     `SELECT a.matched_user_id AS id, a.name, a.department, a.generation,
       coalesce(a.mobile, '') AS mobile
       FROM alumni_database a JOIN users u ON a.matched_user_id=u.id
-      WHERE current_database()='heliumdb' ORDER BY a.matched_user_id`
+      WHERE current_database()='heliumdb' ORDER BY a.matched_user_id`,
   );
-  return source.rows as { id: string; name: string; department: string; generation: string; mobile: string }[];
+  return source.rows as {
+    id: string;
+    name: string;
+    department: string;
+    generation: string;
+    mobile: string;
+  }[];
 }
 
 async function run() {
   const client = await targetPool.connect();
   try {
     const target = await client.query(
-      "SELECT current_database() AS db, pg_typeof((select id from users limit 0))::text AS type"
+      "SELECT current_database() AS db, pg_typeof((select id from users limit 0))::text AS type",
     );
     if (target.rows[0]?.db !== database || target.rows[0]?.type !== "integer")
       throw new Error("최초 전환 대상이 아닙니다.");
