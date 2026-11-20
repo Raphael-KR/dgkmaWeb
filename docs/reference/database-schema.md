@@ -10,20 +10,20 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 
 ## 기준 소스와 마지막 DB 관찰
 
-- 코드 기준: `3.0.0`의 PR #36 main 병합 `86ebf6a`에 포함된 댓글 확장, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
-- DB 관찰: Development 2026-11-20 회원 UUID·명부 사전 등록 후 metadata-only catalog. Production 마지막 구조 관찰은 2026-11-12 03:47 KST 댓글 확장 후이며, 이번 추가 컬럼·제약·인덱스는 운영에 적용하지 않았다.
+- 코드 기준: `6.2.0`의 PR #42 main 병합 `983ca65`, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
+- DB 관찰: Development 2026-11-20 회원 UUID·명부 사전 등록 후 metadata-only catalog. Production도 2026-11-20 UUID 전환과 사전 등록 후 metadata-only catalog를 확인했다.
 - 양쪽 구조는 posts.content JSONB·is_hidden, posts 경조사 JSON, source_collection_rules를 포함한다. community_events·obituaries는 두 환경에서 제거됐다. 컬럼 표는 논리 순서이며 환경별 물리 순서 차이를 변경 지시로 삼지 않는다.
 
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
-| DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.15 |
-| tables / columns | 13 / 109 | 13 / 107 |
-| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 7 / 10 | 13 / 8 / 6 / 9 |
-| indexes / sequences | 26 / 8 | 24 / 9 |
+| DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.16 |
+| tables / columns | 13 / 109 | 13 / 109 |
+| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 7 / 10 | 13 / 8 / 7 / 10 |
+| indexes / sequences | 26 / 8 | 26 / 8 |
 | view / trigger / policy / routine / enum / domain | 모두 0 | 모두 0 |
 | RLS | 모든 public 테이블 비활성 | 모든 public 테이블 비활성 |
 
-개발 최신 catalog는 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 직전 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영의 마지막 catalog SHA-256은 `6db840de3331eedf55a53d6d6f02e15594a3dc51c7173508a00e7825a093a582`이며 [3.0.0 운영 전환](../history/release-3.0.0-2026-11-12.md#운영-db-적용)에 근거한다. 변경 전 catalog와 보존 확인도 같은 기록에 남긴다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
+개발 최신 catalog는 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 직전 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영 catalog SHA-256은 `3d289f57d9660707877e9e984ab77a1eb0d6055a20852ad2a98f49787dd17993`이며 [6.2.0 운영 전환](../history/release-6.2.0-2026-11-20.md)에서 확인했다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
 
 운영 댓글 전환은 [운영 SQL](../../scripts/add-comment-management-production.sql)로 완료했다. 적용된 스크립트의 존재를 반복 실행 지시로 해석하지 않는다. 앱 운영 배포 상태는 [Replit 기준](../../replit.md#현재-적용-상태)과 구분한다.
 
@@ -47,7 +47,7 @@ erDiagram
 
 ## 현행 테이블 사전
 
-아래 13개 테이블은 개발 DB 기준이다. 운영의 마지막 관찰에서 회원 기본키와 그 외래키는 정수였으며 회원 이메일은 필수였다. 모든 컬럼은 identity/generated가 없으며 serial은 명시된 nextval 기본값이다. `—`는 기본값 없음, NULL 열의 `허용`은 nullable이다. 각 제약의 세부 정의는 코드와 마지막 catalog를 함께 따른다.
+아래 13개 테이블은 개발·운영 공통 구조다. 회원 기본키와 이를 참조하는 외래키는 UUID이며 사전 등록 행에서는 이메일이 NULL일 수 있다. 모든 컬럼은 identity/generated가 없으며 serial은 명시된 nextval 기본값이다. `—`는 기본값 없음, NULL 열의 `허용`은 nullable이다. 각 제약의 세부 정의는 코드와 마지막 catalog를 함께 따른다.
 
 ### TABLE_ROW: users
 
@@ -353,14 +353,14 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 명시적인 변환 선택은 로컬 `conversions/selected-overrides.json`에서 원본·변환본 해시로 확인한 뒤 일반 CLI 변환 기록보다 우선 색인한다. `dbpl-35`에는 사용자 제공 한컴오피스 HWPX를 선택했으며, 이를 rhwp 자동 검사 통과로 표시하지 않는다. 역사관 사진첩은 `posts` 이관 대상과 분리한다. 2026-11-14 회원 전용 사진첩의 정본은 환경별 비공개 Object Storage의 목록 JSON과 사진이며 [자료 계약](heritage-content.md)을 따른다. PostgreSQL 구조 변경이나 catalog 재조회는 하지 않았다.
 
-다음카페 일반 글은 기존 nullable `posts.author_id`를 NULL로 등록한다. 계정·새 컬럼·이관 테이블을 만들지 않으며 원작성자·날짜·출처를 본문에 보존한다. 계정 없는 글의 화면 표시는 탈퇴 추정 대신 계정 미연결로 처리한다.
+다음카페 일반 글은 기존 nullable `posts.author_id`를 NULL로 등록한다. 원작성자는 posts.author_name, 원작성일·출처는 posts.import_data에 저장한다. 계정 없는 글의 화면 표시는 탈퇴 추정 대신 계정 미연결로 처리한다.
 
 
 ## 게시글 작성자 이름 표시
 
-`posts.author_name`은 계정 미연결 이관 글의 원작성자 이름을 저장하는 nullable TEXT다. 회원용 조회는 `author_id`가 있으면 연결된 `users.name`, 없으면 `author_name`, 둘 다 없으면 ‘작성자 정보 없음’으로 표시한다. 표시 이름은 권한 판정에 사용하지 않는다. 일반 작성·수정 API는 원작성자 이름 입력을 받지 않으며 기존 회원 연결·수정·삭제·관리자 가림 정책을 유지한다. 개발 DB에만 컬럼을 추가하고 기존 행·본문·회원 연결을 변환하지 않는다. 운영 DB 적용과 실제 카페 이관은 별도 실행 범위다.
+`posts.author_name`은 계정 미연결 이관 글의 원작성자 이름을 저장하는 nullable TEXT다. 회원용 조회는 `author_id`가 있으면 연결된 `users.name`, 없으면 `author_name`, 둘 다 없으면 ‘작성자 정보 없음’으로 표시한다. 표시 이름은 권한 판정에 사용하지 않는다. 일반 작성·수정 API는 원작성자 이름 입력을 받지 않으며 기존 회원 연결·수정·삭제·관리자 가림 정책을 유지한다. 개발·운영 양쪽에 이 컬럼이 있다.
 
-개발 적용 확인(2026-11-14): heliumdb.posts.author_name TEXT NULL, posts 87→87. metadata-only catalog 완료 marker 확인, SHA-256 `29e405a77d3a6666ce1b8889874b9473c50da31afaced227ffe9adb3839f65b2`. 운영 DB는 미적용이며 기존 운영 catalog 관찰과 구분한다.
+개발 적용 확인(2026-11-14): heliumdb.posts.author_name TEXT NULL, posts 87→87. metadata-only catalog 완료 marker 확인, SHA-256 `29e405a77d3a6666ce1b8889874b9473c50da31afaced227ffe9adb3839f65b2`. 운영의 2026-11-20 catalog에서도 같은 컬럼을 확인했다.
 
 
 ## 동문 원본 전환 설계
@@ -372,7 +372,7 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 posts.import_data JSONB NULL에 schemaVersion=1, platform(daum-cafe/band), containerId, sourceId(게시판을 포함한 원본 ID), boardPath, url, originalCreatedAt(시간대 포함 ISO), timePrecision(day/minute), importedAt을 저장한다. 원작성자 이름은 author_name에 유지한다. 일반 글은 NULL이며 일반 작성·수정 입력에서 두 이관 필드를 받지 않는다. 원문은 content에, 원작성일·출처는 본문 밖 메타데이터 영역에 표시한다. 날짜만 확인된 원문에 시각을 표시하지 않고 한국 시간으로 표시한다.
 
-개발 DB에 컬럼·구조 CHECK·platform/containerId/sourceId 부분 UNIQUE 인덱스를 추가한다. 기존 행은 NULL을 유지하며 본문·원작성일·원본 카페 자료를 변환하거나 새로 이관하지 않는다. 운영 적용은 별도다. published_at은 이관 시 원작성 시각을 UTC로 변환해 기존 정렬에 사용하고 created_at은 대상 행 생성 시각으로 구분한다.
+개발·운영 DB에 컬럼·구조 CHECK·platform/containerId/sourceId 부분 UNIQUE 인덱스를 둔다. 일반 글의 출처는 NULL이다. published_at은 이관 시 원작성 시각을 UTC로 변환해 기존 정렬에 사용하고 created_at은 대상 행 생성 시각으로 구분한다.
 
 개발에 `posts_import_data_check`와 `posts_import_source_unique` 부분 UNIQUE 인덱스를 적용했다. 출처 객체는 아래 필드를 모두 요구하고 추가 키를 허용하지 않는다. 일반 게시글은 NULL을 허용한다. 기존 게시글 87건은 유지되며 import_data 입력은 0건이다. [실행 기록](../history/post-import-data-2026-11-14.md)에 catalog와 정적 검사 근거를 남긴다.
 
