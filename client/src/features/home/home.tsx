@@ -50,7 +50,7 @@ export default function Home() {
     refetch: refetchMembership,
   } = useQuery<MembershipStatus>({
     queryKey: ["/api/membership/status"],
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
   if (isLoading) {
@@ -245,6 +245,7 @@ export default function Home() {
                           {post.title}
                         </h4>
                         <PostExcerpt
+                          imported={Boolean(post.importData)}
                           content={post.content}
                           className="line-clamp-2 text-sm text-gray-600 [overflow-wrap:anywhere]"
                         />

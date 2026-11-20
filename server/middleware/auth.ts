@@ -9,7 +9,7 @@ export const requireAuthenticated: RequestHandler = (req, res, next) => {
   next();
 };
 
-export type AdminUserLookup = (userId: number) => Promise<{ isAdmin?: boolean | null } | undefined>;
+export type AdminUserLookup = (userId: string) => Promise<{ isAdmin?: boolean | null } | undefined>;
 
 export function createRequireAdmin(getUser: AdminUserLookup): RequestHandler {
   return async (req, res, next) => {
@@ -39,12 +39,13 @@ export function createRequireAdmin(getUser: AdminUserLookup): RequestHandler {
 
 // 세션 행 삭제 후 늦게 저장된 요청도 다음 API 접근에서 승인 상태를 다시 확인한다.
 export function createVerifiedSessionGuard(
-  getUser: (userId: number) => Promise<{ isVerified: boolean | null } | undefined>,
+  getUser: (userId: string) => Promise<{ isVerified: boolean | null } | undefined>,
 ): RequestHandler {
   return async (req, res, next) => {
     if (!req.session?.userId) return next();
     try {
-      const user = await getUser(req.session.userId);
+      const user =
+        typeof req.session.userId === "string" ? await getUser(req.session.userId) : undefined;
       if (user?.isVerified) return next();
       delete req.session.userId;
       req.session.destroy((error) => {

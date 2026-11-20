@@ -21,7 +21,7 @@ async function startMembershipTestServer() {
     }),
   );
   app.post("/__test/session/:userId", (req, res) => {
-    req.session.userId = Number(req.params.userId);
+    req.session.userId = req.params.userId;
     res.json({ ok: true });
   });
 
@@ -47,7 +47,7 @@ async function startMembershipTestServer() {
 
 async function createMembershipSession(
   server: MembershipTestServer,
-  userId: number,
+  userId: string,
 ): Promise<string> {
   const response = await fetch(`${server.baseUrl}/__test/session/${userId}`, { method: "POST" });
   assert.equal(response.status, 200);
@@ -59,7 +59,7 @@ async function createMembershipSession(
 function payment(overrides: Partial<Payment> = {}): Payment {
   return {
     id: 1,
-    userId: 77,
+    userId: "00000000-0000-4000-8000-000000000077",
     amount: ANNUAL_DUES,
     year: koreaCalendarYear(),
     type: "연회비",
@@ -90,9 +90,9 @@ test("anonymous membership status request returns 401 without storage call", asy
 });
 
 test("authenticated membership status uses only the session user id", async (t) => {
-  const sessionUserId = 77;
-  const requestedUserIds: number[] = [];
-  t.mock.method(storage, "getMembershipStatus", async (userId: number) => {
+  const sessionUserId = "00000000-0000-4000-8000-000000000077";
+  const requestedUserIds: string[] = [];
+  t.mock.method(storage, "getMembershipStatus", async (userId: string) => {
     requestedUserIds.push(userId);
     return {
       year: koreaCalendarYear(),
@@ -126,7 +126,7 @@ test("membership status errors return the fixed response", async (t) => {
   const server = await startMembershipTestServer();
 
   try {
-    const cookie = await createMembershipSession(server, 77);
+    const cookie = await createMembershipSession(server, "00000000-0000-4000-8000-000000000077");
     const response = await fetch(`${server.baseUrl}/api/membership/status`, {
       headers: { Cookie: cookie },
     });
@@ -142,7 +142,7 @@ test("keeps general membership below annual dues at 49,999", async (t) => {
   const subject = new DatabaseStorage();
   t.mock.method(subject, "getPaymentsByUser", async () => [payment({ amount: ANNUAL_DUES - 1 })]);
 
-  const status = await subject.getMembershipStatus(77);
+  const status = await subject.getMembershipStatus("00000000-0000-4000-8000-000000000077");
 
   assert.equal(status.year, koreaCalendarYear());
   assert.equal(status.paidAmount, 49_999);
@@ -157,7 +157,7 @@ test("aggregates split completed annual dues at the 50,000 boundary", async (t) 
     payment({ id: 1, amount: 20_000 }),
   ]);
 
-  const status = await subject.getMembershipStatus(77);
+  const status = await subject.getMembershipStatus("00000000-0000-4000-8000-000000000077");
 
   assert.equal(status.paidAmount, 50_000);
   assert.equal(status.isPaid, true);
@@ -176,7 +176,7 @@ test("uses the KST next year at the UTC year boundary", async (t) => {
     payment({ id: 2, year: 2026, amount: 90_000 }),
   ]);
 
-  const status = await subject.getMembershipStatus(77);
+  const status = await subject.getMembershipStatus("00000000-0000-4000-8000-000000000077");
 
   assert.equal(status.year, 2027);
   assert.equal(status.paidAmount, 50_000);
@@ -193,7 +193,7 @@ test("excludes other years, types, pending, and failed payments", async (t) => {
     payment({ id: 4, amount: 14_444, status: "failed" }),
   ]);
 
-  const status = await subject.getMembershipStatus(77);
+  const status = await subject.getMembershipStatus("00000000-0000-4000-8000-000000000077");
 
   assert.equal(status.paidAmount, 0);
   assert.equal(status.isPaid, false);
@@ -204,7 +204,7 @@ test("returns no current year payment when there are no payments", async (t) => 
   const subject = new DatabaseStorage();
   t.mock.method(subject, "getPaymentsByUser", async () => []);
 
-  const status = await subject.getMembershipStatus(77);
+  const status = await subject.getMembershipStatus("00000000-0000-4000-8000-000000000077");
 
   assert.equal(status.paidAmount, 0);
   assert.equal(status.currentYearPayment, null);
@@ -224,7 +224,7 @@ test("redacts current year payment to createdAt only", async (t) => {
   const subject = new DatabaseStorage();
   t.mock.method(subject, "getPaymentsByUser", async () => [latest, older]);
 
-  const status = await subject.getMembershipStatus(77);
+  const status = await subject.getMembershipStatus("00000000-0000-4000-8000-000000000077");
 
   assert.deepEqual(status.currentYearPayment, { createdAt: latest.createdAt });
 });

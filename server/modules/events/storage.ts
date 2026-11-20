@@ -6,7 +6,7 @@ import { noticeCategory, type NoticeData, type NoticeType } from "@shared/contra
 import type { EventsStorageContract } from "./storage-contract";
 
 export class EventsStorage implements EventsStorageContract {
-  async getNoticeDraft(authorId: number, type: NoticeType): Promise<Post> {
+  async getNoticeDraft(authorId: string, type: NoticeType): Promise<Post> {
     return db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${`notice:${authorId}:${type}`}, 0))`,
@@ -42,7 +42,7 @@ export class EventsStorage implements EventsStorageContract {
       return draft;
     });
   }
-  async getOwnNotice(id: number, authorId: number): Promise<Post | undefined> {
+  async getOwnNotice(id: number, authorId: string): Promise<Post | undefined> {
     const [row] = await db
       .select()
       .from(posts)
@@ -51,7 +51,7 @@ export class EventsStorage implements EventsStorageContract {
   }
   async saveNotice(
     id: number,
-    authorId: number,
+    authorId: string,
     revision: number,
     data: {
       sourceText?: string;
@@ -74,7 +74,7 @@ export class EventsStorage implements EventsStorageContract {
       .returning();
     return row;
   }
-  async publishNotice(id: number, authorId: number, revision: number): Promise<Post | undefined> {
+  async publishNotice(id: number, authorId: string, revision: number): Promise<Post | undefined> {
     const [row] = await db
       .update(posts)
       .set({
@@ -95,7 +95,7 @@ export class EventsStorage implements EventsStorageContract {
       .returning();
     return row;
   }
-  async deleteNoticeDraft(id: number, authorId: number, revision: number): Promise<boolean> {
+  async deleteNoticeDraft(id: number, authorId: string, revision: number): Promise<boolean> {
     const rows = await db
       .delete(posts)
       .where(
@@ -112,7 +112,7 @@ export class EventsStorage implements EventsStorageContract {
   }
   async updatePublishedNotice(
     id: number,
-    authorId: number,
+    authorId: string,
     revision: number,
     data: {
       eventData: NoticeData;

@@ -11,21 +11,23 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 ## 기준 소스와 마지막 DB 관찰
 
 - 코드 기준: `3.0.0`의 PR #36 main 병합 `86ebf6a`에 포함된 댓글 확장, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
-- DB 관찰: Development 2026-11-12 03:14 KST, Production 2026-11-12 03:47 KST 댓글 확장 후 metadata-only catalog. 두 환경에 같은 네 컬럼·두 CHECK를 적용했다.
+- DB 관찰: Development 2026-11-20 회원 UUID·명부 사전 등록 후 metadata-only catalog. Production 마지막 구조 관찰은 2026-11-12 03:47 KST 댓글 확장 후이며, 이번 추가 컬럼·제약·인덱스는 운영에 적용하지 않았다.
 - 양쪽 구조는 posts.content JSONB·is_hidden, posts 경조사 JSON, source_collection_rules를 포함한다. community_events·obituaries는 두 환경에서 제거됐다. 컬럼 표는 논리 순서이며 환경별 물리 순서 차이를 변경 지시로 삼지 않는다.
 
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
 | DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.15 |
-| tables / columns | 13 / 107 | 13 / 107 |
-| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 6 / 9 | 13 / 8 / 6 / 9 |
-| indexes / sequences | 24 / 9 | 24 / 9 |
+| tables / columns | 13 / 109 | 13 / 107 |
+| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 7 / 10 | 13 / 8 / 6 / 9 |
+| indexes / sequences | 26 / 8 | 24 / 9 |
 | view / trigger / policy / routine / enum / domain | 모두 0 | 모두 0 |
 | RLS | 모든 public 테이블 비활성 | 모든 public 테이블 비활성 |
 
-개발의 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영의 마지막 catalog SHA-256은 `6db840de3331eedf55a53d6d6f02e15594a3dc51c7173508a00e7825a093a582`이며 [3.0.0 운영 전환](../history/release-3.0.0-2026-11-12.md#운영-db-적용)에 근거한다. 변경 전 catalog와 보존 확인도 같은 기록에 남긴다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
+개발 최신 catalog는 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 직전 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영의 마지막 catalog SHA-256은 `6db840de3331eedf55a53d6d6f02e15594a3dc51c7173508a00e7825a093a582`이며 [3.0.0 운영 전환](../history/release-3.0.0-2026-11-12.md#운영-db-적용)에 근거한다. 변경 전 catalog와 보존 확인도 같은 기록에 남긴다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
 
 운영 댓글 전환은 [운영 SQL](../../scripts/add-comment-management-production.sql)로 완료했다. 적용된 스크립트의 존재를 반복 실행 지시로 해석하지 않는다. 앱 운영 배포 상태는 [Replit 기준](../../replit.md#현재-적용-상태)과 구분한다.
+
+2026-11-15 개발 이관 사전 확인에서는 게시글 이관에 필요한 컬럼·CHECK·원본 인덱스·댓글 CASCADE만 읽기 전용으로 확인했다. 전체 catalog 관찰일·객체 수는 갱신하지 않는다. [사전 확인 기록](../history/community-readiness-2026-11-15.md)을 따른다.
 
 ## 현행 관계
 
@@ -45,17 +47,17 @@ erDiagram
 
 ## 현행 테이블 사전
 
-아래 13개 테이블이 현재 전체 사전이다. 모든 컬럼은 identity/generated가 없으며 serial은 명시된 nextval 기본값이다. `—`는 기본값 없음, NULL 열의 `허용`은 nullable이다. 각 제약의 세부 정의는 코드와 마지막 catalog를 함께 따른다.
+아래 13개 테이블은 개발 DB 기준이다. 운영의 마지막 관찰에서 회원 기본키와 그 외래키는 정수였으며 회원 이메일은 필수였다. 모든 컬럼은 identity/generated가 없으며 serial은 명시된 nextval 기본값이다. `—`는 기본값 없음, NULL 열의 `허용`은 nullable이다. 각 제약의 세부 정의는 코드와 마지막 catalog를 함께 따른다.
 
 ### TABLE_ROW: users
 
-소유: Identity/Session. 목적: 카카오 회원·권한·프로필.
+고정 동문 UUID를 기본키로 보관한다. 가입 전에는 카카오 ID·이메일 없이 이름·졸업연도를 등록한다. 실제 가입 시 같은 행에 권한과 프로필을 연결한다.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
-| `id` | `integer` | 불가 | `nextval('users_id_seq'::regclass)` |
+| `id` | `uuid` | 불가 | — |
 | `kakao_id` | `text` | 허용 | — |
-| `email` | `text` | 불가 | — |
+| `email` | `text` | 허용 | — |
 | `name` | `text` | 불가 | — |
 | `graduation_year` | `integer` | 허용 | — |
 | `is_verified` | `boolean` | 허용 | `false` |
@@ -102,7 +104,9 @@ PK `categories_pkey(id)`; UNIQUE `categories_name_unique(name)`. 같은 이름�
 | `title` | `text` | 불가 | — |
 | `content` | `jsonb` | 불가 | — |
 | `category_id` | `integer` | 허용 | — |
-| `author_id` | `integer` | 허용 | — |
+| `author_id` | `uuid` | 허용 | — |
+| `author_name` | `text` | 허용 | — |
+| `import_data` | `jsonb` | 허용 | — |
 | `is_published` | `boolean` | 허용 | `true` |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
 | `updated_at` | `timestamp without time zone` | 허용 | `now()` |
@@ -125,7 +129,7 @@ PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id → users.id)`, `
 |---|---|---|---|
 | `id` | `integer` | 불가 | `nextval('comments_id_seq'::regclass)` |
 | `post_id` | `integer` | 불가 | — |
-| `author_id` | `integer` | 허용 | — |
+| `author_id` | `uuid` | 허용 | — |
 | `content` | `text` | 불가 | — |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
 
@@ -149,7 +153,7 @@ PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.i
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
 | `id` | `integer` | 불가 | `nextval('payments_id_seq'::regclass)` |
-| `user_id` | `integer` | 허용 | — |
+| `user_id` | `uuid` | 허용 | — |
 | `amount` | `integer` | 불가 | — |
 | `year` | `integer` | 불가 | — |
 | `type` | `text` | 불가 | — |
@@ -179,9 +183,9 @@ PK `payments_pkey(id)`; FK `payments_user_id_users_id_fk(user_id → users.id)` 
 | `alumni_position` | `text` | 허용 | — |
 | `memo` | `text` | 허용 | — |
 | `is_matched` | `boolean` | 허용 | `false` |
-| `matched_user_id` | `integer` | 허용 | — |
+| `matched_user_id` | `uuid` | 허용 | — |
 
-PK `alumni_database_pkey(id)`; FK `alumni_database_matched_user_id_users_id_fk(matched_user_id → users.id)` NO ACTION; UNIQUE `alumni_database_mobile_unique(mobile)`. PK·UNIQUE 인덱스. matched_user_id에는 UNIQUE가 없으며 단일 연결은 앱 잠금·트랜잭션 계약이다.
+PK `alumni_database_pkey(id)`; FK `alumni_database_matched_user_id_users_id_fk(matched_user_id → users.id)` NO ACTION; UNIQUE `alumni_database_mobile_unique(mobile)`. PK·UNIQUE 인덱스. 개발 DB에는 `alumni_database_matched_user_id_unique`도 적용한다. 사전 등록 여부와 가입 연결 여부(`is_matched`)를 구분한다.
 
 2026-11-12 사용자 결정에 따라 `address`·`phone`은 향후 사용을 위해 컬럼과 기존 값을 보존한다. 현재 Sheets `통합주소록`의 10개 관리 컬럼에는 두 항목이 없으므로 가져오기·변경 비교·fingerprint·insert/update payload에서 제외한다. 신규 행의 두 컬럼은 기존 nullable 정의에 따라 NULL이며, 기존 행의 값은 동기화로 덮어쓰지 않는다. `mobile`, 회원의 `phone_number`, 회원 연결 필드와 다른 조회 권한은 유지한다. 이 변경은 앱 자료 계약만 바꾸며 DDL·데이터 변환·catalog 재검증을 수행하지 않는다.
 
@@ -264,7 +268,7 @@ PK `session_pkey(sid)`; btree `session_expire_idx(expire)`와 PK 인덱스. FK �
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
-| `user_id` | `integer` | 불가 | — |
+| `user_id` | `uuid` | 불가 | — |
 | `window_started_at` | `timestamp with time zone` | 불가 | `now()` |
 | `request_count` | `integer` | 불가 | `0` |
 | `updated_at` | `timestamp with time zone` | 불가 | `now()` |
@@ -330,14 +334,14 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 ## 무결성과 수명
 
 - 같은 DB를 쓰는 modular monolith를 유지한다. Identity/Registry의 가입·승인·탈퇴와 명부 claim은 관련 행을 한 트랜잭션으로 처리한다. 도메인을 나눴다는 이유로 트랜잭션을 분산하지 않는다.
-- Sheets sync는 원본 fingerprint·advisory lock·단일 트랜잭션을 사용하고 DB 전용 행과 회원 연결을 보존한다. matched_user_id 단일 연결, pending/payment 상태 허용값, category와 post의 표시 관계는 앱 계약이며 모두 DB CHECK로 강제된 것은 아니다.
-- 가입 거부·승인 취소는 계정·콘텐츠·납부·명부 연결을 보존하고 대기·거부 상태와 세션 접근을 관리한다. 진행 중 OAuth는 기존 종료 marker로 무효화하고, 서버는 저장된 회원 승인 상태를 다시 확인한다. 거부 신청 삭제는 Kakao unlink 확인 후 신청만 삭제하며 기존 회원 자료를 유지한다. 회원 탈퇴는 Kakao unlink 확인 후 아래 계정 정리를 수행한다. 미발행 경조사 초안은 삭제하고 게시 콘텐츠·납부 기록의 회원 연결은 해제한다. 명부는 회원 연결만 해제하고 종료 marker는 최신 상태를 유지한다.
+- Sheets sync는 원본 fingerprint·advisory lock·단일 트랜잭션을 사용하고 DB 전용 행과 회원 연결을 보존한다. pending/payment 상태 허용값, category와 post의 표시 관계는 앱 계약이며 모두 DB CHECK로 강제된 것은 아니다.
+- 가입 거부·승인 취소는 계정·콘텐츠·납부·명부 연결을 보존하고 대기·거부 상태와 세션 접근을 관리한다. 진행 중 OAuth는 기존 종료 marker로 무효화하고, 서버는 저장된 회원 승인 상태를 다시 확인한다. 거부 신청 삭제는 Kakao unlink 확인 후 신청만 삭제하며 기존 회원 자료를 유지한다. 회원 탈퇴는 Kakao unlink 확인 후 아래 계정 정리를 수행한다. 미발행 경조사 초안은 삭제하고 게시 콘텐츠·납부 기록의 회원 연결은 해제한다. 개발에서는 명부의 고정 UUID를 보존하고 가입 연결 상태와 카카오 프로필을 해제한다.
 - 작성자 게시글 삭제는 댓글 CASCADE를 사용하고 Object Storage 파일은 물리 삭제하지 않는다. 가리기는 본문·댓글을 보존한다. Object Storage 고아 파일 정리와 추가 보존 기간은 별도 제품 결정 사항이다.
 - 회원·명부·본문·연락처·계좌는 필요한 업무 저장소에서만 취급한다. Secret·연결 문자열·행 원문은 이 스키마 문서나 catalog에 포함하지 않는다. 세션/OAuth의 명시된 만료와 회원 탈퇴 동작 외에 미확정 보존 기간을 만들어 적지 않는다.
 
 ## 비테이블 객체와 재검증
 
-각 PK·UNIQUE와 위 명시 인덱스가 현재 24개 인덱스를 이룬다. serial 소유 시퀀스는 users/categories/posts/comments/payments/alumni_database/alumni_name_aliases/pending_registrations/source_collection_rules의 9개다. last_success_at에는 기본값이 없다. view·trigger·policy·routine·enum·domain은 마지막 catalog에서 없으며 모든 public 테이블의 RLS는 비활성이었다.
+개발 DB 인덱스는 26개다. serial 소유 시퀀스는 categories/posts/comments/payments/alumni_database/alumni_name_aliases/pending_registrations/source_collection_rules의 8개다. last_success_at에는 기본값이 없다. view·trigger·policy·routine·enum·domain은 마지막 catalog에서 없으며 모든 public 테이블의 RLS는 비활성이었다.
 
 현재 구조는 [DDL 코드](../../server/db/schema/index.ts), runtime session 및 승인된 전환 결과를 함께 따른다. 초기 `migrations/0000_cheerful_nick_fury.sql`은 전체 현행 구조의 재현 경로가 아니다. 구 테이블·옛 이관 SQL은 현행 생성 대상으로 복원하지 않는다.
 
@@ -350,3 +354,38 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 명시적인 변환 선택은 로컬 `conversions/selected-overrides.json`에서 원본·변환본 해시로 확인한 뒤 일반 CLI 변환 기록보다 우선 색인한다. `dbpl-35`에는 사용자 제공 한컴오피스 HWPX를 선택했으며, 이를 rhwp 자동 검사 통과로 표시하지 않는다. 역사관 사진첩은 `posts` 이관 대상과 분리한다. 2026-11-14 회원 전용 사진첩의 정본은 환경별 비공개 Object Storage의 목록 JSON과 사진이며 [자료 계약](heritage-content.md)을 따른다. PostgreSQL 구조 변경이나 catalog 재조회는 하지 않았다.
 
 다음카페 일반 글은 기존 nullable `posts.author_id`를 NULL로 등록한다. 계정·새 컬럼·이관 테이블을 만들지 않으며 원작성자·날짜·출처를 본문에 보존한다. 계정 없는 글의 화면 표시는 탈퇴 추정 대신 계정 미연결로 처리한다.
+
+
+## 게시글 작성자 이름 표시
+
+`posts.author_name`은 계정 미연결 이관 글의 원작성자 이름을 저장하는 nullable TEXT다. 회원용 조회는 `author_id`가 있으면 연결된 `users.name`, 없으면 `author_name`, 둘 다 없으면 ‘작성자 정보 없음’으로 표시한다. 표시 이름은 권한 판정에 사용하지 않는다. 일반 작성·수정 API는 원작성자 이름 입력을 받지 않으며 기존 회원 연결·수정·삭제·관리자 가림 정책을 유지한다. 개발 DB에만 컬럼을 추가하고 기존 행·본문·회원 연결을 변환하지 않는다. 운영 DB 적용과 실제 카페 이관은 별도 실행 범위다.
+
+개발 적용 확인(2026-11-14): heliumdb.posts.author_name TEXT NULL, posts 87→87. metadata-only catalog 완료 marker 확인, SHA-256 `29e405a77d3a6666ce1b8889874b9473c50da31afaced227ffe9adb3839f65b2`. 운영 DB는 미적용이며 기존 운영 catalog 관찰과 구분한다.
+
+
+## 동문 원본 전환 설계
+
+회원 키는 `users.id UUID PRIMARY KEY` 하나다. 게시글·댓글의 작성자, 납부 회원, 명부 연결 회원과 경조사 요청 제한의 회원 FK도 UUID를 사용한다. 기본값은 없으며 최초 명부 이관 시 `통합주소록` A열의 값을 그대로 저장한다. 개발 DB는 기존 계정을 유지해 전환했다. 운영의 마지막 관찰과 개발 결과는 위 표에 구분했다. [동문 전환 계획](../product/pre-migration-database-design.md#구현과-전환-순서)
+
+
+## 게시글 이관 출처 저장
+
+posts.import_data JSONB NULL에 schemaVersion=1, platform(daum-cafe/band), containerId, sourceId(게시판을 포함한 원본 ID), boardPath, url, originalCreatedAt(시간대 포함 ISO), timePrecision(day/minute), importedAt을 저장한다. 원작성자 이름은 author_name에 유지한다. 일반 글은 NULL이며 일반 작성·수정 입력에서 두 이관 필드를 받지 않는다. 원문은 content에, 원작성일·출처는 본문 밖 메타데이터 영역에 표시한다. 날짜만 확인된 원문에 시각을 표시하지 않고 한국 시간으로 표시한다.
+
+개발 DB에 컬럼·구조 CHECK·platform/containerId/sourceId 부분 UNIQUE 인덱스를 추가한다. 기존 행은 NULL을 유지하며 본문·원작성일·원본 카페 자료를 변환하거나 새로 이관하지 않는다. 운영 적용은 별도다. published_at은 이관 시 원작성 시각을 UTC로 변환해 기존 정렬에 사용하고 created_at은 대상 행 생성 시각으로 구분한다.
+
+개발에 `posts_import_data_check`와 `posts_import_source_unique` 부분 UNIQUE 인덱스를 적용했다. 출처 객체는 아래 필드를 모두 요구하고 추가 키를 허용하지 않는다. 일반 게시글은 NULL을 허용한다. 기존 게시글 87건은 유지되며 import_data 입력은 0건이다. [실행 기록](../history/post-import-data-2026-11-14.md)에 catalog와 정적 검사 근거를 남긴다.
+
+| JSON 필드 | 계약 |
+|---|---|
+| schemaVersion | 숫자 1 |
+| platform | daum-cafe 또는 band |
+| containerId | 카페/밴드 식별자, 1~500자 |
+| sourceId | 게시판을 포함한 원본 고유 ID, 1~500자 |
+| boardPath | 원본 대분류→게시판 문자열 배열, 1~8단계 |
+| url | 인증정보 없는 HTTP(S) 원문 주소, 최대 4096자 |
+| originalCreatedAt | 시간대가 포함된 ISO 원작성 시각 |
+| timePrecision | day 또는 minute. 날짜만 확인되면 KST 해당 날짜의 자정을 저장하되 시각을 표시하지 않음 |
+| importedAt | 시간대가 포함된 ISO 이관 시각 |
+
+앱 검증 계약은 [post-import.ts](../../shared/contracts/post-import.ts), DB CHECK는 [post-import-check.ts](../../server/db/schema/post-import-check.ts)다. 실제 이관 도구는 앱 계약으로 검증한 값을 저장해야 하며, 이번 단계에서는 이관 도구의 데이터 쓰기 경로를 실행하지 않았다.

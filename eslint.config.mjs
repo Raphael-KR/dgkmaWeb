@@ -46,6 +46,7 @@ export default defineConfig(
       "*.{js,cjs,mjs,ts}",
       "server/**",
       "scripts/**",
+      "local-backups/community/tools/*.mjs",
       "sandbox/**",
       "**/*.test.{js,mjs,ts,tsx}",
     ],

@@ -28,7 +28,7 @@ async function listen(app: express.Express) {
 
 function sessionUser(app: express.Express) {
   app.use((req, _res, next) => {
-    req.session = { userId: 7 } as typeof req.session;
+    req.session = { userId: "00000000-0000-4000-8000-000000000007" } as typeof req.session;
     next();
   });
 }
@@ -36,7 +36,7 @@ function sessionUser(app: express.Express) {
 test("limiter instances return 429 when their shared quota denies a request", async () => {
   let remaining = 3;
   const sharedQuota: ConsumeEventParseQuota = async (userId, windowMs, max) => {
-    assert.equal(userId, 7);
+    assert.equal(userId, "00000000-0000-4000-8000-000000000007");
     assert.equal(windowMs, 60_000);
     assert.equal(max, 3);
     return remaining-- > 0;
@@ -104,9 +104,9 @@ test(
     const pool = await getDevelopmentDbPool();
     t.after(() => pool.end());
     const email = `event-parse-${randomUUID()}@example.test`;
-    const inserted = await pool.query<{ id: number }>(
+    const inserted = await pool.query<{ id: string }>(
       `
-    INSERT INTO users (email, name) VALUES ($1, '파싱 제한 테스트') RETURNING id
+    INSERT INTO users (id, email, name) VALUES (gen_random_uuid(), $1, '파싱 제한 테스트') RETURNING id
   `,
       [email],
     );

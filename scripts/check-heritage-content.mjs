@@ -128,6 +128,7 @@ for (const document of documents) {
 const terms = new Set(presidents.map((president) => president.term));
 unique([...presidents.map((president) => president.term)], "presidents.term");
 for (const president of presidents) {
+  references(president.documentIds, documentIds, `president.${president.term}.documentIds`);
   positive(president.term, "president.term");
   text(president.name, `president.${president.term}.name`);
   positive(president.startYear, `president.${president.term}.startYear`);
@@ -178,11 +179,28 @@ for (const entry of timeline) {
 for (const award of awards) {
   dated(award, `award.${award.id}`);
   expect(
-    ["동문회", "총동문회", "모교"].includes(award.issuer),
+    award.kind === "achievement"
+      ? award.issuer === undefined
+      : ["동문회", "총동문회", "모교"].includes(award.issuer),
     `award.${award.id}.issuer`,
-    "동문회/총동문회/모교",
+    "일반 수상: 동문회/총동문회/모교; 성취 기록: 수여 기관 생략",
     award.issuer,
   );
+  expect(
+    award.kind === undefined || ["award", "achievement"].includes(award.kind),
+    `award.${award.id}.kind`,
+    "award/achievement",
+    award.kind,
+  );
+  for (const source of award.sources ?? []) {
+    text(source.label, `award.${award.id}.source.label`);
+    expect(
+      typeof source.url === "string" && /^https?:\/\//.test(source.url),
+      `award.${award.id}.source.url`,
+      "HTTP(S)",
+      source.url,
+    );
+  }
   text(award.recipient.name, `award.${award.id}.recipient.name`);
   albumReferences(award.albumIds, `award.${award.id}.albumIds`);
 }

@@ -38,14 +38,14 @@ export default function Profile() {
     isLoading: paymentsLoading,
     isError: paymentsError,
   } = useQuery<PaymentSummary[]>({
-    queryKey: ["/api/payments/user", user?.id],
+    queryKey: ["/api/payments/me"],
     queryFn: async ({ signal }) => {
-      const response = await apiRequest("GET", `/api/payments/user/${user?.id}`, undefined, {
+      const response = await apiRequest("GET", "/api/payments/me", undefined, {
         signal,
       });
       return response.json();
     },
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
   const {
@@ -55,7 +55,7 @@ export default function Profile() {
     refetch: refetchMembership,
   } = useQuery<MembershipStatus>({
     queryKey: ["/api/membership/status"],
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
   // 페이지 로드 시 스크롤 처리

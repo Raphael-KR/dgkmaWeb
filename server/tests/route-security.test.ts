@@ -14,11 +14,14 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
   app.use(express.json());
   app.use((req, _res, next) => {
     const userId = req.header("x-test-user-id");
-    req.session = (userId ? { userId: Number(userId) } : {}) as typeof req.session;
+    req.session = (userId ? { userId } : {}) as typeof req.session;
     next();
   });
 
-  const server = await registerRoutes(app, { getUserForAdmin });
+  const server = await registerRoutes(app, {
+    getUserForAdmin,
+    registeredRosterCount: async () => null,
+  });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);
@@ -35,7 +38,7 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
 }
 
 test("every admin endpoint rejects anonymous and member sessions", async (t) => {
-  const memberId = 2_147_483_646;
+  const memberId = "00000000-0000-4000-8000-000000000002";
   let lookupCalls = 0;
   let categoryLookups = 0;
   let categoryWrites = 0;
@@ -142,7 +145,7 @@ test("post and notice endpoints require a member session before storage access",
 });
 
 test("post creation enforces the approved category policy before writing", async (t) => {
-  const memberId = 2_147_483_646;
+  const memberId = "00000000-0000-4000-8000-000000000002";
   const category = (id: number, name: string, isActive = true): Category => ({
     id,
     name,
@@ -172,6 +175,8 @@ test("post creation enforces the approved category policy before writing", async
       content: data.content,
       categoryId: data.categoryId ?? null,
       authorId: data.authorId ?? null,
+      authorName: null,
+      importData: null,
       isPublished: data.isPublished ?? true,
       isHidden: false,
       imageUrls: data.imageUrls ?? null,

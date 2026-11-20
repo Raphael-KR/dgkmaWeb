@@ -8,6 +8,8 @@ export type PublishedPost = Pick<
   | "content"
   | "categoryId"
   | "authorId"
+  | "authorName"
+  | "importData"
   | "isPublished"
   | "isHidden"
   | "revision"
@@ -16,7 +18,7 @@ export type PublishedPost = Pick<
   | "updatedAt"
   | "publishedAt"
 > & { eventType: NoticeType | null };
-export type PostViewer = { id: number; isAdmin?: boolean | null };
+export type PostViewer = { id: string; isAdmin?: boolean | null };
 
 export interface ContentStorageContract {
   getCategories(): Promise<Category[]>;
@@ -25,6 +27,7 @@ export interface ContentStorageContract {
   getPosts(
     categoryName?: string,
     limit?: number,
+    offset?: number,
   ): Promise<(PublishedPost & { category: Category })[]>;
   getPost(
     id: number,
@@ -33,12 +36,14 @@ export interface ContentStorageContract {
   getHiddenPosts(
     viewer: PostViewer,
     categoryName?: string,
+    limit?: number,
+    offset?: number,
   ): Promise<(PublishedPost & { category: Category })[]>;
   getPostForManagement(id: number): Promise<Post | undefined>;
   canReadPostAttachment(path: string, viewer: PostViewer): Promise<boolean>;
   createPost(post: InsertPost): Promise<Post>;
-  updatePost(id: number, authorId: number, data: UpdatePost): Promise<Post | undefined>;
-  deletePost(id: number, authorId: number, revision: number): Promise<boolean>;
-  setPostHidden(id: number, adminId: number, revision: number, isHidden: boolean): Promise<boolean>;
+  updatePost(id: number, authorId: string, data: UpdatePost): Promise<Post | undefined>;
+  deletePost(id: number, authorId: string, revision: number): Promise<boolean>;
+  setPostHidden(id: number, adminId: string, revision: number, isHidden: boolean): Promise<boolean>;
   searchPosts(query: string): Promise<(PublishedPost & { category: Category })[]>;
 }

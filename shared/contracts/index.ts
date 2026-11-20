@@ -8,6 +8,7 @@ export * from "./alumni-sync";
 export * from "./directory";
 export * from "./post-management";
 export * from "./comments";
+export * from "./post-import";
 
 export const PENDING_REGISTRATION_CONFLICT_REASONS = [
   "email_conflict",
@@ -35,7 +36,6 @@ export type PendingRegistrationUserData = {
 
 // Explicit wire contracts: JSON timestamps are strings, never persistence Dates.
 export type ClientUser = {
-  id: number;
   email: string;
   name: string;
   graduationYear: number | null;
@@ -67,7 +67,9 @@ export type Post = {
   title: string;
   content: PostDocument;
   categoryId: number | null;
-  authorId: number | null;
+  isAuthor: boolean;
+  authorName: string | null;
+  importData: import("./post-import").PostImportData | null;
   isPublished: boolean | null;
   isHidden: boolean;
   revision: number;
@@ -127,10 +129,12 @@ export type AdminAlumniRecordDto = {
 
 export type AdminLinkedAlumniRecordDto = Omit<AdminAlumniRecordDto, "address" | "phone">;
 
-export type AdminApprovedMemberDto = AdminPendingRegistrationDto & {
+export type AdminApprovedMemberDto = Omit<AdminPendingRegistrationDto, "id"> & {
+  id: string;
+  isSelf?: boolean;
   recordType: "member";
   status: "approved";
-  memberId: number;
+  memberId: string;
   profile: Pick<
     ClientUser,
     "phoneNumber" | "profileImage" | "birthday" | "birthdayType" | "isLeapMonth" | "activityRegion"
@@ -142,7 +146,7 @@ export type AdminRegistrationListItem = AdminPendingRegistrationReviewDto | Admi
 
 export type AdminPendingRegistrationReviewDto = AdminPendingRegistrationDto & {
   recordType: "registration";
-  memberId: number | null;
+  memberId: string | null;
   review: {
     checkedAt: string;
     applicantName: string;
@@ -169,7 +173,6 @@ export const insertPostSchema = z
     title: postTitleSchema,
     content: postDocumentSchema,
     categoryId: pgIntegerSchema.nullable().optional(),
-    authorId: pgIntegerSchema.nullable().optional(),
     isPublished: z.boolean().nullable().optional(),
     imageUrls: postImageUrlsSchema.nullable().optional(),
   })

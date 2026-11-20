@@ -30,7 +30,7 @@ async function startServer(alumniSyncStorage: NonNullable<RouteDependencies["alu
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    req.session = { userId: 1 } as typeof req.session;
+    req.session = { userId: "00000000-0000-4000-8000-000000000001" } as typeof req.session;
     next();
   });
   const server = await registerRoutes(app, {

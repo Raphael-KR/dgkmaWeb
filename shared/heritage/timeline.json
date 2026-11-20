@@ -486,5 +486,401 @@
     "id": "history-2026-5",
     "date": "2026-03",
     "title": "동국한의동문회 부산지부 출범"
+  },
+  {
+    "id": "college-history-1979-03-1",
+    "date": "1979-03",
+    "title": "동국대학교 경주대학 개교·한의예과 1기 신입생 40명 입학",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1981-02-2",
+    "date": "1981-02",
+    "title": "동국대학교 경주캠퍼스 한의학관 준공(지하1층, 지상4층, 6,730.67m2)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1983-11-3",
+    "date": "1983-11",
+    "title": "동국대학교 한의과대학 부속 경주한방병원 개원(23병상)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1984-10-4",
+    "date": "1984-10",
+    "title": "경주대학을 문리과대학·법경대학·한의과대학으로 개편하고 경주캠퍼스로 개칭(한의예과·한의학과 입학정원 80명)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1984-11-5",
+    "date": "1984-11",
+    "title": "대학원 한의학과 석사과정 신설",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1985-01-6",
+    "date": "1985-01",
+    "title": "한의학과 1기생 한의사 국가시험 전원 합격",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1986-11-7",
+    "date": "1986-11",
+    "title": "동국대학교 대학원 한의학과 신설(박사학위과정)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1988-10-8",
+    "date": "1988-10",
+    "title": "동국대학교 한의과대학 부설 한의학연구소 개설",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1988-11-9",
+    "date": "1988-11",
+    "title": "동국의료원 설치",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1989-10-10",
+    "date": "1989-10",
+    "title": "동국한방병원 개원(서울시 방배동 소재)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1993-02-11",
+    "date": "1993-02",
+    "title": "경주한방병원 병상 증설(51병상)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1994-07-12",
+    "date": "1994-07",
+    "title": "동인천 길병원 한방병원 위탁운영 결정",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1994-07-13",
+    "date": "1994-07",
+    "title": "분당한방병원 신축 착공(100병상)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1996-07-14",
+    "date": "1996-07",
+    "title": "한국대학교육협의회 한의학과 현지방문 평가",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1996-10-15",
+    "date": "1996-10",
+    "title": "분당한방병원 개원(성남시 분당구, 지하 2층·지상 5층, 4,966.25㎡, 100병상)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1998-05-16",
+    "date": "1998-05",
+    "title": "부속 불교종합병원 기공",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1999-10-17",
+    "date": "1999-10",
+    "title": "부속 불교종합병원 착공",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1999-11-18",
+    "date": "1999-11",
+    "title": "경주한방병원 이전 건물 대보수 공사 착공",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-1999-11-19",
+    "date": "1999-11",
+    "title": "서울강남한방병원 개원(지상 8층, 지하 2층, 4,966㎡, 70병상)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2000-01-20",
+    "date": "2000-01",
+    "title": "중국 상해중의약대학과 학술교류협정을 체결하다.",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2000-08-21",
+    "date": "2000-08",
+    "title": "경주한방병원 확장 이전(경주시 용강동 소재) (지하2층, 지상 5층, 70병상)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2000-09-22",
+    "date": "2000-09",
+    "title": "북경중의약대학과 학술교류협정",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2000-09-23",
+    "date": "2000-09",
+    "title": "일산불교병원 준공",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2005-02-24",
+    "date": "2005-02",
+    "title": "경주한방병원 이전(동국대 경주병원 양한방 협진)",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2005-09-25",
+    "date": "2005-09",
+    "title": "일산 동국대병원·한방병원 개원",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2005-09-26",
+    "date": "2005-09",
+    "title": "절강중의학원과 학술교류협정",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2006-03-27",
+    "date": "2006-03",
+    "title": "기초의과학연구센터 개소",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2006-05-28",
+    "date": "2006-05",
+    "title": "의무부총장제 신설",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2007-04-29",
+    "date": "2007-04",
+    "title": "단과대학 중심 자율경영체제 구축",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2007-08-30",
+    "date": "2007-08",
+    "title": "한방신약개발센터 개소",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2008-07-31",
+    "date": "2008-07",
+    "title": "의료원 직원의 한의과대학 학사운영실 파견",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2008-11-32",
+    "date": "2008-11",
+    "title": "일반대학원 한의생명과학 협동과정 신설",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "college-history-2012-03-33",
+    "date": "2012-03",
+    "title": "서울캠퍼스·경주캠퍼스·의료원의 3원 체제로 개편",
+    "description": "모교 연혁 · 공식 대학연혁 기준",
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
   }
 ]

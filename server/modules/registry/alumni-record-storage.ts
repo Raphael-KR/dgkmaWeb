@@ -139,13 +139,25 @@ export class AlumniRecordStorage {
             .orderBy(asc(alumniDatabase.id))
             .limit(2);
           const alumni = uniqueAlumniMatch(matches);
-          if (!alumni || alumni.matchedUserId !== null) return undefined;
+          if (!alumni?.matchedUserId || alumni.isMatched || alumni.status === "사망")
+            return undefined;
 
-          const [user] = await tx.insert(users).values(insertUser).returning();
+          const [user] = await tx
+            .update(users)
+            .set({ ...insertUser, updatedAt: new Date() })
+            .where(
+              and(
+                eq(users.id, alumni.matchedUserId),
+                isNull(users.kakaoId),
+                eq(users.isVerified, false),
+              ),
+            )
+            .returning();
+          if (!user) throw new AlumniClaimConflictError();
           const [claimed] = await tx
             .update(alumniDatabase)
             .set({ isMatched: true, matchedUserId: user.id })
-            .where(and(eq(alumniDatabase.id, alumni.id), isNull(alumniDatabase.matchedUserId)))
+            .where(and(eq(alumniDatabase.id, alumni.id), eq(alumniDatabase.matchedUserId, user.id)))
             .returning();
           if (!claimed) throw new AlumniClaimConflictError();
           return user;
@@ -157,7 +169,7 @@ export class AlumniRecordStorage {
     }
   }
 
-  async getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined> {
+  async getAlumniRecordByUserId(userId: string): Promise<AlumniRecord | undefined> {
     const alumni = await db
       .select()
       .from(alumniDatabase)

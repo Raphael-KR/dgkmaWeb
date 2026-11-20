@@ -56,7 +56,7 @@ export default function PostEdit() {
       </div>
     );
   }
-  if (!post || post.authorId !== user?.id) {
+  if (!post || !post.isAuthor) {
     return (
       <div className="member-container space-y-4">
         <p role="alert">작성한 게시글만 수정할 수 있습니다.</p>

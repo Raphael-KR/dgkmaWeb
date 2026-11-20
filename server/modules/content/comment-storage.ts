@@ -9,7 +9,7 @@ import type {
   CommentStorageContract,
 } from "./comment-storage-contract";
 
-const currentAdmin = (id: number) =>
+const currentAdmin = (id: string) =>
   sql<boolean>`exists (select 1 from ${users} where ${users.id} = ${id} and ${users.isAdmin} = true)`;
 
 export class CommentStorage implements CommentStorageContract {
@@ -41,9 +41,10 @@ export class CommentStorage implements CommentStorageContract {
         and(eq(comments.postId, postId), eq(posts.isPublished, true), eq(posts.isHidden, false)),
       )
       .orderBy(asc(comments.createdAt), asc(comments.id));
-    return rows.map(({ authorName, ...comment }) => ({
+    return rows.map(({ authorName, authorId, ...comment }) => ({
       ...comment,
-      author: comment.authorId ? { id: comment.authorId, name: authorName ?? "회원" } : null,
+      isAuthor: authorId === viewer.id,
+      author: authorId ? { name: authorName ?? "회원" } : null,
     }));
   }
 
@@ -52,7 +53,7 @@ export class CommentStorage implements CommentStorageContract {
     return comment;
   }
 
-  async createComment(data: CommentContent & { postId: number; authorId: number }) {
+  async createComment(data: CommentContent & { postId: number; authorId: string }) {
     return db.transaction(async (tx) => {
       const [parent] = await tx
         .select({ id: posts.id })

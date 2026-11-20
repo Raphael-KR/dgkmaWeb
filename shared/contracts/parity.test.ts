@@ -25,7 +25,7 @@ test("post metadata validates types and strips persistence-only fields", () => {
   for (const input of [undefined, {}, { title: "", content: "" }]) {
     assert.equal(contracts.insertPostSchema.safeParse(input).success, false);
   }
-  for (const field of ["categoryId", "authorId"]) {
+  for (const field of ["categoryId"]) {
     for (const value of [undefined, null, -2147483648, 2147483647]) {
       assert.equal(contracts.insertPostSchema.safeParse({ ...post, [field]: value }).success, true);
     }
@@ -136,11 +136,15 @@ const typeParity: [
   Equal<
     contracts.Post,
     JsonDates<
-      Omit<persistence.Post, "eventData" | "sourceText"> & {
+      Omit<persistence.Post, "eventData" | "sourceText" | "authorId"> & {
+        isAuthor: boolean;
         eventType: contracts.NoticeType | null;
       }
     >
   >,
-  Equal<contracts.Comment, JsonDates<persistence.Comment>>,
+  Equal<
+    contracts.Comment,
+    JsonDates<Omit<persistence.Comment, "authorId"> & { isAuthor: boolean }>
+  >,
 ] = [true, true, true];
 void typeParity;

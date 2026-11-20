@@ -13,7 +13,7 @@ import {
 
 export function registerKakaoApprovalCases() {
   test("admin approval phone conflict returns 409 with a safe message", async () => {
-    const adminUser = { ...createdUser, id: 1, isAdmin: true };
+    const adminUser = { ...createdUser, id: "00000000-0000-4000-8000-000000000001", isAdmin: true };
     const server = await startServer({
       getUserForAdmin: async () => adminUser,
       pendingRegistrationStorage: {
@@ -45,7 +45,7 @@ export function registerKakaoApprovalCases() {
 
   test("admin approval unresolved identity or alumni conflict returns 409", async () => {
     let updateCalls = 0;
-    const adminUser = { ...createdUser, id: 1, isAdmin: true };
+    const adminUser = { ...createdUser, id: "00000000-0000-4000-8000-000000000001", isAdmin: true };
     const server = await startServer({
       getUserForAdmin: async () => adminUser,
       pendingRegistrationStorage: {

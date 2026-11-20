@@ -7,7 +7,7 @@ import { registerRoutes } from "../../routes";
 import { storage } from "../../storage";
 
 const sessionUser: User = {
-  id: 51,
+  id: "00000000-0000-4000-8000-000000000051",
   kakaoId: "private-kakao-id",
   email: "member@example.com",
   name: "김동문",
@@ -31,11 +31,11 @@ type TestServer = {
 };
 
 type UpdateCall = {
-  readonly userId: number;
+  readonly userId: string;
   readonly data: Partial<InsertUser>;
 };
 
-async function startServer(sessionUserId?: number): Promise<TestServer> {
+async function startServer(sessionUserId?: string): Promise<TestServer> {
   const app = express();
   app.use(express.json());
   app.use(
@@ -77,8 +77,7 @@ async function createSession(server: TestServer): Promise<string> {
 function clientUserResponse(user: User): { readonly user: ClientUser } {
   return {
     user: {
-      id: user.id,
-      email: user.email,
+      email: user.email ?? "",
       name: user.name,
       graduationYear: user.graduationYear,
       isVerified: user.isVerified,
@@ -149,8 +148,8 @@ test("PATCH /api/users/me returns 401 when anonymous", async () => {
 
 test("GET /api/auth/me uses the session user ID and returns exactly ClientUser", async (t) => {
   // Given
-  const lookedUpUserIds: number[] = [];
-  t.mock.method(storage, "getUser", async (userId: number) => {
+  const lookedUpUserIds: string[] = [];
+  t.mock.method(storage, "getUser", async (userId: string) => {
     lookedUpUserIds.push(userId);
     return sessionUser;
   });
@@ -208,7 +207,10 @@ test("POST /api/users/activity-region ignores a spoofed body ID and returns exac
     const response = await fetch(`${server.baseUrl}/api/users/activity-region`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ userId: 999, activityRegion: "경기도" }),
+      body: JSON.stringify({
+        userId: "00000000-0000-4000-8000-000000000999",
+        activityRegion: "경기도",
+      }),
     });
 
     // Then

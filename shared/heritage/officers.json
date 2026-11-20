@@ -418,6 +418,51 @@
       ]
     },
     {
+      "term": 17,
+      "groups": [
+        {
+          "id": "leaders",
+          "title": "회장단",
+          "members": [
+            {
+              "name": "김형철",
+              "title": "회장"
+            },
+            {
+              "name": "배성민",
+              "title": "수석부회장"
+            },
+            {
+              "name": "이재관",
+              "title": "부회장"
+            },
+            {
+              "name": "공태현",
+              "title": "총무"
+            },
+            {
+              "name": "방재훈",
+              "title": "재무"
+            }
+          ]
+        },
+        {
+          "id": "auditors",
+          "title": "감사",
+          "members": [
+            {
+              "name": "박순재",
+              "title": "감사"
+            },
+            {
+              "name": "황정구",
+              "title": "감사"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "term": 22,
       "groups": [
         {

@@ -1,3 +1,4 @@
+import { RecordLinks } from "./heritage/record-details";
 import { PublicHeading } from "@/components/public-heading";
 import { useScrollToTop } from "@/hooks/use-scroll-to-top";
 import { PublicLayout } from "@/app/layout/public-layout";
@@ -268,6 +269,10 @@ export default function AboutBylaws() {
           <p>제3조 본 회칙은 총회에서 개정 통과된 날로부터 그 효력을 발생한다.</p>
           <p>제4조 본 개정 회칙은 2026년 2월 28일부터 시행한다.</p>
         </article>
+        <section className="mt-8" aria-label="과거 회칙 자료">
+          <h2 className="public-section-title">과거 회칙 자료</h2>
+          <RecordLinks documentIds={["cafe-dbpq-1"]} />
+        </section>
       </div>
     </PublicLayout>
   );

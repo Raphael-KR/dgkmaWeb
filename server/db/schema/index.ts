@@ -1,7 +1,9 @@
+import { POST_IMPORT_DATA_CHECK_SQL } from "./post-import-check";
 import {
   pgTable,
   text,
   serial,
+  uuid,
   integer,
   boolean,
   timestamp,
@@ -14,6 +16,7 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { PostImportData } from "@shared/contracts/post-import";
 import type { PostDocument } from "@shared/contracts/post-document";
 import type { NoticeData } from "@shared/contracts/notices";
 import type { PendingRegistrationUserData } from "@shared/contracts";
@@ -62,9 +65,9 @@ export type {
 } from "@shared/contracts";
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey(),
   kakaoId: text("kakao_id").unique(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   name: text("name").notNull(),
   graduationYear: integer("graduation_year"),
   isVerified: boolean("is_verified").default(false),
@@ -99,7 +102,9 @@ export const posts = pgTable(
     title: text("title").notNull(),
     content: jsonb("content").$type<PostDocument>().notNull(),
     categoryId: integer("category_id").references(() => categories.id),
-    authorId: integer("author_id").references(() => users.id),
+    authorId: uuid("author_id").references(() => users.id),
+    authorName: text("author_name"),
+    importData: jsonb("import_data").$type<PostImportData>(),
     isPublished: boolean("is_published").default(true),
     isHidden: boolean("is_hidden").notNull().default(false),
     imageUrls: text("image_urls").array(), // 오브젝트 스토리지 첨부 이미지 경로 목록
@@ -119,6 +124,14 @@ export const posts = pgTable(
       "posts_notice_type_check",
       sql`${table.eventData} IS NULL OR (${table.eventData}->>'schemaVersion' = '1' AND ${table.eventData}->>'eventType' IN ('obituary', 'wedding', 'opening')) IS TRUE`,
     ),
+    check("posts_import_data_check", sql.raw(POST_IMPORT_DATA_CHECK_SQL)),
+    uniqueIndex("posts_import_source_unique")
+      .on(
+        sql`(${table.importData}->>'platform')`,
+        sql`(${table.importData}->>'containerId')`,
+        sql`(${table.importData}->>'sourceId')`,
+      )
+      .where(sql`${table.importData} IS NOT NULL`),
     check("posts_revision_check", sql`${table.revision} >= 0`),
     uniqueIndex("posts_notice_draft_unique")
       .on(table.authorId, sql`(${table.eventData}->>'eventType')`)
@@ -134,7 +147,7 @@ export const comments = pgTable(
     postId: integer("post_id")
       .notNull()
       .references(() => posts.id, { onDelete: "cascade" }),
-    authorId: integer("author_id").references(() => users.id),
+    authorId: uuid("author_id").references(() => users.id),
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
     isHidden: boolean("is_hidden").notNull().default(false),
@@ -159,7 +172,7 @@ export const comments = pgTable(
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => users.id),
   amount: integer("amount").notNull(),
   year: integer("year").notNull(),
   type: text("type").notNull(), // 연회비, 기타
@@ -183,7 +196,9 @@ export const alumniDatabase = pgTable("alumni_database", {
   alumniPosition: text("alumni_position"), // 동문회직책
   memo: text("memo"), // 메모
   isMatched: boolean("is_matched").default(false),
-  matchedUserId: integer("matched_user_id").references(() => users.id),
+  matchedUserId: uuid("matched_user_id")
+    .unique()
+    .references(() => users.id),
 });
 
 export const alumniNameAliases = pgTable(
@@ -217,7 +232,7 @@ export const alumniNameAliases = pgTable(
 );
 
 export const eventParseRateLimits = pgTable("event_parse_rate_limits", {
-  userId: integer("user_id")
+  userId: uuid("user_id")
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
   windowStartedAt: timestamp("window_started_at", { withTimezone: true }).notNull().defaultNow(),
@@ -308,7 +323,7 @@ export const alumniNameAliasesRelations = relations(alumniNameAliases, ({ one })
 }));
 
 // Schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users, { email: z.string().email() }).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

@@ -43,15 +43,15 @@ export async function getAdminStatistics(period: AdminStatisticsPeriod): Promise
     )
     SELECT to_char(statement_timestamp() AT TIME ZONE 'UTC',
       'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "asOf",
-      (SELECT count(*)::integer FROM ${users}) AS "membersTotal",
-      (SELECT count(*)::integer FROM ${users} WHERE EXISTS (
+      (SELECT count(*)::integer FROM ${users} WHERE ${users.kakaoId} IS NOT NULL) AS "membersTotal",
+      (SELECT count(*)::integer FROM ${users} WHERE ${users.kakaoId} IS NOT NULL AND EXISTS (
         SELECT 1 FROM ${alumniDatabase} WHERE ${alumniDatabase.matchedUserId} = ${users.id}
       )) AS "membersLinked",
       (SELECT count(*)::integer FROM ${pendingRegistrations}
         WHERE ${pendingRegistrations.status} = 'pending') AS pending,
       (SELECT count(*)::integer FROM ${alumniDatabase}) AS "alumniTotal",
       (SELECT count(*)::integer FROM ${alumniDatabase}
-        WHERE ${alumniDatabase.matchedUserId} IS NOT NULL) AS "alumniLinked",
+        WHERE ${alumniDatabase.isMatched} = true) AS "alumniLinked",
       (SELECT count(*)::integer FROM published_posts
         WHERE published_at IS NULL) AS "undatedPosts",
       (SELECT count(*)::integer FROM period_posts) AS "postsTotal",

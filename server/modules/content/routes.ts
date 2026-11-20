@@ -1,3 +1,4 @@
+import { postPageQuerySchema } from "@shared/contracts/post-pagination";
 import { PostDocumentError } from "@shared/editor/post-document";
 import { postAttachmentPaths } from "@shared/contracts/post-input";
 import type { Express, Request, Response } from "express";
@@ -8,6 +9,7 @@ import {
   postRevisionSchema,
   postVisibilitySchema,
 } from "@shared/contracts";
+import { memberContent } from "./member-content";
 import { registerCommentRoutes } from "./comment-routes";
 import { requireAuthenticated } from "../../middleware/auth";
 import { isRegularPostCategory } from "@shared/category-policy";
@@ -31,7 +33,7 @@ function managementFailure(res: Response, error: unknown) {
   console.error("Post management failed", { errorType: getErrorType(error) });
   return res.status(500).json({ message: "게시글 변경을 처리하지 못했습니다." });
 }
-async function readableAttachments(paths: string[], userId: number) {
+async function readableAttachments(paths: string[], userId: string) {
   if (!paths.length) return true;
   const viewer = await storage.getUser(userId);
   if (!viewer) return false;
@@ -96,12 +98,11 @@ export function registerContentRoutes(app: Express): void {
   // Posts routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const { category, limit } = req.query;
-      const posts = await storage.getPosts(
-        category as string,
-        Math.min(100, Math.max(1, Number(limit) || 50)),
-      );
-      res.json(posts);
+      const { category } = req.query;
+      const page = postPageQuerySchema.safeParse(req.query);
+      if (!page.success) return res.status(400).json({ message: "페이지 범위를 확인해 주세요." });
+      const posts = await storage.getPosts(category as string, page.data.limit, page.data.offset);
+      res.json(posts.map((post) => memberContent(post, req.session.userId!)));
     } catch (error) {
       console.error("Failed to fetch posts", { errorType: getErrorType(error) });
       res.status(500).json({ message: "Failed to fetch posts" });
@@ -117,7 +118,7 @@ export function registerContentRoutes(app: Express): void {
       }
 
       const posts = await storage.searchPosts(query);
-      res.json(posts);
+      res.json(posts.map((post) => memberContent(post, req.session.userId!)));
     } catch (error) {
       console.error("Search error:", getErrorType(error));
       res.status(500).json({
@@ -130,12 +131,15 @@ export function registerContentRoutes(app: Express): void {
     try {
       const viewer = await storage.getUser(req.session.userId!);
       if (!viewer) return res.status(401).json({ message: "로그인이 필요합니다." });
-      res.json(
-        await storage.getHiddenPosts(
-          viewer,
-          typeof req.query.category === "string" ? req.query.category : undefined,
-        ),
+      const page = postPageQuerySchema.safeParse(req.query);
+      if (!page.success) return res.status(400).json({ message: "페이지 범위를 확인해 주세요." });
+      const hidden = await storage.getHiddenPosts(
+        viewer,
+        typeof req.query.category === "string" ? req.query.category : undefined,
+        page.data.limit,
+        page.data.offset,
       );
+      res.json(hidden.map((post) => memberContent(post, viewer.id)));
     } catch (error) {
       managementFailure(res, error);
     }
@@ -200,7 +204,7 @@ export function registerContentRoutes(app: Express): void {
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      res.json(post);
+      res.json(memberContent(post, viewer.id));
     } catch (error) {
       managementFailure(res, error);
     }
@@ -232,7 +236,7 @@ export function registerContentRoutes(app: Express): void {
         isPublished: true,
       });
       const { sourceText: _source, eventData: _event, ...publicPost } = post;
-      res.status(201).json({ ...publicPost, eventType: null });
+      res.status(201).json({ ...memberContent(publicPost, req.session.userId), eventType: null });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });

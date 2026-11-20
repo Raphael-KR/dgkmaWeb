@@ -82,7 +82,7 @@ export function useCreatePost() {
 
   function submit(data: InsertPost) {
     if (!bodyValid || !user || operationRef.current || uploads.pending.current) return;
-    const parsed = insertPostSchema.safeParse({ ...data, authorId: user.id });
+    const parsed = insertPostSchema.safeParse(data);
     if (!parsed.success) {
       toast({
         title: "입력 내용을 확인해 주세요",

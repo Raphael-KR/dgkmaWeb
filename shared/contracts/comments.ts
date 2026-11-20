@@ -6,7 +6,7 @@ import type { UploadedFile } from "./uploads";
 export type Comment = {
   id: number;
   postId: number;
-  authorId: number | null;
+  isAuthor: boolean;
   content: string;
   createdAt: string | null;
   editedAt: string | null;
@@ -18,7 +18,7 @@ export type Comment = {
 // A hidden comment's text and attachment are omitted for ordinary viewers.
 export type CommentWithAuthor = Omit<Comment, "content"> & {
   content: string | null;
-  author: { id: number; name: string } | null;
+  author: { name: string } | null;
 };
 
 const commentFields = z.object({

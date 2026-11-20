@@ -21,6 +21,10 @@ const publicColumns = {
   content: posts.content,
   categoryId: posts.categoryId,
   authorId: posts.authorId,
+  importData: posts.importData,
+  authorName: sql<
+    string | null
+  >`case when ${posts.authorId} is not null then ${users.name} else ${posts.authorName} end`,
   isPublished: posts.isPublished,
   isHidden: posts.isHidden,
   revision: posts.revision,
@@ -55,6 +59,7 @@ export class ContentStorage implements ContentStorageContract {
   async getPosts(
     categoryName?: string,
     limit = 50,
+    offset = 0,
   ): Promise<(PublishedPost & { category: Category })[]> {
     const baseCondition = visible();
     const whereCondition =
@@ -66,9 +71,11 @@ export class ContentStorage implements ContentStorageContract {
       .select(publicColumns)
       .from(posts)
       .innerJoin(categories, eq(posts.categoryId, categories.id))
+      .leftJoin(users, eq(posts.authorId, users.id))
       .where(whereCondition)
-      .orderBy(desc(sql`coalesce(${posts.publishedAt}, ${posts.createdAt})`))
-      .limit(limit);
+      .orderBy(desc(sql`coalesce(${posts.publishedAt}, ${posts.createdAt})`), desc(posts.id))
+      .limit(limit)
+      .offset(offset);
   }
 
   async getPost(
@@ -79,6 +86,7 @@ export class ContentStorage implements ContentStorageContract {
       .select(publicColumns)
       .from(posts)
       .innerJoin(categories, eq(posts.categoryId, categories.id))
+      .leftJoin(users, eq(posts.authorId, users.id))
       .where(
         and(
           eq(posts.id, id),
@@ -111,11 +119,14 @@ export class ContentStorage implements ContentStorageContract {
   async getHiddenPosts(
     viewer: PostViewer,
     categoryName?: string,
+    limit = 50,
+    offset = 0,
   ): Promise<(PublishedPost & { category: Category })[]> {
     return db
       .select(publicColumns)
       .from(posts)
       .innerJoin(categories, eq(posts.categoryId, categories.id))
+      .leftJoin(users, eq(posts.authorId, users.id))
       .where(
         and(
           eq(posts.isPublished, true),
@@ -124,8 +135,9 @@ export class ContentStorage implements ContentStorageContract {
           categoryName && categoryName !== "all" ? eq(categories.name, categoryName) : undefined,
         ),
       )
-      .orderBy(desc(posts.updatedAt))
-      .limit(100);
+      .orderBy(desc(posts.updatedAt), desc(posts.id))
+      .limit(limit)
+      .offset(offset);
   }
 
   async canReadPostAttachment(path: string, viewer: PostViewer): Promise<boolean> {
@@ -166,7 +178,7 @@ export class ContentStorage implements ContentStorageContract {
     );
   }
 
-  async updatePost(id: number, authorId: number, data: UpdatePost): Promise<Post | undefined> {
+  async updatePost(id: number, authorId: string, data: UpdatePost): Promise<Post | undefined> {
     const { revision, ...editable } = data;
     const [post] = await db
       .update(posts)
@@ -189,7 +201,7 @@ export class ContentStorage implements ContentStorageContract {
     return post;
   }
 
-  async deletePost(id: number, authorId: number, revision: number): Promise<boolean> {
+  async deletePost(id: number, authorId: string, revision: number): Promise<boolean> {
     const rows = await db
       .delete(posts)
       .where(
@@ -206,7 +218,7 @@ export class ContentStorage implements ContentStorageContract {
 
   async setPostHidden(
     id: number,
-    adminId: number,
+    adminId: string,
     revision: number,
     isHidden: boolean,
   ): Promise<boolean> {
@@ -231,13 +243,14 @@ export class ContentStorage implements ContentStorageContract {
       .select(publicColumns)
       .from(posts)
       .innerJoin(categories, eq(posts.categoryId, categories.id))
+      .leftJoin(users, eq(posts.authorId, users.id))
       .where(
         and(
           visible(),
           or(like(posts.title, searchTerm), like(postBodyTextExpression(), searchTerm)),
         ),
       )
-      .orderBy(desc(sql`coalesce(${posts.publishedAt}, ${posts.createdAt})`))
+      .orderBy(desc(sql`coalesce(${posts.publishedAt}, ${posts.createdAt})`), desc(posts.id))
       .limit(20);
   }
 }

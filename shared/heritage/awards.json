@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "id": "national-exam-top-2014-01",
+    "date": "2014-01",
+    "title": "제69회 한의사 국가시험 수석 합격",
+    "kind": "achievement",
+    "recipient": {
+      "name": "한예지"
+    },
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  },
+  {
+    "id": "national-exam-top-2016-01",
+    "date": "2016-01",
+    "title": "제71회 한의사 국가시험 수석 합격",
+    "kind": "achievement",
+    "recipient": {
+      "name": "김선혜"
+    },
+    "sources": [
+      {
+        "label": "모교 공식 연혁",
+        "url": "https://class.dongguk.ac.kr/HOME/orient/sub.htm?nav_code=ori1587953559"
+      }
+    ]
+  }
+]
