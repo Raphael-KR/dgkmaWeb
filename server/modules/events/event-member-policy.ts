@@ -3,8 +3,8 @@ import { admissionYearLabel } from "./member-labels";
 
 export type EventMemberStorage = {
   findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]>;
-  getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
-  getUser(userId: number): Promise<User | undefined>;
+  getAlumniRecordByUserId(userId: string): Promise<AlumniRecord | undefined>;
+  getUser(userId: string): Promise<User | undefined>;
 };
 
 export type EventMemberInput = {
@@ -48,7 +48,7 @@ function blocked(
 /** The session identifies the requester; only the server decides proxy authority. */
 export async function resolveEventMember(
   input: EventMemberInput,
-  requesterId: number,
+  requesterId: string,
   memberStorage: EventMemberStorage,
 ): Promise<EventMemberResolution> {
   const [requester, requesterAlumni] = await Promise.all([
@@ -105,6 +105,10 @@ export async function resolveEventMember(
   }
 
   const alumni = alumniMatches[0];
-  const user = alumni.matchedUserId ? await memberStorage.getUser(alumni.matchedUserId) : undefined;
+  const account =
+    alumni.isMatched && alumni.matchedUserId
+      ? await memberStorage.getUser(alumni.matchedUserId)
+      : undefined;
+  const user = account?.isVerified ? account : undefined;
   return { kind: "ready", user, alumni, memberDisplayName: alumni.name };
 }

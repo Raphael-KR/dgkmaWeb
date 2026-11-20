@@ -18,6 +18,18 @@ export function AlumniSyncPanel({
   googleSheetsFetching,
   refetchGoogleSheetsStatus,
 }: ReturnType<typeof useAlumniSync>) {
+  if (googleSheetsStatus?.registered !== undefined) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>동문 명부</CardTitle>
+        </CardHeader>
+        <CardContent>
+          홈페이지 DB에 등록된 동문 {googleSheetsStatus.registered.toLocaleString("ko-KR")}명
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card>
       <CardHeader>

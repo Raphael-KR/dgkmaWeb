@@ -61,23 +61,22 @@ export function registerMembershipRoutes(app: Express): void {
 }
 
 export function registerPaymentRoutes(app: Express, { requireAdmin }: RouteContext): void {
-  // Payments routes
-  app.get("/api/payments/user/:userId", async (req, res) => {
+  app.get("/api/payments/me", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "로그인이 필요합니다" });
     try {
-      const sessionUserId = req.session.userId;
-      if (!sessionUserId) {
-        return res.status(401).json({ message: "로그인이 필요합니다" });
-      }
-      const targetUserId = parseInt(req.params.userId);
-      // 본인 또는 관리자만 열람 가능 (타인 납부 내역 노출 방지).
-      if (targetUserId !== sessionUserId) {
-        const viewer = await storage.getUser(sessionUserId);
-        if (!viewer?.isAdmin) {
-          return res.status(403).json({ message: "권한이 없습니다" });
-        }
-      }
-      const payments = await storage.getPaymentsByUser(targetUserId);
-      res.json(payments);
+      const payments = await storage.getPaymentsByUser(req.session.userId);
+      res.json(payments.map(({ userId: _userId, ...payment }) => payment));
+    } catch (error) {
+      console.error("Failed to fetch payments", { errorType: getErrorType(error) });
+      res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.get("/api/payments/user/:userId", requireAdmin, async (req, res) => {
+    const id = z.string().uuid().safeParse(req.params.userId);
+    if (!id.success) return res.status(400).json({ message: "회원 ID를 확인해 주세요." });
+    try {
+      res.json(await storage.getPaymentsByUser(id.data));
     } catch (error) {
       console.error("Failed to fetch payments", { errorType: getErrorType(error) });
       res.status(500).json({ message: "Failed to fetch payments" });

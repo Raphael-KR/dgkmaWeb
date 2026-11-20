@@ -54,3 +54,5 @@
 [add-post-author-name.sql](../../scripts/add-post-author-name.sql)은 개발 heliumdb만 허용하며 posts에 author_name TEXT NULL을 추가한다. 기존 행·본문을 변환하지 않는다. 2026-11-14 개발 적용 기록은 [작성자 표시](../history/post-author-name-2026-11-14.md)를 따른다. 운영 적용용이 아니며 반복 실행하지 않는다.
 
 [add-post-import-data.sql](../../scripts/add-post-import-data.sql)은 개발 heliumdb에만 `posts.import_data` JSONB·형식 CHECK·원본 식별 부분 UNIQUE 인덱스를 추가한다. 기존 행 변환 없이 한 번만 적용한다. 일반 API는 이관 메타데이터를 입력받지 않는다.
+
+[회원 UUID 전환 CLI](../../scripts/convert-member-ids.ts)는 [기본키·외래키 DDL](../../scripts/convert-member-ids.sql)을 명부 대조와 같은 트랜잭션에서 실행한다. [실행 절차](../runbooks/database-operations.md#개발-회원-기본키-전환과-명부-사전-등록)

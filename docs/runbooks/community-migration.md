@@ -1,13 +1,13 @@
 # 커뮤니티 일회성 이관 도구
 
-분류·제외·실행 시점은 [이관 기준](../product/community-archive-migration-proposal.md)을 따른다. 다음카페와 밴드는 각각 전체 후보를 한 번에 반영하며 증분 이관하지 않는다. 아래 도구는 현재 다음카페 준비 자료용이며 BAND 자료를 입력하지 않는다. 운영 대상은 운영 개시 직전 최종 반영에서만 사용한다.
+분류·제외·실행 시점은 [이관 기준](../product/community-archive-migration-proposal.md)을 따른다. 다음카페와 밴드는 각각 전체 후보를 한 번에 반영하며 증분 이관하지 않는다. 아래 도구는 현재 다음카페 준비 자료용이며 BAND 자료를 입력하지 않는다. 운영 대상은 운영 이전을 승인한 릴리스에서 사용한다. 정식 운영 개시 전에는 다음카페 운영 이전분에도 초기 개발 데이터 정책을 적용한다.
 
 ## 공통 인자와 환경
 
-도구는 로컬 Git 제외 `local-backups/community/tools/`에 있다. Replit에서 `node --import tsx <도구> <workspace> <payload-directory> <mode> <environment> <expected-database>` 형식으로 호출한다. 백업 입력 도구의 `environment`는 development만 허용하며 DB 이름은 heliumdb를 명시한다. production 입력은 거부한다. 선택한 실제 DB 이름을 확인하고 다르면 쓰지 않는다.
+로컬과 Replit에서 같은 `local-backups/community/tools/` 소스를 사용한다. 실행에 필요한 Python·MJS 8개만 Git으로 관리한다. 같은 트리의 원본·SQLite·바이너리·변환물·payload·영수증은 계속 Git 제외다. Replit에서 `node --import tsx <도구> <workspace> <payload-directory> <mode> <environment> <expected-database>` 형식으로 호출한다. 백업 입력 도구의 `environment`는 development만 허용하며 DB 이름은 heliumdb를 명시한다. production 입력은 거부한다. 선택한 실제 DB 이름을 확인하고 다르면 쓰지 않는다.
 
 - 백업→개발 DB는 앱의 기본 PG* 선택을 유지한다. 운영 DB 선택은 아래 개발→운영 도구에만 있으며 Replit의 PROD_DATABASE_URL을 사용한다. PG*를 해제하거나 바꾸지 않는다.
-- 파일 저장소는 개발 PRIVATE_OBJECT_DIR을 사용한다. 운영 이전 도구만 PROD_PRIVATE_OBJECT_DIR을 사용한다. 운영용 값은 실제 운영 앱 PRIVATE_OBJECT_DIR과 일치해야 한다. 누락 시 개발 경로로 대신 쓰지 않는다. URL·Secret·비공개 경로를 로그에 출력하지 않는다. 설정 추가 자체는 이번 작업에서 실행하지 않았다.
+- 파일 저장소는 개발 PRIVATE_OBJECT_DIR을 사용한다. 운영 이전 도구만 PROD_PRIVATE_OBJECT_DIR을 사용한다. 운영용 값은 실제 운영 앱 PRIVATE_OBJECT_DIR과 일치해야 한다. 운영자에게서 두 환경의 실제 루트가 동일함을 확인한 경우 이전 명령에만 `PROD_PRIVATE_OBJECT_DIR="$PRIVATE_OBJECT_DIR"`를 전달할 수 있다. 확인 없이 개발 경로를 대입하지 않는다. URL·Secret·비공개 경로를 로그에 출력하지 않는다. 설정 추가 자체는 이번 작업에서 실행하지 않았다.
 - 백업 이관의 사진첩 경로는 개발 비공개 루트의 heritage/development다. 운영 이전 도구만 운영 루트의 heritage/production을 사용한다. 게시글 첨부는 선택한 루트의 uploads 경로와 기존 앱 참조 계약을 사용한다.
 
 ## 게시글

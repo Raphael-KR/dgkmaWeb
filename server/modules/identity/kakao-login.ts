@@ -100,14 +100,14 @@ export async function completeKakaoAuthorization(
         (alumni) => normalizePhoneForComparison(alumni.mobile ?? "") === normalizedPhone,
       );
       const alumniMatch = alumniMatches.length === 1 ? alumniMatches[0] : undefined;
-      if (!alumniMatch) {
+      if (!alumniMatch?.matchedUserId || alumniMatch.status === "사망") {
         return await createPendingReview(
           "not_found",
           "가입 신청이 접수되었습니다",
           "동문 정보를 확인한 뒤 관리자가 가입을 처리합니다.",
         );
       }
-      if (alumniMatch.matchedUserId !== null) {
+      if (alumniMatch.isMatched) {
         return await createPendingReview(
           "alumni_claimed",
           "동문 정보 확인이 필요합니다",

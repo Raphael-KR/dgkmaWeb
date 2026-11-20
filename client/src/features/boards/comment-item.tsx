@@ -15,7 +15,7 @@ type Props = {
 
 export function CommentItem({ comment, user, controller }: Props) {
   const [editRevision, setEditRevision] = useState<number | null>(null);
-  const own = user?.id === comment.authorId;
+  const own = comment.isAuthor;
   const busy = controller.pending;
   const hidden = comment.isHidden && comment.content === null;
   return (

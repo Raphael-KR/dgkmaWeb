@@ -19,9 +19,10 @@ async function cleanupRegistrationRace(
   const client = await pool.connect();
   try {
     await client.query("begin");
-    await client.query("delete from alumni_database where mobile = any($1::text[])", [
-      identities.mobiles,
-    ]);
+    const reserved = await client.query(
+      "delete from alumni_database where mobile = any($1::text[]) returning matched_user_id",
+      [identities.mobiles],
+    );
     await client.query(
       `delete from pending_registrations
         where kakao_id = any($1::text[]) or lower(email) = any($2::text[])`,
@@ -32,6 +33,9 @@ async function cleanupRegistrationRace(
         where kakao_id = any($1::text[]) or lower(email) = any($2::text[])`,
       [identities.kakaoIds, identities.emails.map((email) => email.toLowerCase())],
     );
+    await client.query("delete from users where id = any($1::uuid[])", [
+      reserved.rows.map((row) => row.matched_user_id),
+    ]);
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
@@ -89,9 +93,9 @@ test(
 
     try {
       await pool.query(
-        `insert into alumni_database
-        (department, generation, name, mobile, is_matched, matched_user_id)
-       values ($1, $2, $3, $4, false, null)`,
+        `with reserved as (insert into users(id,name) values(gen_random_uuid(),$3) returning id)
+       insert into alumni_database (department,generation,name,mobile,is_matched,matched_user_id)
+       select $1,$2,$3,$4,false,id from reserved`,
         ["한의학과", "RACE", name, domesticPhone],
       );
       const pendingResult = await pool.query<{ id: number }>(
@@ -175,13 +179,13 @@ test(
       const finalState = await pool.query<{
         user_count: number;
         pending_count: number;
-        user_id: number | null;
+        user_id: string | null;
       }>(
         `select
          (select count(*)::int from users where kakao_id = $1) as user_count,
          (select count(*)::int from pending_registrations
            where kakao_id = $1 and status = 'pending') as pending_count,
-         (select min(id)::int from users where kakao_id = $1) as user_id`,
+         (select id from users where kakao_id = $1) as user_id`,
         [kakaoId],
       );
       assert.deepEqual(finalState.rows[0], {
@@ -235,11 +239,9 @@ test(
 
     try {
       await pool.query(
-        `insert into alumni_database
-        (department, generation, name, mobile, is_matched, matched_user_id)
-       values
-        ($1, $2, $3, $4, false, null),
-        ($1, $2, $5, $6, false, null)`,
+        `with reserved as (insert into users(id,name) values(gen_random_uuid(),$3),(gen_random_uuid(),$5) returning id,name)
+       insert into alumni_database (department,generation,name,mobile,is_matched,matched_user_id)
+       select $1,$2,name,case when name=$3 then $4 else $6 end,false,id from reserved`,
         [
           "한의학과",
           "EMAIL-RACE",

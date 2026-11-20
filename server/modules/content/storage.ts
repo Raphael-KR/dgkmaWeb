@@ -178,7 +178,7 @@ export class ContentStorage implements ContentStorageContract {
     );
   }
 
-  async updatePost(id: number, authorId: number, data: UpdatePost): Promise<Post | undefined> {
+  async updatePost(id: number, authorId: string, data: UpdatePost): Promise<Post | undefined> {
     const { revision, ...editable } = data;
     const [post] = await db
       .update(posts)
@@ -201,7 +201,7 @@ export class ContentStorage implements ContentStorageContract {
     return post;
   }
 
-  async deletePost(id: number, authorId: number, revision: number): Promise<boolean> {
+  async deletePost(id: number, authorId: string, revision: number): Promise<boolean> {
     const rows = await db
       .delete(posts)
       .where(
@@ -218,7 +218,7 @@ export class ContentStorage implements ContentStorageContract {
 
   async setPostHidden(
     id: number,
-    adminId: number,
+    adminId: string,
     revision: number,
     isHidden: boolean,
   ): Promise<boolean> {

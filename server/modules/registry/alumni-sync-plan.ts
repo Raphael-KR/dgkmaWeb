@@ -26,7 +26,7 @@ export type AlumniDatabaseRecord = Omit<AlumniSourceRecord, "rowNumber"> & {
   address?: string | null;
   phone?: string | null;
   isMatched?: boolean | null;
-  matchedUserId?: number | null;
+  matchedUserId?: string | null;
 };
 
 export type AlumniManagedRecord = Omit<AlumniSourceRecord, "rowNumber"> & {

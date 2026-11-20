@@ -21,7 +21,6 @@ import { EventSourcePolicyError } from "./event-source-policy";
 
 type EditToken = {
   version: 1;
-  userId: number;
   postId: number;
   revision: number;
   expiresAt: number;
@@ -36,26 +35,26 @@ const digest = (title: string, content: string) =>
     .update(JSON.stringify([title, content]))
     .digest("hex");
 
-function signature(encoded: string) {
+function signature(encoded: string, userId: string) {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new NoticeGenerationError("경조사 수정 설정을 확인해 주세요.", 503);
-  return createHmac("sha256", secret).update(`dgkma:notice-edit:v1:${encoded}`).digest();
+  return createHmac("sha256", secret).update(`dgkma:notice-edit:v1:${userId}:${encoded}`).digest();
 }
 
-function signToken(payload: EditToken) {
+function signToken(userId: string, payload: EditToken) {
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const token = `${encoded}.${signature(encoded).toString("base64url")}`;
+  const token = `${encoded}.${signature(encoded, userId).toString("base64url")}`;
   if (token.length > 250_000)
     throw new NoticeGenerationError("정정 내용을 줄여 다시 작성해 주세요.");
   return token;
 }
 
-function verifyToken(token: string): EditToken {
+function verifyToken(token: string, userId: string): EditToken {
   const [encoded, mac, extra] = token.split(".");
   const invalid = () =>
     new NoticeGenerationError("미리보기가 만료되었거나 변경되었습니다. 다시 작성해 주세요.", 409);
   if (!encoded || !mac || extra !== undefined) throw invalid();
-  const expected = signature(encoded);
+  const expected = signature(encoded, userId);
   const received = Buffer.from(mac, "base64url");
   if (received.length !== expected.length || !timingSafeEqual(received, expected)) throw invalid();
   const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as EditToken;
@@ -100,7 +99,7 @@ export function registerNoticeEditRoutes(
   // 상위 /api/posts/notices 미들웨어가 인증과 no-store를 적용한다.
   app.post("/api/posts/notices/:id/edit-preview", eventParseLimiter, async (req, res) => {
     try {
-      signature(""); // 유료 추출 요청 전에 서명 설정을 확인한다.
+      signature("", req.session.userId!); // 유료 추출 요청 전에 서명 설정을 확인한다.
       const input = noticeCorrectionSchema.parse(req.body);
       const post = await ownPublishedNotice(req);
       if (post.revision !== input.revision) {
@@ -154,9 +153,8 @@ export function registerNoticeEditRoutes(
         sources: sources.sources,
         previewToken: rendered.questions.length
           ? null
-          : signToken({
+          : signToken(req.session.userId!, {
               version: 1,
-              userId: req.session.userId!,
               postId: post.id,
               revision: post.revision,
               expiresAt: Date.now() + 15 * 60_000,
@@ -174,10 +172,9 @@ export function registerNoticeEditRoutes(
   app.patch("/api/posts/notices/:id/edit", async (req, res) => {
     try {
       const { previewToken } = saveNoticeCorrectionSchema.parse(req.body);
-      const token = verifyToken(previewToken);
+      const token = verifyToken(previewToken, req.session.userId!);
       const post = await ownPublishedNotice(req);
       if (
-        token.userId !== req.session.userId ||
         token.postId !== post.id ||
         token.revision !== post.revision ||
         token.eventData.eventType !== post.eventData!.eventType

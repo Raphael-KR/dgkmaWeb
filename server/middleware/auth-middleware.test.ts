@@ -3,7 +3,7 @@ import test from "node:test";
 import type { NextFunction, Request, Response } from "express";
 import { createRequireAdmin, createVerifiedSessionGuard } from "./auth";
 
-function requestWithUserId(userId: number): Request {
+function requestWithUserId(userId: string): Request {
   return { session: { userId } } as unknown as Request;
 }
 
@@ -28,7 +28,11 @@ test("requireAdmin returns 401 for a missing session user", async () => {
   const middleware = createRequireAdmin(async () => undefined);
   const { response, state } = responseDouble();
 
-  await middleware(requestWithUserId(7), response, (() => {}) as NextFunction);
+  await middleware(
+    requestWithUserId("00000000-0000-4000-8000-000000000007"),
+    response,
+    (() => {}) as NextFunction,
+  );
 
   assert.equal(state.status, 401);
 });
@@ -47,7 +51,11 @@ test("requireAdmin returns 500 without logging the original error", async () => 
     });
     const { response, state } = responseDouble();
 
-    await middleware(requestWithUserId(7), response, (() => {}) as NextFunction);
+    await middleware(
+      requestWithUserId("00000000-0000-4000-8000-000000000007"),
+      response,
+      (() => {}) as NextFunction,
+    );
 
     assert.equal(state.status, 500);
     assert.equal(calls.flat().includes(secretError), false);
@@ -59,7 +67,8 @@ test("requireAdmin returns 500 without logging the original error", async () => 
 
 for (const verified of [true, false, null]) {
   test(`session approval guard handles approval=${verified}`, async () => {
-    const request = requestWithUserId(7);
+    const memberId = "00000000-0000-4000-8000-000000000007";
+    const request = requestWithUserId(memberId);
     let destroyed = false;
     request.session.destroy = (done) => {
       destroyed = true;
@@ -78,7 +87,7 @@ for (const verified of [true, false, null]) {
     assert.equal(nextCalls, verified ? 1 : 0);
     assert.equal(destroyed, !verified);
     assert.equal(state.status, verified ? undefined : 401);
-    assert.equal(request.session.userId, verified ? 7 : undefined);
+    assert.equal(request.session.userId, verified ? memberId : undefined);
   });
 }
 

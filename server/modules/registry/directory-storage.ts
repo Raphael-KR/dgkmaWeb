@@ -1,35 +1,11 @@
-import { alumniDatabase, type User } from "@shared/schema";
-import { eq, and, like, or, asc, count, type SQL } from "drizzle-orm";
+import { alumniDatabase, users, type User } from "@shared/schema";
+import { eq, and, like, or, asc, count, sql, type SQL } from "drizzle-orm";
 import { db } from "../../db";
 import type { DirectoryAlumni, DirectoryResult } from "@shared/contracts/directory";
 import type { AlumniRecordStorage } from "./alumni-record-storage";
 
 // 목록만 제한한다. 총원은 같은 열람 범위의 별도 count로 계산한다.
 const DIRECTORY_LIST_LIMIT = 5000;
-
-// 회원 활동지역(시/도) → 동문 DB 주소 텍스트 매칭 패턴.
-// 주소가 약칭/정식 혼재("충북 청주" vs "충청북도")이므로 가능한 표기를 함께 검사.
-// '해외'는 주소 형식이 일정치 않아 매칭 불가(빈 배열).
-const REGION_PATTERNS: Record<string, string[]> = {
-  서울특별시: ["서울"],
-  부산광역시: ["부산"],
-  대구광역시: ["대구"],
-  인천광역시: ["인천"],
-  광주광역시: ["광주"],
-  대전광역시: ["대전"],
-  울산광역시: ["울산"],
-  세종특별자치시: ["세종"],
-  경기도: ["경기"],
-  강원특별자치도: ["강원"],
-  충청북도: ["충청북", "충북"],
-  충청남도: ["충청남", "충남"],
-  전북특별자치도: ["전북", "전라북"],
-  전라남도: ["전라남", "전남"],
-  경상북도: ["경상북", "경북"],
-  경상남도: ["경상남", "경남"],
-  제주특별자치도: ["제주"],
-  해외: [],
-};
 
 export class DirectoryStorage {
   // 실제 호출 receiver는 RegistryStorage/DatabaseStorage의 공통 facade다.
@@ -56,10 +32,9 @@ export class DirectoryStorage {
 
     // 2) 뷰어 지부(지역) — users.activityRegion 기준
     const region = viewer.activityRegion ?? null;
-    const regionPatterns = region ? (REGION_PATTERNS[region] ?? []) : [];
 
     // 열람 범위를 산출할 수 없으면(기수·지역 모두 없음, 관리자 아님) 빈 결과 + 안내 플래그
-    const hasScope = isAdmin || !!generation || regionPatterns.length > 0;
+    const hasScope = isAdmin || !!generation || !!region;
     if (!hasScope) {
       return { alumni: [], total: 0, hasScope: false, scope: { generation, region } };
     }
@@ -69,8 +44,10 @@ export class DirectoryStorage {
     if (!isAdmin) {
       const scopeOrs: SQL[] = [];
       if (generation) scopeOrs.push(eq(alumniDatabase.generation, generation));
-      for (const p of regionPatterns) {
-        scopeOrs.push(like(alumniDatabase.address, `%${p}%`));
+      if (region) {
+        scopeOrs.push(sql`exists (select 1 from ${users}
+          where ${users.id} = ${alumniDatabase.matchedUserId}
+          and ${users.isVerified} = true and ${users.activityRegion} = ${region})`);
       }
       scopeCond = scopeOrs.length === 1 ? scopeOrs[0] : or(...scopeOrs)!;
     }

@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import { pool } from "../../db";
 
 export type ConsumeEventParseQuota = (
-  userId: number,
+  userId: string,
   windowMs: number,
   max: number,
 ) => Promise<boolean>;
@@ -55,7 +55,7 @@ export function createEventParseLimiter({
   maxConcurrentGlobal = 8,
   consumeQuota = consumePostgresEventParseQuota,
 }: EventParseLimiterOptions = {}): RequestHandler {
-  const activeByUserId = new Map<number, number>();
+  const activeByUserId = new Map<string, number>();
   let activeGlobal = 0;
 
   return async (req, res, next) => {

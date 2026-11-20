@@ -59,7 +59,8 @@ def fetch_member(member_id: str) -> dict:
 def parse_iso(value: str | None) -> dt.datetime | None:
     if not value:
         return None
-    return dt.datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(KST)
+    parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return parsed.astimezone(KST) if parsed.tzinfo else parsed.replace(tzinfo=KST)
 
 
 def format_phone(value: str | None) -> str | None:

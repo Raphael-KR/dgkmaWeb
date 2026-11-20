@@ -18,12 +18,15 @@ import {
 import { createEventParseLimiter } from "../modules/events/event-parse-limiter";
 import { createDefaultEventSourceReader } from "../modules/events/routes";
 
+import { registeredRosterCount } from "../modules/registry/alumni-sync-storage";
+
 export type RouteDependencies = {
+  registeredRosterCount?: () => Promise<number | null>;
   getUserForAdmin?: AdminUserLookup;
   getKakaoOAuthConfig?: () => KakaoOAuthConfig;
   kakaoFetch?: typeof fetch;
   getKakaoAdminConfig?: () => KakaoAdminConfig;
-  getAccountDeletionUser?: (userId: number) => Promise<User | undefined>;
+  getAccountDeletionUser?: (userId: string) => Promise<User | undefined>;
   deleteUserAccount?: (
     user: Pick<User, "id" | "kakaoId" | "email">,
     beforeDelete?: (user: User) => Promise<void>,
@@ -59,7 +62,7 @@ export type RouteDependencies = {
 
 export function createRouteContext(dependencies: RouteDependencies = {}) {
   const getUserForAdmin =
-    dependencies.getUserForAdmin ?? ((userId: number) => storage.getUser(userId));
+    dependencies.getUserForAdmin ?? ((userId: string) => storage.getUser(userId));
   const requireAdmin = createRequireAdmin(getUserForAdmin);
   const getKakaoOAuthConfig = dependencies.getKakaoOAuthConfig ?? (() => resolveKakaoOAuthConfig());
   const kakaoFetch = dependencies.kakaoFetch ?? fetch;
@@ -89,7 +92,7 @@ export function createRouteContext(dependencies: RouteDependencies = {}) {
   const getKakaoAdminConfig = dependencies.getKakaoAdminConfig ?? (() => resolveKakaoAdminConfig());
   const isKakaoAdministrator = dependencies.isKakaoAdministrator ?? isConfiguredKakaoAdministrator;
   const getAccountDeletionUser =
-    dependencies.getAccountDeletionUser ?? ((userId: number) => storage.getUser(userId));
+    dependencies.getAccountDeletionUser ?? ((userId: string) => storage.getUser(userId));
   const deleteUserAccount =
     dependencies.deleteUserAccount ??
     ((user: Pick<User, "id" | "kakaoId" | "email">, beforeDelete?: (user: User) => Promise<void>) =>
@@ -106,6 +109,7 @@ export function createRouteContext(dependencies: RouteDependencies = {}) {
     kakaoAuthStorage,
     pendingRegistrationStorage,
     alumniSyncStorage,
+    registeredRosterCount: dependencies.registeredRosterCount ?? registeredRosterCount,
     kakaoOAuthStateStore,
     getKakaoAdminConfig,
     isKakaoAdministrator,

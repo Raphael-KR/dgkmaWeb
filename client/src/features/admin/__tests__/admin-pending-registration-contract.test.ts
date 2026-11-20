@@ -39,7 +39,7 @@ test("admin pending list and approval responses expose only the approved DTO", a
   app.use(express.json());
   app.use(session({ secret: "admin-contract-secret", resave: false, saveUninitialized: false }));
   app.post("/__test/admin-session", (req, res) => {
-    req.session.userId = 1;
+    req.session.userId = "00000000-0000-4000-8000-000000000001";
     res.json({ ok: true });
   });
   const server = await registerRoutes(app, {

@@ -44,7 +44,7 @@ export function registerKakaoMemberSessionCases() {
       return response;
     };
     const existingUser: User = {
-      id: 7,
+      id: "00000000-0000-4000-8000-000000000007",
       kakaoId: "123456789",
       email: "member@example.com",
       name: "홍길동",
@@ -118,7 +118,6 @@ export function registerKakaoMemberSessionCases() {
       });
       const responseBody = await response.json();
       assert.deepEqual(responseBody.user, {
-        id: 7,
         email: "member@example.com",
         name: "홍길동",
         graduationYear: 2004,
@@ -160,13 +159,13 @@ export function registerKakaoMemberSessionCases() {
       kakaoAuthStorage: kakaoAuthStorageDouble({
         getUser: async () => storedUser,
         getUserByKakaoId: async () => storedUser,
-        updateUser: async (_id: number, updates: Partial<User>) => {
+        updateUser: async (_id: string, updates: Partial<User>) => {
           savedUpdates = updates;
           storedUser = { ...storedUser, ...updates };
           return storedUser;
         },
         finalizeKakaoLogin: async (
-          _userId: number,
+          _userId: string,
           _generation: unknown,
           saveSession: () => Promise<void>,
         ) => {
@@ -196,12 +195,12 @@ export function registerKakaoMemberSessionCases() {
       kakaoAuthStorage: kakaoAuthStorageDouble({
         getUser: async () => storedUser,
         getUserByKakaoId: async () => storedUser,
-        updateUser: async (_id: number, updates: Partial<User>) => {
+        updateUser: async (_id: string, updates: Partial<User>) => {
           savedUpdates = updates;
           return { ...storedUser, ...updates };
         },
         finalizeKakaoLogin: async (
-          _userId: number,
+          _userId: string,
           _generation: unknown,
           saveSession: () => Promise<void>,
         ) => {
@@ -236,7 +235,7 @@ export function registerKakaoMemberSessionCases() {
       new Response(JSON.stringify(userInfo)),
     ];
     const existingUser = {
-      id: 7,
+      id: "00000000-0000-4000-8000-000000000007",
       kakaoId: "123456789",
       email: "member@example.com",
       name: "홍길동",

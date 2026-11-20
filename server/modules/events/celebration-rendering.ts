@@ -83,7 +83,11 @@ async function childPerson(
     return;
   }
   const alumni = matches[0];
-  const user = alumni.matchedUserId ? await storage.getUser(alumni.matchedUserId) : undefined;
+  const account =
+    alumni.isMatched && alumni.matchedUserId
+      ? await storage.getUser(alumni.matchedUserId)
+      : undefined;
+  const user = account?.isVerified ? account : undefined;
   const membership = user ? await storage.getMembershipStatus(user.id) : undefined;
   return {
     name: alumni.name,
