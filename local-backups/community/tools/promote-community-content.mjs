@@ -117,7 +117,7 @@ if (mode === "--export-development") {
     await capture(path.slice("/objects/".length), "attachment");
   }
   for (const file of new Set(catalog.photos.map((p) => p.file)))
-    await capture("heritage/development/" + file, "photo", file.split("/").pop());
+    await capture("heritage/development/photos/" + file, "photo", file);
   const [again] = await catalogObject.download();
   if (hash(again) !== hash(bytes)) fail("catalog-changed-during-export");
   const snapshot = {
@@ -186,7 +186,7 @@ for (const file of snapshot.files) {
     fail("file-validation-failed:" + file.sha256);
   await validateUploadContents(data, file.name, file.contentType);
 }
-const referenced = new Set(catalog.photos.map((p) => "heritage/development/" + p.file));
+const referenced = new Set(catalog.photos.map((p) => "heritage/development/photos/" + p.file));
 for (const post of snapshot.posts) {
   if (
     !Number.isSafeInteger(post.id) ||
