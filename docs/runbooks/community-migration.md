@@ -4,7 +4,7 @@
 
 ## 공통 인자와 환경
 
-도구 소스는 `local-backups/community/tools/`에 있으며 사용하는 Python·MJS 8개를 Git으로 관리한다. 같은 트리의 원본·SQLite·바이너리·변환물·payload·영수증은 계속 Git 제외다. Replit에서 `node --import tsx <도구> <workspace> <payload-directory> <mode> <environment> <expected-database>` 형식으로 호출한다. 백업 입력 도구의 `environment`는 development만 허용하며 DB 이름은 heliumdb를 명시한다. production 입력은 거부한다. 선택한 실제 DB 이름을 확인하고 다르면 쓰지 않는다.
+로컬과 Replit에서 같은 `local-backups/community/tools/` 소스를 사용한다. 실행에 필요한 Python·MJS 8개만 Git으로 관리한다. 같은 트리의 원본·SQLite·바이너리·변환물·payload·영수증은 계속 Git 제외다. Replit에서 `node --import tsx <도구> <workspace> <payload-directory> <mode> <environment> <expected-database>` 형식으로 호출한다. 백업 입력 도구의 `environment`는 development만 허용하며 DB 이름은 heliumdb를 명시한다. production 입력은 거부한다. 선택한 실제 DB 이름을 확인하고 다르면 쓰지 않는다.
 
 - 백업→개발 DB는 앱의 기본 PG* 선택을 유지한다. 운영 DB 선택은 아래 개발→운영 도구에만 있으며 Replit의 PROD_DATABASE_URL을 사용한다. PG*를 해제하거나 바꾸지 않는다.
 - 파일 저장소는 개발 PRIVATE_OBJECT_DIR을 사용한다. 운영 이전 도구만 PROD_PRIVATE_OBJECT_DIR을 사용한다. 운영용 값은 실제 운영 앱 PRIVATE_OBJECT_DIR과 일치해야 한다. 운영자에게서 두 환경의 실제 루트가 동일함을 확인한 경우 이전 명령에만 `PROD_PRIVATE_OBJECT_DIR="$PRIVATE_OBJECT_DIR"`를 전달할 수 있다. 확인 없이 개발 경로를 대입하지 않는다. URL·Secret·비공개 경로를 로그에 출력하지 않는다. 설정 추가 자체는 이번 작업에서 실행하지 않았다.
