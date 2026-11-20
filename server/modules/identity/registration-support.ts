@@ -108,11 +108,10 @@ export async function markKakaoIdentityTerminated(
 
 export async function removeLocalUsers(
   tx: RegistrationTransaction,
-  userIds: number[],
+  userIds: string[],
   deletePendingPersonalData: () => Promise<unknown>,
 ): Promise<void> {
   if (userIds.length > 0) {
-    const userCondition = inArray(users.id, userIds);
     await tx
       .delete(posts)
       .where(and(inArray(posts.authorId, userIds), eq(posts.isPublished, false)));
@@ -121,7 +120,7 @@ export async function removeLocalUsers(
     await tx.update(payments).set({ userId: null }).where(inArray(payments.userId, userIds));
     await tx
       .update(alumniDatabase)
-      .set({ isMatched: false, matchedUserId: null })
+      .set({ isMatched: false })
       .where(inArray(alumniDatabase.matchedUserId, userIds));
 
     await deletePendingPersonalData();
@@ -132,7 +131,33 @@ export async function removeLocalUsers(
         where sess ->> 'userId' = ${String(userId)}
       `);
     }
-    await tx.delete(users).where(userCondition);
+    const roster = await tx
+      .select({ memberId: alumniDatabase.matchedUserId })
+      .from(alumniDatabase)
+      .where(inArray(alumniDatabase.matchedUserId, userIds));
+    const registeredIds = new Set(roster.map((row) => row.memberId));
+    const unlinked = userIds.filter((id) => !registeredIds.has(id));
+    if (unlinked.length) await tx.delete(users).where(inArray(users.id, unlinked));
+    if (!roster.length) return;
+    // Restore the roster identity so a later application claims the same alumnus.
+    await tx
+      .update(users)
+      .set({
+        name: sql`(select a.name from alumni_database a where a.matched_user_id = ${users.id})`,
+        email: null,
+        kakaoId: null,
+        phoneNumber: null,
+        profileImage: null,
+        birthday: null,
+        birthdayType: null,
+        isLeapMonth: null,
+        activityRegion: null,
+        isAdmin: false,
+        isVerified: false,
+        kakaoSyncEnabled: false,
+        updatedAt: new Date(),
+      })
+      .where(inArray(users.id, userIds));
     return;
   }
 
@@ -143,7 +168,7 @@ export async function withPhoneRegistrationLock<T>(
   tx: RegistrationTransaction,
   phoneNumber: string,
   register: (normalizedPhone: string) => Promise<T>,
-  existingUserId?: number,
+  existingUserId?: string,
 ): Promise<T> {
   const normalizedPhone = normalizePhoneForComparison(phoneNumber);
   if (!normalizedPhone) {

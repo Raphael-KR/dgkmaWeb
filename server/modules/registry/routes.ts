@@ -1,5 +1,6 @@
 import type { Express, Response } from "express";
 import { REGISTRATION_APPROVAL_STATUSES } from "@shared/contracts";
+import { registeredRosterCount, RosterAlreadyRegisteredError } from "./alumni-sync-storage";
 import { z } from "zod";
 import {
   storage,
@@ -113,7 +114,13 @@ export function registerRegistryAdminRoutes(
       const registrations = await pendingRegistrationStorage.getPendingRegistrationReviews(
         parsedStatus.data,
       );
-      res.json(registrations);
+      res.json(
+        registrations.map((row) =>
+          row.recordType === "member"
+            ? { ...row, isSelf: row.memberId === req.session.userId }
+            : row,
+        ),
+      );
     } catch (error) {
       console.error("Failed to fetch pending registrations", { errorType: getErrorType(error) });
       res.status(500).json({ message: "가입 목록을 불러오지 못했습니다." });
@@ -171,8 +178,8 @@ export function registerRegistryAdminRoutes(
   });
 
   app.post("/api/admin/members/:id/cancel-approval", async (req, res) => {
-    const id = parsePositiveInteger(req.params.id);
-    if (id === undefined)
+    const id = req.params.id;
+    if (!z.string().uuid().safeParse(id).success)
       return res.status(400).json({ message: "유효하지 않은 회원 번호입니다." });
     try {
       const registration = await pendingRegistrationStorage.cancelMemberApproval(
@@ -191,6 +198,8 @@ export function registerRegistryAdminRoutes(
       const report = await alumniSyncStorage.previewAlumniSync();
       res.json({ report, fingerprint: report.sourceFingerprint });
     } catch (error) {
+      if (error instanceof RosterAlreadyRegisteredError)
+        return res.status(409).json({ message: error.message });
       console.error("Alumni sync preview error:", getErrorType(error));
       res.status(500).json({ message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요" });
     }
@@ -206,6 +215,8 @@ export function registerRegistryAdminRoutes(
       const report = await alumniSyncStorage.applyAlumniSync(parsedRequest.data.fingerprint);
       res.json({ report });
     } catch (error) {
+      if (error instanceof RosterAlreadyRegisteredError)
+        return res.status(409).json({ message: error.message });
       if (error instanceof AlumniSyncFingerprintMismatchError) {
         return res.status(409).json({ message: "명부가 변경되었습니다. 다시 미리보기 해주세요" });
       }
@@ -223,6 +234,9 @@ export function registerRegistryAdminRoutes(
   // Google Sheets 연결 테스트 API
   app.get("/api/admin/test-google-sheets", async (req, res) => {
     try {
+      const registered = await registeredRosterCount();
+      if (registered !== null)
+        return res.json({ registered, connected: false, message: "홈페이지 DB에서 관리합니다." });
       const { googleSheetsService } = await import("../../integrations/google-sheets");
       const isConnected = await googleSheetsService.testConnection();
 

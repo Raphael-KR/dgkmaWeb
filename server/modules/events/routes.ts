@@ -22,6 +22,7 @@ import { renderNotice } from "./notice-rendering";
 import { EventSourcePolicyError } from "./event-source-policy";
 import type { RouteContext } from "../../lib/route-context";
 import { registerNoticeEditRoutes } from "./notice-edit";
+import { memberContent } from "../content/member-content";
 import { getErrorType } from "../../lib/safe-logging";
 
 export type RouteEventSourceReader = (
@@ -81,12 +82,11 @@ export function registerEventRoutes(
 
   app.post(`${base}/drafts/:type`, async (req, res) => {
     try {
-      res.json(
-        await storage.getNoticeDraft(
-          req.session.userId!,
-          z.enum(NOTICE_TYPES).parse(req.params.type),
-        ),
+      const draft = await storage.getNoticeDraft(
+        req.session.userId!,
+        z.enum(NOTICE_TYPES).parse(req.params.type),
       );
+      res.json(memberContent(draft, req.session.userId!));
     } catch (error) {
       failure(res, error);
     }
@@ -110,7 +110,7 @@ export function registerEventRoutes(
         },
       });
       if (!saved) return conflict(res);
-      res.json(saved);
+      res.json(memberContent(saved, req.session.userId!));
     } catch (error) {
       failure(res, error);
     }
@@ -174,7 +174,7 @@ export function registerEventRoutes(
         eventData: { ...data, questions: rendered.questions },
       });
       if (!saved) return conflict(res);
-      res.json(saved);
+      res.json(memberContent(saved, req.session.userId!));
     } catch (error) {
       failure(res, error);
     }

@@ -48,7 +48,7 @@ export function parsePendingUserData(
 export function memberRegistrationData(user: User): PendingRegistrationUserData {
   return {
     kakaoId: user.kakaoId ?? "",
-    email: user.email,
+    email: user.email ?? "",
     name: user.name,
     phoneNumber: user.phoneNumber ?? "",
     profileImage: user.profileImage,

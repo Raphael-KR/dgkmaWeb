@@ -32,7 +32,7 @@ export async function approveRegistration(
   if (
     existing &&
     (existing.isVerified ||
-      existing.email.trim().toLowerCase() !== data.email.trim().toLowerCase() ||
+      existing.email?.trim().toLowerCase() !== data.email.trim().toLowerCase() ||
       normalizeNameForComparison(existing.name) !== normalizeNameForComparison(data.name) ||
       normalizePhoneForComparison(existing.phoneNumber ?? "") !==
         normalizePhoneForComparison(data.phoneNumber))
@@ -69,7 +69,11 @@ export async function approveRegistration(
         .orderBy(asc(alumniDatabase.id))
         .limit(2);
       const alumni = uniqueAlumniMatch(matches);
-      if (!alumni || (alumni.matchedUserId !== null && alumni.matchedUserId !== existing?.id))
+      if (
+        !alumni?.matchedUserId ||
+        alumni.status === "사망" ||
+        (existing ? alumni.matchedUserId !== existing.id : alumni.isMatched)
+      )
         throw new PendingRegistrationConflictError();
       if (existing) {
         const links = await tx
@@ -86,8 +90,8 @@ export async function approveRegistration(
             .where(eq(users.id, existing.id))
             .returning()
         : await tx
-            .insert(users)
-            .values({
+            .update(users)
+            .set({
               kakaoId: data.kakaoId,
               email: data.email,
               name: data.name,
@@ -101,20 +105,21 @@ export async function approveRegistration(
                 : null,
               isVerified: true,
               kakaoSyncEnabled: true,
+              updatedAt: new Date(),
             })
+            .where(
+              and(
+                eq(users.id, alumni.matchedUserId),
+                isNull(users.kakaoId),
+                eq(users.isVerified, false),
+              ),
+            )
             .returning();
+      if (!user) throw new PendingRegistrationConflictError();
       const [claimed] = await tx
         .update(alumniDatabase)
         .set({ isMatched: true, matchedUserId: user.id })
-        .where(
-          and(
-            eq(alumniDatabase.id, alumni.id),
-            or(
-              isNull(alumniDatabase.matchedUserId),
-              existing ? eq(alumniDatabase.matchedUserId, existing.id) : undefined,
-            ),
-          ),
-        )
+        .where(and(eq(alumniDatabase.id, alumni.id), eq(alumniDatabase.matchedUserId, user.id)))
         .returning();
       if (!claimed) throw new PendingRegistrationConflictError();
       await tx

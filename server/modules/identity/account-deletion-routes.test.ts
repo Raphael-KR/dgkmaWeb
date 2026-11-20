@@ -9,7 +9,7 @@ import { KakaoUnlinkError } from "../../integrations/kakao/kakao-unlink";
 import { registerRoutes, type RouteDependencies } from "../../routes";
 
 const sessionUser: User = {
-  id: 51,
+  id: "00000000-0000-4000-8000-000000000051",
   kakaoId: "123456789",
   email: "member@example.com",
   name: "김동문",
@@ -142,7 +142,11 @@ test("account deletion unlinks and deletes only the session user, then clears th
   const server = await startServer(dependencies);
   try {
     const cookie = await createSession(server);
-    const response = await deleteAccount(server, { confirmation: "탈퇴", userId: 999 }, cookie);
+    const response = await deleteAccount(
+      server,
+      { confirmation: "탈퇴", userId: "00000000-0000-4000-8000-000000000999" },
+      cookie,
+    );
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { success: true });
     assert.deepEqual(calls.unlinkArgs, [

@@ -34,7 +34,7 @@ export async function getApprovedMemberDetails(): Promise<AdminApprovedMemberDto
       ),
     )
     .orderBy(asc(alumniDatabase.id));
-  const linkedByMember = new Map<number, AdminLinkedAlumniRecordDto[]>();
+  const linkedByMember = new Map<string, AdminLinkedAlumniRecordDto[]>();
   for (const { memberId, ...record } of linkedRows) {
     if (memberId === null) continue;
     const records = linkedByMember.get(memberId) ?? [];
@@ -48,7 +48,7 @@ export async function getApprovedMemberDetails(): Promise<AdminApprovedMemberDto
     recordType: "member",
     status: "approved",
     name: member.name,
-    email: member.email,
+    email: member.email ?? "",
     createdAt: member.createdAt?.toISOString() ?? null,
     profile: {
       phoneNumber: member.phoneNumber,

@@ -7,7 +7,7 @@ import { registerRoutes } from "../../routes";
 import { storage } from "../../storage";
 
 const validPayload = {
-  userId: 41,
+  userId: "00000000-0000-4000-8000-000000000041",
   amount: 50000,
   year: 2026,
   type: "연회비",
@@ -32,7 +32,7 @@ async function startAdminPaymentServer() {
     }),
   );
   app.post("/__test/admin-session", (req, res) => {
-    req.session.userId = 1;
+    req.session.userId = "00000000-0000-4000-8000-000000000001";
     res.json({ ok: true });
   });
 
@@ -81,7 +81,7 @@ test("Given an administrator, When a valid payment is posted, Then it returns th
     assert.equal(response.status, 201);
     assert.deepEqual(await response.json(), {
       id: 77,
-      userId: 41,
+      userId: "00000000-0000-4000-8000-000000000041",
       amount: 50000,
       year: 2026,
       type: "연회비",
@@ -108,7 +108,7 @@ test("Given an administrator, When amount is omitted, Then it returns validation
       method: "POST",
       headers: { cookie: server.cookie, "content-type": "application/json" },
       body: JSON.stringify({
-        userId: 41,
+        userId: "00000000-0000-4000-8000-000000000041",
         year: 2026,
         type: "연회비",
         status: "completed",

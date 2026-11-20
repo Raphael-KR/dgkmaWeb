@@ -147,6 +147,40 @@ export class GoogleSheetsService {
     }
   }
 
+  // One-time bootstrap. Read A and B:K in one request to keep IDs paired with their row.
+  async fetchIdentityRoster() {
+    if (!this.sheets || !this.spreadsheetId) throw new Error("동문 명부 연결 설정이 필요합니다.");
+    const { data } = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.spreadsheetId,
+      range: "'통합주소록'!A:K",
+    });
+    const [header = [], ...rows] = data.values ?? [];
+    const columns = ["alumni_uid", ...Object.values(SOURCE_COLUMNS)];
+    if (columns.some((label, index) => cellValue(header, index) !== label))
+      throw new Error("명부 A:K 열 구성이 다릅니다.");
+    const ids = new Set<string>();
+    return rows.map((row) => {
+      const id = cellValue(row, 0).toLowerCase();
+      const name = cellValue(row, 3);
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id) ||
+        ids.has(id) ||
+        !name ||
+        !cellValue(row, 2)
+      )
+        throw new Error("명부에 잘못된 UUID, 중복 UUID 또는 필수값 누락이 있습니다.");
+      ids.add(id);
+      return {
+        id,
+        name,
+        department: cellValue(row, 1),
+        generation: cellValue(row, 2),
+        graduation: cellValue(row, 5),
+        mobile: cellValue(row, 6),
+      };
+    });
+  }
+
   async fetchAlumniSnapshot(): Promise<AlumniSourceSnapshot> {
     if (!this.sheets || !this.spreadsheetId) {
       return {

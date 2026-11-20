@@ -46,7 +46,7 @@ async function startRejectionServer(
   app.use(express.json());
   app.use(session({ secret: "pending-rejection-secret", resave: false, saveUninitialized: false }));
   app.post("/__test/admin-session", (req, res) => {
-    req.session.userId = 1;
+    req.session.userId = "00000000-0000-4000-8000-000000000001";
     res.json({ ok: true });
   });
 
@@ -189,7 +189,10 @@ test("rejection preserves the application and re-review returns it to pending wi
 
 test("administrator cannot cancel their own approval", async () => {
   await assert.rejects(
-    new RegistrationDecisionStorage().cancelMemberApproval(1, 1),
+    new RegistrationDecisionStorage().cancelMemberApproval(
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000001",
+    ),
     RegistrationStateConflictError,
   );
 });

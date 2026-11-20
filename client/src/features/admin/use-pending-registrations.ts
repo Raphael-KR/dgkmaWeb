@@ -70,7 +70,8 @@ export function usePendingRegistrations(enabled: boolean) {
   const updateRegistrationMutation = useMutation<
     AdminPendingRegistrationUpdateResult,
     Error,
-    { id: number; action: "approve" | "reject" | "reopen" | "cancel" | "delete" }
+    | { id: number; action: "approve" | "reject" | "reopen" | "delete" }
+    | { id: string; action: "cancel" }
   >({
     mutationFn: async ({ id, action }) => {
       const nextStatus = {
@@ -135,7 +136,7 @@ export function usePendingRegistrations(enabled: boolean) {
   };
 
   const handleReopen = (id: number) => updateRegistrationMutation.mutate({ id, action: "reopen" });
-  const handleCancel = (id: number) => updateRegistrationMutation.mutate({ id, action: "cancel" });
+  const handleCancel = (id: string) => updateRegistrationMutation.mutate({ id, action: "cancel" });
 
   const handleDelete = (id: number) => updateRegistrationMutation.mutate({ id, action: "delete" });
 

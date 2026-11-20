@@ -32,7 +32,7 @@ async function renderPython(
 export async function renderNotice(
   data: NoticeData,
   sourceText: string,
-  requesterId: number,
+  requesterId: string,
   storage: IStorage,
 ): Promise<{ title: string; content: string; questions: string[] }> {
   const f = data.facts;

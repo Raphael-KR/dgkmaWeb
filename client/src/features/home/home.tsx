@@ -50,7 +50,7 @@ export default function Home() {
     refetch: refetchMembership,
   } = useQuery<MembershipStatus>({
     queryKey: ["/api/membership/status"],
-    enabled: !!user?.id,
+    enabled: !!user,
   });
 
   if (isLoading) {

@@ -53,7 +53,7 @@ export function registerKakaoOAuthStartCases() {
         headers: { cookie },
       });
       assert.equal(afterStart.status, 200);
-      assert.equal((await afterStart.json()).user.id, createdUser.id);
+      assert.equal("id" in (await afterStart.json()).user, false);
     } finally {
       await server.close();
     }
@@ -208,7 +208,7 @@ export function registerKakaoOAuthStartCases() {
         headers: { cookie: authenticatedCookie },
       });
       assert.equal(meResponse.status, 200);
-      assert.equal((await meResponse.json()).user.id, createdUser.id);
+      assert.equal("id" in (await meResponse.json()).user, false);
     } finally {
       await server.close();
     }

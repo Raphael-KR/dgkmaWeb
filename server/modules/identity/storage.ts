@@ -14,7 +14,7 @@ import { findRegistrationHold, RegistrationApprovalRequiredError } from "./regis
 import type { IdentityStorageContract } from "./storage-contract";
 
 export class IdentityStorage implements IdentityStorageContract {
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
@@ -45,7 +45,7 @@ export class IdentityStorage implements IdentityStorageContract {
   }
 
   async updateUser(
-    id: number,
+    id: string,
     updateData: Partial<InsertUser>,
     oauthGeneration?: KakaoOAuthGeneration,
   ): Promise<User | undefined> {
@@ -77,7 +77,7 @@ export class IdentityStorage implements IdentityStorageContract {
   }
 
   async finalizeKakaoLogin(
-    userId: number,
+    userId: string,
     generation: KakaoOAuthGeneration,
     saveSession: () => Promise<void>,
   ): Promise<User> {
@@ -106,12 +106,12 @@ export class IdentityStorage implements IdentityStorageContract {
     beforeDelete: (user: User) => Promise<void> = async () => {},
   ): Promise<void> {
     await db.transaction(async (tx) => {
-      await lockRegistrationIdentities(tx, user.kakaoId ?? "", user.email);
+      await lockRegistrationIdentities(tx, user.kakaoId ?? "", user.email ?? "");
       const [lockedUser] = await tx.select().from(users).where(eq(users.id, user.id)).for("update");
       if (!lockedUser) return;
 
       await beforeDelete(lockedUser);
-      if (lockedUser.kakaoId) {
+      if (lockedUser.kakaoId && lockedUser.email) {
         await markKakaoIdentityTerminated(tx, lockedUser.kakaoId, lockedUser.email);
       }
       await removeLocalUsers(tx, [lockedUser.id], () =>
@@ -120,7 +120,9 @@ export class IdentityStorage implements IdentityStorageContract {
           .where(
             or(
               lockedUser.kakaoId ? eq(pendingRegistrations.kakaoId, lockedUser.kakaoId) : undefined,
-              sql`lower(${pendingRegistrations.email}) = ${lockedUser.email.trim().toLowerCase()}`,
+              lockedUser.email
+                ? sql`lower(${pendingRegistrations.email}) = ${lockedUser.email.trim().toLowerCase()}`
+                : undefined,
             ),
           ),
       );

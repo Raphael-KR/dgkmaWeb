@@ -41,7 +41,7 @@ test("notice corrections render and save the selected URL for every notice type"
   type Saved = { eventData: NoticeData; title: string; content: PostDocument };
   type Published = Saved & {
     id: number;
-    authorId: number;
+    authorId: string;
     revision: number;
     isPublished: boolean;
     isHidden: boolean;
@@ -49,18 +49,23 @@ test("notice corrections render and save the selected URL for every notice type"
   let facts = emptyNoticeFacts();
   let post: Published | undefined;
   let saved: Saved | undefined;
-  const user = { id: 7, name: "김동국", phoneNumber: "010-0000-0000", isAdmin: false };
+  const user = {
+    id: "00000000-0000-4000-8000-000000000007",
+    name: "김동국",
+    phoneNumber: "010-0000-0000",
+    isAdmin: false,
+  };
   const storage = {
-    async getOwnNotice(id: number, userId: number) {
+    async getOwnNotice(id: number, userId: string) {
       assert.equal(id, 1);
       assert.equal(userId, user.id);
       return post;
     },
-    async getUser(id: number) {
+    async getUser(id: string) {
       assert.equal(id, user.id);
       return user;
     },
-    async getAlumniRecordByUserId(id: number) {
+    async getAlumniRecordByUserId(id: string) {
       assert.equal(id, user.id);
       return {
         name: user.name,
@@ -69,11 +74,11 @@ test("notice corrections render and save the selected URL for every notice type"
         mobile: user.phoneNumber,
       };
     },
-    async getMembershipStatus(id: number) {
+    async getMembershipStatus(id: string) {
       assert.equal(id, user.id);
       return { tier: "회원" };
     },
-    async updatePublishedNotice(id: number, userId: number, revision: number, payload: Saved) {
+    async updatePublishedNotice(id: number, userId: string, revision: number, payload: Saved) {
       assert.equal(id, post?.id);
       assert.equal(userId, user.id);
       assert.equal(revision, post?.revision);

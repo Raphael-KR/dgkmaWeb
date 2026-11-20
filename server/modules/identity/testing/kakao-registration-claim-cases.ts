@@ -20,7 +20,7 @@ export function registerKakaoRegistrationClaimCases() {
   test("pending registration revokes a pre-authenticated session for a different Kakao identity", async () => {
     const preAuthenticatedMember: User = {
       ...createdUser,
-      id: 1,
+      id: "00000000-0000-4000-8000-000000000001",
       kakaoId: "111222333",
       email: "pre-authenticated@example.com",
     };
@@ -62,7 +62,7 @@ export function registerKakaoRegistrationClaimCases() {
         headers: { cookie },
       });
       assert.equal(beforeAuthorizationResponse.status, 200);
-      assert.equal((await beforeAuthorizationResponse.json()).user.id, preAuthenticatedMember.id);
+      assert.equal("id" in (await beforeAuthorizationResponse.json()).user, false);
 
       const startResponse = await fetch(`${server.baseUrl}/api/auth/kakao/start`, {
         headers: { cookie },
@@ -130,7 +130,7 @@ export function registerKakaoRegistrationClaimCases() {
     let pendingUserData: Record<string, unknown> | undefined;
     const existingPhoneUser = {
       ...createdUser,
-      id: 17,
+      id: "00000000-0000-4000-8000-000000000017",
       kakaoId: "existing-kakao-id",
       email: "existing@example.com",
       phoneNumber: "010-9876-5432",
@@ -177,7 +177,11 @@ export function registerKakaoRegistrationClaimCases() {
   test("already claimed alumni record requires approval without creating a member", async () => {
     let createUserCalled = false;
     let pendingUserData: Record<string, unknown> | undefined;
-    const claimedAlumni = { ...alumniRecord, isMatched: true, matchedUserId: 17 };
+    const claimedAlumni = {
+      ...alumniRecord,
+      isMatched: true,
+      matchedUserId: "00000000-0000-4000-8000-000000000017",
+    };
     const dependencies = {
       getKakaoOAuthConfig: () => config,
       kakaoFetch: kakaoResponses(),

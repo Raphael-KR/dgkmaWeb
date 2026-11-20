@@ -18,14 +18,14 @@ export type CreateOrRefreshPendingRegistrationResult =
   { kind: "pending"; registration: PendingRegistration } | { kind: "registered"; user: User };
 
 export interface RegistryStorageContract {
-  // This registration path owns the indivisible user-insert/alumni-claim transaction.
+  // Activate a pre-registered identity and claim its roster record in one transaction.
   createUserWithAlumniClaim(
     user: InsertUser,
     name: string,
     phoneNumber: string,
     oauthStartedAt?: Date,
   ): Promise<User | undefined>;
-  getAlumniRecordByUserId(userId: number): Promise<AlumniRecord | undefined>;
+  getAlumniRecordByUserId(userId: string): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
   findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]>;
   previewAlumniSync(): Promise<AlumniSyncReport>;
@@ -45,6 +45,6 @@ export interface RegistryStorageContract {
     beforeDelete: (registration: PendingRegistration) => Promise<void>,
   ): Promise<{ id: number } | undefined>;
   reopenPendingRegistration(id: number): Promise<PendingRegistration | undefined>;
-  cancelMemberApproval(userId: number, actorId: number): Promise<PendingRegistration | undefined>;
+  cancelMemberApproval(userId: string, actorId: string): Promise<PendingRegistration | undefined>;
   approvePendingRegistration(id: number): Promise<PendingRegistration | undefined>;
 }

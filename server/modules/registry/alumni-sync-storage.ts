@@ -1,6 +1,6 @@
-import { alumniDatabase } from "@shared/schema";
+import { alumniDatabase, users } from "@shared/schema";
 import type { AlumniSyncReport } from "@shared/alumni-sync";
-import { eq, sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { googleSheetsService } from "../../integrations/google-sheets";
 import { planAlumniSync } from "./alumni-sync-plan";
@@ -28,9 +28,26 @@ export class AlumniSyncInProgressError extends Error {
   }
 }
 
+export async function registeredRosterCount(connection: Pick<typeof db, "select"> = db) {
+  const [row] = await connection
+    .select({
+      total: count(alumniDatabase.matchedUserId),
+      usesMemberUuid: sql<boolean>`pg_typeof((select ${users.id} from ${users} limit 0)) = 'uuid'::regtype`,
+    })
+    .from(alumniDatabase);
+  return row.usesMemberUuid ? row.total : null;
+}
+
+export class RosterAlreadyRegisteredError extends Error {
+  constructor() {
+    super("사전 등록이 끝난 명부는 홈페이지 DB에서 관리합니다.");
+  }
+}
+
 // 적용 시 advisory lock과 원본 재조회·fingerprint 확인을 한 트랜잭션에 유지한다.
 export class AlumniSyncStorage {
   async previewAlumniSync(): Promise<AlumniSyncReport> {
+    if ((await registeredRosterCount()) !== null) throw new RosterAlreadyRegisteredError();
     const snapshot = await googleSheetsService.fetchAlumniSnapshot();
     const databaseRecords = await db.select().from(alumniDatabase);
     return planAlumniSync(snapshot, databaseRecords).report;
@@ -47,6 +64,7 @@ export class AlumniSyncStorage {
         throw new AlumniSyncInProgressError();
       }
 
+      if ((await registeredRosterCount(tx)) !== null) throw new RosterAlreadyRegisteredError();
       const snapshot = await googleSheetsService.fetchAlumniSnapshot();
       const databaseRecords = await tx.select().from(alumniDatabase);
       const plan = planAlumniSync(snapshot, databaseRecords);

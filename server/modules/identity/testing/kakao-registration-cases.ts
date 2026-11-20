@@ -52,7 +52,7 @@ export function registerKakaoRegistrationCases() {
     let updateUserCalled = false;
     let createUserCalled = false;
     let pendingUserData: Record<string, unknown> | undefined;
-    const emailUser = { ...createdUser, id: 17, kakaoId: null };
+    const emailUser = { ...createdUser, id: "00000000-0000-4000-8000-000000000017", kakaoId: null };
     const server = await startServer({
       getKakaoOAuthConfig: () => config,
       kakaoFetch: kakaoResponses(),
@@ -92,7 +92,7 @@ export function registerKakaoRegistrationCases() {
   test("pending refresh that finds an approved Kakao member logs that member in", async () => {
     const approvedUser = {
       ...createdUser,
-      id: 73,
+      id: "00000000-0000-4000-8000-000000000073",
       activityRegion: "서울특별시",
       profileImage: "https://cdn.example.com/stale-profile.jpg",
       birthday: "0101",
@@ -105,18 +105,18 @@ export function registerKakaoRegistrationCases() {
       getKakaoOAuthConfig: () => config,
       kakaoFetch: kakaoResponses(),
       kakaoAuthStorage: kakaoAuthStorageDouble({
-        getUser: async (id: number) => (id === approvedUser.id ? storedApprovedUser : undefined),
+        getUser: async (id: string) => (id === approvedUser.id ? storedApprovedUser : undefined),
         createOrRefreshPendingRegistration: async () => ({
           kind: "registered" as const,
           user: approvedUser,
         }),
-        updateUser: async (_id: number, updates: Partial<User>) => {
+        updateUser: async (_id: string, updates: Partial<User>) => {
           savedUpdates = updates;
           storedApprovedUser = { ...approvedUser, ...updates };
           return storedApprovedUser;
         },
         finalizeKakaoLogin: async (
-          _userId: number,
+          _userId: string,
           _generation: unknown,
           saveSession: () => Promise<void>,
         ) => {
@@ -140,7 +140,7 @@ export function registerKakaoRegistrationCases() {
         "approved member login must issue an authenticated session cookie",
       );
       const responseBody = await response.json();
-      assert.equal(responseBody.user.id, approvedUser.id);
+      assert.equal("id" in responseBody.user, false);
       assert.equal(responseBody.user.profileImage, null);
       assert.equal(responseBody.user.birthday, null);
       assert.deepEqual(savedUpdates, {
