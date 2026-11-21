@@ -1,4 +1,9 @@
-import { users, pendingRegistrations, type PendingRegistration } from "@shared/schema";
+import {
+  accountUserColumns,
+  users,
+  pendingRegistrations,
+  type PendingRegistration,
+} from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
@@ -46,10 +51,18 @@ async function withPendingDecision<T>(
   });
 }
 
-async function suspendMemberSessions(tx: RegistrationTransaction, userId: string) {
+async function suspendMemberSessions(
+  tx: RegistrationTransaction,
+  userId: string,
+  status: "가입 대기" | "가입 거부" | "미가입",
+) {
   await tx
     .update(users)
-    .set({ isVerified: false, updatedAt: new Date() })
+    .set({
+      isVerified: false,
+      alumniStatus: sql`case when ${users.alumniStatus} in ('사망','동문회 탈퇴자') then ${users.alumniStatus} else ${status} end`,
+      updatedAt: new Date(),
+    })
     .where(eq(users.id, userId));
   await tx.execute(sql`delete from "session" where sess ->> 'userId' = ${String(userId)}`);
 }
@@ -58,14 +71,14 @@ export class RegistrationDecisionStorage {
   async rejectPendingRegistration(id: number): Promise<PendingRegistration | undefined> {
     return withPendingDecision(id, "pending", async (tx, registration) => {
       const [member] = await tx
-        .select()
+        .select(accountUserColumns)
         .from(users)
         .where(eq(users.kakaoId, registration.kakaoId))
         .for("update");
       // 인증 완료 회원의 낡은 신청을 거부해서 승인 취소 절차를 우회하지 않는다.
       if (member?.isVerified) throw new RegistrationStateConflictError();
       await markKakaoIdentityTerminated(tx, registration.kakaoId, registration.email);
-      if (member) await suspendMemberSessions(tx, member.id);
+      if (member) await suspendMemberSessions(tx, member.id, "가입 거부");
       const [updated] = await tx
         .update(pendingRegistrations)
         .set({ status: "rejected" })
@@ -81,7 +94,7 @@ export class RegistrationDecisionStorage {
   ): Promise<{ id: number } | undefined> {
     return withPendingDecision(id, "rejected", async (tx, registration) => {
       const [member] = await tx
-        .select()
+        .select(accountUserColumns)
         .from(users)
         .where(eq(users.kakaoId, registration.kakaoId))
         .for("update");
@@ -89,7 +102,7 @@ export class RegistrationDecisionStorage {
       await beforeDelete(registration);
       await markKakaoIdentityTerminated(tx, registration.kakaoId, registration.email);
       if (member) {
-        await suspendMemberSessions(tx, member.id);
+        await suspendMemberSessions(tx, member.id, "미가입");
         await tx.update(users).set({ kakaoSyncEnabled: false }).where(eq(users.id, member.id));
       }
       // 승인된 삭제 범위는 신청과 카카오 연결이다. 회원·명부·콘텐츠는 건드리지 않는다.
@@ -103,10 +116,18 @@ export class RegistrationDecisionStorage {
   async reopenPendingRegistration(id: number): Promise<PendingRegistration | undefined> {
     return withPendingDecision(id, "rejected", async (tx, registration) => {
       const [member] = await tx
-        .select({ isVerified: users.isVerified })
+        .select({ id: users.id, isVerified: users.isVerified, alumniStatus: users.alumniStatus })
         .from(users)
-        .where(eq(users.kakaoId, registration.kakaoId));
-      if (member?.isVerified) throw new RegistrationStateConflictError();
+        .where(eq(users.kakaoId, registration.kakaoId))
+        .for("update");
+      if (member?.isVerified || member?.alumniStatus === "사망")
+        throw new RegistrationStateConflictError();
+      if (member && member.alumniStatus !== "동문회 탈퇴자") {
+        await tx
+          .update(users)
+          .set({ alumniStatus: "가입 대기", updatedAt: new Date() })
+          .where(eq(users.id, member.id));
+      }
       const [updated] = await tx
         .update(pendingRegistrations)
         .set({ status: "pending" })
@@ -137,10 +158,17 @@ export class RegistrationDecisionStorage {
         .where(eq(users.id, actorId));
       if (!actor?.isAdmin || !actor.isVerified)
         throw new RegistrationStateConflictError("현재 관리자 권한을 확인할 수 없습니다.");
-      const [candidate] = await tx.select().from(users).where(eq(users.id, userId));
+      const [candidate] = await tx
+        .select(accountUserColumns)
+        .from(users)
+        .where(eq(users.id, userId));
       if (!candidate) return undefined;
       await lockRegistrationIdentities(tx, candidate.kakaoId ?? "", candidate.email ?? "");
-      const [member] = await tx.select().from(users).where(eq(users.id, userId)).for("update");
+      const [member] = await tx
+        .select(accountUserColumns)
+        .from(users)
+        .where(eq(users.id, userId))
+        .for("update");
       if (!member) return undefined;
       if (
         !member.isVerified ||
@@ -154,7 +182,7 @@ export class RegistrationDecisionStorage {
         );
 
       await markKakaoIdentityTerminated(tx, member.kakaoId, member.email);
-      await suspendMemberSessions(tx, member.id);
+      await suspendMemberSessions(tx, member.id, "가입 대기");
       const [existing] = await tx
         .select()
         .from(pendingRegistrations)

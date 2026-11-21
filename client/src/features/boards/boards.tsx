@@ -11,6 +11,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { QueryError } from "@/components/query-error";
 import { apiRequest } from "@/lib/queryClient";
 import { PostExcerpt } from "@/components/post-body";
+import { PostAuthor, PostDate } from "@/components/post-metadata";
 import type { Category, PostWithCategory } from "@shared/contracts";
 import { HeartHandshake, ArrowUpRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -188,17 +189,11 @@ export default function Boards() {
                       href={`/p/${post.id}`}
                       className="group flex min-w-0 flex-col rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:p-5"
                     >
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                         <CategoryBadge category={post.category} />
                         {post.isHidden && <Badge variant="secondary">가린 글</Badge>}
-                        <time
-                          className="text-xs text-gray-500"
-                          dateTime={post.publishedAt || post.createdAt || undefined}
-                        >
-                          {new Date(post.publishedAt || post.createdAt || "").toLocaleDateString(
-                            "ko-KR",
-                          )}
-                        </time>
+                        {post.importData && <PostAuthor name={post.authorName} />}
+                        <PostDate post={post} />
                       </div>
                       <h3 className="mb-2 line-clamp-2 break-words font-bold text-gray-800 group-hover:text-kakao-orange md:text-lg">
                         {post.title}

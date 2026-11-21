@@ -1,3 +1,4 @@
+import { formatJoinedDate } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -112,9 +113,11 @@ export function PendingRegistrationsPanel({
                     )}
                     <p className="text-xs text-gray-500">
                       {registration.recordType === "member" ? "가입일: " : "신청일: "}
-                      {registration.createdAt
-                        ? new Date(registration.createdAt).toLocaleDateString()
-                        : "날짜 정보 없음"}
+                      {registration.recordType === "member"
+                        ? formatJoinedDate(registration.joinedAt)
+                        : registration.createdAt
+                          ? new Date(registration.createdAt).toLocaleDateString()
+                          : "날짜 정보 없음"}
                     </p>
                   </div>
                   <Badge variant="outline">{statusLabels[status]}</Badge>

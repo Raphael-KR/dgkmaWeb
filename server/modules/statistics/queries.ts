@@ -7,15 +7,14 @@ import {
   type PublicationDay,
 } from "@shared/contracts/admin-statistics";
 import { db } from "../../db";
-import { users, pendingRegistrations, alumniDatabase, posts, categories } from "../../db/schema";
+import { users, pendingRegistrations, posts, categories } from "../../db/schema";
 
 type StatisticsRow = {
   asOf: string;
   membersTotal: number;
-  membersLinked: number;
+  unregistered: number;
   pending: number;
   alumniTotal: number;
-  alumniLinked: number;
   undatedPosts: number;
   postsTotal: number;
   postsHidden: number;
@@ -43,15 +42,12 @@ export async function getAdminStatistics(period: AdminStatisticsPeriod): Promise
     )
     SELECT to_char(statement_timestamp() AT TIME ZONE 'UTC',
       'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "asOf",
-      (SELECT count(*)::integer FROM ${users} WHERE ${users.kakaoId} IS NOT NULL) AS "membersTotal",
-      (SELECT count(*)::integer FROM ${users} WHERE ${users.kakaoId} IS NOT NULL AND EXISTS (
-        SELECT 1 FROM ${alumniDatabase} WHERE ${alumniDatabase.matchedUserId} = ${users.id}
-      )) AS "membersLinked",
+      (SELECT count(*)::integer FROM ${users} WHERE ${users.alumniName} IS NOT NULL) AS "alumniTotal",
+      (SELECT count(*)::integer FROM ${users} WHERE ${users.isVerified} IS TRUE) AS "membersTotal",
+      (SELECT count(*)::integer FROM ${users} WHERE ${users.alumniName} IS NOT NULL
+        AND ${users.kakaoId} IS NULL AND ${users.isVerified} IS NOT TRUE) AS "unregistered",
       (SELECT count(*)::integer FROM ${pendingRegistrations}
         WHERE ${pendingRegistrations.status} = 'pending') AS pending,
-      (SELECT count(*)::integer FROM ${alumniDatabase}) AS "alumniTotal",
-      (SELECT count(*)::integer FROM ${alumniDatabase}
-        WHERE ${alumniDatabase.isMatched} = true) AS "alumniLinked",
       (SELECT count(*)::integer FROM published_posts
         WHERE published_at IS NULL) AS "undatedPosts",
       (SELECT count(*)::integer FROM period_posts) AS "postsTotal",
@@ -90,17 +86,10 @@ export async function getAdminStatistics(period: AdminStatisticsPeriod): Promise
     asOf: row.asOf,
     period: { ...period, timeZone: ADMIN_STATISTICS_TIME_ZONE },
     snapshot: {
-      members: {
-        total: row.membersTotal,
-        linked: row.membersLinked,
-        unlinked: row.membersTotal - row.membersLinked,
-      },
+      approvedMembers: row.membersTotal,
+      unregisteredAlumni: row.unregistered,
+      totalAlumni: row.alumniTotal,
       pendingRegistrations: row.pending,
-      alumni: {
-        total: row.alumniTotal,
-        linked: row.alumniLinked,
-        unlinked: row.alumniTotal - row.alumniLinked,
-      },
       undatedPosts: row.undatedPosts,
     },
     posts: {

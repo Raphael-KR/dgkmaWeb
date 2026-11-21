@@ -13,6 +13,7 @@ export function toClientUser(user: User): ClientUser {
     birthdayType: user.birthdayType,
     isLeapMonth: user.isLeapMonth,
     activityRegion: user.activityRegion,
+    joinedAt: user.joinedAt?.toISOString() ?? null,
     createdAt: user.createdAt?.toISOString() ?? null,
   };
 }

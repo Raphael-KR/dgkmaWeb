@@ -1,9 +1,14 @@
-import { users, pendingRegistrations, type PendingRegistration } from "@shared/schema";
+import {
+  accountUserColumns,
+  users,
+  pendingRegistrations,
+  type PendingRegistration,
+} from "@shared/schema";
 import { eq, ne, desc, and, asc, inArray, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { getApprovedMemberDetails } from "./approved-member-details";
 import type { RegistrationApprovalStatus } from "@shared/contracts";
-import { findRegistrationHold } from "../identity/registration-approval";
+import { findRegistrationHold, InactiveAlumniError } from "../identity/registration-approval";
 import { getPendingRegistrationReviews } from "./pending-registration-review";
 import type {
   PendingRegistrationReviewInput,
@@ -46,10 +51,11 @@ export class PendingRegistrationStorage {
       });
 
       const [registeredUser] = await tx
-        .select()
+        .select({ ...accountUserColumns, alumniStatus: users.alumniStatus })
         .from(users)
         .where(eq(users.kakaoId, insertRegistration.kakaoId))
-        .limit(1);
+        .for("update");
+      if (registeredUser?.alumniStatus === "사망") throw new InactiveAlumniError();
       if (registeredUser?.isVerified) {
         return { kind: "registered", user: registeredUser };
       }
@@ -108,15 +114,21 @@ export class PendingRegistrationStorage {
         const [refreshed] = await tx
           .update(pendingRegistrations)
           .set({
-            ...reviewedRegistration,
-            status: "pending",
-            createdAt: new Date(),
+            name: reviewedRegistration.name,
+            email: reviewedRegistration.email,
+            userData: reviewedRegistration.userData,
           })
           .where(eq(pendingRegistrations.id, existing.id))
           .returning();
         return { kind: "pending", registration: refreshed };
       }
 
+      if (registeredUser && registeredUser.alumniStatus === "미가입") {
+        await tx
+          .update(users)
+          .set({ alumniStatus: "가입 대기", updatedAt: new Date() })
+          .where(eq(users.id, registeredUser.id));
+      }
       const [created] = await tx
         .insert(pendingRegistrations)
         .values({ ...reviewedRegistration, status: "pending" })

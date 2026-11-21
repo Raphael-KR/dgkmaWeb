@@ -83,25 +83,15 @@ export function StatisticsPanel() {
               <CardHeader>
                 <CardTitle>회원·명부 현황</CardTitle>
                 <CardDescription>
-                  현재 회원과 마지막 동기화로 반영된 명부의 연결 상태입니다.
+                  미가입은 카카오 계정이 연결되지 않은 동문 수이며, 승인 대기는 신청 건수입니다.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Metric
-                    label="회원"
-                    value={data.snapshot.members.total}
-                    unit="명"
-                    description={`명부 연결 ${data.snapshot.members.linked.toLocaleString("ko-KR")}명 · 미연결 ${data.snapshot.members.unlinked.toLocaleString("ko-KR")}명`}
-                  />
-                  <Metric label="가입 대기" value={data.snapshot.pendingRegistrations} unit="건" />
-                  <Metric label="동문 명부" value={data.snapshot.alumni.total} unit="건" />
-                  <Metric
-                    label="회원과 연결된 명부"
-                    value={data.snapshot.alumni.linked}
-                    unit="건"
-                    description={`미연결 명부 ${data.snapshot.alumni.unlinked.toLocaleString("ko-KR")}건`}
-                  />
+                  <Metric label="전체 동문" value={data.snapshot.totalAlumni} unit="명" />
+                  <Metric label="미가입 동문" value={data.snapshot.unregisteredAlumni} unit="명" />
+                  <Metric label="가입 완료" value={data.snapshot.approvedMembers} unit="명" />
+                  <Metric label="승인 대기" value={data.snapshot.pendingRegistrations} unit="건" />
                 </dl>
               </CardContent>
             </Card>

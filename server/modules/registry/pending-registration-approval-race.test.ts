@@ -14,15 +14,11 @@ after(async () => {
 
 async function cleanupRegistrationRace(
   pool: Pool,
-  identities: { kakaoIds: string[]; emails: string[]; mobiles: string[] },
+  identities: { kakaoIds: string[]; emails: string[]; ids: string[] },
 ): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("begin");
-    const reserved = await client.query(
-      "delete from alumni_database where mobile = any($1::text[]) returning matched_user_id",
-      [identities.mobiles],
-    );
     await client.query(
       `delete from pending_registrations
         where kakao_id = any($1::text[]) or lower(email) = any($2::text[])`,
@@ -33,9 +29,7 @@ async function cleanupRegistrationRace(
         where kakao_id = any($1::text[]) or lower(email) = any($2::text[])`,
       [identities.kakaoIds, identities.emails.map((email) => email.toLowerCase())],
     );
-    await client.query("delete from users where id = any($1::uuid[])", [
-      reserved.rows.map((row) => row.matched_user_id),
-    ]);
+    await client.query("delete from users where id = any($1::uuid[])", [identities.ids]);
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");
@@ -52,15 +46,10 @@ async function cleanupRegistrationRace(
     `select
        (select count(*)::int from users
          where kakao_id = any($1::text[]) or lower(email) = any($2::text[])) as users_count,
-       (select count(*)::int from alumni_database
-         where mobile = any($3::text[])) as alumni_count,
+       (select count(*)::int from users where id = any($3::uuid[])) as alumni_count,
        (select count(*)::int from pending_registrations
          where kakao_id = any($1::text[]) or lower(email) = any($2::text[])) as pending_count`,
-    [
-      identities.kakaoIds,
-      identities.emails.map((email) => email.toLowerCase()),
-      identities.mobiles,
-    ],
+    [identities.kakaoIds, identities.emails.map((email) => email.toLowerCase()), identities.ids],
   );
   assert.deepEqual(residue.rows[0], {
     users_count: 0,
@@ -86,6 +75,7 @@ test(
     const kakaoId = `approval-race-${token}`;
     const email = `approval-race-${token}@example.invalid`;
     const name = `승인경쟁${token.slice(0, 8)}`;
+    const firstId = randomUUID();
     const blocker = await pool.connect();
     let blockerTransactionOpen = false;
     let approvalPromise: ReturnType<typeof storage.approvePendingRegistration> | undefined;
@@ -93,10 +83,14 @@ test(
 
     try {
       await pool.query(
-        `with reserved as (insert into users(id,name) values(gen_random_uuid(),$3) returning id)
-       insert into alumni_database (department,generation,name,mobile,is_matched,matched_user_id)
-       select $1,$2,$3,$4,false,id from reserved`,
-        ["한의학과", "RACE", name, domesticPhone],
+        `insert into users(id,department,generation,name,alumni_name,alumni_mobile)
+         values($5,$1,$2,$3,$3 || '원명',$4)`,
+        ["한의학과", "RACE", name, domesticPhone, firstId],
+      );
+      await pool.query(
+        `insert into alumni_name_aliases(user_id,name,normalized_name,alias_type,is_preferred)
+         values($1,$2,$2,'current_name',true)`,
+        [firstId, name],
       );
       const pendingResult = await pool.query<{ id: number }>(
         `insert into pending_registrations (kakao_id, email, name, user_data, status)
@@ -204,7 +198,7 @@ test(
       await cleanupRegistrationRace(pool, {
         kakaoIds: [kakaoId],
         emails: [email],
-        mobiles: [domesticPhone],
+        ids: [firstId],
       });
     }
   },
@@ -231,7 +225,9 @@ test(
     const competingKakaoId = `email-race-competing-${token}`;
     const sharedEmail = `email-race-${token}@example.invalid`;
     const approvedName = `이메일승인${token.slice(0, 6)}`;
+    const secondId = randomUUID();
     const competingName = `이메일경쟁${token.slice(6, 12)}`;
+    const firstId = randomUUID();
     const blocker = await pool.connect();
     let blockerTransactionOpen = false;
     let approvalPromise: ReturnType<typeof storage.approvePendingRegistration> | undefined;
@@ -239,9 +235,8 @@ test(
 
     try {
       await pool.query(
-        `with reserved as (insert into users(id,name) values(gen_random_uuid(),$3),(gen_random_uuid(),$5) returning id,name)
-       insert into alumni_database (department,generation,name,mobile,is_matched,matched_user_id)
-       select $1,$2,name,case when name=$3 then $4 else $6 end,false,id from reserved`,
+        `insert into users(id,department,generation,name,alumni_name,alumni_mobile)
+         values($7,$1,$2,$3,$3,$4),($8,$1,$2,$5,$5,$6)`,
         [
           "한의학과",
           "EMAIL-RACE",
@@ -249,6 +244,8 @@ test(
           firstDomesticPhone,
           competingName,
           secondDomesticPhone,
+          firstId,
+          secondId,
         ],
       );
       const pendingResult = await pool.query<{ id: number }>(
@@ -366,8 +363,8 @@ test(
          (select count(*)::int from pending_registrations
            where kakao_id = $2 and status = 'pending'
              and user_data->>'conflictReason' = 'email_conflict') as competing_pending_count,
-         (select is_matched from alumni_database where mobile = $3) as competing_alumni_matched`,
-        [approvedKakaoId, competingKakaoId, secondDomesticPhone],
+         (select is_verified from users where id = $3) as competing_alumni_matched`,
+        [approvedKakaoId, competingKakaoId, secondId],
       );
       assert.deepEqual(finalState.rows[0], {
         approved_user_count: 1,
@@ -385,7 +382,7 @@ test(
       await cleanupRegistrationRace(pool, {
         kakaoIds: [approvedKakaoId, competingKakaoId],
         emails: [sharedEmail],
-        mobiles: [firstDomesticPhone, secondDomesticPhone],
+        ids: [firstId, secondId],
       });
     }
   },

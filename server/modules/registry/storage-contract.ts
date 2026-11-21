@@ -7,7 +7,6 @@ import type {
   PendingRegistrationUserData,
 } from "@shared/schema";
 import type { AdminRegistrationListItem, RegistrationApprovalStatus } from "@shared/contracts";
-import type { AlumniSyncReport } from "@shared/alumni-sync";
 import type { DirectoryResult } from "@shared/contracts/directory";
 
 export type PendingRegistrationReviewInput = Omit<InsertPendingRegistration, "userData"> & {
@@ -28,8 +27,6 @@ export interface RegistryStorageContract {
   getAlumniRecordByUserId(userId: string): Promise<AlumniRecord | undefined>;
   findAlumniByName(name: string): Promise<AlumniRecord[]>;
   findAlumniByNameOrAlias(name: string): Promise<AlumniRecord[]>;
-  previewAlumniSync(): Promise<AlumniSyncReport>;
-  applyAlumniSync(fingerprint: string): Promise<AlumniSyncReport>;
   getDirectoryAlumni(viewer: User, q?: string): Promise<DirectoryResult>;
   getPendingRegistrations(status?: "pending" | "rejected"): Promise<PendingRegistration[]>;
   getPendingRegistrationReviews(

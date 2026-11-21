@@ -25,11 +25,12 @@ test("Google Sheets 명부 조회는 행 원문을 로그에 기록하지 않는
       spreadsheets: {
         values: {
           get: async ({ range }) => {
-            assert.equal(range, "'통합주소록'!B:K");
+            assert.equal(range, "'통합주소록'!A:K");
             return {
               data: {
                 values: [
                   [
+                    "alumni_uid",
                     "학과",
                     "기수",
                     "성명",
@@ -42,6 +43,7 @@ test("Google Sheets 명부 조회는 행 원문을 로그에 기록하지 않는
                     "메모",
                   ],
                   [
+                    "00000000-0000-4000-8000-000000000001",
                     "한의학과",
                     "40",
                     "테스트동문",
@@ -64,7 +66,7 @@ test("Google Sheets 명부 조회는 행 원문을 로그에 기록하지 않는
   });
 
   const logs = await captureConsoleLogs(async () => {
-    const records = await service.fetchAlumniData();
+    const records = await service.fetchBasicRoster();
     assert.equal(records.length, 1);
     assert.equal(records[0].mobile, "010-1234-5678");
     assert.equal(records[0].memo, "마지막 메모 값");
