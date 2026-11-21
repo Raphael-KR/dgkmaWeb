@@ -4,9 +4,9 @@
 
 ## 현재 적용 상태
 
-운영 버전은 `6.2.0`이다. [PR #42](https://github.com/Raphael-KR/dgkmaWeb/pull/42)의 병합 커밋 `983ca65`를 Replit에 게시했고 `v6.2.0`이 이 커밋을 가리킨다. Replit 게시 커밋 `f62fa32`는 같은 tree다. 비로그인 HTTP·메타데이터·인증 차단 13건과 운영 자산 해시 69개를 확인했다.
+운영 버전은 `6.3.0`이다. 릴리스 태그 `v6.3.0`은 배포한 main 커밋 `f27b6a6`을 가리킨다. Replit 게시 커밋 `3a7b54b`는 같은 tree다. 운영에서 공개 페이지 6개의 canonical, 회원·관리자 API 7개의 비로그인 차단과 정적 자산 69개의 해시를 확인했다. [릴리스 기록](docs/history/release-6.3.0-2026-11-21.md)
 
-개발 Helium과 운영 Neon에서 동문 3,458명을 UUID 회원 키로 연결했다. 운영에서 3,457명은 미가입 사전 등록, 1명은 승인된 관리자다. [릴리스·운영 이전 기록](docs/history/release-6.2.0-2026-11-20.md) · [DB 스키마](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰)
+개발과 운영의 기본명부는 동문 3,461명의 UUID를 키로 사용하는 `users`다. 운영 전환 시 기존 가입 계정 4명과 가입 심사 1건을 보존했다. 개발에는 회비 원장을 이관했고 운영에는 빈 회비 구조를 설치했다. [운영 전환 기록](docs/history/release-6.3.0-2026-11-21.md) · [DB 스키마](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰)
 
 ## 환경 구분
 
@@ -200,7 +200,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 
 ### 현재 동문 명부 연동
 
-개발·운영은 명부 A열의 UUID를 `users.id`로 사용한다. 개발에 한해 [기본명부 직접 반영 절차](docs/runbooks/database-operations.md#개발-기본명부-직접-반영)로 시트 B~K열을 기존 회원 행의 명부 전용 필드에 채웠다. [개발 적용 기록](docs/history/member-roster-fields-2026-11-21.md) 일회성 사전 등록 후 가입·명부 열람 및 관리자 화면은 PostgreSQL을 사용한다. 아래 Sheets 연동 설명은 전환 전 환경에 적용한다. [개발 전환 절차](docs/runbooks/database-operations.md#개발-회원-기본키-전환과-명부-사전-등록)
+최초 명부의 A열 UUID는 개발·운영의 `users.id`다. 시트 B~K열의 명부 필드를 개발 DB에 반영하고 검증된 명부와 별칭을 운영 DB로 이전했다. 가입·명부 열람·관리자 조회는 각 환경의 PostgreSQL을 사용한다. [기본명부 반영 절차](docs/runbooks/database-operations.md#개발-기본명부-직접-반영) · [운영 전환 기록](docs/history/release-6.3.0-2026-11-21.md)
 
 2026-11-12 후속 사용자가 개발 명부 초기화와 백업 금지를 요청했다. 09:46 KST 개발 `alumni_database` 3,458건을 백업 없이 비웠고 새 연결에서 명부·종속 별칭 0건을 확인했다. 테이블·주소·전화 컬럼·시퀀스와 기존 회원 계정 1건은 유지했다. 확인한 작업 파일에서 명부 원문 백업은 발견되지 않았으며, 플랫폼 복구 이력의 완전 삭제 여부는 미확인이다. 실제 범위와 근거는 [초기화 기록](docs/history/alumni-reset-2026-11-12.md)에 구분한다. 이 개발 작업에서는 운영 DB·Google Sheets를 변경하거나 자동 재동기화하지 않았다.
 
@@ -210,7 +210,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-개발 홈페이지의 기본명부는 `users`다. 위 Secrets는 최초 이관 CLI에서 사용하며 홈페이지 요청에는 필요하지 않다. 현재 운영 배포와 기존 Secrets는 별도 전환까지 유지한다. [기본명부 운영](docs/runbooks/database-operations.md#동문-기본명부-관리)
+위 Secrets는 최초 이관 CLI에서 사용한다. 명부 정정·신규 등록은 DB 운영 절차를 따른다. [기본명부 운영](docs/runbooks/database-operations.md#동문-기본명부-관리)
 
 ### 경조사 생성·수집 설정
 
@@ -475,7 +475,7 @@ PR·릴리스 수행 기록·완료 보고에는 **제거한 항목과 사용처
 
 ## 동문 원본 전환 설계
 
-원본 명부에서 발급한 고정 동문 ID를 그대로 users에 한 번 이관하며, 가입 후 카카오 프로필을 갱신한다. 홈페이지 탈퇴는 동문회 탈퇴로 처리하며, 단계별 비공개·파기 기준은 DB 변경안의 탈퇴 절차를 따른다. [DB 변경안](docs/product/pre-migration-database-design.md)에서 회원 기본키·외래키와 명부 사전 등록을 개발 DB에 적용했다. 회원 상태·변동 이력 및 탈퇴원 접수는 Replit 개발 DB와 개발 서버에 적용했다. [개발 전환 기록](docs/history/member-status-candidate-2026-11-21.md)을 따른다. 기존 Sheets/명부 복제본 설명은 전환 전 구현 상태다. 개발 홈페이지는 가입·조회·정정에서 users를 사용하며 운영 전환은 별도다.
+개발·운영 모두 `users`에 동문 기본명부와 고정 UUID를 유지한다. 카카오 가입 프로필은 로그인 시 갱신하며, 홈페이지 탈퇴는 동문회 탈퇴로 처리한다. 회원 상태 변경과 가입·탈퇴·사망 이력 기록은 DB 트리거가 담당한다. [DB 설계](docs/product/pre-migration-database-design.md) · [운영 전환 기록](docs/history/release-6.3.0-2026-11-21.md)
 
 
 ## 게시글 이관 출처 저장
