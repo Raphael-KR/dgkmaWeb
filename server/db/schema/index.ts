@@ -64,24 +64,77 @@ export type {
   UpdateProfile,
 } from "@shared/contracts";
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey(),
-  kakaoId: text("kakao_id").unique(),
-  email: text("email").unique(),
-  name: text("name").notNull(),
-  graduationYear: integer("graduation_year"),
-  isVerified: boolean("is_verified").default(false),
-  isAdmin: boolean("is_admin").default(false),
-  kakaoSyncEnabled: boolean("kakao_sync_enabled").default(false),
-  profileImage: text("profile_image"),
-  phoneNumber: text("phone_number"),
-  birthday: text("birthday"),
-  birthdayType: text("birthday_type"),
-  isLeapMonth: boolean("is_leap_month"),
-  activityRegion: text("activity_region"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    kakaoId: text("kakao_id").unique(),
+    email: text("email").unique(),
+    name: text("name").notNull(),
+    graduationYear: integer("graduation_year"),
+    isVerified: boolean("is_verified").default(false),
+    isAdmin: boolean("is_admin").default(false),
+    kakaoSyncEnabled: boolean("kakao_sync_enabled").default(false),
+    profileImage: text("profile_image"),
+    phoneNumber: text("phone_number"),
+    birthday: text("birthday"),
+    birthdayType: text("birthday_type"),
+    isLeapMonth: boolean("is_leap_month"),
+    activityRegion: text("activity_region"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+    department: text("department"),
+    generation: text("generation"),
+    alumniName: text("alumni_name"),
+    admissionDate: text("admission_date"),
+    graduationDate: text("graduation_date"),
+    alumniMobile: text("alumni_mobile"),
+    alumniGroup: text("alumni_group"),
+    alumniStatus: text("alumni_status").notNull().default("미가입"),
+    membershipHistory: jsonb("membership_history")
+      .$type<{ type: string; at: string }[]>()
+      .notNull()
+      .default([]),
+    alumniPosition: text("alumni_position"),
+    alumniMemo: text("alumni_memo"),
+  },
+  (table) => [
+    check(
+      "users_alumni_status_check",
+      sql`${table.alumniStatus} in ('미가입','가입 대기','가입 완료','가입 거부','동문회 탈퇴자','사망')`,
+    ),
+    check(
+      "users_membership_history_check",
+      sql`jsonb_typeof(${table.membershipHistory}) = 'array'`,
+    ),
+    check(
+      "users_approval_status_check",
+      sql`(${table.isVerified} is true) = (${table.alumniStatus} = '가입 완료') AND (${table.alumniStatus} <> '가입 완료' OR ${table.kakaoId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+// Account reads omit private roster data, including the office memo and roster phone.
+export const accountUserColumns = {
+  id: users.id,
+  joinedAt: users.joinedAt,
+  kakaoId: users.kakaoId,
+  email: users.email,
+  name: users.name,
+  graduationYear: users.graduationYear,
+  isVerified: users.isVerified,
+  isAdmin: users.isAdmin,
+  kakaoSyncEnabled: users.kakaoSyncEnabled,
+  profileImage: users.profileImage,
+  phoneNumber: users.phoneNumber,
+  birthday: users.birthday,
+  birthdayType: users.birthdayType,
+  isLeapMonth: users.isLeapMonth,
+  activityRegion: users.activityRegion,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+};
 
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
@@ -205,9 +258,9 @@ export const alumniNameAliases = pgTable(
   "alumni_name_aliases",
   {
     id: serial("id").primaryKey(),
-    alumniId: integer("alumni_id")
+    userId: uuid("user_id")
       .notNull()
-      .references(() => alumniDatabase.id, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     normalizedName: text("normalized_name").notNull(),
     aliasType: text("alias_type").notNull(),
@@ -221,11 +274,11 @@ export const alumniNameAliases = pgTable(
     ),
     check("alumni_name_aliases_normalized_not_blank", sql`length(${table.normalizedName}) > 0`),
     uniqueIndex("alumni_name_aliases_alumni_normalized_unique").on(
-      table.alumniId,
+      table.userId,
       table.normalizedName,
     ),
     uniqueIndex("alumni_name_aliases_preferred_unique")
-      .on(table.alumniId)
+      .on(table.userId)
       .where(sql`${table.isPreferred} = true`),
     index("alumni_name_aliases_normalized_idx").on(table.normalizedName),
   ],
@@ -264,13 +317,10 @@ export const kakaoIdentityTerminations = pgTable("kakao_identity_terminations", 
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many, one }) => ({
+export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
   payments: many(payments),
-  alumniRecord: one(alumniDatabase, {
-    fields: [users.id],
-    references: [alumniDatabase.matchedUserId],
-  }),
+  nameAliases: many(alumniNameAliases),
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
@@ -307,26 +357,28 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   }),
 }));
 
-export const alumniDatabaseRelations = relations(alumniDatabase, ({ one, many }) => ({
-  matchedUser: one(users, {
-    fields: [alumniDatabase.matchedUserId],
-    references: [users.id],
-  }),
-  nameAliases: many(alumniNameAliases),
-}));
-
 export const alumniNameAliasesRelations = relations(alumniNameAliases, ({ one }) => ({
-  alumni: one(alumniDatabase, {
-    fields: [alumniNameAliases.alumniId],
-    references: [alumniDatabase.id],
+  user: one(users, {
+    fields: [alumniNameAliases.userId],
+    references: [users.id],
   }),
 }));
 
 // Schemas
-export const insertUserSchema = createInsertSchema(users, { email: z.string().email() }).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const insertUserSchema = createInsertSchema(users, { email: z.string().email() }).pick({
+  kakaoId: true,
+  email: true,
+  name: true,
+  graduationYear: true,
+  isVerified: true,
+  isAdmin: true,
+  kakaoSyncEnabled: true,
+  profileImage: true,
+  phoneNumber: true,
+  birthday: true,
+  birthdayType: true,
+  isLeapMonth: true,
+  activityRegion: true,
 });
 
 export const insertCategorySchema = createInsertSchema(categories).omit({
@@ -346,7 +398,7 @@ export const insertPendingRegistrationSchema = createInsertSchema(pendingRegistr
 });
 
 // Persistence models; browser-facing contracts live in shared/contracts.
-export type User = typeof users.$inferSelect;
+export type User = Pick<typeof users.$inferSelect, keyof typeof accountUserColumns>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
@@ -355,7 +407,16 @@ export type InsertPost = typeof posts.$inferInsert;
 export type Comment = typeof comments.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
-export type AlumniRecord = typeof alumniDatabase.$inferSelect;
+export type AlumniRecord = {
+  id: string;
+  name: string;
+  generation: string | null;
+  admissionDate: string | null;
+  graduationDate: string | null;
+  mobile: string | null;
+  status: string | null;
+  hasAccount: boolean;
+};
 export type PendingRegistration = typeof pendingRegistrations.$inferSelect;
 export type InsertPendingRegistration = z.infer<typeof insertPendingRegistrationSchema>;
 

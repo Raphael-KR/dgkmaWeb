@@ -21,6 +21,7 @@ const sessionUser: User = {
   birthdayType: "SOLAR",
   isLeapMonth: false,
   activityRegion: "서울특별시",
+  joinedAt: new Date("2026-07-26T00:01:00.000Z"),
   createdAt: new Date("2026-07-26T00:00:00.000Z"),
   updatedAt: new Date("2026-07-26T00:01:00.000Z"),
 };
@@ -88,6 +89,7 @@ function clientUserResponse(user: User): { readonly user: ClientUser } {
       birthdayType: user.birthdayType,
       isLeapMonth: user.isLeapMonth,
       activityRegion: user.activityRegion,
+      joinedAt: user.joinedAt?.toISOString() ?? null,
       createdAt: user.createdAt?.toISOString() ?? null,
     },
   };

@@ -18,10 +18,10 @@ import {
 import { createEventParseLimiter } from "../modules/events/event-parse-limiter";
 import { createDefaultEventSourceReader } from "../modules/events/routes";
 
-import { registeredRosterCount } from "../modules/registry/alumni-sync-storage";
+import { registeredRosterCount } from "../modules/registry/roster";
 
 export type RouteDependencies = {
-  registeredRosterCount?: () => Promise<number | null>;
+  registeredRosterCount?: () => Promise<number>;
   getUserForAdmin?: AdminUserLookup;
   getKakaoOAuthConfig?: () => KakaoOAuthConfig;
   kakaoFetch?: typeof fetch;
@@ -43,7 +43,6 @@ export type RouteDependencies = {
       | "cancelMemberApproval"
     >
   >;
-  alumniSyncStorage?: Pick<typeof storage, "previewAlumniSync" | "applyAlumniSync">;
   kakaoOAuthStateStore?: KakaoOAuthStateStore;
   kakaoAuthStorage?: Pick<
     typeof storage,
@@ -53,7 +52,6 @@ export type RouteDependencies = {
     | "getUserByNormalizedPhone"
     | "findAlumniByName"
     | "createUserWithAlumniClaim"
-    | "updateUser"
     | "createOrRefreshPendingRegistration"
     | "finalizeKakaoLogin"
   >;
@@ -87,7 +85,6 @@ export function createRouteContext(dependencies: RouteDependencies = {}) {
       dependencies.pendingRegistrationStorage?.cancelMemberApproval ??
       storage.cancelMemberApproval.bind(storage),
   };
-  const alumniSyncStorage = dependencies.alumniSyncStorage ?? storage;
   const kakaoOAuthStateStore = dependencies.kakaoOAuthStateStore ?? postgresKakaoOAuthStateStore;
   const getKakaoAdminConfig = dependencies.getKakaoAdminConfig ?? (() => resolveKakaoAdminConfig());
   const isKakaoAdministrator = dependencies.isKakaoAdministrator ?? isConfiguredKakaoAdministrator;
@@ -108,7 +105,6 @@ export function createRouteContext(dependencies: RouteDependencies = {}) {
     kakaoFetch,
     kakaoAuthStorage,
     pendingRegistrationStorage,
-    alumniSyncStorage,
     registeredRosterCount: dependencies.registeredRosterCount ?? registeredRosterCount,
     kakaoOAuthStateStore,
     getKakaoAdminConfig,

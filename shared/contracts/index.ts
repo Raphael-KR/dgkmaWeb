@@ -4,7 +4,6 @@ import { postTitleSchema, postImageUrlsSchema, checkPostAttachmentLimit } from "
 export * from "./post-document";
 
 export * from "./notices";
-export * from "./alumni-sync";
 export * from "./directory";
 export * from "./post-management";
 export * from "./comments";
@@ -17,6 +16,7 @@ export const PENDING_REGISTRATION_CONFLICT_REASONS = [
   "alumni_race",
   "not_found",
   "approval_cancelled",
+  "reapplication",
 ] as const;
 
 export type PendingRegistrationConflictReason =
@@ -36,6 +36,7 @@ export type PendingRegistrationUserData = {
 
 // Explicit wire contracts: JSON timestamps are strings, never persistence Dates.
 export type ClientUser = {
+  joinedAt: string | null;
   email: string;
   name: string;
   graduationYear: number | null;
@@ -112,34 +113,31 @@ export type PendingRegistrationReviewStatus =
   | "account_conflict";
 
 export type AdminAlumniRecordDto = {
-  id: number;
+  id: string;
   name: string;
-  department: string;
-  generation: string;
+  department: string | null;
+  generation: string | null;
   admissionDate: string | null;
   graduationDate: string | null;
-  address: string | null;
   mobile: string | null;
-  phone: string | null;
   group: string | null;
   status: string | null;
   alumniPosition: string | null;
   memo: string | null;
 };
 
-export type AdminLinkedAlumniRecordDto = Omit<AdminAlumniRecordDto, "address" | "phone">;
-
 export type AdminApprovedMemberDto = Omit<AdminPendingRegistrationDto, "id"> & {
   id: string;
   isSelf?: boolean;
   recordType: "member";
+  joinedAt: string | null;
   status: "approved";
   memberId: string;
   profile: Pick<
     ClientUser,
     "phoneNumber" | "profileImage" | "birthday" | "birthdayType" | "isLeapMonth" | "activityRegion"
   >;
-  linkedAlumni: AdminLinkedAlumniRecordDto[];
+  linkedAlumni: AdminAlumniRecordDto[];
 };
 
 export type AdminRegistrationListItem = AdminPendingRegistrationReviewDto | AdminApprovedMemberDto;

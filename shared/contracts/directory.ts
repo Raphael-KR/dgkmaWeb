@@ -1,6 +1,5 @@
 // 회원 명부 목록의 노출 허용 필드. 연락처·주소·메모는 포함하지 않는다.
 export type DirectoryAlumni = {
-  id: number;
   name: string;
   generation: string;
   department: string;

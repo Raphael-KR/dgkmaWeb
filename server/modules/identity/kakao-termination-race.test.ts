@@ -54,6 +54,7 @@ async function terminationTableExists(pool: Pool): Promise<boolean> {
 }
 
 type CleanupScope = {
+  userIds?: string[];
   kakaoIds: string[];
   emails: string[];
   identityHashes: string[];
@@ -84,8 +85,8 @@ async function cleanupRaceRows(pool: Pool, scope: CleanupScope): Promise<void> {
     }
     await client.query(
       `delete from users
-        where kakao_id = any($1::text[]) or lower(email) = any($2::text[])`,
-      [scope.kakaoIds, normalizedEmails],
+        where kakao_id = any($1::text[]) or lower(email) = any($2::text[]) or id = any($3::uuid[])`,
+      [scope.kakaoIds, normalizedEmails, scope.userIds ?? []],
     );
     if (hasTerminationTable) {
       await client.query(
@@ -111,14 +112,20 @@ async function cleanupRaceRows(pool: Pool, scope: CleanupScope): Promise<void> {
     }>(
       `select
          (select count(*)::int from users
-           where kakao_id = any($1::text[]) or lower(email) = any($2::text[])) as users_count,
+           where kakao_id = any($1::text[]) or lower(email) = any($2::text[]) or id = any($5::uuid[])) as users_count,
          (select count(*)::int from pending_registrations
            where kakao_id = any($1::text[]) or lower(email) = any($2::text[])) as pending_count,
          (select count(*)::int from kakao_oauth_states
            where state_hash = any($3::text[])) as state_count,
          (select count(*)::int from "session"
            where sess ->> 'terminalRaceToken' = $4) as session_count`,
-      [scope.kakaoIds, normalizedEmails, scope.stateHashes ?? [], scope.terminalRaceToken ?? ""],
+      [
+        scope.kakaoIds,
+        normalizedEmails,
+        scope.stateHashes ?? [],
+        scope.terminalRaceToken ?? "",
+        scope.userIds ?? [],
+      ],
     );
     assert.deepEqual(residue.rows[0], {
       users_count: 0,
@@ -272,8 +279,8 @@ test(
     try {
       const inserted = await pool.query<{ id: string }>(
         `insert into users
-         (id, kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
-       values (gen_random_uuid(), $1, $2, '탈퇴경쟁', true, true, '+82 10-9000-0002')
+         (id, kakao_id, email, name, alumni_status, is_verified, kakao_sync_enabled, phone_number)
+       values (gen_random_uuid(), $1, $2, '탈퇴경쟁', '가입 완료', true, true, '+82 10-9000-0002')
        returning id`,
         [kakaoNumericId, email],
       );
@@ -439,6 +446,7 @@ test(
       if (server) await closeServer(server);
       pgSessionStore?.close();
       await cleanupRaceRows(pool, {
+        userIds: userId ? [userId] : [],
         kakaoIds: [kakaoNumericId],
         emails: [email],
         identityHashes: [kakaoHash, emailHash],
@@ -476,18 +484,19 @@ test(
     const finalizerGate = new Promise<void>((resolve) => {
       releaseFinalizer = resolve;
     });
+    let userId = "";
     let finalizePromise: ReturnType<typeof storage.finalizeKakaoLogin> | undefined;
     let deletePromise: ReturnType<typeof storage.deleteUserAccount> | undefined;
 
     try {
       const inserted = await pool.query<{ id: string }>(
         `insert into users
-         (id, kakao_id, email, name, is_verified, kakao_sync_enabled, phone_number)
-       values (gen_random_uuid(), $1, $2, '최종화우선', true, true, '+82 10-9000-0003')
+         (id, kakao_id, email, name, alumni_status, is_verified, kakao_sync_enabled, phone_number)
+       values (gen_random_uuid(), $1, $2, '최종화우선', '가입 완료', true, true, '+82 10-9000-0003')
        returning id`,
         [kakaoId, email],
       );
-      const userId = inserted.rows[0].id;
+      userId = inserted.rows[0].id;
       const user = await storage.getUser(userId);
       assert.ok(user);
       const started = await pool.query<{ started_at: Date }>(
@@ -496,7 +505,20 @@ test(
 
       finalizePromise = storage.finalizeKakaoLogin(
         userId,
-        { kakaoId, email, startedAt: started.rows[0].started_at },
+        {
+          kakaoId,
+          email,
+          startedAt: started.rows[0].started_at,
+          grantAdmin: false,
+          name: user.name,
+          phoneNumber: "+82 10-9000-0003",
+          profileImage: null,
+          birthday: null,
+          birthdayType: null,
+          isLeapMonth: null,
+          photoNeedsAgreement: false,
+          birthdayNeedsAgreement: false,
+        },
         async () => {
           await pool.query(
             `insert into "session" (sid, sess, expire)
@@ -526,7 +548,7 @@ test(
         email_marker_count: number;
       }>(
         `select
-         (select count(*)::int from users where id = $1) as user_count,
+         (select count(*)::int from users where id = $1 and kakao_id is not null) as user_count,
          (select count(*)::int from "session" where sid = $2) as session_count,
          (select count(*)::int from pending_registrations
            where kakao_id = $3 or lower(email) = lower($4)) as pending_count,
@@ -547,6 +569,7 @@ test(
       releaseFinalizer?.();
       await Promise.allSettled([finalizePromise, deletePromise].filter(Boolean));
       await cleanupRaceRows(pool, {
+        userIds: userId ? [userId] : [],
         kakaoIds: [kakaoId],
         emails: [email],
         identityHashes: [kakaoHash, emailHash],

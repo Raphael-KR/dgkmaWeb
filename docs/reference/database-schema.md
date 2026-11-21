@@ -10,20 +10,21 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 
 ## 기준 소스와 마지막 DB 관찰
 
-- 코드 기준: `6.2.0`의 PR #42 main 병합 `983ca65`, [server/db/schema/index.ts](../../server/db/schema/index.ts)의 12개 pgTable과 [server/index.ts](../../server/index.ts)의 runtime session. shared/schema.ts는 서버용 호환 export다.
-- DB 관찰: Development 2026-11-20 회원 UUID·명부 사전 등록 후 metadata-only catalog. Production도 2026-11-20 UUID 전환과 사전 등록 후 metadata-only catalog를 확인했다.
+- 운영 코드 기준은 `6.2.0`의 PR #42 main 병합 `983ca65`다. 개발에는 users의 명부 컬럼 10개와 가입일·회원 변동 이력 컬럼이 추가됐다. 공통 정의는 [Drizzle의 12개 pgTable](../../server/db/schema/index.ts)과 [런타임 session](../../server/index.ts)을 따른다. 개발 DB의 회비수입 원장과 납부 연결 컬럼은 [개발 DDL](../../scripts/add-dues-ledger-development.sql)이 관리한다. shared/schema.ts는 서버용 호환 export다.
+- 개발·운영 전환 도구는 [회원 상태 제약·이력 트리거](../../scripts/lib/member-status-contract.sql)와 [회비 원장·납부 연결 구조](../../scripts/lib/dues-ledger-contract.sql)를 공유한다. 운영 전환 후보에는 기본명부·가입일·이력 필드와 별칭 소유자의 UUID 연결이 포함된다. 원장 데이터 이관과 등급 전환은 별도로 관리한다. [운영 절차](../runbooks/database-operations.md#운영-기본명부와-회비-구조-전환)
+- DB 관찰: Development 2026-11-21 회비 원장 스키마 적용 후 새 연결의 metadata-only catalog. Production도 2026-11-20 UUID 전환과 사전 등록 후 metadata-only catalog를 확인했다.
 - 양쪽 구조는 posts.content JSONB·is_hidden, posts 경조사 JSON, source_collection_rules를 포함한다. community_events·obituaries는 두 환경에서 제거됐다. 컬럼 표는 논리 순서이며 환경별 물리 순서 차이를 변경 지시로 삼지 않는다.
 
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
 | DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.16 |
-| tables / columns | 13 / 109 | 13 / 109 |
-| PK / FK / non-PK UNIQUE / CHECK | 13 / 8 / 7 / 10 | 13 / 8 / 7 / 10 |
-| indexes / sequences | 26 / 8 | 26 / 8 |
-| view / trigger / policy / routine / enum / domain | 모두 0 | 모두 0 |
+| tables / columns | 14 / 129 | 13 / 109 |
+| PK / FK / non-PK UNIQUE / CHECK | 14 / 9 / 8 / 19 | 13 / 8 / 7 / 10 |
+| indexes / sequences | 28 / 8 | 26 / 8 |
+| view / trigger / policy / routine / enum / domain | 0 / 2 / 0 / 3 / 0 / 0 | 모두 0 |
 | RLS | 모든 public 테이블 비활성 | 모든 public 테이블 비활성 |
 
-개발 최신 catalog는 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 직전 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영 catalog SHA-256은 `3d289f57d9660707877e9e984ab77a1eb0d6055a20852ad2a98f49787dd17993`이며 [6.2.0 운영 전환](../history/release-6.2.0-2026-11-20.md)에서 확인했다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
+[개발 회비 원장 스키마 적용](../history/dues-ledger-development-2026-11-21.md) 후 catalog SHA-256은 `b058205da01573cf9aa2b694f6bafe5c7441e899b822c45c8cd28315c33ee351`이다. 앞선 [회원 상태 개발 전환](../history/member-status-candidate-2026-11-21.md) 후 지문은 `aef0b2a7e9d466f03ebb5578b510bd87af6b379e72e3ff244627d4072d4b6e4e`이다. 직전 [개발 기본명부 전환](../history/users-roster-cutover-2026-11-21.md) 후 지문은 `914555133faa7530e8684b2d0540f7ada53d67f8c17010a2aeaf7c7dba91ada0`이다. [직전 가입일 적용 기록](../history/member-joined-at-2026-11-21.md) 이전 관찰은 [기본명부 적용 기록](../history/member-roster-fields-2026-11-21.md)과 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 이관 출처 적용 당시 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 운영 catalog SHA-256은 `3d289f57d9660707877e9e984ab77a1eb0d6055a20852ad2a98f49787dd17993`이며 [6.2.0 운영 전환](../history/release-6.2.0-2026-11-20.md)에서 확인했다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
 
 운영 댓글 전환은 [운영 SQL](../../scripts/add-comment-management-production.sql)로 완료했다. 적용된 스크립트의 존재를 반복 실행 지시로 해석하지 않는다. 앱 운영 배포 상태는 [Replit 기준](../../replit.md#현재-적용-상태)과 구분한다.
 
@@ -36,18 +37,19 @@ erDiagram
   users o|--o{ posts : author_id
   users o|--o{ comments : author_id
   users o|--o{ payments : user_id
+  dues_receipts o|--o{ payments : dues_receipt_id
   users o|--o{ alumni_database : matched_user_id
-  alumni_database ||--o{ alumni_name_aliases : alumni_id
+  users ||--o{ alumni_name_aliases : user_id
   users ||--o| event_parse_rate_limits : user_id
   categories o|--o{ posts : category_id
   posts ||--o{ comments : post_id
 ```
 
-위는 물리 FK 8개다. session·OAuth·가입 대기·수집 규칙은 별도 FK가 없다. JSON 안의 회원/출처와 Object Storage 경로는 논리 참조이며 물리 FK로 표시하지 않는다.
+`dues_receipts → payments`는 개발 DB에만 있다. 개발에는 물리 FK가 9개, 운영에는 8개다. session·OAuth·가입 대기·수집 규칙은 별도 FK가 없다. JSON 안의 회원/출처와 Object Storage 경로는 논리 참조이며 물리 FK로 표시하지 않는다.
 
 ## 현행 테이블 사전
 
-아래 13개 테이블은 개발·운영 공통 구조다. 회원 기본키와 이를 참조하는 외래키는 UUID이며 사전 등록 행에서는 이메일이 NULL일 수 있다. 모든 컬럼은 identity/generated가 없으며 serial은 명시된 nextval 기본값이다. `—`는 기본값 없음, NULL 열의 `허용`은 nullable이다. 각 제약의 세부 정의는 코드와 마지막 catalog를 함께 따른다.
+양쪽에 공통 테이블 13개가 있고, 개발에는 `dues_receipts`가 추가되어 총 14개다. 개발 전용 컬럼은 해당 테이블에서 구분한다. 회원 기본키와 이를 참조하는 외래키는 UUID이며 사전 등록 행에서는 이메일이 NULL일 수 있다. 모든 컬럼은 identity/generated가 없으며 serial은 명시된 nextval 기본값이다. `—`는 기본값 없음, NULL 열의 `허용`은 nullable이다. 각 제약의 세부 정의는 코드와 마지막 catalog를 함께 따른다.
 
 ### TABLE_ROW: users
 
@@ -72,9 +74,15 @@ erDiagram
 | `is_leap_month` | `boolean` | 허용 | — |
 | `activity_region` | `text` | 허용 | — |
 
+개발 가입일 컬럼 `users.joined_at`은 nullable TIMESTAMPTZ이며 기본값이 없다. 동문 행 생성 시각인 `created_at`과 별개로 가입 확정 시각을 기록하며 기존 행은 NULL로 둔다.
+
+개발 DB의 `users.alumni_status`는 NOT NULL이다. 값을 미가입·가입 대기·가입 완료·가입 거부·동문회 탈퇴자·사망 중 하나로 제한하고 기본값은 미가입으로 한다. `users.membership_history JSONB NOT NULL DEFAULT '[]'`에는 사건마다 type과 at만 추가한다. 회원 상태 변경과 이력 추가는 홈페이지·직접 SQL 모두 단일 DB 트리거에서 함께 처리한다. 최초 가입·재승인·재가입의 type은 모두 ‘가입 확정’이다. ‘사망 기록’의 at은 DB 기록 시각이다. 확인된 실제 사망일은 기존 명부 메모 `alumni_memo`에 기재한다. 사망은 최종 상태이며 가입 완료는 승인된 카카오 계정에만 허용한다. DB 제약 `users_alumni_status_check`·`users_approval_status_check`·`users_membership_history_check`와 BEFORE 트리거 `users_record_membership_change`가 이를 적용한다. 트리거 함수 `public.record_membership_change()`는 반복된 상태 변경을 건너뛰고 사망 전환 시 세션과 권한을 종료한다. 미확인 신청의 상태는 기존 신청 테이블에서만 관리한다. 전환 전 자료에는 과거 사건을 생성하지 않는다. [개발 전환 절차](../runbooks/database-operations.md#회원-상태와-변동-이력-전환)
+
+개발 DB의 기본명부 컬럼 10개는 TEXT다. `alumni_status`를 제외한 9개는 NULL을 허용하고 기본값은 없다. 시트 B~K 순서대로 `department`, `generation`, `alumni_name`, `admission_date`, `graduation_date`, `alumni_mobile`, `alumni_group`, `alumni_status`, `alumni_position`, `alumni_memo`다. 회원 프로필과 분리하며 날짜 정밀도·대체번호를 유지한다. A열은 기존 기본키와 대조한다. 개발 앱의 명부 정본이며 운영 반영은 별도다.
+
 PK `users_pkey(id)`; UNIQUE `users_email_unique(email)`, `users_kakao_id_unique(kakao_id)`. 같은 이름의 btree 인덱스 3개. FK 없음.
 
-관리자 인증 완료 목록은 `is_verified=true`인 회원의 현재 이름·이메일·전화번호·사진·생일·양력/음력·윤달·활동지역을 읽고, `alumni_database.matched_user_id = users.id`인 연결 명부의 10개 관리 항목을 별도로 제공한다. 연결 명부의 `address`·`phone`은 SELECT·응답에서 제외하며 `mobile`은 유지한다. 대기·거부 심사의 후보 12개 항목과 DB 저장 컬럼은 유지한다. Sheets 쓰기 범위는 아래 `alumni_database` 계약을 따른다. 카카오 식별자·인증정보·가입 JSON은 이 조회 응답에 포함하지 않는다. 연결 행은 이름·전화번호 후보 검색으로 대체하지 않으며, 연결 없음·여러 연결 행을 그대로 구분한다. 이 조회 계약 보완에는 DDL·데이터 변환·catalog 재검증이 없다.
+개발 관리자 심사는 users의 명부 10개 필드와 가입 프로필을 구분해 읽는다. 일반 회원 명부 응답은 UUID·연락처·메모를 제외한다. 가입 심사 기록은 pending_registrations에 보존한다.
 
 ### TABLE_ROW: categories
 
@@ -146,9 +154,26 @@ PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.i
 
 작성자만 수정·삭제하고 관리자는 가리기·복원한다. 수정만 edited_at을 갱신하며 수정·가리기·복원은 revision을 증가시킨다. 일반 회원의 가린 댓글 응답은 content·attachment를 NULL로 지워 전달한다. 작성자·관리자에게도 부모 게시글 열람 권한을 적용하며 첨부 직접 접근은 부모 게시글과 댓글 상태를 모두 확인한다.
 
+### TABLE_ROW: dues_receipts
+
+개발 DB에만 있는 회비수입 원장이다. 실입금 한 건을 한 행으로 기록하고, 같은 입금에서 배분한 회원별 납부는 `payments`로 연결한다. [이관 설계](../product/annual-dues-database-design.md#적용-순서와-승인-범위)
+
+| 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
+|---|---|---|---|
+| `id` | `uuid` | 불가 | — |
+| `received_on` | `date` | 불가 | — |
+| `amount` | `integer` | 불가 | — |
+| `bank_amount` | `integer` | 불가 | — |
+| `unallocated_year` | `integer` | 허용 | — |
+| `source_rows` | `jsonb` | 불가 | — |
+
+PK `dues_receipts_pkey(id)`가 원거래의 중복을 막는다. CHECK 5개가 유한한 입금일, 양의 회비 몫(`amount`), 회비 몫 이상의 은행 총액(`bank_amount`), 미배분 회비의 귀속연도(1000~9999), 비어 있지 않은 원장 행 배열을 검증한다. 입금일은 한국 날짜이고 금액 단위는 원이다. 혼합 입금의 다른 용도 금액은 `bank_amount - amount`로 계산한다. 연도별·회원별 회비 집계에는 회비 몫만 포함한다.
+
+`source_rows`의 각 행에는 회비수입 시트 A:H의 거래 사실, I열의 회원 표기, 귀속연도와 배분 키를 기록한다. 원장에 대표 수입과 개인별 분개가 함께 있으면 귀속연도가 있는 분개만 배열에 넣는다. 성명불상 입금은 원장에 미배분으로 남긴다.
+
 ### TABLE_ROW: payments
 
-소유: Dues. 목적: 내부 납부 기록·권리회원 판정. 목표 판정 정책은 [공개 규정 기준 결정](../decisions/0005-membership-public-regulations.md)을 따른다. 현재 테이블·서버는 기존 연회비 합계 판정이며 직책별 월납·조정·과거 상태의 구현은 별도다. 이 결정으로 DB 구조를 변경하거나 catalog 관찰 시점을 갱신하지 않았다.
+회원별 납부 기록이다. 홈페이지의 기존 연회비 합계 판정은 [회비 정책](../product/planning-proposal.md#회원-등급과-회비)을 따른다. 아래 마지막 두 컬럼은 개발 DB에 적용됐다.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
@@ -160,12 +185,18 @@ PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.i
 | `status` | `text` | 불가 | `'completed'::text` |
 | `receipt_url` | `text` | 허용 | — |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
+| `dues_receipt_id` | `uuid` | 허용 | — |
+| `dues_allocation_key` | `uuid` | 허용 | — |
 
-PK `payments_pkey(id)`; FK `payments_user_id_users_id_fk(user_id → users.id)` NO ACTION. 인덱스는 PK. 실제 결제 provider 계약은 별도이며 계정 정리 시 사용자 연결을 해제한다.
+양쪽 DB에 PK `payments_pkey(id)`와 FK `payments_user_id_users_id_fk(user_id → users.id)`가 있다. 개발 DB의 `dues_receipt_id`는 `dues_receipts.id`를 참조하고 두 FK의 삭제·갱신 동작은 NO ACTION이다. `payments_dues_allocation_unique`가 원입금·배분 키 조합의 중복을 막는다. 개발의 인덱스는 PK와 이 UNIQUE의 btree 인덱스다.
+
+개발의 `payments_dues_allocation_check`는 일반 납부에서는 원장 연결 두 값을 모두 NULL로 두고 `ledger_staged` 상태를 제외한다. 원장 배분에는 두 값을 모두 지정하고, 상태 `ledger_staged`, 유형 `연회비`, 양의 금액과 귀속연도 1000~9999를 요구한다. 기존 홈페이지의 납부 내역·등급 판정은 이 상태를 제외한다.
+
+회원 연결이 해제되면 개발 DB의 `payments_clear_dues_source_labels`가 해당 배분의 `user_id` 변경 후 실행된다. 트리거 함수 `clear_dues_allocation_identity()`는 `redact_dues_source_labels(jsonb, uuid[])`를 사용해 원장의 해당 `allocationKey`에 연결된 `label`·`memberLabel`을 ‘연결 해제’로 바꾼다. 원장 재대조 때도 해제된 연결과 원래 이름 표기를 되살리지 않는다. [DB 운영 런북](../runbooks/database-operations.md#개발-회비수입원장-이관)
 
 ### TABLE_ROW: alumni_database
 
-소유: Membership Registry. 목적: Google Sheets 명부 런타임 복제본.
+소유: Membership Registry. 개발에서는 보존하는 옛 명부이고, 운영 6.2.0은 이 테이블을 참조한다.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
@@ -195,19 +226,19 @@ PK `alumni_database_pkey(id)`; FK `alumni_database_matched_user_id_users_id_fk(m
 
 후속 운영 초기화도 같은 두 테이블의 행만 대상으로 했다. 09:53 KST 새 `neondb` 연결에서 명부 3,458건·별칭 2건이 각각 0건으로 바뀌었고 대상 FK·trigger 유무·컬럼·시퀀스가 전후 동일함을 확인했다. 개발 결과와 구분한 제한된 metadata 확인이며 구조와 마지막 전체 catalog 관찰 시각은 변경하지 않았다.
 
-소유: Membership Registry. 목적: 공식 이름·개명 전 이름.
+개발은 공식 이름·개명 전 이름을 같은 동문 UUID에 연결한다. 운영 6.2.0은 기존 정수 alumni_id FK를 사용한다.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
 | `id` | `integer` | 불가 | `nextval('alumni_name_aliases_id_seq'::regclass)` |
-| `alumni_id` | `integer` | 불가 | — |
+| `user_id` | `uuid` | 불가 | — |
 | `name` | `text` | 불가 | — |
 | `normalized_name` | `text` | 불가 | — |
 | `alias_type` | `text` | 불가 | — |
 | `is_preferred` | `boolean` | 불가 | `false` |
 | `created_at` | `timestamp without time zone` | 불가 | `now()` |
 
-PK `alumni_name_aliases_pkey(id)`; FK `alumni_name_aliases_alumni_id_alumni_database_id_fk(alumni_id → alumni_database.id)` ON DELETE CASCADE. CHECK `alumni_name_aliases_type_check`는 current_name/former_name, `alumni_name_aliases_normalized_not_blank`는 비어 있지 않은 normalized_name. UNIQUE 인덱스 `alumni_name_aliases_alumni_normalized_unique(alumni_id, normalized_name)`, `alumni_name_aliases_preferred_unique(alumni_id) WHERE is_preferred = true`; lookup 인덱스 `alumni_name_aliases_normalized_idx(normalized_name)`. preferred 최대 1개를 강제한다.
+PK `alumni_name_aliases_pkey(id)`; FK `alumni_name_aliases_user_id_users_id_fk(user_id → users.id)` ON DELETE CASCADE. CHECK `alumni_name_aliases_type_check`는 current_name/former_name, `alumni_name_aliases_normalized_not_blank`는 비어 있지 않은 normalized_name. UNIQUE 인덱스 `alumni_name_aliases_alumni_normalized_unique(user_id, normalized_name)`, `alumni_name_aliases_preferred_unique(user_id) WHERE is_preferred = true`; lookup 인덱스 `alumni_name_aliases_normalized_idx(normalized_name)`. preferred 최대 1개를 강제한다.
 
 ### TABLE_ROW: pending_registrations
 
@@ -222,6 +253,8 @@ PK `alumni_name_aliases_pkey(id)`; FK `alumni_name_aliases_alumni_id_alumni_data
 | `user_data` | `jsonb` | 허용 | — |
 | `status` | `text` | 허용 | `'pending'::text` |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
+
+`created_at`은 신청 건의 최초 접수 시각이며 재로그인·재심사에서 보존한다.
 
 PK·인덱스 `pending_registrations_pkey(id)`; FK·별도 UNIQUE 없음. user_data는 제한된 가입 payload이며 승인 취소로 생성·갱신한 신청은 conflictReason=`approval_cancelled`로 구분한다. 앱은 `pending`(승인 대기)·`approved`(인증 완료)·`rejected`(승인 거부)를 사용한다. 거부는 행을 보존하고 재심사는 rejected → pending으로만 이동한다. rejected 신청의 명시적 삭제는 unlink 성공 후 해당 카카오 신원의 신청 행을 지우고 기존 users·콘텐츠·회비·명부 연결은 보존한다. 기존 회원은 is_verified=false를 유지하며 kakao_sync_enabled=false로 연결 상태를 표시한다. 새 OAuth 재접속은 관리자 심사 신청으로 재등록한다. 자동 가입 회원은 신청 행이 없을 수 있어 인증 완료 목록은 users.is_verified=true를 기준으로 조회한다. 승인 취소는 회원의 is_verified=false와 pending 신청을 같은 트랜잭션에서 확정하고 세션을 삭제한다. 재승인 시 기존 회원 ID와 본인 명부 연결을 재사용한다. 구조·DDL 변경과 과거 자료 마이그레이션은 없으며 이번 문서 갱신은 catalog 재검증을 의미하지 않는다.
 
@@ -341,9 +374,9 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 ## 비테이블 객체와 재검증
 
-개발 DB 인덱스는 26개다. serial 소유 시퀀스는 categories/posts/comments/payments/alumni_database/alumni_name_aliases/pending_registrations/source_collection_rules의 8개다. last_success_at에는 기본값이 없다. view·trigger·policy·routine·enum·domain은 마지막 catalog에서 없으며 모든 public 테이블의 RLS는 비활성이었다.
+serial 소유 시퀀스는 categories/posts/comments/payments/alumni_database/alumni_name_aliases/pending_registrations/source_collection_rules의 8개다. last_success_at에는 기본값이 없다. 개발의 사용자 트리거 `users_record_membership_change`와 `payments_clear_dues_source_labels`는 모두 활성(`tgenabled = O`)이다. 루틴 3개는 두 트리거 함수와 회비 원장 이름 표기 정리 함수다.
 
-현재 구조는 [DDL 코드](../../server/db/schema/index.ts), runtime session 및 승인된 전환 결과를 함께 따른다. 초기 `migrations/0000_cheerful_nick_fury.sql`은 전체 현행 구조의 재현 경로가 아니다. 구 테이블·옛 이관 SQL은 현행 생성 대상으로 복원하지 않는다.
+현재 구조는 [DDL 코드](../../server/db/schema/index.ts), runtime session 및 승인된 전환 결과를 함께 따른다. 개발 회비 원장과 납부 연결 컬럼은 Drizzle 정의 밖에 있고 [tablesFilter](../../drizzle.config.ts)는 session만 제외한다. 개발 DB 전체에 `db:push`를 실행하면 원장·연결 컬럼이 삭제 후보에 들어갈 수 있으므로 회비 원장은 전용 SQL로 관리한다. 초기 `migrations/0000_cheerful_nick_fury.sql`은 전체 현행 구조의 재현 경로가 아니다. 구 테이블·옛 이관 SQL은 현행 생성 대상으로 복원하지 않는다.
 
 실제 metadata-only 재검증은 [DB 런북](../runbooks/database-operations.md#스키마-카탈로그-재검증)의 대상·READ ONLY·ROLLBACK·완료 marker와 [catalog SQL](../../scripts/database-schema-catalog.sql)을 사용한다. 현재 코드 설명·마지막 관찰·새 실행 결과를 구분하고, DB를 읽지 않은 문서 수정일로 관찰 시각을 바꾸지 않는다.
 
@@ -372,7 +405,7 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 posts.import_data JSONB NULL에 schemaVersion=1, platform(daum-cafe/band), containerId, sourceId(게시판을 포함한 원본 ID), boardPath, url, originalCreatedAt(시간대 포함 ISO), timePrecision(day/minute), importedAt을 저장한다. 원작성자 이름은 author_name에 유지한다. 일반 글은 NULL이며 일반 작성·수정 입력에서 두 이관 필드를 받지 않는다. 원문은 content에, 원작성일·출처는 본문 밖 메타데이터 영역에 표시한다. 날짜만 확인된 원문에 시각을 표시하지 않고 한국 시간으로 표시한다.
 
-개발·운영 DB에 컬럼·구조 CHECK·platform/containerId/sourceId 부분 UNIQUE 인덱스를 둔다. 일반 글의 출처는 NULL이다. published_at은 이관 시 원작성 시각을 UTC로 변환해 기존 정렬에 사용하고 created_at은 대상 행 생성 시각으로 구분한다.
+개발·운영 DB에 컬럼·구조 CHECK·platform/containerId/sourceId 부분 UNIQUE 인덱스를 둔다. 일반 글의 출처는 NULL이다. 이관 글의 화면 표시일은 `import_data.originalCreatedAt`과 `timePrecision`으로 정한다. `published_at`은 이관 시 원작성 시각을 UTC로 변환해 정렬에 사용하고, `created_at`은 대상 행을 생성한 시각이다.
 
 개발에 `posts_import_data_check`와 `posts_import_source_unique` 부분 UNIQUE 인덱스를 적용했다. 출처 객체는 아래 필드를 모두 요구하고 추가 키를 허용하지 않는다. 일반 게시글은 NULL을 허용한다. 기존 게시글 87건은 유지되며 import_data 입력은 0건이다. [실행 기록](../history/post-import-data-2026-11-14.md)에 catalog와 정적 검사 근거를 남긴다.
 

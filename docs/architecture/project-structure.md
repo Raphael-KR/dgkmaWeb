@@ -26,7 +26,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 
 가입 심사 조회·명부 대조·상태 결정·재승인 모듈과 공통 회원 레이아웃·Avatar 변경은 PR #37으로 main에 통합하고 `4.0.0`으로 운영에 반영했다. 아래 API·저장소 경계는 이 소스를 포함한다. [4.0.0 릴리스 기록](../history/release-4.0.0-2026-11-12.md)에서 코드 적용과 실제 DB·실계정 미검증 범위를 구분한다.
 
-후속 인증 완료 상세 표시는 `approved-member-details.ts`에서 회원 정보·실제 연결 명부를 조회하고 관리자 전용 화면으로 제공한다. 공통 명부 필드와 표시 컴포넌트를 재사용하되, 연결 명부는 주소·전화를 제외한 10개 항목, 대기·거부 심사 후보는 12개 항목으로 구분한다. 이전 회원→심사 후보 투영은 제거했다. Google Sheets의 10개 컬럼 가져오기와 함께 PR #38으로 main에 통합하고 `5.0.0` 운영에 반영했다. 최초 [개발 기록](../history/approved-member-details-2026-11-12.md)과 [릴리스 기록](../history/release-5.0.0-2026-11-12.md)에서 실제 확인·미검증 범위를 구분한다.
+후속 인증 완료 상세 표시는 `approved-member-details.ts`에서 회원 정보·실제 연결 명부를 조회하고 관리자 전용 화면으로 제공한다. 개발은 대기·거부 후보와 연결 명부 모두 users의 10개 명부 필드를 표시한다. 이전 회원→심사 후보 투영은 제거했다. Google Sheets의 10개 컬럼 가져오기와 함께 PR #38으로 main에 통합하고 `5.0.0` 운영에 반영했다. 최초 [개발 기록](../history/approved-member-details-2026-11-12.md)과 [릴리스 기록](../history/release-5.0.0-2026-11-12.md)에서 실제 확인·미검증 범위를 구분한다.
 
 | 소유 위치 | 책임 |
 |---|---|
@@ -38,7 +38,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | `features/directory` | 권한 범위 내 명부 |
 | `features/profile` | 프로필·납부내역·회원상태 |
 | `features/events` | 부고·결혼·개원 텍스트 초안·미리보기·게시; 목록·상세는 boards |
-| `features/admin` | 승인·거절·명부 동기화, 게시글·가린 글 관리 연결, 관리자 기초 통계 |
+| `features/admin` | 승인·거절·명부 현황, 게시글·가린 글 관리 연결, 관리자 기초 통계 |
 | `features/search` | 게시글·명부 검색 |
 | `features/legal` | 법적 고지 |
 | `server/modules/*/routes.ts` | 도메인별 HTTP 처리; 기존 파일은 순서대로 등록 |
@@ -108,7 +108,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 | registry | GET `/api/alumni` |
 | dues 납부 | GET `/api/payments/user/:userId`, POST `/api/payments` 관리자 보호 |
 | statistics | GET `/api/admin/statistics?from=YYYY-MM-DD&to=YYYY-MM-DD`, 공통 관리자 guard를 라우트에 직접 적용. 현재 현황과 한국시간 기간별 게시글 건수만 반환, HTTP `no-store` |
-| registry 관리자 | `/api/admin` 관리자 middleware, GET `/pending-registrations?status=pending\|approved\|rejected`, PATCH/DELETE `/pending-registrations/:id`, POST `/members/:id/cancel-approval`, POST `/sync-alumni/preview`, POST `/sync-alumni`, GET `/test-google-sheets` (모두 `/api/admin` 접두사) |
+| registry 관리자 | `/api/admin` 관리자 middleware, GET `/pending-registrations?status=pending\|approved\|rejected`, PATCH/DELETE `/pending-registrations/:id`, POST `/members/:id/cancel-approval`, GET `/roster-count` (모두 `/api/admin` 접두사) |
 | object storage | PUT `/api/uploads/:uploadToken`, POST `/api/uploads/request-url`, GET `/objects/:objectPath(*)` |
 
 권한·제품 계약은 계획서, 실제 경로·응답은 도메인별 라우트 코드와 계약을 함께 확인한다. 테스트의 과거 통과를 현재 실계정 동작 확인으로 대신하지 않는다.
@@ -127,7 +127,7 @@ React/Vite + Express/Drizzle/PostgreSQL의 **단일 배포 modular monolith**를
 - directory: `["/api/alumni"]`
 - events: 작성자 초안은 직렬 요청과 revision으로 관리; 게시 후 공통 `refreshPosts()`로 목록·상세·검색 무효화 및 입력 초기화. 일반 글 게시·관리도 같은 갱신 경로를 사용한다.
 - profile: `["/api/payments/user", userId]`, `["/api/membership/status"]`; 활동 지역 변경 성공 시 `["/api/alumni"]`로 시작하는 명부 목록·검색 캐시를 제거해 새 열람 범위로 조회한다.
-- admin: 가입 대기·거부는 `["/api/admin/pending-registrations", "review", status]`, 인증 완료는 `["/api/admin/pending-registrations", "member-details", "approved"]`를 사용해 이전 후보 응답 캐시와 회원 상세 응답을 구분한다. 상태 결정·재대조·새로고침에서 다시 읽는다. `["/api/admin/statistics", from, to]` 통계는 탭 진입·기간 변경·수동 새로고침에 조회하고 조회 시각을 표시한다. 승인/거절·명부 동기화와 공통 게시글 갱신 후 통계 캐시도 무효화한다. `["/api/admin/test-google-sheets"]`는 동문 데이터 탭에서만 활성화하며 기존 동기화 미리보기 상태는 탭 이동 후에도 유지한다.
+- admin: 가입 대기·거부는 `["/api/admin/pending-registrations", "review", status]`, 인증 완료는 `["/api/admin/pending-registrations", "member-details", "approved"]`를 사용해 이전 후보 응답 캐시와 회원 상세 응답을 구분한다. 상태 결정·재대조·새로고침에서 다시 읽는다. `["/api/admin/statistics", from, to]` 통계는 탭 진입·기간 변경·수동 새로고침에 조회하고 조회 시각을 표시한다. 승인/거절과 공통 게시글 갱신 후 통계 캐시도 무효화한다. 동문 데이터 탭은 `/api/admin/roster-count`에서 현재 명부 인원을 읽는다.
 - 로그아웃: 서버 세션 종료 성공 뒤 회원 상태·조회 캐시를 비운다. 실패 시 오류를 표시하고 재시도할 수 있게 한다.
 - 인가 흐름은 `/api/auth/kakao/start` → `/kakao-callback` → `/api/auth/kakao/authorize`다. 활동지역 저장은 `activityRegion`만 사용한다. 실제 소비자가 없는 callback 별칭·입력 별칭은 유지하지 않는다.
 
@@ -139,8 +139,7 @@ Vite 산출물은 `dist/public`, 서버 번들은 `dist/index.js`; `server/vite.
 
 동일 신원/전화번호 잠금, 명부 claim, OAuth generation 검증과 로그인 세션 회전을 유지한다.
 OAuth state 만료 기간은 `KAKAO_OAUTH_STATE_TTL_MS` 한 곳에 정의하고 실제 SQL과 검사 대역이 공유한다. 실제 발급 시각은 기존 DB 시각을 사용한다.
-회원 탈퇴는 외부 Kakao unlink 확인 후 로컬 정리하며 관련 세션·참조·종료 marker를 같은 트랜잭션에서 처리한다. 가입 거부는 신청을 보존하고 재심사는 대기로 되돌린다. 거부된 신청 삭제는 unlink 성공 뒤 신청만 삭제하며 기존 회원 자료를 보존한다. 승인 취소는 기존 회원·명부 연결을 보존하면서 승인을 해제하고 세션·진행 중 OAuth를 무효화한다. 승인 취소끼리는 공통 advisory lock과 현재 관리자 확인으로 교차 취소 경쟁을 막는다. `registration-decision-storage.ts`는 상태 전환, `registration-approval.ts`는 신규·기존 회원의 명부 재대조와 승인 트랜잭션을 담당한다. 앱 진입점은 `/api`·`/objects`의 회원 세션을 DB 승인 상태와 다시 대조하고 OAuth 로그인 완료도 같은 승인 상태를 확인한다. 명부 동기화는 원본 fingerprint 재검증, advisory lock과 단일 transaction,
-DB-only 행 보존을 유지한다. 테스트는 실제 Google Sheets 적용이나 Kakao unlink를 하지 않는다.
+회원 탈퇴는 외부 Kakao unlink 확인 후 로컬 정리하며 관련 세션·참조·종료 marker를 같은 트랜잭션에서 처리한다. 가입 거부는 신청을 보존하고 재심사는 대기로 되돌린다. 거부된 신청 삭제는 unlink 성공 뒤 신청만 삭제하며 기존 회원 자료를 보존한다. 승인 취소는 기존 회원·명부 연결을 보존하면서 승인을 해제하고 세션·진행 중 OAuth를 무효화한다. 승인 취소끼리는 공통 advisory lock과 현재 관리자 확인으로 교차 취소 경쟁을 막는다. `registration-decision-storage.ts`는 상태 전환, `registration-approval.ts`는 신규·기존 회원의 명부 재대조와 승인 트랜잭션을 담당한다. 앱 진입점은 `/api`·`/objects`의 회원 세션을 DB 승인 상태와 다시 대조하고 OAuth 로그인 완료도 같은 승인 상태를 확인한다. 명부 대조와 경조사 별칭 해석은 UUID가 같은 users 행을 기준으로 한다. 테스트는 실제 Google Sheets 적용이나 Kakao unlink를 하지 않는다.
 Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nosniff를 유지한다.
 첨부 오류는 처리 단계·오류 종류·확인 가능한 HTTP 상태와 파일 형식 검사의 고정 원인 코드·허용 형식·크기/구조 판정 수치만 공통 로그 함수에 남긴다. 업로드 요청 로그에서는 서명 토큰 경로를 가린다. 원시 SDK 오류/응답·파일 경로·인증정보는 기록하지 않으며 로그 실패가 원래 오류 처리를 덮지 않게 한다.
 
@@ -169,8 +168,8 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 | 위치 | 책임과 보존 계약 |
 |---|---|
 | `server/modules/identity/` | `routes.ts` 등록, `kakao-authorization.ts` OAuth 상태·진행, `kakao-profile.ts` provider 응답, `kakao-login.ts` 회원 매칭·가입 대기, `kakao-login-session.ts` 회원 동기화·세션 확정, `profile-routes.ts` 본인 정보·탈퇴, `session.ts` 세션 지원. state 소비·세션 저장·unlink 순서를 유지한다 |
-| `server/modules/registry/` | 명부 조회·연결, 열람 범위, 가입 심사, Sheets preview/apply를 각각 소유한다. 트랜잭션·잠금과 storage facade의 단일 receiver를 유지한다. 동기화 결과는 preview/apply 응답으로 제공하며 별도 진행상황 API는 두지 않는다 |
-| `features/admin/` | 승인·명부 동기화의 요청 훅과 표시 패널. 가입 심사 대조 결과는 서버가 계산하고 화면은 후보의 12개 명부 관리 항목·승인 불가 사유·재대조를 표시한다. 비교 글자 강조는 공통 필드 컴포넌트와 CSS에서 처리한다. 훅은 탭 밖의 페이지 수명을 유지한다 |
+| `server/modules/registry/` | 명부·별칭 대조, 열람 범위와 가입 심사 트랜잭션을 담당한다 |
+| `features/admin/` | 가입 승인·명부 현황의 조회와 표시. 가입 심사 대조 결과는 서버가 계산하고 화면은 후보의 10개 명부 관리 항목·승인 불가 사유·재대조를 표시한다. 비교 글자 강조는 공통 필드 컴포넌트와 CSS에서 처리한다. 훅은 탭 밖의 페이지 수명을 유지한다 |
 | `features/boards/` | 목록·작성·수정·상세 화면, 댓글과 관리 요청 훅·표시 컴포넌트. `use-create-post.ts`가 초안 초기화·업로드 묶음·게시 요청 수명을 관리한다. 작성자 수정·삭제와 관리자 가리기를 구분한다 |
 | `components/post-editor/` | 공식 Tiptap·JSON 동기화, HTML/Markdown 붙여넣기, 링크·서식 도구, 모바일 사진·파일 선택. 공개 진입점은 `post-body-editor.tsx`다 |
 | `features/events/` | `notice-composer.tsx` 화면, `use-notice-composer.ts` 초안 수명·직렬 요청·자동 저장. revision·최신 ref·이탈 저장 순서를 유지한다 |
@@ -215,7 +214,7 @@ Object Storage의 세션 검증, MIME·크기 제한, non-image octet-stream/nos
 
 | 대상 | 현재 유지 근거 |
 |---|---|
-| `shared/schema.ts`·`birthday.ts`·`category-policy.ts`·`alumni-sync.ts` | 기존 import 소비자가 있는 호환 export. 서버용 스키마는 브라우저에서 가져오지 않음 |
+| `shared/schema.ts`·`birthday.ts`·`category-policy.ts` | 기존 import 소비자가 있는 호환 export. 서버용 스키마는 브라우저에서 가져오지 않음 |
 | 단일 storage facade receiver | 도메인 메서드의 내부 `this` 호출과 실제 메서드 교체 계약 |
 | OCR 언어 자료·Tiptap bubble-menu/pm·`@types/pg` | worker 동적 로딩·공식 확장의 peer 관계·서버 타입 소비 |
 | `attached_assets/`·`client/public/` | 공통 로고·공개 홈 등 실제 사용 자산. 별도 요청 없이 정리하지 않음 |

@@ -7,6 +7,7 @@ import { getErrorType } from "../../lib/safe-logging";
 import { KakaoAdminConfigurationError } from "../../integrations/kakao/kakao-admin-config";
 import { KakaoUnlinkError } from "../../integrations/kakao/kakao-unlink";
 import { toClientUser } from "./client-user";
+import { KakaoOAuthTerminatedError } from "./kakao-identity";
 import { isKakaoDebugEnabled } from "./session";
 
 export function registerProfileRoutes(app: Express, context: RouteContext): void {
@@ -121,6 +122,11 @@ export function registerProfileRoutes(app: Express, context: RouteContext): void
         }
       });
     } catch (error) {
+      if (error instanceof KakaoOAuthTerminatedError) {
+        return res
+          .status(409)
+          .json({ message: "회원 상태가 변경되었습니다. 다시 로그인해 주세요." });
+      }
       if (error instanceof KakaoAdminConfigurationError) {
         console.error("Kakao unlink blocked account deletion:", getErrorType(error));
         return res.status(500).json({

@@ -19,6 +19,7 @@ test("toClientUser keeps a missing creation time as JSON null", () => {
     birthdayType: null,
     isLeapMonth: null,
     activityRegion: null,
+    joinedAt: null,
     createdAt: null,
     updatedAt: null,
   };
@@ -43,6 +44,7 @@ test("profile updates strip every protected user field", () => {
       birthdayType: "SOLAR",
       isLeapMonth: false,
       activityRegion: "서울특별시",
+      joinedAt: null,
       createdAt: new Date("2024-01-01T00:00:00.000Z"),
       updatedAt: new Date("2024-01-02T00:00:00.000Z"),
     }),

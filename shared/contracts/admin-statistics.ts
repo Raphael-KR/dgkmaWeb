@@ -67,9 +67,10 @@ export type AdminStatistics = {
   asOf: string;
   period: AdminStatisticsPeriod & { timeZone: typeof ADMIN_STATISTICS_TIME_ZONE };
   snapshot: {
-    members: { total: number; linked: number; unlinked: number };
+    approvedMembers: number;
+    unregisteredAlumni: number;
+    totalAlumni: number;
     pendingRegistrations: number;
-    alumni: { total: number; linked: number; unlinked: number };
     undatedPosts: number;
   };
   posts: PublicationCounts & {

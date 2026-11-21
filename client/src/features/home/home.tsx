@@ -17,6 +17,7 @@ import { KAKAO_CHANNEL_URL } from "@/lib/config";
 import { ANNUAL_DUES, type MembershipStatus, type PostWithCategory } from "@shared/contracts";
 import { isBirthdayToday } from "@shared/birthday";
 import { PostExcerpt } from "@/components/post-body";
+import { PostDate } from "@/components/post-metadata";
 import { usePublicPageSeo } from "@/lib/seo";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -235,11 +236,7 @@ export default function Home() {
                       <div className="flex-1 min-w-0">
                         <div className="mb-1 flex flex-wrap items-center gap-2">
                           <CategoryBadge category={post.category} />
-                          <span className="text-xs text-gray-500">
-                            {new Date(
-                              post.publishedAt || post.createdAt || "",
-                            ).toLocaleDateString()}
-                          </span>
+                          <PostDate post={post} />
                         </div>
                         <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800 md:text-lg">
                           {post.title}

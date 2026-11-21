@@ -13,6 +13,7 @@ import { Link } from "wouter";
 import { useSeo } from "@/lib/seo";
 import { type Post, type Category } from "@shared/contracts";
 import { PostBody } from "@/components/post-body";
+import { PostAuthor, PostDate } from "@/components/post-metadata";
 import { usePostComments } from "./use-post-comments";
 import { usePostManagement } from "./use-post-management";
 import { PostComments } from "./post-comments";
@@ -109,22 +110,7 @@ export default function PostDetail() {
                   {post.isHidden && (
                     <Badge variant="secondary">가린 글 · 작성자/관리자만 열람</Badge>
                   )}
-                  <span className="text-xs text-gray-500">
-                    {new Date(
-                      post.importData?.originalCreatedAt ||
-                        post.publishedAt ||
-                        post.createdAt ||
-                        "",
-                    ).toLocaleDateString("ko-KR", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                      ...(post.importData ? { timeZone: "Asia/Seoul" } : {}),
-                      ...(post.importData?.timePrecision === "day"
-                        ? {}
-                        : { hour: "2-digit" as const, minute: "2-digit" as const }),
-                    })}
-                  </span>
+                  <PostDate post={post} view="detail" />
                 </div>
 
                 {/* 제목 */}
@@ -134,7 +120,7 @@ export default function PostDetail() {
 
                 {/* 작성자 정보 */}
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <span>작성자: {post.authorName?.trim() || "작성자 정보 없음"}</span>
+                  <PostAuthor name={post.authorName} />
                 </div>
                 <PostSource data={post.importData} />
               </div>

@@ -51,7 +51,6 @@
 | 파일 | 목적·선택 조건 | 추가 부수 효과·한계 |
 |---|---|---|
 | [router](../../client/src/app/routing/router.test.ts) | 공개/회원/관리자 접근 분기·lazy route·오류 fallback 변경 | React 렌더링·파일 탐색. 실제 브라우저 클릭·CSS 확인 없음 |
-| [관리자 동기화 상태](../../client/src/features/admin/__tests__/admin-alumni-sync-state.test.ts) | preview·apply 상태 전이와 오래된 응답 처리 변경 | 메모리 reducer |
 | [본문 인라인 문법](../../shared/editor/post-inline-marks.test.ts) | 승인된 Markdown 밑줄·기울임·굵게 해석과 JSON/본문 표시 계약 변경 | 기존 사용자 제시 예문 네 개 재사용, 공식 변환·정적 렌더링. 브라우저 키 입력·클립보드는 확인하지 않음 |
 | [카테고리 정책](../../client/src/features/boards/__tests__/category-policy.test.ts) | 작성 가능 분류·카테고리 판정 변경 | 순수 정책 함수 |
 | [권한 HTTP](../../server/tests/route-security.test.ts), [관리자 예외](../../server/middleware/auth-middleware.test.ts) | endpoint 인증·회원 승인 상태 재확인·관리자 접근과 사용자 조회 예외 변경 | HTTP/미들웨어 대역. DB·실계정 접근 없음 |
@@ -62,8 +61,8 @@
 | [회원 프로필](../../server/modules/identity/member-profile-routes.test.ts), [회원 DTO](../../server/modules/identity/client-user.test.ts) | 세션 회원 선택·활동 지역·보호 필드·날짜 직렬화 변경 | HTTP·입력 대역 |
 | [탈퇴 요청](../../server/modules/identity/account-deletion-routes.test.ts) | 본인 확인·탈퇴 확인문·unlink 실패·세션 종료 변경 | HTTP·카카오/저장소 대역 |
 | [가입 대기 DTO](../../client/src/features/admin/__tests__/admin-pending-registration-contract.test.ts), [가입 거절](../../server/modules/registry/admin-pending-rejection-routes.test.ts) | 관리자 응답 개인정보 범위·거부 보존·재심사·승인 취소·거부 신청 삭제/unlink 변경 | 클라이언트 폴더의 DTO 검사도 서버 HTTP 실행형 |
-| [명부 일치](../../server/modules/registry/alumni-match.test.ts), [동기화 계획](../../server/modules/registry/alumni-sync-plan.test.ts) | 명부 후보 선택·중복/충돌·preview 계산 변경 | 메모리 명부 대역 |
-| [동기화 API](../../server/modules/registry/alumni-sync-routes.test.ts), [Sheets 오류](../../server/integrations/google-sheets.test.ts) | fingerprint·오래된 preview·원본 오류 처리 변경 | HTTP 또는 Sheets 대역. 실제 Sheets 읽기/쓰기 없음 |
+| [명부 일치](../../server/modules/registry/alumni-match.test.ts) | 유일한 후보 판정 변경 | 메모리 대역 |
+| [최초 명부 가져오기](../../server/integrations/google-sheets.test.ts) | A:K 원본 열 처리·로그 노출 변경 | Sheets 대역 |
 | [회비 API](../../server/modules/dues/admin-payment-routes.test.ts), [회원 등급](../../server/modules/dues/membership-status.test.ts) | 관리자 결제 입력·완료 상태/연도 집계·응답 공개 범위 변경 | HTTP/저장소 대역. 현재 회비 판정을 검사하며 정책 변경 승인은 아님 |
 | [전화번호](../../server/lib/phone-normalization.test.ts), [한국 날짜](../../server/lib/korea-date.test.ts), [생일](../../server/tests/birthday.test.ts) | 신원 연결 정규화·KST 연도 경계·양력/음력 생일 계산 변경 | 로컬 함수·달력 라이브러리 |
 | [출처 정책](../../server/modules/events/event-source-policy.test.ts), [출처 읽기](../../server/modules/events/event-source-reader.test.ts), [부고 해석](../../server/modules/events/obituary-parser.test.ts) | URL 허용·본문 확보/실패·사용자 텍스트 보존·관계/이름 추출 변경 | 수집 대역·텍스트 파서. 실제 공개 링크·브라우저·OCR 확인 없음 |
@@ -74,7 +73,6 @@
 | [저장소 facade](../../server/tests/module-composition.test.ts), [공유 계약](../../shared/contracts/parity.test.ts) | 도메인 메서드 연결·서버 호환 export·입력/직렬화 타입 변경 | 모듈을 로드해 실행. 실제 DB 쿼리 없음 |
 | [개발 DB 대상 보호](../../server/tests/development-db-target.test.ts) | DB 시험 opt-in·개발 host/DB 선택 로직 변경 | 환경/연결 대역. 실제 DB 시험과 구분 |
 | [탈퇴 저장](../../server/modules/identity/account-deletion-storage.test.ts), [탈퇴/로그인 경쟁](../../server/modules/identity/kakao-termination-race.test.ts) | 관련 데이터 정리·진행 중 로그인과 탈퇴 경쟁 변경 | 실제 Development DB 쓰기. 아래 DB 조건 필요 |
-| [명부 동기화 저장](../../server/modules/registry/alumni-sync-storage.test.ts) | 원자적 동기화·변경 없음 처리·연결 보존 변경 | 실제 Development DB, fixture 및 임시 trigger/function 생성·정리 |
 | [회원 등록 경쟁](../../server/modules/registry/member-registration-concurrency.test.ts), [대기 등록 경쟁](../../server/modules/registry/pending-registration-concurrency.test.ts), [승인 경쟁](../../server/modules/registry/pending-registration-approval-race.test.ts) | 동일 신원·명부 claim·대기/승인 경쟁 처리 변경 | 실제 Development DB 쓰기·fixture 정리 |
 
 ### 전체 회귀·DB·브라우저·운영 확인

@@ -1,6 +1,7 @@
 node_modules
 dist
 .DS_Store
+._*
 server/public
 vite.config.ts.*
 *.tar.gz
@@ -22,3 +23,6 @@ graphify-out/
 
 # Private community source backups: preserve locally, never commit
 local-backups/
+
+# Working copies of private audit reports and rendered pages
+/tmp/special-accounting-review-*/

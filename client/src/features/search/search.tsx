@@ -9,10 +9,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { DirectoryMembershipBadge } from "@/components/membership-badge";
 
 import { Search, ArrowLeft, FileText, Users } from "lucide-react";
 import { PostExcerpt } from "@/components/post-body";
+import { PostAuthor, PostDate } from "@/components/post-metadata";
 
 export default function SearchPage() {
   const [, setLocation] = useLocation();
@@ -199,11 +200,10 @@ export default function SearchPage() {
                       <div className="flex items-start space-x-3">
                         <div className="list-accent-dot"></div>
                         <div className="flex-1 min-w-0">
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                             <CategoryBadge category={post.category} />
-                            <span className="text-xs text-gray-500">
-                              {new Date(post.createdAt || "").toLocaleDateString()}
-                            </span>
+                            {post.importData && <PostAuthor name={post.authorName} />}
+                            <PostDate post={post} view="search" />
                           </div>
                           <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800">
                             {post.title}
@@ -222,9 +222,9 @@ export default function SearchPage() {
               {/* 동문 결과 */}
               {showAlumni &&
                 !alumniError &&
-                filteredAlumni.map((person) => (
+                filteredAlumni.map((person, index) => (
                   <Card
-                    key={`alumni-${person.id}`}
+                    key={index}
                     className="min-w-0 cursor-pointer transition-shadow hover:shadow-md"
                     onClick={() => setLocation("/directory")}
                   >
@@ -252,9 +252,7 @@ export default function SearchPage() {
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          {person.isMatched && (
-                            <Badge className="bg-green-100 text-green-800">회원</Badge>
-                          )}
+                          <DirectoryMembershipBadge isMember={person.isMatched} />
                           <Users size={16} className="text-gray-400" />
                         </div>
                       </div>

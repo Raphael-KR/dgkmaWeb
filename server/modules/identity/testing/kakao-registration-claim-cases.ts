@@ -38,10 +38,6 @@ export function registerKakaoRegistrationClaimCases() {
           memberWriteCalls += 1;
           return createdUser;
         },
-        updateUser: async () => {
-          memberWriteCalls += 1;
-          return createdUser;
-        },
         finalizeKakaoLogin: async () => {
           finalizeLoginCalls += 1;
           return createdUser;
@@ -148,7 +144,6 @@ export function registerKakaoRegistrationClaimCases() {
           createUserCalled = true;
           return createdUser;
         },
-        updateUser: async () => undefined,
         finalizeKakaoLogin: finalizeKakaoLoginDouble(),
         createOrRefreshPendingRegistration: async (
           registration: PendingRegistrationReviewInput,
@@ -179,8 +174,8 @@ export function registerKakaoRegistrationClaimCases() {
     let pendingUserData: Record<string, unknown> | undefined;
     const claimedAlumni = {
       ...alumniRecord,
-      isMatched: true,
-      matchedUserId: "00000000-0000-4000-8000-000000000017",
+      hasAccount: true,
+      id: "00000000-0000-4000-8000-000000000017",
     };
     const dependencies = {
       getKakaoOAuthConfig: () => config,
@@ -195,7 +190,6 @@ export function registerKakaoRegistrationClaimCases() {
           createUserCalled = true;
           return createdUser;
         },
-        updateUser: async () => undefined,
         finalizeKakaoLogin: finalizeKakaoLoginDouble(),
         createOrRefreshPendingRegistration: async (
           registration: PendingRegistrationReviewInput,
@@ -240,7 +234,6 @@ export function registerKakaoRegistrationClaimCases() {
           atomicRegistrationCalled = true;
           return createdUser;
         },
-        updateUser: async () => undefined,
         finalizeKakaoLogin: finalizeKakaoLoginDouble(),
         createOrRefreshPendingRegistration: async () => {
           throw new Error("pending registration should not be created");
@@ -272,7 +265,6 @@ export function registerKakaoRegistrationClaimCases() {
         createUserWithAlumniClaim: async () => {
           throw new PhoneRegistrationConflictError();
         },
-        updateUser: async () => undefined,
         finalizeKakaoLogin: finalizeKakaoLoginDouble(),
         createOrRefreshPendingRegistration: async (
           registration: PendingRegistrationReviewInput,

@@ -10,10 +10,6 @@ export {
   normalizePhoneForComparison,
   PhoneRegistrationConflictError,
   PendingRegistrationConflictError,
-  ALUMNI_SYNC_ADVISORY_LOCK_KEY,
-  AlumniSyncFingerprintMismatchError,
-  AlumniSyncBlockedError,
-  AlumniSyncInProgressError,
 } from "./modules/registry/storage";
 export type { DirectoryAlumni, DirectoryResult } from "@shared/contracts/directory";
 export type {

@@ -5,7 +5,7 @@ import {
   type InsertPayment,
   type MembershipStatus,
 } from "@shared/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "../../db";
 import { koreaCalendarYear } from "../../lib/korea-date";
 import type { DuesStorageContract } from "./storage-contract";
@@ -15,7 +15,7 @@ export class DuesStorage implements DuesStorageContract {
     return await db
       .select()
       .from(payments)
-      .where(eq(payments.userId, userId))
+      .where(and(eq(payments.userId, userId), ne(payments.status, "ledger_staged")))
       .orderBy(desc(payments.createdAt));
   }
 

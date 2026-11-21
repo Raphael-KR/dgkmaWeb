@@ -23,6 +23,7 @@ const sessionUser: User = {
   birthdayType: null,
   isLeapMonth: null,
   activityRegion: "서울특별시",
+  joinedAt: null,
   createdAt: new Date("2026-07-12T00:00:00.000Z"),
   updatedAt: new Date("2026-07-12T00:00:00.000Z"),
 };

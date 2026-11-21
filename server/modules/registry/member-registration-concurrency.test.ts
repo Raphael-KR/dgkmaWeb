@@ -16,6 +16,7 @@ test(
     const phoneDigits = String(BigInt(`0x${token.slice(0, 12)}`) % 100000000n).padStart(8, "0");
     const domesticPhone = `010-${phoneDigits.slice(0, 4)}-${phoneDigits.slice(4)}`;
     const kakaoPhone = `+82 10-${phoneDigits.slice(0, 4)}-${phoneDigits.slice(4)}`;
+    const memberId = randomUUID();
     const name = `동시성테스트${token.slice(0, 8)}`;
     const emails = [`task2-${token}-a@example.invalid`, `task2-${token}-b@example.invalid`];
     const kakaoIds = [`task2-${token}-a`, `task2-${token}-b`];
@@ -24,7 +25,7 @@ test(
       try {
         try {
           await pool.query("begin");
-          await pool.query("delete from alumni_database where mobile = $1", [domesticPhone]);
+          await pool.query("delete from users where id = $1", [memberId]);
           await pool.query("delete from pending_registrations where email = any($1::text[])", [
             emails,
           ]);
@@ -42,9 +43,9 @@ test(
         }>(
           `select
            (select count(*)::int from users where email = any($1::text[])) as users_count,
-           (select count(*)::int from alumni_database where mobile = $2) as alumni_count,
+           (select count(*)::int from users where id = $2) as alumni_count,
            (select count(*)::int from pending_registrations where email = any($1::text[])) as pending_count`,
-          [emails, domesticPhone],
+          [emails, memberId],
         );
         assert.deepEqual(residue.rows[0], {
           users_count: 0,
@@ -57,26 +58,9 @@ test(
     });
 
     await pool.query(
-      `insert into alumni_database
-      (department, generation, name, mobile, is_matched, matched_user_id)
-     values ($1, $2, $3, $4, false, null)`,
-      ["한의학과", "TASK2", name, domesticPhone],
-    );
-    const pendingResult = await pool.query<{ id: number }>(
-      `insert into pending_registrations (kakao_id, email, name, user_data, status)
-     values
-       ($1, $2, $3, $4::jsonb, 'pending'),
-       ($5, $6, $3, $7::jsonb, 'pending')
-     returning id`,
-      [
-        kakaoIds[0],
-        emails[0],
-        name,
-        JSON.stringify({ phoneNumber: kakaoPhone }),
-        kakaoIds[1],
-        emails[1],
-        JSON.stringify({ phoneNumber: kakaoPhone }),
-      ],
+      `insert into users(id,department,generation,name,alumni_name,alumni_mobile)
+        values($1,'한의학과','TASK2',$2,$2,$3)`,
+      [memberId, name, domesticPhone],
     );
 
     const results = await Promise.allSettled(
@@ -110,6 +94,17 @@ test(
     );
     assert.equal(userCount.rows[0]?.count, 1);
 
+    const losingIndex = results.findIndex((result) => result.status === "rejected");
+    const pendingResult = await pool.query<{ id: number }>(
+      `insert into pending_registrations(kakao_id,email,name,user_data,status)
+       values ($1,$2,$3,$4::jsonb,'pending') returning id`,
+      [
+        kakaoIds[losingIndex],
+        emails[losingIndex],
+        name,
+        JSON.stringify({ phoneNumber: kakaoPhone }),
+      ],
+    );
     await assert.rejects(
       storage.approvePendingRegistration(pendingResult.rows[0].id),
       PhoneRegistrationConflictError,

@@ -49,7 +49,7 @@ test(
       }
     });
 
-    await Promise.all(
+    const attempts = await Promise.all(
       Array.from({ length: 12 }, (_, index) => {
         const attemptKakaoId = index % 2 === 0 ? kakaoId : `${kakaoId}-alternate`;
         return storage.createOrRefreshPendingRegistration(
@@ -73,6 +73,13 @@ test(
         );
       }),
     );
+
+    const receivedTimes = attempts.map((attempt) => {
+      assert.equal(attempt.kind, "pending");
+      assert.ok(attempt.registration.createdAt);
+      return attempt.registration.createdAt.getTime();
+    });
+    assert.equal(new Set(receivedTimes).size, 1, "Retries must preserve the first receipt time");
 
     const rows = await pool.query<{ count: number; status: string }>(
       `select count(*)::int as count, min(status) as status

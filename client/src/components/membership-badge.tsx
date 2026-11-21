@@ -2,6 +2,14 @@ import { Badge } from "@/components/ui/badge";
 import { Crown } from "lucide-react";
 import type { MembershipTier } from "@shared/contracts";
 
+export function DirectoryMembershipBadge({ isMember }: { isMember: boolean }) {
+  return (
+    <Badge variant={isMember ? "default" : "outline"} className="shrink-0">
+      {isMember ? "회원" : "동문회 미가입자"}
+    </Badge>
+  );
+}
+
 // 권리회원 = 당해년도 회비 납부자. 권리회원은 금색 강조, 일반회원은 회색.
 export function MembershipBadge({ tier, className }: { tier: MembershipTier; className?: string }) {
   if (tier === "권리회원") {

@@ -1,9 +1,9 @@
 import { normalizePhoneForComparison } from "../../lib/phone-normalization";
 import {
+  accountUserColumns,
   users,
   posts,
   payments,
-  alumniDatabase,
   comments,
   kakaoIdentityTerminations,
   type PendingRegistrationConflictReason,
@@ -106,62 +106,38 @@ export async function markKakaoIdentityTerminated(
     });
 }
 
-export async function removeLocalUsers(
+export async function withdrawLocalMember(
   tx: RegistrationTransaction,
-  userIds: string[],
+  userId: string,
   deletePendingPersonalData: () => Promise<unknown>,
 ): Promise<void> {
-  if (userIds.length > 0) {
-    await tx
-      .delete(posts)
-      .where(and(inArray(posts.authorId, userIds), eq(posts.isPublished, false)));
-    await tx.update(posts).set({ authorId: null }).where(inArray(posts.authorId, userIds));
-    await tx.update(comments).set({ authorId: null }).where(inArray(comments.authorId, userIds));
-    await tx.update(payments).set({ userId: null }).where(inArray(payments.userId, userIds));
-    await tx
-      .update(alumniDatabase)
-      .set({ isMatched: false })
-      .where(inArray(alumniDatabase.matchedUserId, userIds));
-
-    await deletePendingPersonalData();
-
-    for (const userId of userIds) {
-      await tx.execute(sql`
-        delete from "session"
-        where sess ->> 'userId' = ${String(userId)}
-      `);
-    }
-    const roster = await tx
-      .select({ memberId: alumniDatabase.matchedUserId })
-      .from(alumniDatabase)
-      .where(inArray(alumniDatabase.matchedUserId, userIds));
-    const registeredIds = new Set(roster.map((row) => row.memberId));
-    const unlinked = userIds.filter((id) => !registeredIds.has(id));
-    if (unlinked.length) await tx.delete(users).where(inArray(users.id, unlinked));
-    if (!roster.length) return;
-    // Restore the roster identity so a later application claims the same alumnus.
-    await tx
-      .update(users)
-      .set({
-        name: sql`(select a.name from alumni_database a where a.matched_user_id = ${users.id})`,
-        email: null,
-        kakaoId: null,
-        phoneNumber: null,
-        profileImage: null,
-        birthday: null,
-        birthdayType: null,
-        isLeapMonth: null,
-        activityRegion: null,
-        isAdmin: false,
-        isVerified: false,
-        kakaoSyncEnabled: false,
-        updatedAt: new Date(),
-      })
-      .where(inArray(users.id, userIds));
-    return;
-  }
-
+  await tx.delete(posts).where(and(eq(posts.authorId, userId), eq(posts.isPublished, false)));
+  await tx.update(posts).set({ authorId: null }).where(eq(posts.authorId, userId));
+  await tx.update(comments).set({ authorId: null }).where(eq(comments.authorId, userId));
+  await tx.update(payments).set({ userId: null }).where(eq(payments.userId, userId));
   await deletePendingPersonalData();
+
+  await tx.execute(sql`delete from "session" where sess ->> 'userId' = ${userId}`);
+  await tx
+    .update(users)
+    .set({
+      alumniStatus: "동문회 탈퇴자",
+      name: sql`coalesce(${users.alumniName}, '동문회 미가입자')`,
+      email: null,
+      kakaoId: null,
+      joinedAt: null,
+      phoneNumber: null,
+      profileImage: null,
+      birthday: null,
+      birthdayType: null,
+      isLeapMonth: null,
+      activityRegion: null,
+      isAdmin: false,
+      isVerified: false,
+      kakaoSyncEnabled: false,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
 }
 
 export async function withPhoneRegistrationLock<T>(
@@ -180,7 +156,7 @@ export async function withPhoneRegistrationLock<T>(
   `);
 
   const [existingUser] = await tx
-    .select()
+    .select(accountUserColumns)
     .from(users)
     .where(
       and(

@@ -2,13 +2,23 @@
 
 현재 저장소의 SQL·변환 진입점을 목적과 실행 효과로 분류한다. 파일은 `scripts/`·`migrations/`의 기존 경로에 유지한다. 이 색인은 실행 순서나 일괄 재실행 지시가 아니다. 직접 DB 작업은 [DB 운영 런북](../runbooks/database-operations.md), 현행 구조는 [스키마 기준서](database-schema.md)를 따른다.
 
+## 개발 회비수입원장
+
+회비수입원장에는 [검산 CLI](../../scripts/reconcile-dues-ledger.mjs), [개발 스키마 SQL](../../scripts/add-dues-ledger-development.sql), [개발 이관 SQL](../../scripts/import-dues-ledger-development.sql)을 사용한다. CLI의 시트 검산, DB 읽기 대조, 검토 파일 생성과 실제 쓰기 SQL의 실행 조건은 [회비수입 이관 절차](../runbooks/database-operations.md#개발-회비수입원장-이관)에 구분한다. 개발 스키마 SQL은 [적용 완료](../history/dues-ledger-development-2026-11-21.md)했으며 재실행하지 않는다. 데이터 이관 SQL은 첫 이관 이후 새 입금을 증분 반영할 때 사용한다.
+
 ## 조회 도구
 
 | 파일 | 대상·효과 | 사용 조건 |
 |---|---|---|
 | [database-schema-catalog.sql](../../scripts/database-schema-catalog.sql) | `expected_database`와 실제 DB 이름 확인; READ ONLY 트랜잭션으로 구조 metadata 조회 | 요청된 catalog 확인에서만 사용. 행 본문은 조회하지 않지만 실제 DB 연결이므로 정적 검사가 아님 |
 
+## 명부 운영 CLI
+
+[사망 처리 CLI](../../scripts/record-alumni-death.ts)는 개발 기본명부의 동문 한 명을 처리한다. 미리보기·적용과 사망일 보완은 [사무국 실행 절차](../runbooks/database-operations.md#동문-사망-처리)를 따른다.
+
 ## 완료된 Development 전환
+
+[회원 상태·변동 이력 전환 SQL](../../scripts/member-status-development.sql)은 개발 DB에 적용했다. 사망 처리 CLI는 이 전환에서 설치한 트리거를 재사용한다. [개발 적용 기록](../history/member-status-candidate-2026-11-21.md)
 
 2026-11-12 승인된 [add-comment-management.sql](../../scripts/add-comment-management.sql)은 `heliumdb`의 댓글 네 컬럼·두 CHECK를 추가했다. 개발 적용·백업·catalog 근거는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)을 따른다. 운영에는 아래 별도 운영 SQL을 적용했으며 어느 스크립트도 반복 적용용이 아니다.
 
@@ -21,6 +31,8 @@
 | [add-post-visibility.sql](../../scripts/add-post-visibility.sql) | `heliumdb` 확인; is_hidden 컬럼 추가 | 완료된 additive 변경. 무조건 반복 가능한 스크립트가 아님 |
 
 ## 완료된 Production 전환과 준비 자료
+
+운영 기본명부 전환에는 [운영 CLI](../../scripts/promote-membership-production.mjs)를 사용한다. 기본 명령은 읽기 전용 대조이며, 적용 범위와 검증 명령은 [운영 기본명부와 회비 구조 전환](../runbooks/database-operations.md#운영-기본명부와-회비-구조-전환)을 따른다. [회원 상태 SQL](../../scripts/lib/member-status-contract.sql)과 [회비 스키마 SQL](../../scripts/lib/dues-ledger-contract.sql)은 개발·운영 진입점이 대상 DB를 확인한 뒤 트랜잭션 안에서 사용하는 공통 정의다.
 
 - [add-comment-management-production.sql](../../scripts/add-comment-management-production.sql): `3.0.0` 댓글 확장. `neondb`만 허용하며 네 컬럼·두 CHECK를 한 트랜잭션에 추가한다. 2026-11-12 03:47 KST 적용 완료. 반복 적용용이 아니며 당시 운영 승인·백업·preview·새 연결 확인 결과는 [릴리스 기록](../history/release-3.0.0-2026-11-12.md#운영-db-적용)에 남아 있다.
 
@@ -55,4 +67,12 @@
 
 [add-post-import-data.sql](../../scripts/add-post-import-data.sql)은 개발 heliumdb에만 `posts.import_data` JSONB·형식 CHECK·원본 식별 부분 UNIQUE 인덱스를 추가한다. 기존 행 변환 없이 한 번만 적용한다. 일반 API는 이관 메타데이터를 입력받지 않는다.
 
+[개발 회원 가입일 DDL](../../scripts/add-member-joined-at-development.sql)은 기존 데이터 소급 없이 한 컬럼을 추가한다. [실행 절차](../runbooks/database-operations.md#개발-회원-가입일)
+
+[개발 기본명부 DDL](../../scripts/add-user-roster-development.sql)과 [시트 직접 반영 CLI](../../scripts/import-user-roster.mjs)는 스키마 추가와 기존 회원 행 업데이트를 구분한다. [개발 기본명부 직접 반영 절차](../runbooks/database-operations.md#개발-기본명부-직접-반영)
+
 [회원 UUID 전환 CLI](../../scripts/convert-member-ids.ts)는 [기본키·외래키 DDL](../../scripts/convert-member-ids.sql)을 명부 대조와 같은 트랜잭션에서 실행한다. [실행 절차](../runbooks/database-operations.md#개발-회원-기본키-전환과-명부-사전-등록)
+
+- [개발 별칭 FK 전환](../../scripts/link-roster-aliases-development.sql)은 기존 별칭의 소유자를 동문 UUID로 연결한다.
+
+[신규 기수 등록 SQL](../../scripts/add-roster-cohort-development.sql)은 개발에서 신규 UUID만 등록한다. 입력 형식과 정정 SQL은 [동문 기본명부 관리](../runbooks/database-operations.md#동문-기본명부-관리)를 따른다.

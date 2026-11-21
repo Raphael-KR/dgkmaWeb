@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  PendingRegistrationConflictError,
+  PhoneRegistrationConflictError,
+} from "../registration-support";
 import type { User } from "@shared/schema";
 import {
   startServer,
@@ -10,7 +14,7 @@ import {
   createdUser,
   kakaoResponses,
   kakaoAuthStorageDouble,
-  takeKakaoResponse,
+  newKakaoUserInfo,
 } from "./kakao-oauth-fixtures";
 
 export function registerKakaoMemberSessionCases() {
@@ -46,48 +50,38 @@ export function registerKakaoMemberSessionCases() {
     const existingUser: User = {
       id: "00000000-0000-4000-8000-000000000007",
       kakaoId: "123456789",
-      email: "member@example.com",
-      name: "홍길동",
+      email: "old@example.com",
+      name: "옛이름",
       graduationYear: 2004,
       isVerified: true,
       isAdmin: false,
       kakaoSyncEnabled: true,
       profileImage: null,
-      phoneNumber: "+82 10-1234-5678",
+      phoneNumber: "010-5555-5555",
       birthday: "1225",
       birthdayType: "LUNAR",
       isLeapMonth: true,
       activityRegion: "서울특별시",
+      joinedAt: null,
       createdAt: new Date("2024-01-01T00:00:00.000Z"),
       updatedAt: new Date("2024-01-02T00:00:00.000Z"),
     };
     let savedUpdates: Partial<User> | undefined;
-    const updatedUser: User = {
-      ...existingUser,
-      profileImage: "https://cdn.example.com/profile.jpg",
-      birthday: "0101",
-      birthdayType: "SOLAR",
-      isLeapMonth: false,
-    };
+    let storedUser = existingUser;
     const server = await startServer({
       getKakaoOAuthConfig: () => config,
       kakaoFetch,
-      kakaoAuthStorage: {
-        getUser: async () => updatedUser,
-        getUserByEmail: async () => undefined,
+      kakaoAuthStorage: kakaoAuthStorageDouble({
+        getUser: async () => storedUser,
         getUserByKakaoId: async () => existingUser,
-        getUserByNormalizedPhone: async () => undefined,
-        findAlumniByName: async () => [],
-        createUserWithAlumniClaim: async () => updatedUser,
-        updateUser: async (_id, updates) => {
+        finalizeKakaoLogin: finalizeKakaoLoginDouble(existingUser, (updates) => {
           savedUpdates = updates;
-          return updatedUser;
+          storedUser = { ...existingUser, ...updates };
+        }),
+        findAlumniByName: async () => {
+          throw new Error("a returning member needs no roster match");
         },
-        finalizeKakaoLogin: finalizeKakaoLoginDouble(updatedUser),
-        createOrRefreshPendingRegistration: async () => {
-          throw new Error("pending registration should not be created");
-        },
-      },
+      }),
     });
     try {
       const authorization = await beginKakaoAuthorization(server.baseUrl);
@@ -111,6 +105,9 @@ export function registerKakaoMemberSessionCases() {
         "Bearer test-access-token",
       );
       assert.deepEqual(savedUpdates, {
+        name: "홍길동",
+        email: "member@example.com",
+        phoneNumber: "+82 10-1234-5678",
         profileImage: "https://cdn.example.com/profile.jpg",
         birthday: "0101",
         birthdayType: "SOLAR",
@@ -129,6 +126,7 @@ export function registerKakaoMemberSessionCases() {
         birthdayType: "SOLAR",
         isLeapMonth: false,
         activityRegion: "서울특별시",
+        joinedAt: null,
         createdAt: "2024-01-01T00:00:00.000Z",
       });
       assert.doesNotMatch(JSON.stringify(responseBody), /kakaoId|updatedAt|test-access-token/);
@@ -150,7 +148,7 @@ export function registerKakaoMemberSessionCases() {
   });
 
   test("a configured Kakao administrator regains database admin status after login", async () => {
-    let storedUser: User = { ...createdUser, isAdmin: false };
+    const storedUser = { ...createdUser, isAdmin: false };
     let savedUpdates: Partial<User> | undefined;
     const server = await startServer({
       getKakaoOAuthConfig: () => config,
@@ -159,19 +157,9 @@ export function registerKakaoMemberSessionCases() {
       kakaoAuthStorage: kakaoAuthStorageDouble({
         getUser: async () => storedUser,
         getUserByKakaoId: async () => storedUser,
-        updateUser: async (_id: string, updates: Partial<User>) => {
+        finalizeKakaoLogin: finalizeKakaoLoginDouble(storedUser, (updates) => {
           savedUpdates = updates;
-          storedUser = { ...storedUser, ...updates };
-          return storedUser;
-        },
-        finalizeKakaoLogin: async (
-          _userId: string,
-          _generation: unknown,
-          saveSession: () => Promise<void>,
-        ) => {
-          await saveSession();
-          return storedUser;
-        },
+        }),
       }),
     });
 
@@ -195,18 +183,9 @@ export function registerKakaoMemberSessionCases() {
       kakaoAuthStorage: kakaoAuthStorageDouble({
         getUser: async () => storedUser,
         getUserByKakaoId: async () => storedUser,
-        updateUser: async (_id: string, updates: Partial<User>) => {
+        finalizeKakaoLogin: finalizeKakaoLoginDouble(storedUser, (updates) => {
           savedUpdates = updates;
-          return { ...storedUser, ...updates };
-        },
-        finalizeKakaoLogin: async (
-          _userId: string,
-          _generation: unknown,
-          saveSession: () => Promise<void>,
-        ) => {
-          await saveSession();
-          return storedUser;
-        },
+        }),
       }),
     });
 
@@ -220,76 +199,82 @@ export function registerKakaoMemberSessionCases() {
     }
   });
 
-  test("missing optional Kakao birthday clears the existing saved birthday", async () => {
-    const userInfo = {
-      id: 123456789,
-      kakao_account: {
-        email: "member@example.com",
-        is_email_verified: true,
-        name: "홍길동",
-        phone_number: "+82 10-1234-5678",
-      },
-    };
-    const responses = [
-      new Response(JSON.stringify({ access_token: "test-access-token" })),
-      new Response(JSON.stringify(userInfo)),
-    ];
-    const existingUser = {
-      id: "00000000-0000-4000-8000-000000000007",
-      kakaoId: "123456789",
-      email: "member@example.com",
-      name: "홍길동",
-      graduationYear: null,
-      isVerified: true,
-      isAdmin: false,
-      kakaoSyncEnabled: true,
-      profileImage: "https://cdn.example.com/withdrawn-profile.jpg",
-      phoneNumber: "+82 10-1234-5678",
-      birthday: "0101",
-      birthdayType: "SOLAR",
-      isLeapMonth: false,
-      activityRegion: "서울특별시",
-      createdAt: null,
-      updatedAt: null,
-    } satisfies User;
-    let savedUpdates: Partial<User> | undefined;
-    const server = await startServer({
-      getKakaoOAuthConfig: () => config,
-      kakaoFetch: async () => takeKakaoResponse(responses),
-      kakaoAuthStorage: {
-        getUser: async () => existingUser,
-        getUserByEmail: async () => undefined,
-        getUserByKakaoId: async () => existingUser,
-        getUserByNormalizedPhone: async () => undefined,
-        findAlumniByName: async () => [],
-        createUserWithAlumniClaim: async () => existingUser,
-        updateUser: async (_id, updates) => {
-          savedUpdates = updates;
-          return { ...existingUser, ...updates };
+  for (const needsAgreement of [false, true]) {
+    const scenario = needsAgreement
+      ? "explicit consent required clears"
+      : "omitted values preserve";
+    test(`${scenario} the stored Kakao photo and birthday`, async () => {
+      const storedUser = {
+        ...createdUser,
+        profileImage: "https://cdn.example.com/profile.jpg",
+        birthday: "0215",
+        birthdayType: "LUNAR",
+        isLeapMonth: true,
+      };
+      const info = {
+        ...newKakaoUserInfo,
+        kakao_account: {
+          ...newKakaoUserInfo.kakao_account,
+          ...(needsAgreement && {
+            birthday_needs_agreement: true,
+            profile_image_needs_agreement: true,
+          }),
         },
-        finalizeKakaoLogin: finalizeKakaoLoginDouble({
-          ...existingUser,
-          profileImage: null,
-          birthday: null,
-          birthdayType: null,
-          isLeapMonth: null,
+      };
+      const server = await startServer({
+        getKakaoOAuthConfig: () => config,
+        kakaoFetch: kakaoResponses(info),
+        kakaoAuthStorage: kakaoAuthStorageDouble({
+          getUserByKakaoId: async () => storedUser,
+          finalizeKakaoLogin: finalizeKakaoLoginDouble(storedUser),
         }),
-        createOrRefreshPendingRegistration: async () => {
-          throw new Error("pending registration should not be created");
-        },
-      },
-    });
-    try {
-      const response = await postKakaoAuthorize(server.baseUrl);
-      assert.equal(response.status, 200);
-      assert.deepEqual(savedUpdates, {
-        profileImage: null,
-        birthday: null,
-        birthdayType: null,
-        isLeapMonth: null,
       });
-    } finally {
-      await server.close();
-    }
-  });
+      try {
+        const response = await postKakaoAuthorize(server.baseUrl);
+        assert.equal(response.status, 200);
+        const { user } = await response.json();
+        for (const key of ["profileImage", "birthday", "birthdayType", "isLeapMonth"] as const) {
+          assert.equal(user[key], needsAgreement ? null : storedUser[key]);
+        }
+      } finally {
+        await server.close();
+      }
+    });
+  }
+
+  for (const conflict of [
+    new PendingRegistrationConflictError("email_conflict"),
+    new PhoneRegistrationConflictError(),
+  ]) {
+    test(`existing member contact conflict refuses the login: ${conflict.name}`, async () => {
+      const server = await startServer({
+        getKakaoOAuthConfig: () => config,
+        kakaoFetch: kakaoResponses(),
+        kakaoAuthStorage: kakaoAuthStorageDouble({
+          getUserByKakaoId: async () => createdUser,
+          finalizeKakaoLogin: async () => {
+            throw conflict;
+          },
+          createOrRefreshPendingRegistration: async () => {
+            throw new Error("unexpected registration");
+          },
+        }),
+      });
+      try {
+        const auth = await beginKakaoAuthorization(server.baseUrl);
+        const response = await postKakaoAuthorize(server.baseUrl, { code: "test-code" }, auth);
+        assert.equal(response.status, 409);
+        assert.match(
+          (await response.json()).message,
+          conflict instanceof PhoneRegistrationConflictError ? /휴대전화/ : /이메일/,
+        );
+        const me = await fetch(`${server.baseUrl}/api/auth/me`, {
+          headers: { cookie: auth.cookie },
+        });
+        assert.equal(me.status, 401);
+      } finally {
+        await server.close();
+      }
+    });
+  }
 }

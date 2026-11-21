@@ -1,18 +1,18 @@
 import {
+  accountUserColumns,
   users,
-  alumniDatabase,
   pendingRegistrations,
   type PendingRegistration,
 } from "@shared/schema";
-import { and, eq, ne, or, asc, isNull, sql } from "drizzle-orm";
+import { and, eq, ne, or, isNull, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
-  normalizedPhoneSql,
   withPhoneRegistrationLock,
   PendingRegistrationConflictError,
   normalizePhoneForComparison,
 } from "../identity/registration-support";
-import { uniqueAlumniMatch, normalizeNameForComparison } from "./alumni-match";
+import { normalizeNameForComparison } from "./alumni-match";
+import { lockRegistrationMatch } from "./roster";
 import { parsePendingUserData } from "./pending-registration-data";
 
 type RegistrationTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -25,7 +25,7 @@ export async function approveRegistration(
   const data = parsePendingUserData(registration);
   if (!data) throw new PendingRegistrationConflictError();
   const [existing] = await tx
-    .select()
+    .select(accountUserColumns)
     .from(users)
     .where(eq(users.kakaoId, data.kakaoId))
     .for("update");
@@ -57,38 +57,23 @@ export async function approveRegistration(
         )
         .limit(1);
       if (conflict) throw new PendingRegistrationConflictError();
-      const matches = await tx
-        .select()
-        .from(alumniDatabase)
-        .where(
-          and(
-            sql`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g') = ${normalizeNameForComparison(data.name)}`,
-            sql`${normalizedPhoneSql(alumniDatabase.mobile)} = ${normalizedPhone}`,
-          ),
-        )
-        .orderBy(asc(alumniDatabase.id))
-        .limit(2);
-      const alumni = uniqueAlumniMatch(matches);
+      const alumni = await lockRegistrationMatch(
+        tx,
+        normalizeNameForComparison(data.name),
+        normalizedPhone,
+      );
       if (
-        !alumni?.matchedUserId ||
+        !alumni ||
         alumni.status === "사망" ||
-        (existing ? alumni.matchedUserId !== existing.id : alumni.isMatched)
+        (existing ? alumni.id !== existing.id : alumni.hasAccount)
       )
         throw new PendingRegistrationConflictError();
-      if (existing) {
-        const links = await tx
-          .select({ id: alumniDatabase.id })
-          .from(alumniDatabase)
-          .where(eq(alumniDatabase.matchedUserId, existing.id));
-        if (links.some((link) => link.id !== alumni.id))
-          throw new PendingRegistrationConflictError();
-      }
       const [user] = existing
         ? await tx
             .update(users)
-            .set({ isVerified: true, updatedAt: new Date() })
+            .set({ alumniStatus: "가입 완료", isVerified: true, updatedAt: new Date() })
             .where(eq(users.id, existing.id))
-            .returning()
+            .returning(accountUserColumns)
         : await tx
             .update(users)
             .set({
@@ -103,25 +88,15 @@ export async function approveRegistration(
               graduationYear: alumni.graduationDate
                 ? parseInt(alumni.graduationDate.substring(0, 4), 10) || null
                 : null,
+              alumniStatus: "가입 완료",
               isVerified: true,
+              joinedAt: sql`statement_timestamp()`,
               kakaoSyncEnabled: true,
               updatedAt: new Date(),
             })
-            .where(
-              and(
-                eq(users.id, alumni.matchedUserId),
-                isNull(users.kakaoId),
-                eq(users.isVerified, false),
-              ),
-            )
-            .returning();
+            .where(and(eq(users.id, alumni.id), isNull(users.kakaoId), eq(users.isVerified, false)))
+            .returning(accountUserColumns);
       if (!user) throw new PendingRegistrationConflictError();
-      const [claimed] = await tx
-        .update(alumniDatabase)
-        .set({ isMatched: true, matchedUserId: user.id })
-        .where(and(eq(alumniDatabase.id, alumni.id), eq(alumniDatabase.matchedUserId, user.id)))
-        .returning();
-      if (!claimed) throw new PendingRegistrationConflictError();
       await tx
         .update(pendingRegistrations)
         .set({ status: "approved" })

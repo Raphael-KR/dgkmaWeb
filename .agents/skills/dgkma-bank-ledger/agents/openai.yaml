@@ -1,0 +1,4 @@
+interface:
+  display_name: "동문회 일반회계 통장 기장"
+  short_description: "기업은행·토스 일반계좌의 신규 거래를 장부에 반영하고 결산 잔액을 검산"
+  default_prompt: "$dgkma-bank-ledger 첨부한 동문회 일반계좌 거래내역을 기존 은행 원장과 연도별 회계장부에 증분하고, 새 거래 건수·합계·잔액을 확인해줘."

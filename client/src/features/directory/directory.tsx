@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { DirectoryMembershipBadge } from "@/components/membership-badge";
 import { QueryError } from "@/components/query-error";
 import { Search, Users, Info } from "lucide-react";
 import { KakaoGroupCard } from "./kakao-group-card";
@@ -121,8 +121,8 @@ export default function Directory() {
             </Card>
           ) : (
             <div className="directory-grid">
-              {filteredAlumni.map((person) => (
-                <Card key={person.id} className="min-w-0 shadow-sm">
+              {filteredAlumni.map((person, index) => (
+                <Card key={index} className="min-w-0 shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-3">
@@ -144,11 +144,7 @@ export default function Directory() {
                           </p>
                         </div>
                       </div>
-                      {person.isMatched && (
-                        <Badge variant="default" className="shrink-0">
-                          회원
-                        </Badge>
-                      )}
+                      <DirectoryMembershipBadge isMember={person.isMatched} />
                     </div>
                   </CardContent>
                 </Card>

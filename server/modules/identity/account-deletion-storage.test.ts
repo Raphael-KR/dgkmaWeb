@@ -42,15 +42,8 @@ test(
           await pool.query("delete from posts where title = any($1::text[])", [
             [`${marker}-draft`, `${marker}-published`],
           ]);
-          const cleared = await pool.query(
-            "select matched_user_id as id from alumni_database where generation=$1",
-            [marker],
-          );
-          await pool.query("delete from alumni_database where generation = $1", [marker]);
           await pool.query("delete from pending_registrations where name = $1", [marker]);
-          await pool.query("delete from users where id = any($1::uuid[])", [
-            cleared.rows.map((row) => row.id),
-          ]);
+          await pool.query("delete from users where generation = $1", [marker]);
           await pool.query("delete from users where email = any($1::text[])", [
             [email, otherEmail],
           ]);
@@ -78,7 +71,7 @@ test(
            (select count(*)::int from users where email = any($1::text[])) as users_count,
            (select count(*)::int from posts where title = $2) as posts_count,
            (select count(*)::int from comments where content = $2) as comments_count,
-           (select count(*)::int from alumni_database where generation = $2) as alumni_count,
+           (select count(*)::int from users where generation = $2) as alumni_count,
            (select count(*)::int from posts where title = any($3::text[])) as events_count,
            (select count(*)::int from pending_registrations where name = $2) as pending_count,
            (select count(*)::int from "session" where sid = any($4::text[])) as sessions_count,
@@ -108,8 +101,8 @@ test(
     });
 
     const usersResult = await pool.query<{ id: string }>(
-      `insert into users (id, kakao_id, email, name, phone_number)
-     values (gen_random_uuid(), $1, $2, $3, $4), (gen_random_uuid(), $5, $6, $7, $8)
+      `insert into users (id, kakao_id, email, name, phone_number, is_verified, alumni_status)
+     values (gen_random_uuid(), $1, $2, $3, $4, true, '가입 완료'), (gen_random_uuid(), $5, $6, $7, $8, true, '가입 완료')
      returning id`,
       [
         kakaoId,
@@ -139,9 +132,7 @@ test(
       marker,
     ]);
     await pool.query(
-      `insert into alumni_database
-      (department, generation, name, mobile, is_matched, matched_user_id)
-     values ('한의학과', $1, $1, $2, true, $3)`,
+      `update users set department='한의학과', generation=$1, alumni_name=$1, alumni_mobile=$2 where id=$3`,
       [marker, testPhone(2), userId],
     );
     await pool.query(
@@ -180,6 +171,8 @@ test(
 
     await storage.deleteUserAccount({ id: userId, kakaoId, email });
 
+    await storage.deleteUserAccount({ id: userId, kakaoId, email });
+
     const state = await pool.query<{
       users_count: number;
       draft_count: number;
@@ -198,7 +191,9 @@ test(
        (select count(*)::int from posts where title = $3 and author_id is null) as published_anonymous_count,
        (select count(*)::int from posts where title = $4 and author_id is null) as post_anonymous_count,
        (select count(*)::int from comments where content = $4 and author_id is null) as comment_anonymous_count,
-       (select count(*)::int from alumni_database where generation = $4 and is_matched = false and matched_user_id = $1) as alumni_unmatched_count,
+       (select count(*)::int from users where generation = $4 and is_verified = false and kakao_id is null and alumni_name = $4 and id = $1
+         and alumni_status = '동문회 탈퇴자' and membership_history->-1->>'type' = '탈퇴원 접수'
+         and jsonb_array_length(membership_history) = 2) as alumni_unmatched_count,
        (select count(*)::int from pending_registrations where kakao_id = $5 or lower(email) = lower($6)) as pending_count,
        (select count(*)::int from "session" where sid = any($7::text[])) as target_session_count,
        (select count(*)::int from "session" where sid = $8) as other_session_count,
