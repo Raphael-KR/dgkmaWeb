@@ -2,7 +2,9 @@
 
 확인된 개발·릴리스 기록의 요약이다. 현재 정책은 [제품·개발 계획](docs/product/planning-proposal.md), 환경별 마지막 확인 상태는 [replit.md](replit.md#현재-적용-상태)가 기준이다. [릴리스 버전 관리 규칙](replit.md#릴리스-버전-관리-규칙)에 따라 미배포·배포 준비·실제 배포를 구분한다. 기록일을 배포일로 사용하거나 과거 무번호 릴리스에 버전 번호를 소급 부여하지 않는다.
 
-## 6.3.0 — 배포 준비
+## 6.3.0 — 2026-11-21
+
+[PR #44](https://github.com/Raphael-KR/dgkmaWeb/pull/44)와 [#45](https://github.com/Raphael-KR/dgkmaWeb/pull/45)를 병합하고 `f27b6a6`을 운영에 게시했다. [릴리스 기록](docs/history/release-6.3.0-2026-11-21.md)
 
 동문 기본명부 관리와 회원 상태 이력, 관리자 회비수입 집계를 추가해 MINOR를 올린다.
 
