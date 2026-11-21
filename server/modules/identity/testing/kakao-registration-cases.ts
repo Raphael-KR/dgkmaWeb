@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { User } from "@shared/schema";
 import { PendingRegistrationConflictError } from "../../../storage";
 import type { PendingRegistrationReviewInput } from "../../../storage";
 import {
@@ -12,6 +11,7 @@ import {
   postKakaoAuthorize,
   createdUser,
   beginKakaoAuthorization,
+  finalizeKakaoLoginDouble,
   alumniRecord,
 } from "./kakao-oauth-fixtures";
 
@@ -49,7 +49,7 @@ export function registerKakaoRegistrationCases() {
   });
 
   test("same email with a different or missing Kakao ID never auto-links and creates pending review", async () => {
-    let updateUserCalled = false;
+    let loginFinalized = false;
     let createUserCalled = false;
     let pendingUserData: Record<string, unknown> | undefined;
     const emailUser = { ...createdUser, id: "00000000-0000-4000-8000-000000000017", kakaoId: null };
@@ -58,8 +58,8 @@ export function registerKakaoRegistrationCases() {
       kakaoFetch: kakaoResponses(),
       kakaoAuthStorage: kakaoAuthStorageDouble({
         getUserByEmail: async () => emailUser,
-        updateUser: async () => {
-          updateUserCalled = true;
+        finalizeKakaoLogin: async () => {
+          loginFinalized = true;
           return emailUser;
         },
         createUserWithAlumniClaim: async () => {
@@ -80,7 +80,7 @@ export function registerKakaoRegistrationCases() {
     try {
       const response = await postKakaoAuthorize(server.baseUrl);
       assert.equal(response.status, 202);
-      assert.equal(updateUserCalled, false);
+      assert.equal(loginFinalized, false);
       assert.equal(createUserCalled, false);
       assert.equal(pendingUserData?.conflictReason, "email_conflict");
       assert.equal((await response.json()).requiresApproval, true);
@@ -99,30 +99,16 @@ export function registerKakaoRegistrationCases() {
       birthdayType: "SOLAR",
       isLeapMonth: false,
     };
-    let savedUpdates: Partial<User> | undefined;
-    let storedApprovedUser: User = approvedUser;
     const server = await startServer({
       getKakaoOAuthConfig: () => config,
       kakaoFetch: kakaoResponses(),
       kakaoAuthStorage: kakaoAuthStorageDouble({
-        getUser: async (id: string) => (id === approvedUser.id ? storedApprovedUser : undefined),
+        getUser: async (id: string) => (id === approvedUser.id ? approvedUser : undefined),
         createOrRefreshPendingRegistration: async () => ({
           kind: "registered" as const,
           user: approvedUser,
         }),
-        updateUser: async (_id: string, updates: Partial<User>) => {
-          savedUpdates = updates;
-          storedApprovedUser = { ...approvedUser, ...updates };
-          return storedApprovedUser;
-        },
-        finalizeKakaoLogin: async (
-          _userId: string,
-          _generation: unknown,
-          saveSession: () => Promise<void>,
-        ) => {
-          await saveSession();
-          return storedApprovedUser;
-        },
+        finalizeKakaoLogin: finalizeKakaoLoginDouble(approvedUser),
       }),
     });
     try {
@@ -141,14 +127,8 @@ export function registerKakaoRegistrationCases() {
       );
       const responseBody = await response.json();
       assert.equal("id" in responseBody.user, false);
-      assert.equal(responseBody.user.profileImage, null);
-      assert.equal(responseBody.user.birthday, null);
-      assert.deepEqual(savedUpdates, {
-        profileImage: null,
-        birthday: null,
-        birthdayType: null,
-        isLeapMonth: null,
-      });
+      assert.equal(responseBody.user.profileImage, approvedUser.profileImage);
+      assert.equal(responseBody.user.birthday, approvedUser.birthday);
 
       const meResponse = await fetch(`${server.baseUrl}/api/auth/me`, {
         headers: { cookie: authenticatedCookie },
@@ -203,10 +183,6 @@ export function registerKakaoRegistrationCases() {
       kakaoFetch: kakaoResponses(),
       kakaoAuthStorage: kakaoAuthStorageDouble({
         createUserWithAlumniClaim: async () => {
-          memberWriteCalls += 1;
-          return createdUser;
-        },
-        updateUser: async () => {
           memberWriteCalls += 1;
           return createdUser;
         },

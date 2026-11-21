@@ -1,8 +1,6 @@
 import {
-  alumniDatabase,
   users,
   PENDING_REGISTRATION_CONFLICT_REASONS,
-  type AlumniRecord,
   type PendingRegistration,
   type PendingRegistrationConflictReason,
   type User,
@@ -12,7 +10,7 @@ import type {
   AdminPendingRegistrationReviewDto,
   PendingRegistrationReviewStatus,
 } from "@shared/contracts";
-import { inArray, or, sql } from "drizzle-orm";
+import { and, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { normalizePhoneForComparison, normalizedPhoneSql } from "../identity/registration-support";
 import { normalizeNameForComparison } from "./alumni-match";
@@ -20,10 +18,13 @@ import { toAdminPendingRegistrationDto } from "./admin-pending-registration";
 import { parsePendingUserData } from "./pending-registration-data";
 import { adminAlumniColumns } from "./admin-alumni-record";
 
-type ReviewAlumni = AdminAlumniRecordDto &
-  Pick<AlumniRecord, "matchedUserId" | "isMatched"> & {
-    normalizedName: string;
-  };
+import { inRoster, normalizedRosterName, normalizedAliases, hasAccount } from "./roster";
+
+type ReviewAlumni = AdminAlumniRecordDto & {
+  hasAccount: boolean;
+  normalizedName: string;
+  aliases: string[];
+};
 type ReviewAccount = Pick<User, "id" | "isVerified" | "kakaoId" | "email" | "phoneNumber" | "name">;
 
 function getReviewApplicant(registration: PendingRegistration) {
@@ -53,11 +54,11 @@ export function createPendingRegistrationReview(
   );
   const otherAccounts = accounts.filter((account) => account.id !== member?.id);
   const candidates = alumni
-    .map(({ normalizedName, isMatched, matchedUserId: _memberId, ...record }) => ({
+    .map(({ normalizedName, hasAccount, aliases, ...record }) => ({
       ...record,
-      nameMatches: !!name && normalizedName === name,
+      nameMatches: !!name && (normalizedName === name || aliases.includes(name)),
       phoneMatches: !!phone && normalizePhoneForComparison(record.mobile ?? "") === phone,
-      isLinked: !!isMatched,
+      isLinked: hasAccount,
     }))
     .filter((candidate) => candidate.nameMatches || candidate.phoneMatches)
     .sort(
@@ -65,7 +66,7 @@ export function createPendingRegistrationReview(
         Number(b.nameMatches) +
           Number(b.phoneMatches) -
           Number(a.nameMatches) -
-          Number(a.phoneMatches) || a.id - b.id,
+          Number(a.phoneMatches) || a.id.localeCompare(b.id),
     );
   const exact = candidates.filter((candidate) => candidate.nameMatches && candidate.phoneMatches);
   const match = exact.length === 1 ? alumni.find((row) => row.id === exact[0].id) : undefined;
@@ -98,16 +99,8 @@ export function createPendingRegistrationReview(
   else if (accountConflicts.length) status = "account_conflict";
   else if (exact.length === 0) status = "no_match";
   else if (exact.length > 1) status = "multiple_matches";
-  else if (!match?.matchedUserId || match.status === "사망") status = "no_match";
-  else if ((member || match.isMatched) && match.matchedUserId !== member?.id)
-    status = "already_linked";
-  else if (
-    member &&
-    alumni.some(
-      (candidate) => candidate.matchedUserId === member.id && candidate.id !== exact[0].id,
-    )
-  )
-    status = "already_linked";
+  else if (!match || match.status === "사망") status = "no_match";
+  else if ((member || match.hasAccount) && match.id !== member?.id) status = "already_linked";
   const reason = applicant.reason;
 
   return {
@@ -153,21 +146,28 @@ export async function getPendingRegistrationReviews(
   if (names.length || phones.length) {
     const emails = Array.from(new Set(inputs.map((data) => data.email.trim().toLowerCase())));
     const kakaoIds = Array.from(new Set(inputs.map((data) => data.kakaoId)));
-    // 승인 SQL과 같은 이름 정규화 값을 후보 조회와 일치 판정에 사용한다.
-    const normalizedName = sql<string>`regexp_replace(${alumniDatabase.name}, '[[:space:]]', '', 'g')`;
     [alumni, accounts] = await Promise.all([
       db
         .select({
           ...adminAlumniColumns,
-          matchedUserId: alumniDatabase.matchedUserId,
-          isMatched: alumniDatabase.isMatched,
-          normalizedName,
+          hasAccount,
+          normalizedName: normalizedRosterName,
+          aliases: normalizedAliases,
         })
-        .from(alumniDatabase)
+        .from(users)
         .where(
-          or(
-            names.length ? inArray(normalizedName, names) : undefined,
-            phones.length ? inArray(normalizedPhoneSql(alumniDatabase.mobile), phones) : undefined,
+          and(
+            inRoster,
+            or(
+              names.length ? inArray(normalizedRosterName, names) : undefined,
+              names.length
+                ? sql`${normalizedAliases} && ARRAY[${sql.join(
+                    names.map((name) => sql`${name}`),
+                    sql`,`,
+                  )}]::text[]`
+                : undefined,
+              phones.length ? inArray(normalizedPhoneSql(users.alumniMobile), phones) : undefined,
+            ),
           ),
         ),
       inputs.length

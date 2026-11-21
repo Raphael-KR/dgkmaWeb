@@ -235,11 +235,11 @@ console.log(
 if (mode === "--validate") process.exit(0);
 const target = migrationTarget(workspace, "production", expectedDatabase, { promotion: true });
 const pool = await target.pool();
-const client = await pool.connect();
-await target.verifyDatabase(client);
-await client.query(readPostsSQL + " LIMIT 0");
+const previewClient = await pool.connect();
+await target.verifyDatabase(previewClient);
+await previewClient.query(readPostsSQL + " LIMIT 0");
 const categories = new Map(
-  (await client.query("select id,name from categories where is_active=true")).rows.map((row) => [
+  (await previewClient.query("select id,name from categories where is_active=true")).rows.map((row) => [
     row.name,
     row.id,
   ]),
@@ -247,7 +247,7 @@ const categories = new Map(
 for (const post of snapshot.posts)
   if (!categories.has(post.category_name))
     fail("missing-production-category:" + post.category_name);
-const before = (await client.query("select count(*)::int as count from posts")).rows[0].count;
+const before = (await previewClient.query("select count(*)::int as count from posts")).rows[0].count;
 const storage = bucketFor(target);
 const catalogObject = objectFor(storage, "heritage/production/catalog.json");
 const [exists] = await catalogObject.exists();
@@ -261,15 +261,15 @@ console.log(
     replacesAlbumCatalog: exists,
   }),
 );
+previewClient.release(true);
 if (mode === "--preview-production") {
-  client.release();
   await pool.end();
   process.exit(0);
 }
 if (mode === "--apply-production" && before !== 0)
   fail("production-posts-not-empty:actual=" + before);
 stage = "copy-production-files";
-for (const file of snapshot.files) {
+async function copyFile(file) {
   const key = file.key.replace(/^heritage\/development\//, "heritage/production/");
   const object = objectFor(storage, key);
   const [present] = await object.exists();
@@ -295,7 +295,15 @@ for (const file of snapshot.files) {
   if (hash(data) !== file.sha256) fail("production-file-hash-mismatch:" + file.sha256);
   progress.filesVerified++;
 }
+// Finish in-flight object writes before proceeding to the database.
+for (let start = 0; start < snapshot.files.length; start += 4) {
+  const batch = await Promise.allSettled(snapshot.files.slice(start, start + 4).map(copyFile));
+  const failed = batch.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
+}
 stage = "write-production-database";
+const client = await pool.connect();
+await target.verifyDatabase(client);
 await client.query("BEGIN");
 try {
   await client.query("LOCK TABLE posts IN SHARE ROW EXCLUSIVE MODE");
@@ -316,7 +324,7 @@ try {
         p.is_hidden,
         p.revision,
         p.image_urls,
-        JSON.stringify(p.event_data),
+        p.event_data === null ? null : JSON.stringify(p.event_data),
         p.source_text,
         p.published_at,
         p.created_at,

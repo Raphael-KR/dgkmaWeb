@@ -1,16 +1,18 @@
-import { asc, desc, eq, inArray } from "drizzle-orm";
-import { alumniDatabase, users } from "@shared/schema";
-import type { AdminApprovedMemberDto, AdminLinkedAlumniRecordDto } from "@shared/contracts";
+import { desc, eq, sql } from "drizzle-orm";
+import { users } from "@shared/schema";
+import type { AdminApprovedMemberDto } from "@shared/contracts";
 import { db } from "../../db";
-import { linkedAlumniColumns } from "./admin-alumni-record";
+import { adminAlumniColumns } from "./admin-alumni-record";
 
 export async function getApprovedMemberDetails(): Promise<AdminApprovedMemberDto[]> {
   const members = await db
     .select({
+      roster: adminAlumniColumns,
       id: users.id,
       name: users.name,
       email: users.email,
       createdAt: users.createdAt,
+      joinedAt: users.joinedAt,
       phoneNumber: users.phoneNumber,
       profileImage: users.profileImage,
       birthday: users.birthday,
@@ -20,28 +22,7 @@ export async function getApprovedMemberDetails(): Promise<AdminApprovedMemberDto
     })
     .from(users)
     .where(eq(users.isVerified, true))
-    .orderBy(desc(users.createdAt), desc(users.id));
-  if (members.length === 0) return [];
-
-  // 이름·전화번호가 바뀌어도 확정된 회원 연결을 기준으로 조회한다.
-  const linkedRows = await db
-    .select({ ...linkedAlumniColumns, memberId: alumniDatabase.matchedUserId })
-    .from(alumniDatabase)
-    .where(
-      inArray(
-        alumniDatabase.matchedUserId,
-        members.map((member) => member.id),
-      ),
-    )
-    .orderBy(asc(alumniDatabase.id));
-  const linkedByMember = new Map<string, AdminLinkedAlumniRecordDto[]>();
-  for (const { memberId, ...record } of linkedRows) {
-    if (memberId === null) continue;
-    const records = linkedByMember.get(memberId) ?? [];
-    records.push(record);
-    linkedByMember.set(memberId, records);
-  }
-
+    .orderBy(sql`${users.joinedAt} desc nulls last`, desc(users.id));
   return members.map((member) => ({
     id: member.id,
     memberId: member.id,
@@ -49,6 +30,7 @@ export async function getApprovedMemberDetails(): Promise<AdminApprovedMemberDto
     status: "approved",
     name: member.name,
     email: member.email ?? "",
+    joinedAt: member.joinedAt?.toISOString() ?? null,
     createdAt: member.createdAt?.toISOString() ?? null,
     profile: {
       phoneNumber: member.phoneNumber,
@@ -58,6 +40,6 @@ export async function getApprovedMemberDetails(): Promise<AdminApprovedMemberDto
       isLeapMonth: member.isLeapMonth,
       activityRegion: member.activityRegion,
     },
-    linkedAlumni: linkedByMember.get(member.id) ?? [],
+    linkedAlumni: member.roster.name ? [member.roster] : [],
   }));
 }

@@ -2,6 +2,8 @@ import { pendingRegistrations } from "@shared/schema";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 
+export class InactiveAlumniError extends Error {}
+
 export class RegistrationApprovalRequiredError extends Error {
   constructor(public readonly status: "pending" | "rejected") {
     super("Administrator approval is required.");

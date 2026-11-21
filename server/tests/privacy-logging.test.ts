@@ -20,7 +20,7 @@ const protectedFiles = [
   "modules/registry/alumni-record-storage.ts",
   "modules/registry/directory-storage.ts",
   "modules/registry/pending-registration-storage.ts",
-  "modules/registry/alumni-sync-storage.ts",
+  "modules/registry/pending-registration-review.ts",
   "modules/events/event-member-policy.ts",
   ...["identity", "registry", "content", "events", "dues"].flatMap((domain) => [
     `modules/${domain}/routes.ts`,

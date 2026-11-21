@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import express from "express";
 import session from "express-session";
+import { kakaoLoginUpdates, type KakaoMemberLogin } from "../kakao-login-updates";
 import type { AlumniRecord, User } from "@shared/schema";
 import { type KakaoOAuthConfig } from "../../../integrations/kakao/kakao-oauth-config";
 import type { PendingRegistrationReviewInput } from "../../../storage";
@@ -43,21 +44,14 @@ export function kakaoResponses(userInfo = newKakaoUserInfo) {
 }
 
 export const alumniRecord: AlumniRecord = {
-  id: 31,
-  department: "한의학과",
+  id: "00000000-0000-4000-8000-000000000041",
   generation: "20",
   name: "김동문",
   admissionDate: "1999-03-01",
   graduationDate: "2005-02-28",
-  address: null,
   mobile: "010-9876-5432",
-  phone: null,
-  group: null,
   status: null,
-  alumniPosition: null,
-  memo: null,
-  isMatched: false,
-  matchedUserId: "00000000-0000-4000-8000-000000000041",
+  hasAccount: false,
 };
 
 export const createdUser: User = {
@@ -75,14 +69,22 @@ export const createdUser: User = {
   birthdayType: null,
   isLeapMonth: null,
   activityRegion: null,
+  joinedAt: null,
   createdAt: new Date("2026-07-12T00:00:00.000Z"),
   updatedAt: new Date("2026-07-12T00:00:00.000Z"),
 };
 
-export function finalizeKakaoLoginDouble(user: User = createdUser) {
-  return async (_userId: string, _generation: unknown, saveSession: () => Promise<void>) => {
+export function finalizeKakaoLoginDouble(
+  user: User = createdUser,
+  onUpdate?: (updates: Partial<User>) => void,
+) {
+  return async (userId: string, login: KakaoMemberLogin, saveSession: () => Promise<void>) => {
+    assert.equal(userId, user.id);
+    assert.equal(login.kakaoId, user.kakaoId);
+    const updates = kakaoLoginUpdates(user, login);
+    if (Object.keys(updates).length) onUpdate?.(updates);
     await saveSession();
-    return user;
+    return { ...user, ...updates };
   };
 }
 
@@ -94,7 +96,6 @@ export function kakaoAuthStorageDouble(overrides: Partial<KakaoAuthStorage> = {}
     getUserByNormalizedPhone: async () => undefined,
     findAlumniByName: async () => [],
     createUserWithAlumniClaim: async () => createdUser,
-    updateUser: async () => createdUser,
     finalizeKakaoLogin: finalizeKakaoLoginDouble(),
     createOrRefreshPendingRegistration: async (registration: PendingRegistrationReviewInput) => ({
       kind: "pending" as const,

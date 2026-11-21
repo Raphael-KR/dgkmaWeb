@@ -20,6 +20,7 @@ const reviewMessages: Record<PendingRegistrationReviewStatus, string> = {
 };
 
 const reasonLabels: Record<PendingRegistrationConflictReason, string> = {
+  reapplication: "재가입 심사 요청",
   approval_cancelled: "관리자가 기존 회원의 승인을 취소함",
   not_found: "이름·전화번호로 유일한 명부를 확인하지 못함",
   email_conflict: "기존 계정과 이메일 중복",
@@ -162,8 +163,7 @@ export function PendingRegistrationReview({
         </div>
       )}
       <p className="text-xs text-gray-500">
-        명부 수정 후에는 동문 데이터 동기화를 마치고 다시 대조해 주세요. 승인 시 최신 정보로 다시
-        확인합니다.
+        명부를 정정한 뒤 다시 대조해 주세요. 승인 시 최신 명부로 확인합니다.
       </p>
     </section>
   );

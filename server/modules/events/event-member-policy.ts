@@ -105,10 +105,7 @@ export async function resolveEventMember(
   }
 
   const alumni = alumniMatches[0];
-  const account =
-    alumni.isMatched && alumni.matchedUserId
-      ? await memberStorage.getUser(alumni.matchedUserId)
-      : undefined;
+  const account = alumni.hasAccount ? await memberStorage.getUser(alumni.id) : undefined;
   const user = account?.isVerified ? account : undefined;
   return { kind: "ready", user, alumni, memberDisplayName: alumni.name };
 }

@@ -1,7 +1,10 @@
 import type { Request, Response } from "express";
-import type { InsertUser, User } from "@shared/schema";
+import type { User } from "@shared/schema";
 import type { RouteContext } from "../../lib/route-context";
-import { getErrorType } from "../../lib/safe-logging";
+import {
+  PendingRegistrationConflictError,
+  PhoneRegistrationConflictError,
+} from "./registration-support";
 import { toClientUser } from "./client-user";
 import type { KakaoOAuthGeneration } from "./kakao-identity";
 import type { KakaoLoginProfile } from "./kakao-profile";
@@ -15,48 +18,38 @@ export function createKakaoLoginCompletion(
   oauthGeneration: KakaoOAuthGeneration,
 ) {
   const { kakaoAuthStorage, isKakaoAdministrator } = context;
-  const { kakaoId, profileImage, phoneNumber, birthday, birthdayType, isLeapMonth } = profile;
-  const synchronizeKakaoUser = async (authenticatedUser: User): Promise<User | undefined> => {
-    const updates: Partial<InsertUser> = {};
-    if (
-      !authenticatedUser.isAdmin &&
-      authenticatedUser.kakaoId === kakaoId &&
-      isKakaoAdministrator(kakaoId)
-    )
-      updates.isAdmin = true;
-    if (!authenticatedUser.kakaoSyncEnabled) updates.kakaoSyncEnabled = true;
-    if (authenticatedUser.profileImage !== profileImage) updates.profileImage = profileImage;
-    if (phoneNumber && !authenticatedUser.phoneNumber) updates.phoneNumber = phoneNumber;
-    if (authenticatedUser.birthday !== birthday) updates.birthday = birthday;
-    if (authenticatedUser.birthdayType !== birthdayType) updates.birthdayType = birthdayType;
-    if (authenticatedUser.isLeapMonth !== isLeapMonth) updates.isLeapMonth = isLeapMonth;
-    if (Object.keys(updates).length === 0) return authenticatedUser;
-    return kakaoAuthStorage.updateUser(authenticatedUser.id, updates, oauthGeneration);
-  };
-
-  const completeKakaoLogin = async (authenticatedUser: User) => {
-    const synchronizedUser = await synchronizeKakaoUser(authenticatedUser);
-    if (!synchronizedUser) {
-      return res.status(500).json({ message: "사용자 정보 갱신에 실패했습니다" });
-    }
+  return async (authenticatedUser: User) => {
+    const login = {
+      ...profile,
+      startedAt: oauthGeneration.startedAt,
+      grantAdmin:
+        !authenticatedUser.isAdmin &&
+        authenticatedUser.kakaoId === profile.kakaoId &&
+        isKakaoAdministrator(profile.kakaoId),
+    };
     try {
-      const saveAuthenticatedSession = async () => {
-        await regenerateSession(req);
-        req.session.userId = synchronizedUser.id;
-        await saveSession(req);
-      };
-      const finalizedUser = await kakaoAuthStorage.finalizeKakaoLogin(
-        synchronizedUser.id,
-        oauthGeneration,
-        saveAuthenticatedSession,
+      const user = await kakaoAuthStorage.finalizeKakaoLogin(
+        authenticatedUser.id,
+        login,
+        async () => {
+          await regenerateSession(req);
+          req.session.userId = authenticatedUser.id;
+          await saveSession(req);
+        },
       );
-      return res.json({ user: toClientUser(finalizedUser) });
+      return res.json({ user: toClientUser(user) });
     } catch (error) {
       delete req.session.userId;
-      console.error("[Kakao Auth] session save failed:", getErrorType(error));
+      const emailConflict =
+        error instanceof PendingRegistrationConflictError &&
+        error.conflictReason === "email_conflict";
+      if (emailConflict || error instanceof PhoneRegistrationConflictError) {
+        await saveSession(req);
+        return res.status(409).json({
+          message: `다른 회원 계정과 ${emailConflict ? "이메일이" : "휴대전화번호가"} 겹칩니다. 관리자에게 확인을 요청해 주세요.`,
+        });
+      }
       throw error;
     }
   };
-
-  return completeKakaoLogin;
 }

@@ -1,12 +1,8 @@
 import type { Express, Response } from "express";
 import { REGISTRATION_APPROVAL_STATUSES } from "@shared/contracts";
-import { RosterAlreadyRegisteredError } from "./alumni-sync-storage";
 import { z } from "zod";
 import {
   storage,
-  AlumniSyncBlockedError,
-  AlumniSyncFingerprintMismatchError,
-  AlumniSyncInProgressError,
   PendingRegistrationConflictError,
   PhoneRegistrationConflictError,
 } from "../../storage";
@@ -31,12 +27,6 @@ const adminPendingRegistrationUpdateSchema = z.object({
     })
     .strict(),
 });
-
-const alumniSyncApplySchema = z
-  .object({
-    fingerprint: z.string().regex(/^sha256:[a-f0-9]{64}$/),
-  })
-  .strict();
 
 function sendDecisionError(res: Response, error: unknown) {
   if (error instanceof InvalidPendingKakaoIdError)
@@ -95,7 +85,6 @@ export function registerRegistryAdminRoutes(
   {
     requireAdmin,
     pendingRegistrationStorage,
-    alumniSyncStorage,
     registeredRosterCount,
     getKakaoAdminConfig,
     unlinkKakaoUser,
@@ -194,72 +183,13 @@ export function registerRegistryAdminRoutes(
     }
   });
 
-  app.post("/api/admin/sync-alumni/preview", async (_req, res) => {
+  app.get("/api/admin/roster-count", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
-      const report = await alumniSyncStorage.previewAlumniSync();
-      res.json({ report, fingerprint: report.sourceFingerprint });
+      res.json({ registered: await registeredRosterCount() });
     } catch (error) {
-      if (error instanceof RosterAlreadyRegisteredError)
-        return res.status(409).json({ message: error.message });
-      console.error("Alumni sync preview error:", getErrorType(error));
-      res.status(500).json({ message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요" });
-    }
-  });
-
-  app.post("/api/admin/sync-alumni", async (req, res) => {
-    const parsedRequest = alumniSyncApplySchema.safeParse(req.body);
-    if (!parsedRequest.success) {
-      return res.status(400).json({ message: "유효한 미리보기가 필요합니다" });
-    }
-
-    try {
-      const report = await alumniSyncStorage.applyAlumniSync(parsedRequest.data.fingerprint);
-      res.json({ report });
-    } catch (error) {
-      if (error instanceof RosterAlreadyRegisteredError)
-        return res.status(409).json({ message: error.message });
-      if (error instanceof AlumniSyncFingerprintMismatchError) {
-        return res.status(409).json({ message: "명부가 변경되었습니다. 다시 미리보기 해주세요" });
-      }
-      if (error instanceof AlumniSyncBlockedError) {
-        return res.status(422).json({ message: "차단 오류를 해결한 뒤 다시 미리보기 해주세요" });
-      }
-      if (error instanceof AlumniSyncInProgressError) {
-        return res.status(409).json({ message: "다른 명부 동기화가 진행 중입니다" });
-      }
-      console.error("Alumni sync error:", getErrorType(error));
-      res.status(500).json({ message: "동기화에 실패했습니다. 잠시 후 다시 시도해주세요" });
-    }
-  });
-
-  // Google Sheets 연결 테스트 API
-  app.get("/api/admin/test-google-sheets", async (req, res) => {
-    try {
-      const registered = await registeredRosterCount();
-      if (registered !== null)
-        return res.json({ registered, connected: false, message: "홈페이지 DB에서 관리합니다." });
-      const { googleSheetsService } = await import("../../integrations/google-sheets");
-      const isConnected = await googleSheetsService.testConnection();
-
-      if (isConnected) {
-        const sampleData = await googleSheetsService.fetchAlumniData();
-        res.json({
-          connected: true,
-          message: "Google Sheets 연결 성공",
-          sampleCount: sampleData.length,
-        });
-      } else {
-        res.json({
-          connected: false,
-          message: "Google Sheets 설정이 필요합니다",
-        });
-      }
-    } catch (error) {
-      console.error("Google Sheets test error:", getErrorType(error));
-      res.status(500).json({
-        connected: false,
-        message: "Google Sheets 연결에 실패했습니다. 잠시 후 다시 시도해주세요",
-      });
+      console.error("Roster count failed", { errorType: getErrorType(error) });
+      res.status(500).json({ message: "동문 명부 인원을 조회하지 못했습니다." });
     }
   });
 }

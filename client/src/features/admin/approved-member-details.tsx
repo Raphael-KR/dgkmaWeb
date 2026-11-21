@@ -63,7 +63,7 @@ export function ApprovedMemberDetails({ member }: { member: AdminApprovedMemberD
               {member.linkedAlumni.length > 1 && (
                 <p className="mb-3 text-xs text-gray-600">연결 명부 {index + 1}</p>
               )}
-              <AlumniRecordFields record={record} includeAddressAndPhone={false} />
+              <AlumniRecordFields record={record} />
             </div>
           ))
         )}

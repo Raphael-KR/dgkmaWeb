@@ -14,7 +14,7 @@ import {
 import { KakaoOAuthTerminatedError, type KakaoOAuthGeneration } from "./kakao-identity";
 import { saveSession } from "./session";
 import { readKakaoProfile } from "./kakao-profile";
-import { RegistrationApprovalRequiredError } from "./registration-approval";
+import { InactiveAlumniError, RegistrationApprovalRequiredError } from "./registration-approval";
 import { completeKakaoAuthorization } from "./kakao-login";
 
 async function consumeKakaoLoginState(req: Request, res: Response, context: RouteContext) {
@@ -126,6 +126,12 @@ export function registerKakaoAuthorizationRoutes(app: Express, context: RouteCon
       };
       return await completeKakaoAuthorization(req, res, context, profile, oauthGeneration);
     } catch (error) {
+      if (error instanceof InactiveAlumniError) {
+        delete req.session.userId;
+        return res
+          .status(403)
+          .json({ message: "회원 정보를 확인할 수 없습니다. 사무국에 문의해 주세요." });
+      }
       if (error instanceof RegistrationApprovalRequiredError) {
         delete req.session.userId;
         try {

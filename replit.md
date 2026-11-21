@@ -4,11 +4,9 @@
 
 ## 현재 적용 상태
 
-마지막 운영 릴리스는 `6.1.0`이다. 사진첩 회원 전용 API·검색 색인 제외, 역대임원 공개 자료·사진, 계정 없는 글 표시와 문서 정리를 PR #40·#41로 통합했다. 실제 배포 후보는 `7e431c0`, tree는 `d2131c6975e77b7224a286100d6ecdefa12ce74e`이며 같은 tree의 게시 커밋 `eec4b50`을 보존한다. `v6.1.0`은 실제 후보를 가리키고 완료 기록은 별도 문서 커밋으로 반영한다.
+운영 버전은 `6.2.0`이다. [PR #42](https://github.com/Raphael-KR/dgkmaWeb/pull/42)의 병합 커밋 `983ca65`를 Replit에 게시했고 `v6.2.0`이 이 커밋을 가리킨다. Replit 게시 커밋 `f62fa32`는 같은 tree다. 비로그인 HTTP·메타데이터·인증 차단 13건과 운영 자산 해시 69개를 확인했다.
 
-Replit에서 lint·서식·앱 타입/경계·공개 자료·권한/개인정보 12개 검사·빌드가 통과했다. 사진첩 목록은 입력 해시·검사 코드가 일치하는 기존 개발 정적 검사 결과를 재사용했다. Republish 성공 뒤 비로그인 HTTP·메타데이터·인증 차단 12건과 후보 자산 해시 106개를 확인했다. 구체적인 시각·명령·Git·배포 근거는 [6.1.0 릴리스 기록](docs/history/release-6.1.0-2026-11-14.md)을 따른다.
-
-DB·Secrets·인프라 변경과 다음카페 게시글 DB·사진첩 카탈로그 운영 이관은 수행하지 않았다. 개발 Helium·운영 Neon 구성을 유지한다. 실제 회원 사진첩 열람·다운로드·화면·실계정 QA는 미검증이며 실계정 QA는 계속 보류한다. DB 구조의 마지막 직접 관찰은 [스키마 기준서](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰), 과거 릴리스는 [이력 색인](docs/history/README.md)을 따른다.
+개발 Helium과 운영 Neon에서 동문 3,458명을 UUID 회원 키로 연결했다. 운영에서 3,457명은 미가입 사전 등록, 1명은 승인된 관리자다. [릴리스·운영 이전 기록](docs/history/release-6.2.0-2026-11-20.md) · [DB 스키마](docs/reference/database-schema.md#기준-소스와-마지막-db-관찰)
 
 ## 환경 구분
 
@@ -202,7 +200,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 
 ### 현재 동문 명부 연동
 
-개발은 명부 A열의 UUID를 `users.id`로 사용한다. 일회성 사전 등록 후 가입·명부 열람 및 관리자 화면은 PostgreSQL을 사용한다. 아래 Sheets 연동 설명은 전환 전 환경에 적용한다. [개발 전환 절차](docs/runbooks/database-operations.md#개발-회원-기본키-전환과-명부-사전-등록)
+개발·운영은 명부 A열의 UUID를 `users.id`로 사용한다. 개발에 한해 [기본명부 직접 반영 절차](docs/runbooks/database-operations.md#개발-기본명부-직접-반영)로 시트 B~K열을 기존 회원 행의 명부 전용 필드에 채웠다. [개발 적용 기록](docs/history/member-roster-fields-2026-11-21.md) 일회성 사전 등록 후 가입·명부 열람 및 관리자 화면은 PostgreSQL을 사용한다. 아래 Sheets 연동 설명은 전환 전 환경에 적용한다. [개발 전환 절차](docs/runbooks/database-operations.md#개발-회원-기본키-전환과-명부-사전-등록)
 
 2026-11-12 후속 사용자가 개발 명부 초기화와 백업 금지를 요청했다. 09:46 KST 개발 `alumni_database` 3,458건을 백업 없이 비웠고 새 연결에서 명부·종속 별칭 0건을 확인했다. 테이블·주소·전화 컬럼·시퀀스와 기존 회원 계정 1건은 유지했다. 확인한 작업 파일에서 명부 원문 백업은 발견되지 않았으며, 플랫폼 복구 이력의 완전 삭제 여부는 미확인이다. 실제 범위와 근거는 [초기화 기록](docs/history/alumni-reset-2026-11-12.md)에 구분한다. 이 개발 작업에서는 운영 DB·Google Sheets를 변경하거나 자동 재동기화하지 않았다.
 
@@ -212,13 +210,7 @@ Replit은 이 프로젝트에 하나의 App Secrets 창을 제공합니다. `REP
 - `GOOGLE_PRIVATE_KEY`
 - `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 
-전환 전 환경에서 Google Sheets는 명부 **관리 원본**, PostgreSQL `alumni_database`는 로그인·가입 심사용 **런타임 복제본**이다. 로그인은 Sheets를 조회하지 않고 명시적 관리자 동기화로 갱신한다. 사용자가 최종 원본 전환을 선언할 때까지 위 Secrets와 동기화 경로를 유지한다. 전환 기준과 절차는 [명부 정책](docs/product/planning-proposal.md#동문-명부)과 [DB 런북](docs/runbooks/database-operations.md#google-sheets-명부-동기화)을 따른다.
-
-Google 인증에는 환경변수의 서비스 계정 이메일·비밀키만 자격 정보로 제공한다. 특정 계정의 프로젝트 ID·키 ID·클라이언트 ID를 코드에 고정하지 않는다. 읽기 전용 Sheets scope와 기존 Secrets를 유지한다.
-
-원본의 동기화 대상은 2026-11-12 확정한 10개 관리 컬럼이다. 시트에서 삭제된 주소·전화번호는 가져오기·비교·쓰기에서 제외하고 DB 컬럼과 기존 값은 보존한다. 명시적 미리보기·fingerprint 재확인·트랜잭션은 유지한다. 당시 A:J 읽기를 도입한 이력은 [시트 컬럼 변경 기록](docs/history/alumni-sheet-columns-2026-11-12.md)에 있다.
-
-UUID 적용 전에는 동문 고유 ID가 A열로 이동했다. 당시 개발 사본은 `'통합주소록'!B:K`에서 학과부터 메모까지 읽었다. 해당 범위와 마지막 열의 메모를 확인하는 기존 테스트 1건과 두 변경 파일의 lint가 통과했다. 로컬 사본과 개발 사본의 두 파일 해시가 일치했다. 이후 개발 UUID 전환은 [개발 적용 기록](docs/history/member-uuid-2026-11-20.md)을 따른다.
+개발 홈페이지의 기본명부는 `users`다. 위 Secrets는 최초 이관 CLI에서 사용하며 홈페이지 요청에는 필요하지 않다. 현재 운영 배포와 기존 Secrets는 별도 전환까지 유지한다. [기본명부 운영](docs/runbooks/database-operations.md#동문-기본명부-관리)
 
 ### 경조사 생성·수집 설정
 
@@ -242,6 +234,8 @@ UUID 적용 전에는 동문 고유 ID가 A열로 이동했다. 당시 개발 �
 
 ## 카카오 로그인
 
+개발에서 가입일을 기록하는 코드에는 [가입일 스키마](docs/runbooks/database-operations.md#개발-회원-가입일)를 먼저 적용한다. 기존 계정은 소급하지 않는다.
+
 현재 로그인은 카카오 REST authorize URL을 사용하며 브라우저 SDK 기반 로그인은 사용하지 않습니다.
 
 - 브라우저 로그인 시작: `/api/auth/kakao/start`
@@ -253,6 +247,8 @@ UUID 적용 전에는 동문 고유 ID가 A열로 이동했다. 당시 개발 �
 브라우저는 Kakao Secret이나 redirect URI를 선택하지 않습니다. 서버만 `REPLIT_DEPLOYMENT` 값에 따라 REST API key, client secret, redirect URI를 선택하며, 선택된 callback은 해당 환경의 Kakao 설정과 문자열까지 정확히 같아야 합니다.
 
 서버의 authorization request와 token exchange는 같은 환경 config의 REST API key와 redirect URI를 사용합니다.
+
+개발에서는 승인 회원의 재로그인 때 같은 카카오 계정의 최신 가입 프로필을 갱신합니다. 명부·가입일은 보존하며 DB 전환은 필요하지 않습니다. 개발 코드의 타입·의존 경계·lint·서식을 확인했고 운영 배포와 실계정 로그인 확인은 보류했습니다. [갱신·충돌 처리 기준](docs/product/planning-proposal.md#회원과-카카오-로그인)
 
 카카오 어드민 키는 서버의 회원 탈퇴와 승인 거부 신청 삭제 시 카카오 연결 해제에서만 `/v1/user/unlink` 호출에 사용합니다. `KAKAO_DEV_ADMIN_KEY`와 `KAKAO_PROD_ADMIN_KEY`도 `REPLIT_DEPLOYMENT="1"` 규칙으로 선택하며, 브라우저·`VITE_` 변수·로그·오류 메시지·저장소 파일에 노출하지 않습니다.
 
@@ -479,7 +475,7 @@ PR·릴리스 수행 기록·완료 보고에는 **제거한 항목과 사용처
 
 ## 동문 원본 전환 설계
 
-원본 명부에서 발급한 고정 동문 ID를 그대로 users에 한 번 이관하며, 가입 후 카카오 프로필을 갱신한다. 홈페이지 탈퇴는 동문회 탈퇴로 처리하며, 단계별 비공개·파기 기준은 DB 변경안의 탈퇴 절차를 따른다. [DB 변경안](docs/product/pre-migration-database-design.md)에서 회원 기본키·외래키와 명부 사전 등록을 개발 DB에 적용했다. 회원 상태 및 온라인 탈퇴 절차는 후속 설계다. 기존 Sheets/명부 복제본 설명은 전환 전 구현 상태다. 실제 전환 전까지 이를 근거 없이 삭제·중단하지 않으며 전환 후에는 가입·조회·수정에서 참조하지 않는다.
+원본 명부에서 발급한 고정 동문 ID를 그대로 users에 한 번 이관하며, 가입 후 카카오 프로필을 갱신한다. 홈페이지 탈퇴는 동문회 탈퇴로 처리하며, 단계별 비공개·파기 기준은 DB 변경안의 탈퇴 절차를 따른다. [DB 변경안](docs/product/pre-migration-database-design.md)에서 회원 기본키·외래키와 명부 사전 등록을 개발 DB에 적용했다. 회원 상태·변동 이력 및 탈퇴원 접수는 Replit 개발 DB와 개발 서버에 적용했다. [개발 전환 기록](docs/history/member-status-candidate-2026-11-21.md)을 따른다. 기존 Sheets/명부 복제본 설명은 전환 전 구현 상태다. 개발 홈페이지는 가입·조회·정정에서 users를 사용하며 운영 전환은 별도다.
 
 
 ## 게시글 이관 출처 저장
@@ -488,4 +484,4 @@ PR·릴리스 수행 기록·완료 보고에는 **제거한 항목과 사용처
 
 ## 다음카페 개발 이관 상태
 
-2026-11-15 개발 heliumdb의 posts 전체 리셋 후 80건을 반영했고 개발 사진첩 카탈로그 52개 앨범을 교체했다. 공개 역사관 기존 자료를 보존하며 확정 자료의 개발 소스 반영을 확인했다. 원본 170건 중 168건 반영·2건 제외다. 운영 이전·배포·실계정 QA는 미실행이다. 실제 적용·새 연결·파일 대조·원본별 집계는 [개발 이관 기록](docs/history/daum-development-import-2026-11-15.md)을 따른다.
+2026-11-15 개발 heliumdb의 posts 전체 리셋 후 80건을 반영했고 개발 사진첩 카탈로그 52개 앨범을 교체했다. 공개 역사관 기존 자료를 보존하며 확정 자료의 개발 소스 반영을 확인했다. 원본 170건 중 168건 반영·2건 제외다. 운영 이전도 6.2.0에서 완료했다. 운영의 글 80건·앨범 52개·고유 파일 414개는 개발 완료본과 대조했다. 실계정 QA는 보류한다. [개발 이관 기록](docs/history/daum-development-import-2026-11-15.md) · [운영 이전 기록](docs/history/release-6.2.0-2026-11-20.md)

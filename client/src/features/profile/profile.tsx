@@ -1,3 +1,4 @@
+import { formatJoinedDate } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/config";
 import { apiRequest } from "@/lib/queryClient";
 import { SITE_SHORT_NAME } from "@shared/site";
@@ -141,9 +142,7 @@ export default function Profile() {
                 )}
                 <div>
                   <p className="text-sm text-gray-600 mb-1">가입일</p>
-                  <p className="font-medium">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"}
-                  </p>
+                  <p className="font-medium">{formatJoinedDate(user.joinedAt)}</p>
                 </div>
               </CardContent>
             </Card>

@@ -7,17 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import { usePendingRegistrations } from "./use-pending-registrations";
-import { useAlumniSync } from "./use-alumni-sync";
 import { PendingRegistrationsPanel } from "./pending-registrations-panel";
-import { AlumniSyncPanel } from "./alumni-sync-panel";
+import { AlumniRosterPanel } from "./alumni-roster-panel";
 import { StatisticsPanel } from "./statistics-panel";
+import { DuesLedgerPanel } from "./dues-ledger-panel";
 
 export default function Admin() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("pending");
-  // 탭의 표시 여부와 무관하게 요청 상태와 동기화 미리보기를 페이지 수명 동안 유지한다.
   const pending = usePendingRegistrations(!!user?.isAdmin);
-  const alumniSync = useAlumniSync(!!user?.isAdmin && activeTab === "alumni");
   useScrollToTop();
 
   if (!user?.isAdmin) {
@@ -41,11 +39,12 @@ export default function Admin() {
           <h1 className="text-xl font-bold  mb-6">관리자 패널</h1>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-5">
               <TabsTrigger value="pending">가입 승인</TabsTrigger>
               <TabsTrigger value="alumni">동문 데이터</TabsTrigger>
               <TabsTrigger value="posts">게시글</TabsTrigger>
               <TabsTrigger value="stats">통계</TabsTrigger>
+              <TabsTrigger value="dues">회비수입</TabsTrigger>
             </TabsList>
 
             <TabsContent value="pending" className="space-y-4 mt-6">
@@ -53,7 +52,7 @@ export default function Admin() {
             </TabsContent>
 
             <TabsContent value="alumni" className="space-y-4 mt-6">
-              <AlumniSyncPanel {...alumniSync} />
+              <AlumniRosterPanel />
             </TabsContent>
 
             <TabsContent value="posts" className="space-y-4 mt-6">
@@ -80,6 +79,9 @@ export default function Admin() {
 
             <TabsContent value="stats" className="space-y-4 mt-6">
               <StatisticsPanel />
+            </TabsContent>
+            <TabsContent value="dues" className="mt-6">
+              <DuesLedgerPanel />
             </TabsContent>
           </Tabs>
         </div>

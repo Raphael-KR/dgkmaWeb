@@ -9,6 +9,7 @@ import type { RouteContext } from "../../lib/route-context";
 import type { KakaoOAuthGeneration } from "./kakao-identity";
 import type { KakaoLoginProfile } from "./kakao-profile";
 import { createKakaoLoginCompletion } from "./kakao-login-session";
+import { InactiveAlumniError } from "./registration-approval";
 import { saveSession } from "./session";
 
 export async function completeKakaoAuthorization(
@@ -100,14 +101,22 @@ export async function completeKakaoAuthorization(
         (alumni) => normalizePhoneForComparison(alumni.mobile ?? "") === normalizedPhone,
       );
       const alumniMatch = alumniMatches.length === 1 ? alumniMatches[0] : undefined;
-      if (!alumniMatch?.matchedUserId || alumniMatch.status === "사망") {
+      if (alumniMatch?.status === "사망") throw new InactiveAlumniError();
+      if (alumniMatch?.status === "동문회 탈퇴자") {
+        return createPendingReview(
+          "reapplication",
+          "가입 신청이 접수되었습니다",
+          "관리자가 확인한 뒤 이용할 수 있습니다.",
+        );
+      }
+      if (!alumniMatch) {
         return await createPendingReview(
           "not_found",
           "가입 신청이 접수되었습니다",
           "동문 정보를 확인한 뒤 관리자가 가입을 처리합니다.",
         );
       }
-      if (alumniMatch.isMatched) {
+      if (alumniMatch.hasAccount) {
         return await createPendingReview(
           "alumni_claimed",
           "동문 정보 확인이 필요합니다",

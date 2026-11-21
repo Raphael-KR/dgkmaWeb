@@ -1,11 +1,11 @@
 import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
+import { ADMIN_DUES_LEDGER_PATH } from "@shared/contracts/admin-dues-ledger";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
 import express from "express";
 import type { Category, Post, User } from "@shared/schema";
 import type { AdminUserLookup } from "../middleware/auth";
-import { googleSheetsService } from "../integrations/google-sheets";
 import { registerRoutes } from "../routes";
 import { storage } from "../storage";
 
@@ -20,7 +20,7 @@ async function startAuthorizationTestServer(getUserForAdmin: AdminUserLookup) {
 
   const server = await registerRoutes(app, {
     getUserForAdmin,
-    registeredRosterCount: async () => null,
+    registeredRosterCount: async () => 3,
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -63,13 +63,12 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
   try {
     const adminEndpoints = [
       { method: "GET", path: ADMIN_STATISTICS_PATH },
+      { method: "GET", path: ADMIN_DUES_LEDGER_PATH },
       { method: "GET", path: "/api/admin/pending-registrations" },
       { method: "PATCH", path: "/api/admin/pending-registrations/1", body: "{}" },
       { method: "DELETE", path: "/api/admin/pending-registrations/1" },
       { method: "POST", path: "/api/admin/members/1/cancel-approval", body: "{}" },
-      { method: "POST", path: "/api/admin/sync-alumni/preview" },
-      { method: "POST", path: "/api/admin/sync-alumni" },
-      { method: "GET", path: "/api/admin/test-google-sheets" },
+      { method: "GET", path: "/api/admin/roster-count" },
       { method: "POST", path: "/api/categories", body: "{}", legacyGuard: true },
       { method: "POST", path: "/api/payments", body: "{}" },
     ];
@@ -97,28 +96,6 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
     assert.equal(categoryWrites, 0);
     assert.equal(categoryLookups, 1);
     assert.equal(lookupCalls, adminEndpoints.filter((endpoint) => !endpoint.legacyGuard).length);
-  } finally {
-    await server.close();
-  }
-});
-
-test("Google Sheets connection failures return a fixed Korean response without the source exception", async (t) => {
-  const sourceError = "sheets oauth credential secret leaked";
-  t.mock.method(googleSheetsService, "testConnection", async () => {
-    throw new Error(sourceError);
-  });
-  const server = await startAuthorizationTestServer(async () => ({ isAdmin: true }));
-
-  try {
-    const response = await fetch(`${server.baseUrl}/api/admin/test-google-sheets`, {
-      headers: { "x-test-user-id": "1" },
-    });
-    assert.equal(response.status, 500);
-    const body = await response.json();
-    assert.deepEqual(body, {
-      connected: false,
-      message: "Google Sheets 연결에 실패했습니다. 잠시 후 다시 시도해주세요",
-    });
   } finally {
     await server.close();
   }
