@@ -1,4 +1,4 @@
-import { postAttachmentPathSchema } from "@shared/contracts/post-input";
+import { uploadAttachmentPathSchema } from "@shared/contracts/post-input";
 import { uploadSizeLimit, validateUploadType, type UploadedFile } from "@shared/contracts/uploads";
 import {
   ObjectStorageService,
@@ -16,7 +16,7 @@ export async function resolveCommentAttachment(
   existing: UploadedFile | null = null,
 ): Promise<UploadedFile | null> {
   if (path === null) return null;
-  postAttachmentPathSchema.parse(path);
+  uploadAttachmentPathSchema.parse(path);
   if (!(await storage.canReadPostAttachment(path, viewer)))
     throw new CommentAttachmentError("첨부 파일에 접근할 수 없습니다.");
   // Unchanged metadata belongs to the saved comment; do not revalidate legacy limits.

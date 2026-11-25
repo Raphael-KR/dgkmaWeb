@@ -1,0 +1,4 @@
+interface:
+  display_name: "동문회 기업은행 송금"
+  short_description: "기업은행 이체와 은행 메모를 확인하고 일반회계 기장 스킬로 연결"
+  default_prompt: "$dgkma-ibk-transfer 지급 근거와 기존 송금을 확인해 이체하고, 은행 메모를 저장한 뒤 일반회계 기장 스킬로 전체 입출금을 반영하고 검산해줘."

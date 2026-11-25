@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff, Pencil, Trash2 } from "lucide-react";
+import { authorByline } from "@/components/post-metadata";
 import type { ClientUser, CommentWithAuthor } from "@shared/contracts";
 import { Button } from "@/components/ui/button";
 import { CommentComposer } from "./comment-composer";
@@ -19,11 +20,26 @@ export function CommentItem({ comment, user, controller }: Props) {
   const busy = controller.pending;
   const hidden = comment.isHidden && comment.content === null;
   return (
-    <div className="border-b border-gray-100 pb-3 last:border-0">
+    <div
+      id={`comment-${comment.id}`}
+      className="site-scroll-target border-b border-gray-100 pb-3 last:border-0"
+    >
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <span className="min-w-0 break-words text-sm font-medium text-gray-800">
-          {comment.author?.name || "회원"}
-        </span>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+          {comment.parentCommentId != null && (
+            <a
+              className="text-xs text-muted-foreground underline"
+              href={`#comment-${comment.parentCommentId}`}
+            >
+              답글 · 원댓글 보기
+            </a>
+          )}
+          {(!hidden || comment.author) && (
+            <span className="min-w-0 break-words text-sm font-medium text-gray-800">
+              {authorByline(comment.author?.name || "회원", comment.author?.affiliation)}
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {comment.isHidden && <span className="text-xs text-muted-foreground">가림</span>}
           <span className="text-xs text-gray-400">
@@ -94,7 +110,7 @@ export function CommentItem({ comment, user, controller }: Props) {
       {editRevision !== null && own ? (
         <CommentComposer
           content={comment.content ?? ""}
-          attachment={comment.attachment}
+          attachment={Array.isArray(comment.attachment) ? null : comment.attachment}
           pending={busy}
           onCancel={() => setEditRevision(null)}
           onSave={async (input) => {
@@ -113,7 +129,11 @@ export function CommentItem({ comment, user, controller }: Props) {
       ) : (
         <>
           <CommentText text={comment.content ?? ""} />
-          {comment.attachment && <CommentAttachment file={comment.attachment} />}
+          {Array.isArray(comment.attachment)
+            ? comment.attachment.map((file, index) => (
+                <CommentAttachment key={file.objectPath + "-" + index} file={file} />
+              ))
+            : comment.attachment && <CommentAttachment file={comment.attachment} />}
         </>
       )}
     </div>

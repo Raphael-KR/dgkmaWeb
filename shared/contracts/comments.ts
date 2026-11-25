@@ -3,22 +3,25 @@ import { COMMENT_MAX_LENGTH } from "./content-limits";
 import { postAttachmentPathSchema } from "./post-input";
 import type { UploadedFile } from "./uploads";
 
+export type CommentAttachmentData = UploadedFile | UploadedFile[];
+
 export type Comment = {
   id: number;
   postId: number;
+  parentCommentId: number | null;
   isAuthor: boolean;
   content: string;
   createdAt: string | null;
   editedAt: string | null;
   isHidden: boolean;
   revision: number;
-  attachment: UploadedFile | null;
+  attachment: CommentAttachmentData | null;
 };
 
 // A hidden comment's text and attachment are omitted for ordinary viewers.
 export type CommentWithAuthor = Omit<Comment, "content"> & {
   content: string | null;
-  author: { name: string } | null;
+  author: { name: string; affiliation: string | null } | null;
 };
 
 const commentFields = z.object({

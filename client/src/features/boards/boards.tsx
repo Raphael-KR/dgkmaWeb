@@ -192,7 +192,7 @@ export default function Boards() {
                       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                         <CategoryBadge category={post.category} />
                         {post.isHidden && <Badge variant="secondary">가린 글</Badge>}
-                        {post.importData && <PostAuthor name={post.authorName} />}
+                        <PostAuthor name={post.authorName} affiliation={post.authorAffiliation} />
                         <PostDate post={post} />
                       </div>
                       <h3 className="mb-2 line-clamp-2 break-words font-bold text-gray-800 group-hover:text-kakao-orange md:text-lg">

@@ -17,17 +17,25 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
 | DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.16 |
-| tables / columns | 14 / 129 | 14 / 129 |
-| PK / FK / non-PK UNIQUE / CHECK | 14 / 9 / 8 / 19 | 14 / 9 / 8 / 19 |
-| indexes / sequences | 28 / 8 | 28 / 8 |
+| tables / columns | 14 / 136 | 14 / 134 |
+| PK / FK / non-PK UNIQUE / CHECK | 14 / 10 / 9 / 20 | 14 / 10 / 9 / 20 |
+| indexes / sequences | 30 / 8 | 30 / 8 |
 | view / trigger / policy / routine / enum / domain | 0 / 2 / 0 / 3 / 0 / 0 | 0 / 2 / 0 / 3 / 0 / 0 |
 | RLS | 모든 public 테이블 비활성 | 모든 public 테이블 비활성 |
 
-현재 운영 catalog SHA-256은 `fc1556bfe5038cde23b825fbc74aef9c61976a8cffc9ddcf756edf7d1631bba4`이다. [6.3.0 운영 전환](../history/release-6.3.0-2026-11-21.md)
+2026-11-25 밴드 이관 댓글의 복수 첨부 제약을 적용한 뒤 개발 DB의 읽기 전용 catalog에서 14개 테이블·136개 컬럼을 확인했다. 전체 출력 SHA-256은 `547ef824fb3c933c3dbf073697289a24885a57011f72c5d77c3509cc40094c0a`이다. [댓글 첨부 적용 기록](../history/band-development-import-2026-11-25.md#댓글-사진영상-복구와-개발-이관)
+
+2026-11-25 글·댓글의 작성 당시 소속 컬럼을 추가한 뒤 새 읽기 전용 연결에서 개발 catalog 14개 테이블과 136개 컬럼을 확인했다. SHA-256은 `79cb76b89787a213d20980167c4336546f43b61fabb55ba4080c4b238600d253`이다. 11월 24일 회원 프로필 소속 컬럼 추가 직후의 지문은 `aa616a65931a54353aa3211f0b58349e3ee6de4255177868276cbc5c08f9a0ff`였다.
+
+밴드 댓글 구조 적용 후 개발 catalog SHA-256은 `459ee3c7850c8c51d0ea45e7c0615f36f89c723f98a0310dd09440f8270a55ff`이다. [개발 적용과 실명 대조](../history/band-development-2026-11-22.md)
+
+2026-11-26 운영 밴드 자료 시험에 필요한 게시판 스키마를 적용했다. 새 읽기 전용 `neondb` 연결에서 catalog 완료 표시와 위 구조를 확인했다. 적용 전 SHA-256은 `2c2a966cdab36e747d8fe6fffba609a5ce03676b0960307e482c25c36416238e`, 적용 후는 `93874ab8967eed1ef194099acf3ead420f6e4003dbfdbc7cc76fd1ec476ffe80`이다. 6.3.0 운영 전환 직후 지문은 `fc1556bfe5038cde23b825fbc74aef9c61976a8cffc9ddcf756edf7d1631bba4`다. [6.3.0 운영 전환](../history/release-6.3.0-2026-11-21.md)
 
 [개발 회비 원장 스키마 적용](../history/dues-ledger-development-2026-11-21.md) 후 catalog SHA-256은 `b058205da01573cf9aa2b694f6bafe5c7441e899b822c45c8cd28315c33ee351`이다. 앞선 [회원 상태 개발 전환](../history/member-status-candidate-2026-11-21.md) 후 지문은 `aef0b2a7e9d466f03ebb5578b510bd87af6b379e72e3ff244627d4072d4b6e4e`이다. 직전 [개발 기본명부 전환](../history/users-roster-cutover-2026-11-21.md) 후 지문은 `914555133faa7530e8684b2d0540f7ada53d67f8c17010a2aeaf7c7dba91ada0`이다. [직전 가입일 적용 기록](../history/member-joined-at-2026-11-21.md) 이전 관찰은 [기본명부 적용 기록](../history/member-roster-fields-2026-11-21.md)과 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 이관 출처 적용 당시 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 6.2.0 당시 운영 catalog SHA-256은 `3d289f57d9660707877e9e984ab77a1eb0d6055a20852ad2a98f49787dd17993`이며 [6.2.0 운영 전환](../history/release-6.2.0-2026-11-20.md)에서 확인했다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
 
 운영 댓글 전환은 [운영 SQL](../../scripts/add-comment-management-production.sql)로 완료했다. 적용된 스크립트의 존재를 반복 실행 지시로 해석하지 않는다. 앱 운영 배포 상태는 [Replit 기준](../../replit.md#현재-적용-상태)과 구분한다.
+
+운영 밴드 이전의 [게시 자료 SQL](../../scripts/add-band-content-production.sql)로 `posts.author_affiliation`, `comments.author_name`, `comments.author_affiliation`, `comments.parent_comment_id`, `comments.import_source_id`를 추가했다. 댓글의 같은 글 안 상위 관계와 원천 유일성을 강제하고 `comments_attachment_check`는 이관 댓글 복수 첨부 계약을 적용한다.
 
 2026-11-15 개발 이관 사전 확인에서는 게시글 이관에 필요한 컬럼·CHECK·원본 인덱스·댓글 CASCADE만 읽기 전용으로 확인했다. 전체 catalog 관찰일·객체 수는 갱신하지 않는다. [사전 확인 기록](../history/community-readiness-2026-11-15.md)을 따른다.
 
@@ -74,6 +82,10 @@ erDiagram
 | `birthday_type` | `text` | 허용 | — |
 | `is_leap_month` | `boolean` | 허용 | — |
 | `activity_region` | `text` | 허용 | — |
+| `affiliation` | `text` | 허용 | — |
+| `affiliation_title` | `text` | 허용 | — |
+
+선택 프로필 문구인 소속·직함은 `affiliation` 한 곳에 저장한다. 앞뒤 공백을 제거한 최대 100자이며 빈 입력은 NULL이다. `affiliation_title`은 직함별 필터 검토를 위해 남겨둔 컬럼으로, 현재 프로필 응답·수정에 사용하지 않는다. 2026-11-24 개발 DB에 추가했다. 새 읽기 전용 연결에서 두 컬럼 모두 nullable TEXT이고 기본값이 없으며, 기존 회원 행 3,461개가 유지되고 새 값은 모두 NULL임을 확인했다. 운영 적용에는 별도로 승인한 [회원 소속 SQL](../../scripts/add-user-affiliation-production.sql)을 사용한다.
 
 가입일 컬럼 `users.joined_at`은 nullable TIMESTAMPTZ이며 기본값이 없다. 동문 행 생성 시각인 `created_at`과 별개로 가입 확정 시각을 기록하며 기존 행은 NULL로 둔다.
 
@@ -115,6 +127,7 @@ PK `categories_pkey(id)`; UNIQUE `categories_name_unique(name)`. 같은 이름�
 | `category_id` | `integer` | 허용 | — |
 | `author_id` | `uuid` | 허용 | — |
 | `author_name` | `text` | 허용 | — |
+| `author_affiliation` (개발) | `text` | 허용 | — |
 | `import_data` | `jsonb` | 허용 | — |
 | `is_published` | `boolean` | 허용 | `true` |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
@@ -132,6 +145,8 @@ PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id → users.id)`, `
 
 소유: Community Content. 목적: 게시글 댓글.
 
+밴드 개발 이관 댓글은 확인된 원작성자 실명을 `author_name`에 보관하고 `author_id`는 NULL로 둔다. 이관 댓글에는 비어 있지 않은 실명이 필요하다. 밴드 표시명만 확보한 댓글은 실명 확인 전까지 로컬 후보로 보존한다. `parent_comment_id`는 같은 게시글의 상위 댓글을 참조한다. 원댓글이면 NULL이다. `import_source_id`는 밴드 원댓글·답글을 구분하는 글별 고유 출처 키다. 원문의 댓글 번호는 상위 댓글마다 재사용될 수 있으므로 답글의 출처 키에는 상위 원댓글 번호도 포함한다. 일반 댓글 등록·수정 API는 이 세 필드를 받지 않는다.
+
 2026-11-12 개발 03:14 KST·운영 03:47 KST에 네 컬럼·두 CHECK를 추가했다. 기존 다섯 컬럼의 타입·제약과 댓글을 유지했으며 개발 0건·운영 1건이다. [개발 기록](../history/comments-drag-handle-2026-11-12.md)과 [운영 전환](../history/release-3.0.0-2026-11-12.md#운영-db-적용)을 구분한다.
 
 | 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
@@ -139,10 +154,11 @@ PK `posts_pkey(id)`; FK `posts_author_id_users_id_fk(author_id → users.id)`, `
 | `id` | `integer` | 불가 | `nextval('comments_id_seq'::regclass)` |
 | `post_id` | `integer` | 불가 | — |
 | `author_id` | `uuid` | 허용 | — |
+| `author_affiliation` (개발) | `text` | 허용 | — |
 | `content` | `text` | 불가 | — |
 | `created_at` | `timestamp without time zone` | 허용 | `now()` |
 
-PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.id)` NO ACTION, `comments_post_id_posts_id_fk(post_id → posts.id)` ON DELETE CASCADE. 인덱스는 PK. 계정 정리 시 게시된 댓글의 작성자 연결은 앱이 해제한다.
+PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.id)` NO ACTION, `comments_post_id_posts_id_fk(post_id → posts.id)` ON DELETE CASCADE. 개발에는 `comments_post_id_id_unique(post_id, id)`, 같은 글 부모를 참조하는 `comments_same_post_parent_fk`, 출처가 있는 행만 검사하는 고유 인덱스 `comments_import_source_unique(post_id, import_source_id)` 및 일반 댓글과 이관 댓글을 구분하는 `comments_import_origin_check`가 있다. 계정 정리 시 게시된 댓글의 작성자 연결은 앱이 해제한다.
 
 | 추가 컬럼 | PostgreSQL 타입 | NULL | 기본값 |
 |---|---|---|---|
@@ -151,7 +167,7 @@ PK `comments_pkey(id)`; FK `comments_author_id_users_id_fk(author_id → users.i
 | `revision` | `integer` | 불가 | `0` |
 | `attachment` | `jsonb` | 허용 | — |
 
-`comments_revision_check`는 revision ≥ 0, `comments_attachment_check`는 NULL 또는 `objectPath`·`name`·`size`·`contentType`을 가진 단일 객체를 확인한다. attachment는 서버가 App Storage에서 확인한 메타데이터이며 배열·파일 내용·업로드 토큰을 저장하지 않는다. 크기·허용 형식·경로·열람 권한은 앱에서 검증한다. 댓글 content는 일반 텍스트 1,000자이며 첨부가 있으면 빈 문자열을 허용한다. 과거 공백 댓글은 일괄 변환하지 않는다.
+`comments_revision_check`는 revision ≥ 0을 확인한다. 일반 댓글의 `attachment`는 NULL 또는 `objectPath`·`name`·`size`·`contentType`을 가진 단일 객체다. 개발 DB의 밴드 이관 댓글·답글에는 같은 JSONB 컬럼에 원본 순서대로 사진·영상 메타데이터 배열도 저장할 수 있다. 배열은 비어 있을 수 없으며 각 항목은 전용 비공개 경로를 사용한다. 서버는 App Storage의 실제 파일과 메타데이터를 검증한다. 댓글 본문은 `TEXT`다. 일반 등록·수정 API는 1,000자로 제한하며 밴드 이관 CLI는 원본에서 확인한 더 긴 댓글을 한 행으로 보존한다. 첨부가 있으면 빈 문자열을 허용한다.
 
 작성자만 수정·삭제하고 관리자는 가리기·복원한다. 수정만 edited_at을 갱신하며 수정·가리기·복원은 revision을 증가시킨다. 일반 회원의 가린 댓글 응답은 content·attachment를 NULL로 지워 전달한다. 작성자·관리자에게도 부모 게시글 열람 권한을 적용하며 첨부 직접 접근은 부모 게시글과 댓글 상태를 모두 확인한다.
 
@@ -346,6 +362,8 @@ PK `source_collection_rules_pkey(id)`; UNIQUE `source_collection_rules_domain_pa
 
 일반 게시글 API의 제목 1~300자·본문 이미지·일반 파일/별도 첨부 합계 40개 및 기존 값 보존 기준은 [제품 정책](../product/planning-proposal.md#일반-게시글-입력과-초안-수명)을 따른다. 일반 파일은 표준 링크의 고유 `/objects/` 경로 기준으로 게시글당 5개이며 파일당 10MB다. 이미지는 파일당 5MB를 유지한다. 이는 앱 입력 계약이며 PostgreSQL 컬럼·CHECK·기존 저장 본문을 변경하거나 기존 행을 일괄 변환하지 않는다.
 
+밴드 개발 이관에서 원글과 사진 색인을 대조한 일반 글은 전체 사진 경로를 원래 순서대로 `posts.image_urls`에 저장할 수 있다. 사진 수가 40개를 초과하는 경우에도 같은 원글에서 확인한 사진 ID와 저장 파일을 검증한다. 역사관에 수록한 사진은 회원 전용 카탈로그에 두고 `posts.content`에서 해당 앨범으로 연결한다. [밴드 이관 절차](../runbooks/community-migration.md#개발-이관과-검산)
+
 - 모든 posts·categories·댓글·검색·첨부 API는 회원 전용이다. 본문 공개 여부를 JSON·클라이언트가 정하지 않는다. 작성자 본인 수정·삭제와 관리자 가리기/다시 표시하기를 서버가 분리한다.
 - is_published는 초안/게시, is_hidden은 가림 상태다. 정상 목록·검색은 게시됨+가리지 않음으로 제한한다. 가린 글은 작성자/관리자만 관리하고 댓글 추가는 막는다. 작성자 수정은 가림·최초 게시 시각을 바꾸지 않는다.
 - 경조사 사실은 content와 별개인 event_data다. [NoticeData](../../shared/contracts/notices.ts)는 schemaVersion=1, eventType=obituary/wedding/opening, facts, questions, sources 및 선택 fieldSources를 가진다. 일반 글은 event_data/source_text가 NULL이다.
@@ -392,7 +410,9 @@ serial 소유 시퀀스는 categories/posts/comments/payments/alumni_database/al
 
 ## 게시글 작성자 이름 표시
 
-`posts.author_name`은 계정 미연결 이관 글의 원작성자 이름을 저장하는 nullable TEXT다. 회원용 조회는 `author_id`가 있으면 연결된 `users.name`, 없으면 `author_name`, 둘 다 없으면 ‘작성자 정보 없음’으로 표시한다. 표시 이름은 권한 판정에 사용하지 않는다. 일반 작성·수정 API는 원작성자 이름 입력을 받지 않으며 기존 회원 연결·수정·삭제·관리자 가림 정책을 유지한다. 개발·운영 양쪽에 이 컬럼이 있다.
+회원 작성분의 이름은 조회 시점에 `users.name`에서 읽는다. `posts.author_affiliation`과 `comments.author_affiliation`에는 작성자 프로필의 `users.affiliation` 한 줄(최대 100자)을 최초 게시·댓글 등록 시 저장한다. NULL은 당시 기록이 없는 경우다. 작성·수정 API는 이 값을 입력받지 않는다. 기존 글·댓글에는 현재 프로필을 소급하지 않는다.
+
+`posts.author_name`은 계정 미연결 이관 글의 원작성자 이름을 저장하는 nullable TEXT다. 회원용 조회는 `author_id`가 있으면 연결된 `users.name`, 없으면 `author_name`, 둘 다 없으면 ‘작성자 정보 없음’으로 표시한다. 밴드 이관 시 사무국이 당시 직책을 명시해 확인한 재학생은 게시글·댓글의 `author_name`에 ‘당시 직책 실명’으로 표시한다. 표시 이름은 권한 판정에 사용하지 않는다. 일반 작성·수정 API는 원작성자 이름 입력을 받지 않으며 기존 회원 연결·수정·삭제·관리자 가림 정책을 유지한다. 개발·운영 양쪽에 이 컬럼이 있다.
 
 개발 적용 확인(2026-11-14): heliumdb.posts.author_name TEXT NULL, posts 87→87. metadata-only catalog 완료 marker 확인, SHA-256 `29e405a77d3a6666ce1b8889874b9473c50da31afaced227ffe9adb3839f65b2`. 운영의 2026-11-20 catalog에서도 같은 컬럼을 확인했다.
 
@@ -415,7 +435,7 @@ posts.import_data JSONB NULL에 schemaVersion=1, platform(daum-cafe/band), conta
 | schemaVersion | 숫자 1 |
 | platform | daum-cafe 또는 band |
 | containerId | 카페/밴드 식별자, 1~500자 |
-| sourceId | 게시판을 포함한 원본 고유 ID, 1~500자 |
+| sourceId | 게시판을 포함한 원본 고유 ID, 1~500자. 밴드 이관 글은 피드의 원글 번호. 가입 환영 카드 번호는 로컬 백업에서만 관리 |
 | boardPath | 원본 대분류→게시판 문자열 배열, 1~8단계 |
 | url | 인증정보 없는 HTTP(S) 원문 주소, 최대 4096자 |
 | originalCreatedAt | 시간대가 포함된 ISO 원작성 시각 |

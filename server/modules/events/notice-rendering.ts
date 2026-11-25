@@ -19,11 +19,14 @@ function dateLabel(date: string, time: string | null): string {
 async function renderPython(
   data: unknown,
   options: Record<string, string | null>,
-): Promise<string> {
+): Promise<{ content: string; honoraryChairHeading?: string }> {
   try {
-    const result = await runNoticeWriter<{ content: string }>({ data, options });
+    const result = await runNoticeWriter<{ content: string; honoraryChairHeading?: string }>({
+      data,
+      options,
+    });
     if (typeof result.content !== "string") throw new Error();
-    return result.content;
+    return result;
   } catch {
     throw new NoticeGenerationError("부고 정보의 날짜·연락처·회원 표기를 다시 확인해 주세요.");
   }
@@ -156,7 +159,10 @@ export async function renderNotice(
     return { title: "", content: "", questions: Array.from(new Set(questions)) };
   const name = member.memberDisplayName;
   const account = f.accounts[0];
-  const content = await renderPython(
+  const title = f.memberTitle?.trim();
+  const honoraryChair = title === "명예회장" || title === "명예회장님";
+  const titleWasProvided = /(?<![가-힣])명예회장(?:님)?(?![가-힣])/.test(sourceText);
+  const { content, honoraryChairHeading } = await renderPython(
     {
       source: { url: data.sources.find((source) => source.status !== "blocked")?.url },
       member: { name, reverseType: f.relation },
@@ -183,11 +189,15 @@ export async function renderNotice(
       member_type: memberType,
       graduation_class: graduation,
       admission_year: admission,
-      title: f.memberTitle,
+      title: honoraryChair && !titleWasProvided ? null : f.memberTitle,
       relation: f.relation,
       phone: phone || null,
       contact_name: f.relation === "본인" ? f.contactName : name,
     },
   );
-  return { title: `[부고] ${name} ${f.relation}상`, content, questions: [] };
+  return {
+    title: `[부고] ${honoraryChairHeading ?? `${name} ${f.relation}상`}`,
+    content,
+    questions: [],
+  };
 }

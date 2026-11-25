@@ -4,7 +4,6 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { storage } from "./storage";
 import { createVerifiedSessionGuard } from "./middleware/auth";
-import { createMembershipCutoverGuard } from "./middleware/membership-cutover";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { resolveSessionSecret } from "./lib/session-secret";
@@ -18,9 +17,6 @@ const app = express();
 // 정상 전달되지 않아 세션이 매 요청마다 새로 생성되거나 인식되지 않을 수 있음.
 app.set("trust proxy", 1);
 registerPublicMetadataRoutes(app);
-if (process.env.REPLIT_DEPLOYMENT === "1") {
-  app.use(["/api", "/objects"], createMembershipCutoverGuard(pool));
-}
 
 // Signed notice previews include bounded fact data and the author's correction.
 app.use("/api/posts/notices/:id/edit", express.json({ limit: "300kb" }));

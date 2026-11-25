@@ -17,6 +17,8 @@ import { PostAuthor, PostDate } from "@/components/post-metadata";
 import { usePostComments } from "./use-post-comments";
 import { usePostManagement } from "./use-post-management";
 import { PostComments } from "./post-comments";
+import { isBandAnnouncement } from "@shared/contracts/post-import";
+import { ImportedPostVideos } from "./imported-post-videos";
 import { PostManagementButtons, PostManagementDialog } from "./post-management-controls";
 
 export default function PostDetail() {
@@ -120,7 +122,7 @@ export default function PostDetail() {
 
                 {/* 작성자 정보 */}
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <PostAuthor name={post.authorName} />
+                  <PostAuthor name={post.authorName} affiliation={post.authorAffiliation} />
                 </div>
                 <PostSource data={post.importData} />
               </div>
@@ -153,6 +155,9 @@ export default function PostDetail() {
                     </a>
                   ))}
                 </div>
+              )}
+              {post.importData?.platform === "band" && !isBandAnnouncement(post.importData) && (
+                <ImportedPostVideos postId={post.id} />
               )}
 
               {/* 하단 액션 버튼들 */}

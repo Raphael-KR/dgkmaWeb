@@ -1,4 +1,4 @@
-import type { PostImportData } from "@shared/contracts/post-import";
+import { isBandAnnouncement, type PostImportData } from "@shared/contracts/post-import";
 
 export function PostSource({ data }: { data: PostImportData | null }) {
   if (!import.meta.env.DEV || !data) return null;
@@ -14,7 +14,7 @@ export function PostSource({ data }: { data: PostImportData | null }) {
         rel="noopener noreferrer"
         className="underline underline-offset-4"
       >
-        원문 보기
+        {isBandAnnouncement(data) ? "밴드 홈" : "원문 보기"}
       </a>
     </div>
   );

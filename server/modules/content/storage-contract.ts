@@ -9,6 +9,7 @@ export type PublishedPost = Pick<
   | "categoryId"
   | "authorId"
   | "authorName"
+  | "authorAffiliation"
   | "importData"
   | "isPublished"
   | "isHidden"

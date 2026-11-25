@@ -26,3 +26,6 @@ local-backups/
 
 # Working copies of private audit reports and rendered pages
 /tmp/special-accounting-review-*/
+/tmp/community-promotion-*/
+
+__pycache__/

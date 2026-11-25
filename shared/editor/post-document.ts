@@ -9,7 +9,7 @@ import {
   type PostDocument,
 } from "../contracts/post-document";
 import { safePostLink } from "../post-link";
-import { postAttachmentPathSchema } from "../contracts/post-input";
+import { bandAttachmentPathSchema, postAttachmentPathSchema } from "../contracts/post-input";
 import { isTableCell, validTableCellAttributes, validPostTables } from "./post-table";
 import { PostYoutube, postYoutubeAttributes } from "./post-youtube";
 import { PostItalic, PostUnderline } from "./post-inline-marks";
@@ -179,6 +179,11 @@ export function postDocumentFromMarkdown(source: string): PostDocument {
       }
       if (token.type === "link" && !safePostLink(token.href))
         throw new PostDocumentError("link_uri");
+      if (
+        (token.type === "link" || token.type === "image") &&
+        bandAttachmentPathSchema.safeParse(token.href).success
+      )
+        throw new PostDocumentError("attachment_uri");
       if (token.type === "image" && !postAttachmentPathSchema.safeParse(token.href).success)
         throw new PostDocumentError("image_uri");
     },

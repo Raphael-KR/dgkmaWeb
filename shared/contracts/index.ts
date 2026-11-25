@@ -48,6 +48,7 @@ export type ClientUser = {
   birthdayType: string | null;
   isLeapMonth: boolean | null;
   activityRegion: string | null;
+  affiliation: string | null;
   createdAt: string | null;
 };
 
@@ -70,6 +71,7 @@ export type Post = {
   categoryId: number | null;
   isAuthor: boolean;
   authorName: string | null;
+  authorAffiliation: string | null;
   importData: import("./post-import").PostImportData | null;
   isPublished: boolean | null;
   isHidden: boolean;
@@ -215,8 +217,19 @@ export type MembershipStatus = {
 export const KAKAO_GROUP_INVITE_ENDPOINT = "/api/membership/kakao-group";
 export type KakaoGroupInvite = { url: string };
 
+export const PROFILE_AFFILIATION_MAX_LENGTH = 100;
+
+const profileAffiliationSchema = z
+  .string()
+  .trim()
+  .max(PROFILE_AFFILIATION_MAX_LENGTH)
+  .nullable()
+  .transform((value) => value || null)
+  .optional();
+
 // 프로필에서 본인이 수정 가능한 항목만 허용 (이름·졸업년도 등 검증 항목 제외).
 export const updateProfileSchema = z.object({
   activityRegion: activityRegionSchema.nullable().optional(),
+  affiliation: profileAffiliationSchema,
 });
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;

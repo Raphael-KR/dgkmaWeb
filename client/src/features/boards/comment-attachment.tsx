@@ -8,6 +8,16 @@ import {
 export function CommentAttachment({ file }: { file: UploadedFile }) {
   return (
     <div className="mt-2 max-w-full space-y-1">
+      {file.contentType === "video/mp4" && (
+        <video
+          controls
+          playsInline
+          preload="metadata"
+          className="max-h-80 max-w-full rounded-md"
+          aria-label={file.name}
+          src={file.objectPath}
+        />
+      )}
       {isUploadImageContentType(file.contentType) && (
         <a
           href={file.objectPath}

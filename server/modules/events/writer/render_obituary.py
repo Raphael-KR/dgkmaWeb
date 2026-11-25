@@ -193,6 +193,10 @@ def date_text(date_value: dt.date, time_value: str | None, format_name: str) -> 
     return f"{date_value.year}년 {date_value.month}월 {date_value.day}일({weekday}){suffix}"
 
 
+def is_honorary_chair(title: str | None) -> bool:
+    return bool(title and title.strip() in {"명예회장", "명예회장님"})
+
+
 def render(data: dict, args: argparse.Namespace) -> tuple[str, str, str | None, int | None]:
     format_name = normalize_format(args.format)
     member = data.get("member") or {}
@@ -233,10 +237,12 @@ def render(data: dict, args: argparse.Namespace) -> tuple[str, str, str | None, 
 
     relation = values["관계"]
     first_line = "#부고 #동문본인상" if relation == "본인" else "#부고"
-    title_suffix = f"({args.title.strip()})" if args.title else ""
-    heading = (
-        f"본회 {info} {values['회원명']} {values['회원 유형']}{title_suffix} {relation}상"
-    )
+    title = args.title.strip() if args.title else ""
+    if is_honorary_chair(title):
+        heading = f"본회 {values['회원명']} 명예회장님({info}, {values['회원 유형']}) {relation}상"
+    else:
+        title_suffix = f"({title})" if title else ""
+        heading = f"본회 {info} {values['회원명']} {values['회원 유형']}{title_suffix} {relation}상"
     short_heading = f"{info} {values['회원명']} {relation}상"
     original_url = source.get("url")
     selected_url = original_url if format_name == "homepage" else (args.band_url or original_url)

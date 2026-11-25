@@ -1,12 +1,11 @@
 import type { Comment } from "@shared/schema";
+import type { CommentWithAuthor } from "@shared/contracts/comments";
 import type { UploadedFile } from "@shared/contracts/uploads";
 import type { PostViewer } from "./storage-contract";
 
-export type ReadableComment = Omit<Comment, "content" | "authorId"> & {
-  content: string | null;
-  isAuthor: boolean;
-  author: { name: string } | null;
-};
+export type ReadableComment = Omit<CommentWithAuthor, "createdAt" | "editedAt"> &
+  Pick<Comment, "createdAt" | "editedAt">;
+type CreatedComment = Omit<Comment, "authorName" | "authorAffiliation" | "importSourceId">;
 export type CommentContent = { content: string; attachment: UploadedFile | null };
 export type CommentChange =
   | { operation: "edit"; content: CommentContent }
@@ -19,7 +18,7 @@ export interface CommentStorageContract {
   getComment(id: number): Promise<Comment | undefined>;
   createComment(
     data: CommentContent & { postId: number; authorId: string },
-  ): Promise<Comment | undefined>;
+  ): Promise<CreatedComment | undefined>;
   changeComment(
     id: number,
     viewer: PostViewer,

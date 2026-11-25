@@ -16,9 +16,23 @@
 
 [사망 처리 CLI](../../scripts/record-alumni-death.ts)는 개발 기본명부의 동문 한 명을 처리한다. 미리보기·적용과 사망일 보완은 [사무국 실행 절차](../runbooks/database-operations.md#동문-사망-처리)를 따른다.
 
+## 회원 소속 프로필 개발 전환
+
+[글·댓글 작성 당시 소속 SQL](../../scripts/add-content-author-affiliation-development.sql)은 개발의 게시글·댓글에 표시용 소속 한 줄을 저장한다. [적용 절차](../runbooks/database-operations.md#게시글댓글의-작성-당시-소속)를 따른다.
+
+[회원 소속 추가 SQL](../../scripts/add-user-affiliation-development.sql)은 개발 DB에 `users.affiliation`과 `users.affiliation_title`을 추가한다. [운영 런북](../runbooks/database-operations.md#회원-소속과-소속-직함-추가)을 따른다.
+
 ## 완료된 Development 전환
 
 [회원 상태·변동 이력 전환 SQL](../../scripts/member-status-development.sql)은 개발 DB에 적용했다. 사망 처리 CLI는 이 전환에서 설치한 트리거를 재사용한다. [개발 적용 기록](../history/member-status-candidate-2026-11-21.md)
+
+[밴드 댓글 실명·상위 댓글 전환](../../scripts/add-band-comment-source-development.sql)은 개발 DB `heliumdb`에서 한 번 적용한다. [적용 기록](../history/band-development-2026-11-22.md)
+
+[밴드 댓글 복수 첨부 개발 SQL](../../scripts/allow-band-comment-media-development.sql)은 이관 댓글만 JSONB 사진·영상 목록을 받을 수 있도록 기존 CHECK를 교체한다.
+
+[밴드 운영 게시 자료 SQL](../../scripts/add-band-content-production.sql)은 `neondb`에서 이관 댓글의 원작성자·원천·상위 관계·복수 첨부와 게시글·댓글 작성 당시 소속을 준비한다. [운영 시험 절차](../runbooks/database-operations.md#운영-밴드-게시-자료-시험)를 따른다.
+
+[회원 소속 운영 SQL](../../scripts/add-user-affiliation-production.sql)은 `neondb` UUID 기본명부에 기본값 없는 nullable TEXT `affiliation`과 `affiliation_title`을 추가한다. [운영 적용 절차](../runbooks/database-operations.md#운영-회원-소속-필드)를 따른다.
 
 2026-11-12 승인된 [add-comment-management.sql](../../scripts/add-comment-management.sql)은 `heliumdb`의 댓글 네 컬럼·두 CHECK를 추가했다. 개발 적용·백업·catalog 근거는 [개발 기록](../history/comments-drag-handle-2026-11-12.md)을 따른다. 운영에는 아래 별도 운영 SQL을 적용했으며 어느 스크립트도 반복 적용용이 아니다.
 

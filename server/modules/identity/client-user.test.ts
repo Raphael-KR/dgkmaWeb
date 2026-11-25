@@ -19,6 +19,7 @@ test("toClientUser keeps a missing creation time as JSON null", () => {
     birthdayType: null,
     isLeapMonth: null,
     activityRegion: null,
+    affiliation: null,
     joinedAt: null,
     createdAt: null,
     updatedAt: null,

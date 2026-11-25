@@ -1,6 +1,8 @@
 import { normalizePostDocument } from "@shared/editor/post-document";
 import type { NoticeType, UpdatePost } from "@shared/contracts";
 import { postBodyTextExpression } from "./post-body-query";
+import { bandAttachmentPathSchema } from "@shared/contracts/post-input";
+import { bandContainerId } from "./band-media-paths";
 import {
   users,
   posts,
@@ -11,8 +13,9 @@ import {
   type Category,
   type InsertCategory,
 } from "@shared/schema";
-import { and, desc, eq, isNull, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { affiliationAtWriting } from "./author-affiliation";
 import type { ContentStorageContract, PublishedPost, PostViewer } from "./storage-contract";
 
 const publicColumns = {
@@ -25,6 +28,9 @@ const publicColumns = {
   authorName: sql<
     string | null
   >`case when ${posts.authorId} is not null then ${users.name} else ${posts.authorName} end`,
+  authorAffiliation: sql<
+    string | null
+  >`case when ${posts.authorId} is not null then ${posts.authorAffiliation} end`,
   isPublished: posts.isPublished,
   isHidden: posts.isHidden,
   revision: posts.revision,
@@ -36,6 +42,31 @@ const publicColumns = {
   category: categories,
 };
 const visible = () => and(eq(posts.isPublished, true), eq(posts.isHidden, false));
+
+function readablePost(viewer?: PostViewer) {
+  return and(
+    eq(posts.isPublished, true),
+    viewer?.isAdmin
+      ? undefined
+      : or(eq(posts.isHidden, false), viewer ? eq(posts.authorId, viewer.id) : undefined),
+  );
+}
+
+export async function readableBandSourceIds(ids: string[], viewer: PostViewer) {
+  const source = sql<string>`${posts.importData}->>'sourceId'`;
+  const rows = await db
+    .select({ source })
+    .from(posts)
+    .where(
+      and(
+        readablePost(viewer),
+        sql`${posts.importData}->>'platform' = 'band'`,
+        sql`${posts.importData}->>'containerId' = ${bandContainerId}`,
+        inArray(source, ids),
+      ),
+    );
+  return new Set(rows.map((row) => row.source));
+}
 
 export class ContentStorage implements ContentStorageContract {
   async getCategories(): Promise<Category[]> {
@@ -87,15 +118,7 @@ export class ContentStorage implements ContentStorageContract {
       .from(posts)
       .innerJoin(categories, eq(posts.categoryId, categories.id))
       .leftJoin(users, eq(posts.authorId, users.id))
-      .where(
-        and(
-          eq(posts.id, id),
-          eq(posts.isPublished, true),
-          viewer?.isAdmin
-            ? undefined
-            : or(eq(posts.isHidden, false), viewer ? eq(posts.authorId, viewer.id) : undefined),
-        ),
-      );
+      .where(and(eq(posts.id, id), readablePost(viewer)));
 
     return result || undefined;
   }
@@ -103,7 +126,11 @@ export class ContentStorage implements ContentStorageContract {
   async createPost(insertPost: InsertPost): Promise<Post> {
     const [post] = await db
       .insert(posts)
-      .values({ ...insertPost, content: normalizePostDocument(insertPost.content) })
+      .values({
+        ...insertPost,
+        authorAffiliation: insertPost.authorId ? affiliationAtWriting(insertPost.authorId) : null,
+        content: normalizePostDocument(insertPost.content),
+      })
       .returning();
     return post;
   }
@@ -141,16 +168,29 @@ export class ContentStorage implements ContentStorageContract {
   }
 
   async canReadPostAttachment(path: string, viewer: PostViewer): Promise<boolean> {
+    const isBandFile = bandAttachmentPathSchema.safeParse(path).success;
+    const bandParent = isBandFile
+      ? and(
+          eq(posts.isPublished, true),
+          sql`${posts.importData}->>'platform' = 'band' AND ${posts.importData}->>'containerId' = ${bandContainerId}`,
+        )
+      : undefined;
     const references = await db
       .select({
         authorId: posts.authorId,
         isHidden: posts.isHidden,
         isPublished: posts.isPublished,
       })
-      .from(posts).where(sql`${path} = ANY(${posts.imageUrls}) OR jsonb_path_exists(
+      .from(posts)
+      .where(
+        and(
+          bandParent,
+          sql`(${path} = ANY(${posts.imageUrls}) OR jsonb_path_exists(
         ${posts.content}, '$.** ? ((@.type == "image" && @.attrs.src == $path) || (@.type == "link" && @.attrs.href == $path))',
         ${JSON.stringify({ path })}::jsonb
-      )`);
+      ))`,
+        ),
+      );
     const commentReferences = await db
       .select({
         authorId: comments.authorId,
@@ -161,10 +201,21 @@ export class ContentStorage implements ContentStorageContract {
       })
       .from(comments)
       .innerJoin(posts, eq(comments.postId, posts.id))
-      .where(sql`${comments.attachment}->>'objectPath' = ${path}`);
+      .where(
+        and(
+          or(
+            sql`${comments.attachment}->>'objectPath' = ${path}`,
+            isBandFile
+              ? sql`${comments.attachment} @> ${JSON.stringify([{ objectPath: path }])}::jsonb`
+              : undefined,
+          ),
+          bandParent,
+          isBandFile ? isNotNull(comments.importSourceId) : undefined,
+        ),
+      );
     // A hidden comment reference is not an unattached upload.
     return (
-      (references.length === 0 && commentReferences.length === 0) ||
+      (!isBandFile && references.length === 0 && commentReferences.length === 0) ||
       references.some(
         (post) =>
           viewer.isAdmin || post.authorId === viewer.id || (post.isPublished && !post.isHidden),

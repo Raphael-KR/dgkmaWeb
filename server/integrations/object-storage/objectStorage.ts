@@ -1,6 +1,7 @@
 import { isUploadImageContentType } from "@shared/contracts/uploads";
 import { Storage, File } from "@google-cloud/storage";
 import { Response } from "express";
+import { streamPrivateMp4 } from "./stream-private-mp4";
 import { randomUUID } from "crypto";
 import { logObjectStorageFailure } from "../../lib/safe-logging";
 
@@ -46,9 +47,30 @@ export class ObjectStorageService {
     return dir;
   }
 
-  async downloadObject(file: File, res: Response) {
+  async downloadObject(file: File, res: Response, expectedImportScope?: string) {
     try {
       const [metadata] = await file.getMetadata();
+      if (
+        metadata.metadata?.importScope !== expectedImportScope ||
+        (expectedImportScope && !metadata.generation)
+      ) {
+        res.status(404).json({ error: "첨부 파일을 찾을 수 없습니다" });
+        return;
+      }
+      if (expectedImportScope && metadata.contentType === "video/mp4") {
+        const size = Number(metadata.size);
+        if (
+          !Number.isSafeInteger(size) ||
+          size <= 0 ||
+          (metadata.contentEncoding && metadata.contentEncoding !== "identity")
+        ) {
+          res.sendStatus(404);
+          return;
+        }
+        const version = file.bucket.file(file.name, { generation: metadata.generation });
+        streamPrivateMp4(res.req, res, version, size);
+        return;
+      }
       // 보안: 이미지가 아닌 파일은 octet-stream + 첨부 다운로드로 강제하고
       // nosniff 를 적용해 앱 오리진에서의 저장형 XSS(예: text/html 업로드) 를 차단.
       const rawContentType = metadata.contentType || "application/octet-stream";
@@ -71,7 +93,10 @@ export class ObjectStorageService {
             }),
       });
 
-      const stream = file.createReadStream();
+      const authorizedFile = expectedImportScope
+        ? file.bucket.file(file.name, { generation: metadata.generation })
+        : file;
+      const stream = authorizedFile.createReadStream();
 
       stream.on("error", (err) => {
         logObjectStorageFailure("stream", err);
