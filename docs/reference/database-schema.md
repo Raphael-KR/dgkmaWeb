@@ -17,7 +17,7 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 | 객체 | Development 마지막 관찰 | Production 마지막 관찰 |
 |---|---|---|
 | DB / PostgreSQL | heliumdb / 16.10 | neondb / 16.16 |
-| tables / columns | 14 / 136 | 14 / 134 |
+| tables / columns | 14 / 136 | 14 / 136 |
 | PK / FK / non-PK UNIQUE / CHECK | 14 / 10 / 9 / 20 | 14 / 10 / 9 / 20 |
 | indexes / sequences | 30 / 8 | 30 / 8 |
 | view / trigger / policy / routine / enum / domain | 0 / 2 / 0 / 3 / 0 / 0 | 0 / 2 / 0 / 3 / 0 / 0 |
@@ -29,7 +29,9 @@ DB 구조를 바꾸지 않은 소스 정리 결과는 [개발 작업 이력](../
 
 밴드 댓글 구조 적용 후 개발 catalog SHA-256은 `459ee3c7850c8c51d0ea45e7c0615f36f89c723f98a0310dd09440f8270a55ff`이다. [개발 적용과 실명 대조](../history/band-development-2026-11-22.md)
 
-2026-11-26 운영 밴드 자료 시험에 필요한 게시판 스키마를 적용했다. 새 읽기 전용 `neondb` 연결에서 catalog 완료 표시와 위 구조를 확인했다. 적용 전 SHA-256은 `2c2a966cdab36e747d8fe6fffba609a5ce03676b0960307e482c25c36416238e`, 적용 후는 `93874ab8967eed1ef194099acf3ead420f6e4003dbfdbc7cc76fd1ec476ffe80`이다. 6.3.0 운영 전환 직후 지문은 `fc1556bfe5038cde23b825fbc74aef9c61976a8cffc9ddcf756edf7d1631bba4`다. [6.3.0 운영 전환](../history/release-6.3.0-2026-11-21.md)
+2026-11-26 운영 밴드 자료 시험에 필요한 게시판 스키마를 적용했다. 당시 새 읽기 전용 `neondb` 연결에서 테이블 14개와 컬럼 134개를 확인했다. 적용 전 catalog SHA-256은 `2c2a966cdab36e747d8fe6fffba609a5ce03676b0960307e482c25c36416238e`, 적용 후는 `93874ab8967eed1ef194099acf3ead420f6e4003dbfdbc7cc76fd1ec476ffe80`이다. 6.3.0 운영 전환 직후 지문은 `fc1556bfe5038cde23b825fbc74aef9c61976a8cffc9ddcf756edf7d1631bba4`다. [6.3.0 운영 전환](../history/release-6.3.0-2026-11-21.md)
+
+2026-11-26 02:47 KST에 [운영 회원 소속 SQL](../../scripts/add-user-affiliation-production.sql)을 `neondb`에 적용했다. 새 읽기 전용 연결에서 두 컬럼의 타입·NULL 허용·기본값 없음, 기존 값의 NULL, 승인 회원·심사·글·댓글의 전후 지문 일치를 확인했다. 운영 catalog 출력 SHA-256은 `76129c25a35a95ca8f4df2a97747b2d593d5992986a15441a24452a2be363c9a`이다.
 
 [개발 회비 원장 스키마 적용](../history/dues-ledger-development-2026-11-21.md) 후 catalog SHA-256은 `b058205da01573cf9aa2b694f6bafe5c7441e899b822c45c8cd28315c33ee351`이다. 앞선 [회원 상태 개발 전환](../history/member-status-candidate-2026-11-21.md) 후 지문은 `aef0b2a7e9d466f03ebb5578b510bd87af6b379e72e3ff244627d4072d4b6e4e`이다. 직전 [개발 기본명부 전환](../history/users-roster-cutover-2026-11-21.md) 후 지문은 `914555133faa7530e8684b2d0540f7ada53d67f8c17010a2aeaf7c7dba91ada0`이다. [직전 가입일 적용 기록](../history/member-joined-at-2026-11-21.md) 이전 관찰은 [기본명부 적용 기록](../history/member-roster-fields-2026-11-21.md)과 [회원 UUID 전환 기록](../history/member-uuid-2026-11-20.md)에 있다. 이관 출처 적용 당시 catalog SHA-256은 `d397b65a46211d05f5f66b14817d4748c4736c7c7e2a51f63a8e3f26d860e2e2`이며 [이관 출처 적용 기록](../history/post-import-data-2026-11-14.md)을 따른다. 개발의 과거 댓글 네 컬럼·두 CHECK는 [댓글 확장 기록](../history/comments-drag-handle-2026-11-12.md)에 근거하며 catalog SHA-256은 `cf46305b8f63b3e72a43d4e8a969bbb5dce7b6e94f353b7dc0e4ab7e3ba2890d`다. 6.2.0 당시 운영 catalog SHA-256은 `3d289f57d9660707877e9e984ab77a1eb0d6055a20852ad2a98f49787dd17993`이며 [6.2.0 운영 전환](../history/release-6.2.0-2026-11-20.md)에서 확인했다. 수치는 관찰 요약이며 고정 통과 기준이 아니다.
 
@@ -85,7 +87,7 @@ erDiagram
 | `affiliation` | `text` | 허용 | — |
 | `affiliation_title` | `text` | 허용 | — |
 
-선택 프로필 문구인 소속·직함은 `affiliation` 한 곳에 저장한다. 앞뒤 공백을 제거한 최대 100자이며 빈 입력은 NULL이다. `affiliation_title`은 직함별 필터 검토를 위해 남겨둔 컬럼으로, 현재 프로필 응답·수정에 사용하지 않는다. 2026-11-24 개발 DB에 추가했다. 새 읽기 전용 연결에서 두 컬럼 모두 nullable TEXT이고 기본값이 없으며, 기존 회원 행 3,461개가 유지되고 새 값은 모두 NULL임을 확인했다. 운영 적용에는 별도로 승인한 [회원 소속 SQL](../../scripts/add-user-affiliation-production.sql)을 사용한다.
+선택 프로필 문구인 소속·직함은 `affiliation` 한 곳에 저장한다. 앞뒤 공백을 제거한 최대 100자이며 빈 입력은 NULL이다. `affiliation_title`은 직함별 필터 검토를 위해 남겨둔 컬럼으로, 현재 프로필 응답·수정에 사용하지 않는다. 2026-11-24 개발 DB와 2026-11-26 운영 DB에 적용했다. 적용 직후 각 환경의 새 읽기 전용 연결에서 기존 회원 행 3,461개와 새 필드의 NULL을 확인했다.
 
 가입일 컬럼 `users.joined_at`은 nullable TIMESTAMPTZ이며 기본값이 없다. 동문 행 생성 시각인 `created_at`과 별개로 가입 확정 시각을 기록하며 기존 행은 NULL로 둔다.
 
