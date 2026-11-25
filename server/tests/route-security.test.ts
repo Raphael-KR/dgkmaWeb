@@ -1,5 +1,6 @@
 import { ADMIN_STATISTICS_PATH } from "@shared/contracts/admin-statistics";
 import { ADMIN_DUES_LEDGER_PATH } from "@shared/contracts/admin-dues-ledger";
+import { importedVideosPath } from "@shared/contracts/imported-videos";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import test from "node:test";
@@ -101,7 +102,7 @@ test("every admin endpoint rejects anonymous and member sessions", async (t) => 
   }
 });
 
-test("post and notice endpoints require a member session before storage access", async () => {
+test("post, album and notice endpoints require a member session before storage access", async () => {
   const server = await startAuthorizationTestServer(async () => ({ isAdmin: false }));
   try {
     for (const [method, path] of [
@@ -109,6 +110,9 @@ test("post and notice endpoints require a member session before storage access",
       ["GET", "/api/posts/search?q=notice"],
       ["GET", "/api/posts/1"],
       ["GET", "/api/posts/1/comments"],
+      ["GET", importedVideosPath(1)],
+      ["HEAD", importedVideosPath(1)],
+      ["GET", "/api/heritage/albums"],
       ["POST", "/api/posts/notices/drafts/obituary"],
       ["POST", "/api/posts/notices/1/generate"],
       ["POST", "/api/posts/notices/1/publish"],
@@ -153,6 +157,7 @@ test("post creation enforces the approved category policy before writing", async
       categoryId: data.categoryId ?? null,
       authorId: data.authorId ?? null,
       authorName: null,
+      authorAffiliation: null,
       importData: null,
       isPublished: data.isPublished ?? true,
       isHidden: false,

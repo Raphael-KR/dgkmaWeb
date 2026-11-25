@@ -9,6 +9,7 @@ import {
   timestamp,
   jsonb,
   check,
+  foreignKey,
   index,
   uniqueIndex,
   unique,
@@ -82,6 +83,8 @@ export const users = pgTable(
     birthdayType: text("birthday_type"),
     isLeapMonth: boolean("is_leap_month"),
     activityRegion: text("activity_region"),
+    affiliation: text("affiliation"),
+    affiliationTitle: text("affiliation_title"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
     department: text("department"),
@@ -132,6 +135,7 @@ export const accountUserColumns = {
   birthdayType: users.birthdayType,
   isLeapMonth: users.isLeapMonth,
   activityRegion: users.activityRegion,
+  affiliation: users.affiliation,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
 };
@@ -157,6 +161,7 @@ export const posts = pgTable(
     categoryId: integer("category_id").references(() => categories.id),
     authorId: uuid("author_id").references(() => users.id),
     authorName: text("author_name"),
+    authorAffiliation: text("author_affiliation"),
     importData: jsonb("import_data").$type<PostImportData>(),
     isPublished: boolean("is_published").default(true),
     isHidden: boolean("is_hidden").notNull().default(false),
@@ -201,24 +206,48 @@ export const comments = pgTable(
       .notNull()
       .references(() => posts.id, { onDelete: "cascade" }),
     authorId: uuid("author_id").references(() => users.id),
+    authorName: text("author_name"),
+    authorAffiliation: text("author_affiliation"),
+    parentCommentId: integer("parent_comment_id"),
+    importSourceId: text("import_source_id"),
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
     isHidden: boolean("is_hidden").notNull().default(false),
     editedAt: timestamp("edited_at"),
     revision: integer("revision").notNull().default(0),
-    attachment: jsonb("attachment").$type<import("@shared/contracts/uploads").UploadedFile>(),
+    attachment:
+      jsonb("attachment").$type<import("@shared/contracts/comments").CommentAttachmentData>(),
   },
   (table) => [
+    unique("comments_post_id_id_unique").on(table.postId, table.id),
+    foreignKey({
+      name: "comments_same_post_parent_fk",
+      columns: [table.postId, table.parentCommentId],
+      foreignColumns: [table.postId, table.id],
+    }),
+    uniqueIndex("comments_import_source_unique")
+      .on(table.postId, table.importSourceId)
+      .where(sql`${table.importSourceId} IS NOT NULL`),
+    check(
+      "comments_import_origin_check",
+      sql`(
+        (${table.importSourceId} IS NULL AND ${table.authorName} IS NULL AND ${table.parentCommentId} IS NULL)
+        OR (${table.importSourceId} IS NOT NULL AND btrim(${table.importSourceId}) <> '' AND ${table.authorId} IS NULL
+          AND ${table.authorName} IS NOT NULL AND btrim(${table.authorName}) <> ''
+          AND ${table.parentCommentId} IS DISTINCT FROM ${table.id})
+      )`,
+    ),
     check("comments_revision_check", sql`${table.revision} >= 0`),
     check(
       "comments_attachment_check",
-      sql`${table.attachment} IS NULL OR (
-    jsonb_typeof(${table.attachment}) = 'object'
-    AND jsonb_typeof(${table.attachment}->'objectPath') = 'string'
-    AND jsonb_typeof(${table.attachment}->'name') = 'string'
-    AND jsonb_typeof(${table.attachment}->'size') = 'number'
-    AND jsonb_typeof(${table.attachment}->'contentType') = 'string'
-  ) IS TRUE`,
+      sql`${table.attachment} IS NULL OR (CASE jsonb_typeof(${table.attachment})
+    WHEN 'object' THEN jsonb_typeof(${table.attachment}->'objectPath') = 'string'
+      AND jsonb_typeof(${table.attachment}->'name') = 'string' AND jsonb_typeof(${table.attachment}->'size') = 'number'
+      AND jsonb_typeof(${table.attachment}->'contentType') = 'string'
+    WHEN 'array' THEN ${table.authorId} IS NULL AND ${table.importSourceId} ~ '^post:[1-9][0-9]*/comment:[1-9][0-9]*(/reply:[1-9][0-9]*)?$'
+      AND jsonb_array_length(${table.attachment}) > 0 AND ${table.attachment} = jsonb_path_query_array(${table.attachment},
+        'strict $[*] ? (@.type() == "object" && @.objectPath.type() == "string" && @.objectPath like_regex "^/objects/band-imports/[0-9a-f-]{36}$" && @.name.type() == "string" && @.size.type() == "number" && @.size > 0 && @.contentType.type() == "string" && @.contentType like_regex "^(image/(jpeg|png|gif|webp)|video/mp4)$")', '{}', true)
+    ELSE false END) IS TRUE`,
     ),
   ],
 );

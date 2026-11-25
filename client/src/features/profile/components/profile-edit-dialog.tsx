@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -21,19 +22,20 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/features/auth";
-import { REGION_OPTIONS, type ClientUser } from "@shared/contracts";
+import { PROFILE_AFFILIATION_MAX_LENGTH, REGION_OPTIONS, type ClientUser } from "@shared/contracts";
 
 type FormValues = {
   activityRegion: string;
+  affiliation: string;
 };
 
 function toFormValues(user: ClientUser): FormValues {
   return {
     activityRegion: user.activityRegion ?? "",
+    affiliation: user.affiliation ?? "",
   };
 }
 
-// 활동 지역만 수정한다. 이름·졸업년도·연락처는 동문 DB 검증 항목이다.
 export function ProfileEditDialog({
   open,
   onOpenChange,
@@ -56,7 +58,10 @@ export function ProfileEditDialog({
 
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const payload = values.activityRegion ? { activityRegion: values.activityRegion } : {};
+      const payload = {
+        ...(values.activityRegion ? { activityRegion: values.activityRegion } : {}),
+        affiliation: values.affiliation.trim() || null,
+      };
       const res = await apiRequest("PATCH", "/api/users/me", payload);
       const data = await res.json();
       return data.user as ClientUser;
@@ -111,6 +116,23 @@ export function ProfileEditDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="affiliation"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>소속·직함</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="예: 동국한의원 대표원장"
+                      maxLength={PROFILE_AFFILIATION_MAX_LENGTH}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

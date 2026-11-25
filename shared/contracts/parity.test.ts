@@ -144,7 +144,14 @@ const typeParity: [
   >,
   Equal<
     contracts.Comment,
-    JsonDates<Omit<persistence.Comment, "authorId"> & { isAuthor: boolean }>
+    JsonDates<
+      Omit<
+        persistence.Comment,
+        "authorId" | "importSourceId" | "authorName" | "authorAffiliation"
+      > & {
+        isAuthor: boolean;
+      }
+    >
   >,
 ] = [true, true, true];
 void typeParity;

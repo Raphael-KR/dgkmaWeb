@@ -132,6 +132,8 @@ export async function withdrawLocalMember(
       birthdayType: null,
       isLeapMonth: null,
       activityRegion: null,
+      affiliation: null,
+      affiliationTitle: null,
       isAdmin: false,
       isVerified: false,
       kakaoSyncEnabled: false,

@@ -202,7 +202,10 @@ export default function SearchPage() {
                         <div className="flex-1 min-w-0">
                           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                             <CategoryBadge category={post.category} />
-                            {post.importData && <PostAuthor name={post.authorName} />}
+                            <PostAuthor
+                              name={post.authorName}
+                              affiliation={post.authorAffiliation}
+                            />
                             <PostDate post={post} view="search" />
                           </div>
                           <h4 className="mb-1 line-clamp-2 break-words font-medium text-gray-800">

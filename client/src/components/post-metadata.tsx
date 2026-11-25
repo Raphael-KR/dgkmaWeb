@@ -42,6 +42,16 @@ export function PostDate({
   );
 }
 
-export function PostAuthor({ name }: { name: Post["authorName"] }) {
-  return <span>작성자: {name?.trim() || "작성자 정보 없음"}</span>;
+export function authorByline(name: string, affiliation: string | null | undefined) {
+  return affiliation ? `${name} · ${affiliation}` : name;
+}
+
+export function PostAuthor({
+  name,
+  affiliation,
+}: {
+  name: Post["authorName"];
+  affiliation: Post["authorAffiliation"];
+}) {
+  return <span>작성자: {authorByline(name?.trim() || "작성자 정보 없음", affiliation)}</span>;
 }

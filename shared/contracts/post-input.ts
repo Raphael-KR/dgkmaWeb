@@ -9,9 +9,18 @@ export const postTitleSchema = z
   .min(1, "제목을 입력해 주세요.")
   .max(POST_TITLE_MAX_LENGTH, `제목은 ${POST_TITLE_MAX_LENGTH}자까지 입력할 수 있습니다.`);
 
-export const postAttachmentPathSchema = z
+export const uploadAttachmentPathSchema = z
   .string()
-  .regex(/^\/objects\/[A-Za-z0-9/_-]+$/, "잘못된 첨부 파일 경로입니다.");
+  .regex(/^\/objects\/uploads\/[A-Za-z0-9_-]+$/, "잘못된 첨부 파일 경로입니다.");
+export const bandAttachmentPathSchema = z
+  .string()
+  .regex(
+    /^\/objects\/band-imports\/[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
+export const postAttachmentPathSchema = z.union([
+  uploadAttachmentPathSchema,
+  bandAttachmentPathSchema,
+]);
 
 export const postImageUrlsSchema = z
   .array(postAttachmentPathSchema)

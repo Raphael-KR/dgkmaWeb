@@ -93,6 +93,12 @@ def validate(text: str, args: argparse.Namespace) -> tuple[list[str], list[str]]
             errors.append("둘째 줄은 '본회 '로 시작하는 회원 제목이어야 합니다.")
         elif not lines[1].endswith("상"):
             errors.append("회원 제목은 관계상으로 끝나야 합니다.")
+        elif getattr(args, "expect_honorary_chair", False) or re.search(
+            r" (?:명예회장님?\(|(?:권리회원|회원|동문)\(명예회장님?\))", lines[1]
+        ):
+            academic = r"(?:졸업\d+기(?:\(\d+학번\))?|\d+학번)"
+            if not re.fullmatch(rf"본회 .+ 명예회장님\({academic}, {MEMBER_TYPE_RE}\) .+상", lines[1]):
+                errors.append("명예회장 제목은 '본회 이름 명예회장님(학적, 회원 유형) 관계상' 형식이어야 합니다.")
         elif not re.search(rf" {MEMBER_TYPE_RE}(?:\([^()\n]+\))? .+상$", lines[1]):
             errors.append("회원 제목에는 동문, 회원 또는 권리회원 유형이 필요합니다.")
         for prefix in REQUIRED_PREFIXES[args.format_name]:

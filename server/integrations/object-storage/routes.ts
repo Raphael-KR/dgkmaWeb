@@ -1,10 +1,16 @@
 import { uploadSizeLimit, validateUploadType, formatUploadSize } from "@shared/contracts/uploads";
+import { bandAttachmentPathSchema, postAttachmentPathSchema } from "@shared/contracts/post-input";
 import type { Express } from "express";
 import { storage } from "../../storage";
 import { createHmac, timingSafeEqual } from "crypto";
 import type { IncomingMessage } from "http";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { logObjectStorageFailure } from "../../lib/safe-logging";
+import {
+  bandAttachmentScope,
+  bandMediaEnvironment,
+  bandMediaPrefix,
+} from "../../modules/content/band-media-paths";
 
 import {
   validUploadName,
@@ -288,17 +294,27 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(401).json({ error: "로그인이 필요합니다" });
       }
       res.set("Cache-Control", "private, no-store");
-      // Album files are served only through the authenticated catalogue lookup.
-      if (req.path.startsWith("/objects/heritage/")) {
+      // Private catalogues and archive media have their own parent-scoped routes.
+      if (!postAttachmentPathSchema.safeParse(req.path).success) {
         return res.status(404).json({ error: "첨부 파일을 찾을 수 없습니다" });
       }
       const viewer = await storage.getUser(req.session.userId);
-      if (!viewer) return res.status(401).json({ error: "로그인이 필요합니다" });
+      if (!viewer?.isVerified)
+        return res.status(401).json({ error: "승인된 회원만 열람할 수 있습니다" });
       if (!(await storage.canReadPostAttachment(req.path, viewer))) {
         return res.status(404).json({ error: "첨부 파일을 찾을 수 없습니다" });
       }
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      await objectStorageService.downloadObject(objectFile, res);
+      const isBandFile = bandAttachmentPathSchema.safeParse(req.path).success;
+      const environment = bandMediaEnvironment();
+      const physicalPath = isBandFile
+        ? `/objects/${bandMediaPrefix(environment)}/uploads/${req.path.split("/").at(-1)}`
+        : req.path;
+      const objectFile = await objectStorageService.getObjectEntityFile(physicalPath);
+      await objectStorageService.downloadObject(
+        objectFile,
+        res,
+        isBandFile ? bandAttachmentScope(environment) : undefined,
+      );
     } catch (error) {
       logObjectStorageFailure("serve", error);
       if (error instanceof ObjectNotFoundError) {

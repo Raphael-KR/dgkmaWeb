@@ -109,6 +109,9 @@ export default function Profile() {
                   </AvatarFallback>
                 </Avatar>
                 <CardTitle className="break-words text-xl">{user.name}</CardTitle>
+                {user.affiliation && (
+                  <p className="text-gray-600 [overflow-wrap:anywhere]">{user.affiliation}</p>
+                )}
                 <p className="text-gray-600">
                   {user.graduationYear ? `${user.graduationYear}년 졸업` : "졸업년도 미확인"}
                 </p>

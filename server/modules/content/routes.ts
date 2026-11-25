@@ -1,6 +1,6 @@
 import { postPageQuerySchema } from "@shared/contracts/post-pagination";
 import { PostDocumentError } from "@shared/editor/post-document";
-import { postAttachmentPaths } from "@shared/contracts/post-input";
+import { postAttachmentPaths, uploadAttachmentPathSchema } from "@shared/contracts/post-input";
 import type { Express, Request, Response } from "express";
 import { insertCategorySchema } from "@shared/schema";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@shared/contracts";
 import { memberContent } from "./member-content";
 import { registerCommentRoutes } from "./comment-routes";
+import { registerImportedVideoRoutes } from "./imported-video-routes";
 import { requireAuthenticated } from "../../middleware/auth";
 import { isRegularPostCategory } from "@shared/category-policy";
 import { z } from "zod";
@@ -35,6 +36,7 @@ function managementFailure(res: Response, error: unknown) {
 }
 async function readableAttachments(paths: string[], userId: string) {
   if (!paths.length) return true;
+  if (paths.some((path) => !uploadAttachmentPathSchema.safeParse(path).success)) return false;
   const viewer = await storage.getUser(userId);
   if (!viewer) return false;
   const allowed = await Promise.all(
@@ -250,4 +252,5 @@ export function registerContentRoutes(app: Express): void {
   });
 
   registerCommentRoutes(app);
+  registerImportedVideoRoutes(app);
 }

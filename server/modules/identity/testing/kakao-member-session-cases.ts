@@ -62,6 +62,7 @@ export function registerKakaoMemberSessionCases() {
       birthdayType: "LUNAR",
       isLeapMonth: true,
       activityRegion: "서울특별시",
+      affiliation: null,
       joinedAt: null,
       createdAt: new Date("2024-01-01T00:00:00.000Z"),
       updatedAt: new Date("2024-01-02T00:00:00.000Z"),
@@ -126,6 +127,7 @@ export function registerKakaoMemberSessionCases() {
         birthdayType: "SOLAR",
         isLeapMonth: false,
         activityRegion: "서울특별시",
+        affiliation: null,
         joinedAt: null,
         createdAt: "2024-01-01T00:00:00.000Z",
       });

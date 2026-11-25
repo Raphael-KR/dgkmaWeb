@@ -69,6 +69,7 @@ export const createdUser: User = {
   birthdayType: null,
   isLeapMonth: null,
   activityRegion: null,
+  affiliation: null,
   joinedAt: null,
   createdAt: new Date("2026-07-12T00:00:00.000Z"),
   updatedAt: new Date("2026-07-12T00:00:00.000Z"),

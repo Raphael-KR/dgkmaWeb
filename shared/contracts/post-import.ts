@@ -28,3 +28,7 @@ export const postImportDataSchema = z
   .strict();
 
 export type PostImportData = z.infer<typeof postImportDataSchema>;
+
+export function isBandAnnouncement(source: Pick<PostImportData, "platform" | "sourceId">) {
+  return source.platform === "band" && /^announcement:[1-9]\d*$/.test(source.sourceId);
+}

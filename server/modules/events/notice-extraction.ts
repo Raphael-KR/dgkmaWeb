@@ -141,7 +141,7 @@ export function staticObituaryFacts(
   rest = rest.trim();
   if (!rest) return provider;
   const match =
-    /^(?:(\d{2}|\d{4})\s*학번\s*)?([가-힣]{2,5})\s*(?:동문|권리회원|정회원|회원)?(?:\s*(본인|부친|모친|빙부|빙모|시부|시모|자녀)상)?[.\s]*$/.exec(
+    /^(?:(\d{2}|\d{4})\s*학번\s*)?([가-힣]{2,5})\s*(?:(명예회장(?:님)?)\s*)?(?:동문|권리회원|정회원|회원)?(?:\s*(본인|부친|모친|빙부|빙모|시부|시모|자녀)상)?[.\s]*$/.exec(
       rest,
     );
   if (!match) return;
@@ -149,6 +149,7 @@ export function staticObituaryFacts(
     ...provider,
     memberName: match[2],
     admissionYear: match[1] || null,
-    relation: match[3] || provider.relation,
+    memberTitle: match[3] || provider.memberTitle,
+    relation: match[4] || provider.relation,
   };
 }

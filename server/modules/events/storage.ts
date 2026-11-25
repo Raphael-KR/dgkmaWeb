@@ -2,6 +2,7 @@ import { emptyPostDocument, type PostDocument } from "@shared/contracts/post-doc
 import { posts, categories, type Post } from "../../db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { affiliationAtWriting } from "../content/author-affiliation";
 import { noticeCategory, type NoticeData, type NoticeType } from "@shared/contracts/notices";
 import type { EventsStorageContract } from "./storage-contract";
 
@@ -79,6 +80,7 @@ export class EventsStorage implements EventsStorageContract {
       .update(posts)
       .set({
         isPublished: true,
+        authorAffiliation: affiliationAtWriting(authorId),
         publishedAt: new Date(),
         updatedAt: new Date(),
         sourceText: null,

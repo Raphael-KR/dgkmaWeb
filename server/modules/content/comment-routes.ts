@@ -94,7 +94,7 @@ export function registerCommentRoutes(app: Express) {
       const attachment = await resolveCommentAttachment(
         input.attachmentPath,
         viewer,
-        comment.attachment,
+        Array.isArray(comment.attachment) ? null : comment.attachment,
       );
       changed(
         res,
